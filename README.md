@@ -75,3 +75,29 @@ Run the Kimi API smoke test:
 cd services/api
 python scripts/smoke_test_kimi.py
 ```
+
+## Local Web Setup
+
+Install frontend dependencies from the repository root:
+
+```bash
+pnpm install
+```
+
+Run the dashboard:
+
+```bash
+pnpm web:dev
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000
+```
+
+The web app expects the API at:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+```

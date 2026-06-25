@@ -1,0 +1,10 @@
+{
+  "name": "signallens",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "web:dev": "pnpm --filter @signallens/web dev",
+    "web:build": "pnpm --filter @signallens/web build",
+    "web:lint": "pnpm --filter @signallens/web lint"
+  }
+}

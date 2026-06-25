@@ -41,3 +41,4 @@ Implementation progress:
 - Added DB-backed feed, source health, watchlist, and ingestion routes.
 - Added an arXiv connector using the public Atom API.
 - Added a Kimi-backed item summarization endpoint that stores summaries on feed items.
+- Added the first Next.js frontend dashboard for feed, stock watchlist, source health, ingestion, and summarization actions.
