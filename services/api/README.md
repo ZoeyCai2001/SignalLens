@@ -154,6 +154,7 @@ Search stored feed items:
 ```bash
 curl "http://127.0.0.1:8000/api/search?q=agent&category=research&limit=10"
 curl "http://127.0.0.1:8000/api/search?topic=inference&saved_only=true"
+curl "http://127.0.0.1:8000/api/search?ticker=MRVL&language=en&date_from=2026-06-01&date_to=2026-06-26&min_importance_score=0.7"
 ```
 
 Read or update local ranking preferences:

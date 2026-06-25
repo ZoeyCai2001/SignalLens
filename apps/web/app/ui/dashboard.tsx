@@ -338,6 +338,10 @@ export function Dashboard() {
   const [searchCategory, setSearchCategory] = useState("");
   const [searchTicker, setSearchTicker] = useState("");
   const [searchTopic, setSearchTopic] = useState("");
+  const [searchLanguage, setSearchLanguage] = useState("");
+  const [searchDateFrom, setSearchDateFrom] = useState("");
+  const [searchDateTo, setSearchDateTo] = useState("");
+  const [searchMinImportance, setSearchMinImportance] = useState("");
   const [savedOnly, setSavedOnly] = useState(false);
 
   const fetchJson = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
@@ -569,6 +573,12 @@ export function Dashboard() {
       if (searchCategory.trim()) params.set("category", searchCategory.trim());
       if (searchTicker.trim()) params.set("ticker", searchTicker.trim().toUpperCase());
       if (searchTopic.trim()) params.set("topic", searchTopic.trim());
+      if (searchLanguage.trim()) params.set("language", searchLanguage.trim().toLowerCase());
+      if (searchDateFrom.trim()) params.set("date_from", searchDateFrom.trim());
+      if (searchDateTo.trim()) params.set("date_to", searchDateTo.trim());
+      if (searchMinImportance.trim()) {
+        params.set("min_importance_score", searchMinImportance.trim());
+      }
       if (savedOnly) params.set("saved_only", "true");
       params.set("limit", "30");
 
@@ -589,6 +599,10 @@ export function Dashboard() {
     setSearchCategory("");
     setSearchTicker("");
     setSearchTopic("");
+    setSearchLanguage("");
+    setSearchDateFrom("");
+    setSearchDateTo("");
+    setSearchMinImportance("");
     setSavedOnly(false);
     await refreshAll();
   };
@@ -1164,6 +1178,10 @@ export function Dashboard() {
               category={searchCategory}
               ticker={searchTicker}
               topic={searchTopic}
+              language={searchLanguage}
+              dateFrom={searchDateFrom}
+              dateTo={searchDateTo}
+              minImportance={searchMinImportance}
               savedOnly={savedOnly}
               disabled={loadState !== "idle"}
               onQueryChange={setSearchQuery}
@@ -1171,6 +1189,10 @@ export function Dashboard() {
               onCategoryChange={setSearchCategory}
               onTickerChange={setSearchTicker}
               onTopicChange={setSearchTopic}
+              onLanguageChange={setSearchLanguage}
+              onDateFromChange={setSearchDateFrom}
+              onDateToChange={setSearchDateTo}
+              onMinImportanceChange={setSearchMinImportance}
               onSavedOnlyChange={setSavedOnly}
               onSearch={runSearch}
               onClear={clearSearch}
@@ -1699,6 +1721,10 @@ function SearchPanel({
   category,
   ticker,
   topic,
+  language,
+  dateFrom,
+  dateTo,
+  minImportance,
   savedOnly,
   disabled,
   onQueryChange,
@@ -1706,6 +1732,10 @@ function SearchPanel({
   onCategoryChange,
   onTickerChange,
   onTopicChange,
+  onLanguageChange,
+  onDateFromChange,
+  onDateToChange,
+  onMinImportanceChange,
   onSavedOnlyChange,
   onSearch,
   onClear,
@@ -1715,6 +1745,10 @@ function SearchPanel({
   category: string;
   ticker: string;
   topic: string;
+  language: string;
+  dateFrom: string;
+  dateTo: string;
+  minImportance: string;
   savedOnly: boolean;
   disabled: boolean;
   onQueryChange: (value: string) => void;
@@ -1722,6 +1756,10 @@ function SearchPanel({
   onCategoryChange: (value: string) => void;
   onTickerChange: (value: string) => void;
   onTopicChange: (value: string) => void;
+  onLanguageChange: (value: string) => void;
+  onDateFromChange: (value: string) => void;
+  onDateToChange: (value: string) => void;
+  onMinImportanceChange: (value: string) => void;
   onSavedOnlyChange: (value: boolean) => void;
   onSearch: () => void;
   onClear: () => void;
@@ -1778,6 +1816,43 @@ function SearchPanel({
           value={topic}
           onChange={(event) => onTopicChange(event.target.value)}
           placeholder="Topic"
+        />
+        <select
+          className="field"
+          value={language}
+          onChange={(event) => onLanguageChange(event.target.value)}
+          aria-label="Language filter"
+        >
+          <option value="">Any language</option>
+          <option value="en">English</option>
+          <option value="zh">Chinese</option>
+        </select>
+      </div>
+      <div className="filter-row advanced-filter-row">
+        <input
+          className="field"
+          type="date"
+          value={dateFrom}
+          onChange={(event) => onDateFromChange(event.target.value)}
+          aria-label="Date from"
+        />
+        <input
+          className="field"
+          type="date"
+          value={dateTo}
+          onChange={(event) => onDateToChange(event.target.value)}
+          aria-label="Date to"
+        />
+        <input
+          className="field"
+          type="number"
+          min="0"
+          max="1"
+          step="0.05"
+          value={minImportance}
+          onChange={(event) => onMinImportanceChange(event.target.value)}
+          placeholder="Min importance"
+          aria-label="Minimum importance score"
         />
         <label className="checkbox-row">
           <input

@@ -75,3 +75,4 @@ Implementation progress:
 - Added persisted daily digest snapshots, snapshot list/create APIs, scheduled snapshot generation, and a dashboard save control.
 - Added optional Alpha Vantage daily price ingestion, stock price persistence, market snapshots in stock APIs, and dashboard price/change display.
 - Added richer stock watchlist summaries with high-impact counts, latest AI-related event, sentiment counts, and dashboard table columns.
+- Added date range, language, and minimum-importance search filters to the API and dashboard search panel.

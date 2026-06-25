@@ -1,3 +1,5 @@
+from datetime import UTC, date, datetime, time, timedelta
+
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,10 @@ def search_feed_items(
     category: str | None = None,
     ticker: str | None = None,
     topic: str | None = None,
+    language: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    min_importance_score: float | None = None,
     saved_only: bool = False,
     limit: int = 30,
 ) -> list[FeedItem]:
@@ -60,6 +66,37 @@ def search_feed_items(
             cast(NormalizedItem.topics, String).ilike(f"%{normalized_topic}%")
         )
 
+    normalized_language = normalize_filter_value(language)
+    if normalized_language:
+        statement = statement.filter(NormalizedItem.language == normalized_language.lower())
+
+    if date_from:
+        statement = statement.filter(
+            or_(
+                NormalizedItem.published_at >= start_of_day(date_from),
+                (
+                    (NormalizedItem.published_at.is_(None))
+                    & (NormalizedItem.created_at >= start_of_day(date_from))
+                ),
+            )
+        )
+
+    if date_to:
+        next_day = start_of_day(date_to) + timedelta(days=1)
+        statement = statement.filter(
+            or_(
+                NormalizedItem.published_at < next_day,
+                (
+                    (NormalizedItem.published_at.is_(None))
+                    & (NormalizedItem.created_at < next_day)
+                ),
+            )
+        )
+
+    normalized_min_importance = normalize_score(min_importance_score)
+    if normalized_min_importance is not None:
+        statement = statement.filter(NormalizedItem.importance_score >= normalized_min_importance)
+
     if saved_only:
         statement = statement.filter(UserItemAction.is_saved.is_(True))
 
@@ -83,3 +120,13 @@ def normalize_filter_value(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     return normalized or None
+
+
+def normalize_score(value: float | None) -> float | None:
+    if value is None:
+        return None
+    return min(1, max(0, value))
+
+
+def start_of_day(value: date) -> datetime:
+    return datetime.combine(value, time.min, tzinfo=UTC)

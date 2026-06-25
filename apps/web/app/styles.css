@@ -425,9 +425,13 @@ table {
 
 .filter-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 110px 1fr auto;
+  grid-template-columns: 1fr 1fr 110px 1fr 150px;
   gap: 8px;
   align-items: center;
+}
+
+.advanced-filter-row {
+  grid-template-columns: 150px 150px 150px auto;
 }
 
 .checkbox-row {
