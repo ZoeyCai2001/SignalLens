@@ -34,3 +34,4 @@ http://127.0.0.1:8000
 - Manual URL submission
 - Save, hide, and mark-important item actions
 - Search and filters over stored feed items
+- Daily digest panel generated from stored feed items

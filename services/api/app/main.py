@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
+    digest,
     feed,
     health,
     ingestion,
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/api", tags=["health"])
     app.include_router(feed.router, prefix="/api/feed", tags=["feed"])
     app.include_router(search.router, prefix="/api/search", tags=["search"])
+    app.include_router(digest.router, prefix="/api/digest", tags=["digest"])
     app.include_router(sources.router, prefix="/api/sources", tags=["sources"])
     app.include_router(watchlist.router, prefix="/api/watchlist", tags=["watchlist"])
     app.include_router(ingestion.router, prefix="/api/ingestion", tags=["ingestion"])

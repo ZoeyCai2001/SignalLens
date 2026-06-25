@@ -400,6 +400,69 @@ table {
   padding: 0 4px;
 }
 
+.digest-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.digest-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.digest-headline {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
+.digest-coverage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.digest-sections {
+  display: grid;
+  gap: 10px;
+}
+
+.digest-section {
+  display: grid;
+  gap: 6px;
+}
+
+.digest-section-title {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.digest-list {
+  display: grid;
+  gap: 5px;
+}
+
+.digest-link {
+  color: #243230;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.digest-link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
 th,
 td {
   padding: 10px 12px;

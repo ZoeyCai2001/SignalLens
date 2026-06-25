@@ -83,3 +83,10 @@ Search stored feed items:
 curl "http://127.0.0.1:8000/api/search?q=agent&category=research&limit=10"
 curl "http://127.0.0.1:8000/api/search?topic=inference&saved_only=true"
 ```
+
+Generate the daily digest from stored feed items:
+
+```bash
+curl "http://127.0.0.1:8000/api/digest/daily"
+curl "http://127.0.0.1:8000/api/digest/daily?date=2026-06-25&limit_per_section=3"
+```

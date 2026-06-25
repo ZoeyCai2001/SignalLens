@@ -5,6 +5,7 @@ import {
   BarChart3,
   Bookmark,
   Bot,
+  CalendarDays,
   DatabaseZap,
   EyeOff,
   ExternalLink,
@@ -78,6 +79,29 @@ type SourceHealth = {
   items_stored: number;
 };
 
+type DigestSourceCoverage = {
+  source_name: string;
+  item_count: number;
+};
+
+type DigestSection = {
+  key: string;
+  title: string;
+  focus: string;
+  items: FeedItem[];
+};
+
+type DailyDigest = {
+  digest_date: string;
+  generated_at: string;
+  headline: string;
+  total_items: number;
+  sections: DigestSection[];
+  source_coverage: DigestSourceCoverage[];
+  watchlist_tickers: string[];
+  disclaimer: string;
+};
+
 type LoadState = "idle" | "loading" | "running";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -95,6 +119,7 @@ export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [stocks, setStocks] = useState<StockWatchlistItem[]>([]);
   const [sources, setSources] = useState<SourceHealth[]>([]);
+  const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
@@ -130,14 +155,16 @@ export function Dashboard() {
     setLoadState("loading");
     setError(null);
     try {
-      const [nextFeed, nextStocks, nextSources] = await Promise.all([
+      const [nextFeed, nextStocks, nextSources, nextDigest] = await Promise.all([
         fetchJson<FeedItem[]>("/api/feed?limit=30"),
         fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
         fetchJson<SourceHealth[]>("/api/sources/health"),
+        fetchJson<DailyDigest>("/api/digest/daily"),
       ]);
       setFeed(nextFeed);
       setStocks(nextStocks);
       setSources(nextSources);
+      setDigest(nextDigest);
       setStatus(`Loaded ${nextFeed.length} feed items`);
     } catch (err) {
       setError(readError(err));
@@ -409,6 +436,7 @@ export function Dashboard() {
           </section>
 
           <aside className="stack">
+            <DailyDigestPanel digest={digest} />
             <ManualSubmissionPanel
               title={manualTitle}
               url={manualUrl}
@@ -425,6 +453,55 @@ export function Dashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+function DailyDigestPanel({ digest }: { digest: DailyDigest | null }) {
+  const sectionsWithItems = digest?.sections.filter((section) => section.items.length) ?? [];
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Daily Digest</h2>
+        <CalendarDays size={16} aria-hidden="true" />
+      </div>
+      {digest ? (
+        <div className="digest-panel">
+          <div className="digest-meta">
+            <span>{digest.digest_date}</span>
+            <span>{digest.total_items} items</span>
+          </div>
+          <div className="digest-headline">{digest.headline}</div>
+          <div className="digest-coverage">
+            {digest.source_coverage.slice(0, 4).map((source) => (
+              <span className="badge" key={source.source_name}>
+                {source.source_name} {source.item_count}
+              </span>
+            ))}
+          </div>
+          <div className="digest-sections">
+            {sectionsWithItems.length ? (
+              sectionsWithItems.map((section) => (
+                <div className="digest-section" key={section.key}>
+                  <div className="digest-section-title">{section.title}</div>
+                  <div className="digest-list">
+                    {section.items.slice(0, 3).map((item) => (
+                      <a className="digest-link" href={item.url} target="_blank" key={item.id}>
+                        {item.title}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="empty-state">No collected items for this digest date.</div>
+            )}
+          </div>
+          <div className="small-muted">{digest.disclaimer}</div>
+        </div>
+      ) : (
+        <div className="empty-state">Digest unavailable.</div>
+      )}
+    </section>
   );
 }
 
