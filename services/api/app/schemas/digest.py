@@ -32,3 +32,16 @@ class DailyDigestMarkdown(BaseModel):
     digest_date: date
     generated_at: datetime
     markdown: str
+
+
+class DailyDigestSnapshot(BaseModel):
+    id: int
+    digest_date: date
+    generated_at: datetime
+    headline: str
+    total_items: int
+    limit_per_section: int
+    digest: DailyDigest
+    markdown: str
+    created_at: datetime
+    updated_at: datetime

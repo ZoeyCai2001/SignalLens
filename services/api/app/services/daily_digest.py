@@ -4,8 +4,21 @@ from datetime import UTC, date, datetime, time, timedelta
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app.db.models import NormalizedItem, StockWatchlistItem, TopicWatchlistItem, UserItemAction
-from app.schemas.digest import DailyDigest, DigestSection, DigestSourceCoverage
+from app.db.models import (
+    DailyDigestSnapshot as DailyDigestSnapshotModel,
+)
+from app.db.models import (
+    NormalizedItem,
+    StockWatchlistItem,
+    TopicWatchlistItem,
+    UserItemAction,
+)
+from app.schemas.digest import (
+    DailyDigest,
+    DailyDigestSnapshot,
+    DigestSection,
+    DigestSourceCoverage,
+)
 from app.schemas.feed import FeedItem
 from app.services.feed_actions import LOCAL_USER_ID, serialize_feed_item
 
@@ -78,6 +91,76 @@ def render_digest_markdown(digest: DailyDigest) -> str:
 
     lines.extend(["## Disclaimer", "", digest.disclaimer])
     return "\n".join(lines).strip() + "\n"
+
+
+def save_daily_digest_snapshot(
+    db: Session,
+    digest_date: date | None = None,
+    limit_per_section: int = 5,
+) -> DailyDigestSnapshotModel:
+    digest = generate_daily_digest(
+        db=db,
+        digest_date=digest_date,
+        limit_per_section=limit_per_section,
+    )
+    payload = digest.model_dump(mode="json")
+    markdown = render_digest_markdown(digest)
+    existing = (
+        db.query(DailyDigestSnapshotModel)
+        .filter(
+            DailyDigestSnapshotModel.user_id == LOCAL_USER_ID,
+            DailyDigestSnapshotModel.digest_date == digest.digest_date,
+        )
+        .one_or_none()
+    )
+
+    snapshot = existing or DailyDigestSnapshotModel(
+        user_id=LOCAL_USER_ID,
+        digest_date=digest.digest_date,
+    )
+    snapshot.generated_at = digest.generated_at
+    snapshot.headline = digest.headline
+    snapshot.total_items = digest.total_items
+    snapshot.limit_per_section = limit_per_section
+    snapshot.payload = payload
+    snapshot.markdown = markdown
+
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot
+
+
+def list_daily_digest_snapshots(
+    db: Session,
+    limit: int = 10,
+) -> list[DailyDigestSnapshotModel]:
+    return (
+        db.query(DailyDigestSnapshotModel)
+        .filter(DailyDigestSnapshotModel.user_id == LOCAL_USER_ID)
+        .order_by(
+            DailyDigestSnapshotModel.digest_date.desc(),
+            DailyDigestSnapshotModel.generated_at.desc(),
+        )
+        .limit(limit)
+        .all()
+    )
+
+
+def serialize_daily_digest_snapshot(snapshot: DailyDigestSnapshotModel) -> DailyDigestSnapshot:
+    digest = DailyDigest.model_validate(snapshot.payload)
+    return DailyDigestSnapshot(
+        id=snapshot.id,
+        digest_date=snapshot.digest_date,
+        generated_at=snapshot.generated_at,
+        headline=snapshot.headline,
+        total_items=snapshot.total_items,
+        limit_per_section=snapshot.limit_per_section,
+        digest=digest,
+        markdown=snapshot.markdown,
+        created_at=snapshot.created_at,
+        updated_at=snapshot.updated_at,
+    )
 
 
 def select_latest_digest_date(db: Session) -> date | None:

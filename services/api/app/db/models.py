@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -142,6 +143,23 @@ class UserPreference(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[str] = mapped_column(String(120), unique=True, default="local", nullable=False)
     ranking_weights: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class DailyDigestSnapshot(Base, TimestampMixin):
+    __tablename__ = "daily_digest_snapshots"
+    __table_args__ = (
+        UniqueConstraint("user_id", "digest_date", name="uq_daily_digest_snapshots_user_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), default="local", nullable=False)
+    digest_date: Mapped[date] = mapped_column(Date, nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    headline: Mapped[str] = mapped_column(Text, nullable=False)
+    total_items: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    limit_per_section: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    markdown: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class StockWatchlistItem(Base, TimestampMixin):

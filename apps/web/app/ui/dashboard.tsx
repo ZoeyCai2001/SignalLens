@@ -166,6 +166,19 @@ type DailyDigestMarkdown = {
   markdown: string;
 };
 
+type DailyDigestSnapshot = {
+  id: number;
+  digest_date: string;
+  generated_at: string;
+  headline: string;
+  total_items: number;
+  limit_per_section: number;
+  digest: DailyDigest;
+  markdown: string;
+  created_at: string;
+  updated_at: string;
+};
+
 type EventCluster = {
   cluster_key: string;
   title: string;
@@ -262,6 +275,7 @@ export function Dashboard() {
   const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
+  const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
@@ -278,6 +292,7 @@ export function Dashboard() {
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
   const [busyPreferences, setBusyPreferences] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
+  const [busyDigestSave, setBusyDigestSave] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
@@ -345,6 +360,7 @@ export function Dashboard() {
         nextTopics,
         nextSources,
         nextDigest,
+        nextDigestSnapshots,
         nextEventClusters,
         nextAlerts,
         nextAlertRules,
@@ -358,6 +374,7 @@ export function Dashboard() {
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
           fetchJson<SourceHealth[]>("/api/sources/health"),
           fetchJson<DailyDigest>("/api/digest/daily"),
+          fetchJson<DailyDigestSnapshot[]>("/api/digest/daily/snapshots?limit=5"),
           fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
           fetchJson<AlertItem[]>("/api/alerts?limit=8"),
           fetchJson<AlertRule[]>("/api/alerts/rules"),
@@ -370,6 +387,7 @@ export function Dashboard() {
       setTopics(nextTopics);
       setSources(nextSources);
       setDigest(nextDigest);
+      setDigestSnapshots(nextDigestSnapshots);
       setEventClusters(nextEventClusters);
       setAlerts(nextAlerts);
       setAlertRules(nextAlertRules);
@@ -566,6 +584,27 @@ export function Dashboard() {
       setStatus("Digest copy failed");
     } finally {
       setBusyDigestCopy(false);
+    }
+  };
+
+  const saveDailyDigestSnapshot = async () => {
+    setBusyDigestSave(true);
+    setError(null);
+    try {
+      const snapshot = await fetchJson<DailyDigestSnapshot>("/api/digest/daily/snapshots", {
+        method: "POST",
+      });
+      setDigest(snapshot.digest);
+      setDigestSnapshots((items) => [
+        snapshot,
+        ...items.filter((item) => item.digest_date !== snapshot.digest_date),
+      ].slice(0, 5));
+      setStatus(`Saved digest snapshot ${snapshot.digest_date}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Digest snapshot failed");
+    } finally {
+      setBusyDigestSave(false);
     }
   };
 
@@ -1149,7 +1188,14 @@ export function Dashboard() {
               onRuleImportanceChange={setAlertRuleImportance}
               onRuleSubmit={submitAlertRule}
             />
-            <DailyDigestPanel digest={digest} busyCopy={busyDigestCopy} onCopy={copyDailyDigest} />
+            <DailyDigestPanel
+              digest={digest}
+              snapshotCount={digestSnapshots.length}
+              busyCopy={busyDigestCopy}
+              busySave={busyDigestSave}
+              onCopy={copyDailyDigest}
+              onSave={saveDailyDigestSnapshot}
+            />
             <SavedItemsPanel
               items={savedItems}
               busyItemId={busyItemId}
@@ -1454,33 +1500,52 @@ function AlertPanel({
 
 function DailyDigestPanel({
   digest,
+  snapshotCount,
   busyCopy,
+  busySave,
   onCopy,
+  onSave,
 }: {
   digest: DailyDigest | null;
+  snapshotCount: number;
   busyCopy: boolean;
+  busySave: boolean;
   onCopy: () => void;
+  onSave: () => void;
 }) {
   const sectionsWithItems = digest?.sections.filter((section) => section.items.length) ?? [];
   return (
     <section className="section">
       <div className="section-header">
         <h2 className="section-title">Daily Digest</h2>
-        <button
-          className="button icon-button"
-          onClick={onCopy}
-          disabled={!digest || busyCopy}
-          title="Copy digest markdown"
-          aria-label="Copy digest markdown"
-        >
-          {busyCopy ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
-        </button>
+        <div className="table-actions">
+          <button
+            className="button icon-button"
+            onClick={onSave}
+            disabled={!digest || busySave}
+            title="Save digest snapshot"
+            aria-label="Save digest snapshot"
+          >
+            {busySave ? <Loader2 className="spin" size={16} /> : <DatabaseZap size={16} />}
+          </button>
+          <button
+            className="button icon-button"
+            onClick={onCopy}
+            disabled={!digest || busyCopy}
+            title="Copy digest markdown"
+            aria-label="Copy digest markdown"
+          >
+            {busyCopy ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+          </button>
+        </div>
       </div>
       {digest ? (
         <div className="digest-panel">
           <div className="digest-meta">
             <span>{digest.digest_date}</span>
-            <span>{digest.total_items} items</span>
+            <span>
+              {digest.total_items} items · {snapshotCount} saved
+            </span>
           </div>
           <div className="digest-headline">{digest.headline}</div>
           <div className="digest-coverage">

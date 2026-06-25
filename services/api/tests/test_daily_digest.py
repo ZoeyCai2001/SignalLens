@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from app.db.models import DailyDigestSnapshot as DailyDigestSnapshotModel
 from app.schemas.digest import DailyDigest
 from app.schemas.feed import FeedItem
 from app.services.daily_digest import (
@@ -8,6 +9,7 @@ from app.services.daily_digest import (
     build_source_coverage,
     filter_items_by_excluded_topics,
     render_digest_markdown,
+    serialize_daily_digest_snapshot,
 )
 
 
@@ -82,6 +84,39 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert "- [Research](https://example.com/1) - Test Source" in markdown
     assert "## Disclaimer" in markdown
     assert markdown.endswith("Informational only.\n")
+
+
+def test_serialize_daily_digest_snapshot_round_trips_payload() -> None:
+    digest = DailyDigest(
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+        headline="Snapshot headline",
+        total_items=0,
+        sections=[],
+        source_coverage=[],
+        watchlist_tickers=[],
+        disclaimer="Informational only.",
+    )
+    timestamp = datetime(2026, 6, 25, 13, 5, tzinfo=UTC)
+    snapshot = DailyDigestSnapshotModel(
+        id=7,
+        user_id="local",
+        digest_date=digest.digest_date,
+        generated_at=digest.generated_at,
+        headline=digest.headline,
+        total_items=digest.total_items,
+        limit_per_section=5,
+        payload=digest.model_dump(mode="json"),
+        markdown="# Snapshot\n",
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+
+    serialized = serialize_daily_digest_snapshot(snapshot)
+
+    assert serialized.id == 7
+    assert serialized.digest.headline == "Snapshot headline"
+    assert serialized.markdown == "# Snapshot\n"
 
 
 def make_item(

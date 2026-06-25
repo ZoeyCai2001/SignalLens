@@ -67,6 +67,8 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/alerts/rules`
 - `GET http://127.0.0.1:8000/api/digest/daily`
 - `GET http://127.0.0.1:8000/api/digest/daily/markdown`
+- `GET http://127.0.0.1:8000/api/digest/daily/snapshots`
+- `POST http://127.0.0.1:8000/api/digest/daily/snapshots`
 - `GET http://127.0.0.1:8000/api/events/clusters`
 - `GET http://127.0.0.1:8000/api/sources/health`
 - `PATCH http://127.0.0.1:8000/api/sources/{source_id}`

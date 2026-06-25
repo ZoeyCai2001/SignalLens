@@ -72,3 +72,4 @@ Implementation progress:
 - Added a Markdown daily digest export endpoint and dashboard copy control.
 - Added dashboard stock watchlist detail editing for optional holding status, shares, average cost, grouping, sector metadata, and notes.
 - Added interactive first-class module navigation that filters the main feed by Dashboard, AI Trends, Research, Products, AI Stocks, Chinese Social, or Daily Digest.
+- Added persisted daily digest snapshots, snapshot list/create APIs, scheduled snapshot generation, and a dashboard save control.
