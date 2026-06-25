@@ -31,9 +31,19 @@ class RssConnector(SourceConnector):
     source_name = "Selected RSS Feeds"
     source_type = "rss"
 
-    def __init__(self, limit: int = 25, feeds: list[RssFeedSpec] | None = None) -> None:
+    def __init__(
+        self,
+        limit: int = 25,
+        feeds: list[RssFeedSpec] | None = None,
+        source_name: str | None = None,
+        source_type: str | None = None,
+    ) -> None:
         self.limit = limit
         self.feeds = feeds or DEFAULT_RSS_FEEDS
+        if source_name:
+            self.source_name = source_name
+        if source_type:
+            self.source_type = source_type
 
     async def fetch(self, cursor: FetchCursor) -> FetchResult:
         items: list[RawItemInput] = []

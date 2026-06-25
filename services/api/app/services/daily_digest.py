@@ -133,6 +133,12 @@ def build_digest_sections(
             "Company and ticker-linked AI signals, informational only.",
             lambda item: item.category == "stock_company_event" or bool(item.tickers),
         ),
+        (
+            "chinese_social",
+            "Chinese Social Trends",
+            "Chinese-language AI signals from configured public sources.",
+            lambda item: item.category == "social_trend" or item.language == "zh",
+        ),
     ]
 
     sections: list[DigestSection] = []

@@ -57,3 +57,4 @@ Implementation progress:
 - Added optional Product Hunt ingestion for AI product launches, using the official API when a token is configured.
 - Added optional Alpha Vantage stock-news ingestion for watched AI ticker news and sentiment metadata.
 - Added editable stock watchlist APIs and a dashboard control for adding new watched tickers.
+- Added configurable Chinese public RSS ingestion and a dashboard panel for Chinese social trend signals.

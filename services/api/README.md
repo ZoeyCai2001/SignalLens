@@ -73,6 +73,14 @@ Ingest recent arXiv AI papers:
 curl -X POST "http://127.0.0.1:8000/api/ingestion/arxiv?limit=25"
 ```
 
+Ingest configured Chinese public RSS/Atom feeds:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/chinese-rss?limit=25"
+```
+
+Configure feeds with `CHINESE_RSS_FEEDS`, using comma-separated `Name|URL` entries.
+
 Ingest public GitHub AI repositories:
 
 ```bash

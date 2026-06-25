@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
@@ -21,7 +22,7 @@ from app.sources.github import GitHubConnector
 from app.sources.hacker_news import HackerNewsConnector
 from app.sources.hugging_face import HuggingFaceConnector
 from app.sources.product_hunt import ProductHuntConnector
-from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector
+from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector, RssFeedSpec
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,49 @@ async def run_rss_ingestion(db: Session, limit: int = 25) -> IngestionResult:
         enabled=True,
         priority=18,
         terms_notes="Uses public RSS/Atom metadata and excerpts from selected AI sources.",
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
+async def run_chinese_rss_ingestion(
+    db: Session,
+    limit: int = 25,
+    settings: Settings | None = None,
+) -> IngestionResult:
+    resolved_settings = settings or get_settings()
+    feeds = parse_chinese_rss_feeds(resolved_settings.chinese_rss_feeds)
+    source = get_or_create_source(
+        db,
+        name="Chinese RSS Feeds",
+        source_type="chinese_social",
+        access_method="rss",
+        base_url=(
+            ", ".join(feed.url for feed in feeds)
+            if feeds
+            else "configured via CHINESE_RSS_FEEDS"
+        ),
+        auth_required=False,
+        rate_limit="Public RSS feeds only; keep polling conservative.",
+        polling_interval="6 hours",
+        enabled=True,
+        priority=19,
+        terms_notes=(
+            "Uses user-configured public Chinese RSS/Atom feeds; "
+            "no private or login-protected scraping."
+        ),
+    )
+    if not feeds:
+        return record_skipped_run(
+            db=db,
+            source=source,
+            message="CHINESE_RSS_FEEDS is not configured.",
+        )
+
+    connector = RssConnector(
+        limit=limit,
+        feeds=feeds,
+        source_name="Chinese RSS Feeds",
+        source_type="chinese_social",
     )
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
@@ -399,6 +443,14 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         subcategory = "company_blog"
         summary_prefix = "RSS item"
         why_it_matters = "This RSS item matched the AI relevance prefilter from selected feeds."
+    elif source.name == "Chinese RSS Feeds":
+        category = "social_trend"
+        subcategory = "chinese_rss"
+        summary_prefix = "Chinese AI social signal"
+        why_it_matters = (
+            "This Chinese-language item matched the AI relevance prefilter "
+            "from configured RSS feeds."
+        )
     elif source.name == "Product Hunt":
         category = "product"
         subcategory = "product_launch"
@@ -432,7 +484,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         url=raw.url,
         source_name=source.name,
         author=raw.raw_author,
-        language="en",
+        language=detect_language(combined_text),
         published_at=raw.published_at,
         text=raw.raw_text,
         category=category,
@@ -462,3 +514,25 @@ def stock_impact_score_for_source(source: Source, tickers: list[str]) -> float:
     if source.name == "Alpha Vantage News":
         return 0.55
     return 0.2
+
+
+def parse_chinese_rss_feeds(value: str | None) -> list[RssFeedSpec]:
+    if not value:
+        return []
+
+    feeds: list[RssFeedSpec] = []
+    for index, chunk in enumerate(value.split(","), start=1):
+        entry = chunk.strip()
+        if not entry:
+            continue
+        if "|" in entry:
+            name, url = [part.strip() for part in entry.split("|", 1)]
+        else:
+            name, url = f"Chinese Feed {index}", entry
+        if url:
+            feeds.append(RssFeedSpec(name=name or f"Chinese Feed {index}", url=url))
+    return feeds
+
+
+def detect_language(text: str) -> str:
+    return "zh" if re.search(r"[\u4e00-\u9fff]", text) else "en"

@@ -5,6 +5,7 @@ from app.schemas.ingestion import IngestionRunResponse
 from app.services.ingestion import (
     run_alpha_vantage_news_ingestion,
     run_arxiv_ingestion,
+    run_chinese_rss_ingestion,
     run_github_ingestion,
     run_hacker_news_ingestion,
     run_hugging_face_ingestion,
@@ -39,6 +40,15 @@ async def ingest_arxiv(
     limit: int = Query(default=25, ge=1, le=100),
 ) -> IngestionRunResponse:
     result = await run_arxiv_ingestion(db=db, limit=limit)
+    return IngestionRunResponse.model_validate(result)
+
+
+@router.post("/chinese-rss", response_model=IngestionRunResponse)
+async def ingest_chinese_rss(
+    db: DbSession,
+    limit: int = Query(default=25, ge=1, le=100),
+) -> IngestionRunResponse:
+    result = await run_chinese_rss_ingestion(db=db, limit=limit)
     return IngestionRunResponse.model_validate(result)
 
 

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     kimi_api_format: str = Field(default="anthropic_messages", alias="KIMI_API_FORMAT")
     product_hunt_api_token: str | None = Field(default=None, alias="PRODUCT_HUNT_API_TOKEN")
     alpha_vantage_api_key: str | None = Field(default=None, alias="ALPHA_VANTAGE_API_KEY")
+    chinese_rss_feeds: str | None = Field(default=None, alias="CHINESE_RSS_FEEDS")
     cors_origins: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 
     model_config = SettingsConfigDict(

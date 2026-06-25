@@ -27,6 +27,15 @@ AI_KEYWORDS = {
     "reasoning",
     "retrieval",
     "transformer",
+    "ai产品",
+    "人工智能",
+    "大模型",
+    "多模态",
+    "智能体",
+    "生成式ai",
+    "算力",
+    "芯片",
+    "开源模型",
 }
 
 WATCHED_TICKERS = {

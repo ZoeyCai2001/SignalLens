@@ -66,6 +66,7 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/ingestion/hacker-news`
 - `POST http://127.0.0.1:8000/api/ingestion/alpha-vantage-news`
 - `POST http://127.0.0.1:8000/api/ingestion/arxiv`
+- `POST http://127.0.0.1:8000/api/ingestion/chinese-rss`
 - `POST http://127.0.0.1:8000/api/ingestion/github`
 - `POST http://127.0.0.1:8000/api/ingestion/hugging-face`
 - `POST http://127.0.0.1:8000/api/ingestion/product-hunt`
@@ -106,6 +107,10 @@ recorded as `skipped`.
 Alpha Vantage stock news ingestion is optional. Set `ALPHA_VANTAGE_API_KEY` in
 `.env` to enable watched-ticker news; without a key the source run is recorded as
 `skipped`.
+
+Chinese social trend ingestion is configurable through public RSS/Atom feeds. Set
+`CHINESE_RSS_FEEDS` in `.env` as comma-separated `Name|URL` entries; without feeds
+the source run is recorded as `skipped`.
 
 Run one scheduled ingestion cycle from the command line:
 

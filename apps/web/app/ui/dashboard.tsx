@@ -262,6 +262,7 @@ export function Dashboard() {
       | "hacker-news"
       | "alpha-vantage-news"
       | "arxiv"
+      | "chinese-rss"
       | "github"
       | "hugging-face"
       | "product-hunt"
@@ -535,6 +536,15 @@ export function Dashboard() {
             </button>
             <button
               className="button"
+              onClick={() => runIngestion("chinese-rss")}
+              disabled={loadState !== "idle"}
+              title="Run configured Chinese RSS ingestion"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Newspaper size={16} />}
+              CN
+            </button>
+            <button
+              className="button"
               onClick={() => runIngestion("github")}
               disabled={loadState !== "idle"}
               title="Run GitHub repository ingestion"
@@ -640,6 +650,7 @@ export function Dashboard() {
           <aside className="stack">
             <AlertPanel alerts={alerts} busyAlertId={busyAlertId} onDismiss={dismissAlert} />
             <DailyDigestPanel digest={digest} />
+            <ChineseSocialPanel items={feed} />
             <EventClusterPanel clusters={eventClusters} />
             <ManualSubmissionPanel
               title={manualTitle}
@@ -671,6 +682,43 @@ export function Dashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+function ChineseSocialPanel({ items }: { items: FeedItem[] }) {
+  const chineseItems = items.filter(
+    (item) => item.category === "social_trend" || item.language === "zh",
+  );
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Chinese Social Trends</h2>
+        <span className="small-muted">{chineseItems.length} items</span>
+      </div>
+      <div className="digest-panel">
+        {chineseItems.length ? (
+          chineseItems.slice(0, 5).map((item) => (
+            <div className="digest-section" key={item.id}>
+              <div className="digest-section-title">
+                {item.source_name} {item.published_at ? `· ${formatDate(item.published_at)}` : ""}
+              </div>
+              <a className="digest-link" href={item.url} target="_blank">
+                {item.title}
+              </a>
+              <div className="badges">
+                {item.topics.slice(0, 4).map((topic) => (
+                  <span className="badge" key={topic}>
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="empty-state">No Chinese social signals loaded.</div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -889,6 +937,7 @@ function SearchPanel({
           <option value="manual_submission">Manual submission</option>
           <option value="stock_company_event">Stock/company</option>
           <option value="product">Product</option>
+          <option value="social_trend">Social trend</option>
         </select>
         <input
           className="field"
