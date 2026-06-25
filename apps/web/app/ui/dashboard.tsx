@@ -23,6 +23,7 @@ import {
   Send,
   Star,
   TrendingUp,
+  Trash2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -216,6 +217,7 @@ export function Dashboard() {
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
+  const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
@@ -254,6 +256,21 @@ export function Dashboard() {
     }
 
     return response.json() as Promise<T>;
+  }, []);
+
+  const sendRequest = useCallback(async (path: string, init?: RequestInit): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `${response.status} ${response.statusText}`);
+    }
   }, []);
 
   const refreshAll = useCallback(async () => {
@@ -538,6 +555,31 @@ export function Dashboard() {
     }
   };
 
+  const deleteStock = async (ticker: string) => {
+    const key = `stock:${ticker}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      await sendRequest(`/api/watchlist/stocks/${encodeURIComponent(ticker)}`, {
+        method: "DELETE",
+      });
+      const remainingStocks = stocks.filter((item) => item.ticker !== ticker);
+      setStocks(remainingStocks);
+      setStockSignals((items) => items.filter((item) => item.stock.ticker !== ticker));
+      if (selectedTicker === ticker) {
+        setSelectedTicker(remainingStocks[0]?.ticker ?? null);
+        setStockBriefing(null);
+      }
+      setStatus(`Removed ${ticker}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Stock remove failed");
+    } finally {
+      setBusyWatchlistKey(null);
+    }
+  };
+
   const submitTopic = async () => {
     if (!topicName.trim()) {
       setError("Topic watchlist entries need a topic name.");
@@ -568,6 +610,25 @@ export function Dashboard() {
       setStatus("Topic add failed");
     } finally {
       setLoadState("idle");
+    }
+  };
+
+  const deleteTopic = async (topic: string) => {
+    const key = `topic:${topic}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      await sendRequest(`/api/watchlist/topics/${encodeURIComponent(topic)}`, {
+        method: "DELETE",
+      });
+      setTopics((items) => items.filter((item) => item.topic !== topic));
+      setStatus(`Removed topic ${topic}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Topic remove failed");
+    } finally {
+      setBusyWatchlistKey(null);
     }
   };
 
@@ -897,6 +958,7 @@ export function Dashboard() {
               stockBriefing={stockBriefing}
               selectedTicker={selectedTicker}
               busyStockTicker={busyStockTicker}
+              busyWatchlistKey={busyWatchlistKey}
               ticker={stockTicker}
               company={stockCompany}
               themes={stockThemes}
@@ -907,6 +969,7 @@ export function Dashboard() {
               onThemesChange={setStockThemes}
               onKeywordsChange={setStockKeywords}
               onSelectTicker={setSelectedTicker}
+              onDeleteStock={deleteStock}
               onSubmit={submitStock}
             />
             <TopicTable
@@ -916,10 +979,12 @@ export function Dashboard() {
               category={topicCategory}
               terms={topicTerms}
               disabled={loadState !== "idle"}
+              busyWatchlistKey={busyWatchlistKey}
               onTopicChange={setTopicName}
               onLabelChange={setTopicLabel}
               onCategoryChange={setTopicCategory}
               onTermsChange={setTopicTerms}
+              onDeleteTopic={deleteTopic}
               onSubmit={submitTopic}
             />
             <SourceTable
@@ -1475,6 +1540,7 @@ function StockTable({
   stockBriefing,
   selectedTicker,
   busyStockTicker,
+  busyWatchlistKey,
   ticker,
   company,
   themes,
@@ -1485,6 +1551,7 @@ function StockTable({
   onThemesChange,
   onKeywordsChange,
   onSelectTicker,
+  onDeleteStock,
   onSubmit,
 }: {
   stocks: StockWatchlistItem[];
@@ -1492,6 +1559,7 @@ function StockTable({
   stockBriefing: StockBriefing | null;
   selectedTicker: string | null;
   busyStockTicker: string | null;
+  busyWatchlistKey: string | null;
   ticker: string;
   company: string;
   themes: string;
@@ -1502,6 +1570,7 @@ function StockTable({
   onThemesChange: (value: string) => void;
   onKeywordsChange: (value: string) => void;
   onSelectTicker: (value: string) => void;
+  onDeleteStock: (ticker: string) => void;
   onSubmit: () => void;
 }) {
   const signalMap = new Map(signalSummaries.map((summary) => [summary.stock.ticker, summary]));
@@ -1555,11 +1624,13 @@ function StockTable({
               <th>Priority</th>
               <th>Signals</th>
               <th>Themes</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {stocks.map((stock) => {
               const summary = signalMap.get(stock.ticker);
+              const deleting = busyWatchlistKey === `stock:${stock.ticker}`;
               return (
                 <tr key={stock.ticker}>
                   <td>
@@ -1577,6 +1648,17 @@ function StockTable({
                   <td className={`priority-${stock.priority.toLowerCase()}`}>{stock.priority}</td>
                   <td>{summary?.signal_count ?? 0}</td>
                   <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
+                  <td>
+                    <button
+                      className="button icon-button"
+                      onClick={() => onDeleteStock(stock.ticker)}
+                      disabled={disabled || deleting}
+                      title={`Remove ${stock.ticker}`}
+                      aria-label={`Remove ${stock.ticker}`}
+                    >
+                      {deleting ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                    </button>
+                  </td>
                 </tr>
               );
             })}
@@ -1700,10 +1782,12 @@ function TopicTable({
   category,
   terms,
   disabled,
+  busyWatchlistKey,
   onTopicChange,
   onLabelChange,
   onCategoryChange,
   onTermsChange,
+  onDeleteTopic,
   onSubmit,
 }: {
   topics: TopicWatchlistItem[];
@@ -1712,10 +1796,12 @@ function TopicTable({
   category: string;
   terms: string;
   disabled: boolean;
+  busyWatchlistKey: string | null;
   onTopicChange: (value: string) => void;
   onLabelChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
   onTermsChange: (value: string) => void;
+  onDeleteTopic: (topic: string) => void;
   onSubmit: () => void;
 }) {
   return (
@@ -1771,20 +1857,35 @@ function TopicTable({
               <th>Category</th>
               <th>Priority</th>
               <th>Terms</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {topics.map((topic) => (
-              <tr key={topic.topic}>
-                <td>
-                  <span className="ticker">{topic.label}</span>
-                  {topic.is_pinned ? <Star size={13} fill="currentColor" /> : null}
-                </td>
-                <td>{topic.category}</td>
-                <td className={`priority-${topic.priority.toLowerCase()}`}>{topic.priority}</td>
-                <td>{topic.related_terms.slice(0, 3).join(", ")}</td>
-              </tr>
-            ))}
+            {topics.map((topic) => {
+              const deleting = busyWatchlistKey === `topic:${topic.topic}`;
+              return (
+                <tr key={topic.topic}>
+                  <td>
+                    <span className="ticker">{topic.label}</span>
+                    {topic.is_pinned ? <Star size={13} fill="currentColor" /> : null}
+                  </td>
+                  <td>{topic.category}</td>
+                  <td className={`priority-${topic.priority.toLowerCase()}`}>{topic.priority}</td>
+                  <td>{topic.related_terms.slice(0, 3).join(", ")}</td>
+                  <td>
+                    <button
+                      className="button icon-button"
+                      onClick={() => onDeleteTopic(topic.topic)}
+                      disabled={disabled || deleting}
+                      title={`Remove ${topic.label}`}
+                      aria-label={`Remove ${topic.label}`}
+                    >
+                      {deleting ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
