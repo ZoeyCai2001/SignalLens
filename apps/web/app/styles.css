@@ -680,6 +680,16 @@ tr:last-child td {
   place-items: center;
 }
 
+.stock-detail-form {
+  gap: 10px;
+}
+
+.stock-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }
@@ -735,7 +745,8 @@ tr:last-child td {
 
   .search-row,
   .filter-row,
-  .compact-form {
+  .compact-form,
+  .stock-detail-grid {
     grid-template-columns: 1fr;
   }
 }

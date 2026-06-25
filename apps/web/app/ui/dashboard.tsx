@@ -75,6 +75,17 @@ type StockWatchlistItem = {
   notes: string | null;
 };
 
+type StockDetailDraft = {
+  exchange: string;
+  sector: string;
+  industry: string;
+  group_name: string;
+  is_holding: boolean;
+  shares: string;
+  average_cost: string;
+  notes: string;
+};
+
 type StockSignalSummary = {
   stock: StockWatchlistItem;
   signal_count: number;
@@ -680,7 +691,7 @@ export function Dashboard() {
 
   const updateStock = async (
     ticker: string,
-    payload: Partial<Pick<StockWatchlistItem, "priority" | "is_pinned">>,
+    payload: Partial<Omit<StockWatchlistItem, "ticker">>,
   ) => {
     const key = `stock:${ticker}`;
     setBusyWatchlistKey(key);
@@ -1881,13 +1892,43 @@ function StockTable({
   onSelectTicker: (value: string) => void;
   onUpdateStock: (
     ticker: string,
-    payload: Partial<Pick<StockWatchlistItem, "priority" | "is_pinned">>,
+    payload: Partial<Omit<StockWatchlistItem, "ticker">>,
   ) => void;
   onDeleteStock: (ticker: string) => void;
   onSubmit: () => void;
 }) {
   const signalMap = new Map(signalSummaries.map((summary) => [summary.stock.ticker, summary]));
   const disclaimer = signalSummaries[0]?.disclaimer;
+  const selectedStock = stocks.find((stock) => stock.ticker === selectedTicker) ?? null;
+  const [detailDraft, setDetailDraft] = useState<StockDetailDraft>(() =>
+    stockToDetailDraft(selectedStock),
+  );
+  const detailBusy = selectedStock ? busyWatchlistKey === `stock:${selectedStock.ticker}` : false;
+
+  useEffect(() => {
+    setDetailDraft(stockToDetailDraft(selectedStock));
+  }, [selectedStock]);
+
+  const updateDetailDraft = (key: keyof StockDetailDraft, value: string | boolean) => {
+    setDetailDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveStockDetails = () => {
+    if (!selectedStock) {
+      return;
+    }
+    onUpdateStock(selectedStock.ticker, {
+      exchange: detailDraft.exchange.trim(),
+      sector: detailDraft.sector.trim(),
+      industry: detailDraft.industry.trim(),
+      group_name: detailDraft.group_name.trim(),
+      is_holding: detailDraft.is_holding,
+      shares: parseOptionalNumber(detailDraft.shares),
+      average_cost: parseOptionalNumber(detailDraft.average_cost),
+      notes: detailDraft.notes.trim() || null,
+    });
+  };
+
   return (
     <section className="section">
       <div className="section-header">
@@ -2011,6 +2052,13 @@ function StockTable({
           </tbody>
         </table>
       </div>
+      <StockDetailEditor
+        stock={selectedStock}
+        draft={detailDraft}
+        disabled={disabled || detailBusy}
+        onDraftChange={updateDetailDraft}
+        onSave={saveStockDetails}
+      />
       <StockBriefingPanel
         briefing={stockBriefing}
         loading={busyStockTicker === selectedTicker && selectedTicker !== null}
@@ -2018,6 +2066,123 @@ function StockTable({
       />
       {disclaimer ? <div className="small-muted">{disclaimer}</div> : null}
     </section>
+  );
+}
+
+function StockDetailEditor({
+  stock,
+  draft,
+  disabled,
+  onDraftChange,
+  onSave,
+}: {
+  stock: StockWatchlistItem | null;
+  draft: StockDetailDraft;
+  disabled: boolean;
+  onDraftChange: (key: keyof StockDetailDraft, value: string | boolean) => void;
+  onSave: () => void;
+}) {
+  if (!stock) {
+    return <div className="empty-state">Select a stock to edit watchlist details.</div>;
+  }
+
+  return (
+    <div className="form-panel stock-detail-form">
+      <div className="section-header">
+        <div>
+          <h3 className="section-title">{stock.ticker} watchlist details</h3>
+          <div className="small-muted">{stock.company_name}</div>
+        </div>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={draft.is_holding}
+            onChange={(event) => onDraftChange("is_holding", event.target.checked)}
+            disabled={disabled}
+          />
+          Holding
+        </label>
+      </div>
+      <div className="stock-detail-grid">
+        <label className="weight-field">
+          <span className="field-label">Exchange</span>
+          <input
+            className="field"
+            value={draft.exchange}
+            onChange={(event) => onDraftChange("exchange", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Sector</span>
+          <input
+            className="field"
+            value={draft.sector}
+            onChange={(event) => onDraftChange("sector", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Industry</span>
+          <input
+            className="field"
+            value={draft.industry}
+            onChange={(event) => onDraftChange("industry", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Group</span>
+          <input
+            className="field"
+            value={draft.group_name}
+            onChange={(event) => onDraftChange("group_name", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Shares</span>
+          <input
+            className="field"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={draft.shares}
+            onChange={(event) => onDraftChange("shares", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Average Cost</span>
+          <input
+            className="field"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={draft.average_cost}
+            onChange={(event) => onDraftChange("average_cost", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+      </div>
+      <label className="weight-field">
+        <span className="field-label">Notes</span>
+        <textarea
+          className="field textarea"
+          value={draft.notes}
+          onChange={(event) => onDraftChange("notes", event.target.value)}
+          disabled={disabled}
+        />
+      </label>
+      <div className="toolbar">
+        <button className="button primary" onClick={onSave} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+          Save
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -2381,6 +2546,30 @@ function splitTerms(value: string) {
     .split(",")
     .map((term) => term.trim())
     .filter(Boolean);
+}
+
+function stockToDetailDraft(stock: StockWatchlistItem | null): StockDetailDraft {
+  return {
+    exchange: stock?.exchange ?? "",
+    sector: stock?.sector ?? "",
+    industry: stock?.industry ?? "",
+    group_name: stock?.group_name ?? "",
+    is_holding: stock?.is_holding ?? false,
+    shares: stock?.shares === null || stock?.shares === undefined ? "" : String(stock.shares),
+    average_cost:
+      stock?.average_cost === null || stock?.average_cost === undefined
+        ? ""
+        : String(stock.average_cost),
+    notes: stock?.notes ?? "",
+  };
+}
+
+function parseOptionalNumber(value: string): number | null {
+  if (!value.trim()) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function clampWeight(value: number) {

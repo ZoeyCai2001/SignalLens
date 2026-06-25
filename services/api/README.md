@@ -238,6 +238,6 @@ curl -X POST "http://127.0.0.1:8000/api/watchlist/stocks" \
   -d '{"ticker":"AVGO","company_name":"Broadcom","related_ai_themes":["custom silicon"],"related_keywords":["AI ASIC"]}'
 curl -X PATCH "http://127.0.0.1:8000/api/watchlist/stocks/AVGO" \
   -H "Content-Type: application/json" \
-  -d '{"priority":"High","is_pinned":true}'
+  -d '{"priority":"High","is_pinned":true,"is_holding":true,"shares":10,"average_cost":125.5,"group_name":"Portfolio","notes":"Watch AI custom silicon demand."}'
 curl -X DELETE "http://127.0.0.1:8000/api/watchlist/stocks/AVGO"
 ```

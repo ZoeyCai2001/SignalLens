@@ -70,3 +70,4 @@ Implementation progress:
 - Added deterministic stock attention scores to stock signal summaries, briefings, and the dashboard stock table.
 - Added saved-only feed retrieval, unsave actions, and a dashboard Saved Items panel.
 - Added a Markdown daily digest export endpoint and dashboard copy control.
+- Added dashboard stock watchlist detail editing for optional holding status, shares, average cost, grouping, sector metadata, and notes.

@@ -1,3 +1,7 @@
+import pytest
+from pydantic import ValidationError
+
+from app.schemas.watchlist import StockWatchlistItemUpdate
 from app.services.seed_data import initial_stock_watchlist, initial_topic_watchlist
 from app.services.watchlist import (
     build_stock_match_terms,
@@ -50,3 +54,11 @@ def test_stock_watchlist_input_helpers_normalize_user_values() -> None:
 
 def test_topic_watchlist_input_helpers_normalize_user_values() -> None:
     assert normalize_topic(" Model Routing ") == "model-routing"
+
+
+def test_stock_watchlist_update_rejects_negative_portfolio_values() -> None:
+    with pytest.raises(ValidationError):
+        StockWatchlistItemUpdate(shares=-1)
+
+    with pytest.raises(ValidationError):
+        StockWatchlistItemUpdate(average_cost=-1)
