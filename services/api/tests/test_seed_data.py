@@ -3,6 +3,8 @@ from app.services.watchlist import (
     build_stock_match_terms,
     build_stock_symbol_terms,
     build_stock_text_terms,
+    clean_terms,
+    normalize_ticker,
 )
 
 
@@ -38,3 +40,8 @@ def test_stock_symbol_terms_are_separate_from_text_terms() -> None:
     assert "NVDA" in build_stock_symbol_terms(stock)
     assert "MU" not in build_stock_text_terms(stock)
     assert "NVIDIA" in build_stock_text_terms(stock)
+
+
+def test_stock_watchlist_input_helpers_normalize_user_values() -> None:
+    assert normalize_ticker(" $avgo ") == "AVGO"
+    assert clean_terms([" HBM ", "HBM", "", "ai memory"]) == ["HBM", "ai memory"]

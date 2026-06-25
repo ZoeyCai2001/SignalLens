@@ -169,3 +169,15 @@ Read stock-linked AI signals:
 curl "http://127.0.0.1:8000/api/watchlist/stocks/signals/summary"
 curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/signals?limit=10"
 ```
+
+Create, update, or delete a stock watchlist item:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/watchlist/stocks" \
+  -H "Content-Type: application/json" \
+  -d '{"ticker":"AVGO","company_name":"Broadcom","related_ai_themes":["custom silicon"],"related_keywords":["AI ASIC"]}'
+curl -X PATCH "http://127.0.0.1:8000/api/watchlist/stocks/AVGO" \
+  -H "Content-Type: application/json" \
+  -d '{"priority":"High","is_pinned":true}'
+curl -X DELETE "http://127.0.0.1:8000/api/watchlist/stocks/AVGO"
+```

@@ -16,6 +16,7 @@ import {
   Github,
   Loader2,
   Newspaper,
+  Plus,
   RefreshCw,
   Rocket,
   Search,
@@ -63,6 +64,9 @@ type StockWatchlistItem = {
   priority: string;
   group_name: string;
   is_pinned: boolean;
+  is_holding: boolean;
+  shares: number | null;
+  average_cost: number | null;
   related_keywords: string[];
   related_companies: string[];
   related_ai_themes: string[];
@@ -180,6 +184,10 @@ export function Dashboard() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [stockTicker, setStockTicker] = useState("");
+  const [stockCompany, setStockCompany] = useState("");
+  const [stockThemes, setStockThemes] = useState("");
+  const [stockKeywords, setStockKeywords] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSource, setSearchSource] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
@@ -374,6 +382,39 @@ export function Dashboard() {
     } catch (err) {
       setError(readError(err));
       setStatus("Manual submission failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const submitStock = async () => {
+    if (!stockTicker.trim() || !stockCompany.trim()) {
+      setError("Stock watchlist entries need a ticker and company name.");
+      return;
+    }
+
+    setLoadState("running");
+    setError(null);
+    try {
+      const created = await fetchJson<StockWatchlistItem>("/api/watchlist/stocks", {
+        method: "POST",
+        body: JSON.stringify({
+          ticker: stockTicker.trim().toUpperCase(),
+          company_name: stockCompany.trim(),
+          related_ai_themes: splitTerms(stockThemes),
+          related_keywords: splitTerms(stockKeywords),
+        }),
+      });
+      setStocks((items) => [created, ...items.filter((item) => item.ticker !== created.ticker)]);
+      setStockTicker("");
+      setStockCompany("");
+      setStockThemes("");
+      setStockKeywords("");
+      setStatus(`Added ${created.ticker}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Stock add failed");
     } finally {
       setLoadState("idle");
     }
@@ -610,7 +651,20 @@ export function Dashboard() {
               onTextChange={setManualText}
               onSubmit={submitManualItem}
             />
-            <StockTable stocks={stocks} signalSummaries={stockSignals} />
+            <StockTable
+              stocks={stocks}
+              signalSummaries={stockSignals}
+              ticker={stockTicker}
+              company={stockCompany}
+              themes={stockThemes}
+              keywords={stockKeywords}
+              disabled={loadState !== "idle"}
+              onTickerChange={setStockTicker}
+              onCompanyChange={setStockCompany}
+              onThemesChange={setStockThemes}
+              onKeywordsChange={setStockKeywords}
+              onSubmit={submitStock}
+            />
             <TopicTable topics={topics} />
             <SourceTable sources={sources} />
           </aside>
@@ -1040,9 +1094,29 @@ function ManualSubmissionPanel({
 function StockTable({
   stocks,
   signalSummaries,
+  ticker,
+  company,
+  themes,
+  keywords,
+  disabled,
+  onTickerChange,
+  onCompanyChange,
+  onThemesChange,
+  onKeywordsChange,
+  onSubmit,
 }: {
   stocks: StockWatchlistItem[];
   signalSummaries: StockSignalSummary[];
+  ticker: string;
+  company: string;
+  themes: string;
+  keywords: string;
+  disabled: boolean;
+  onTickerChange: (value: string) => void;
+  onCompanyChange: (value: string) => void;
+  onThemesChange: (value: string) => void;
+  onKeywordsChange: (value: string) => void;
+  onSubmit: () => void;
 }) {
   const signalMap = new Map(signalSummaries.map((summary) => [summary.stock.ticker, summary]));
   const disclaimer = signalSummaries[0]?.disclaimer;
@@ -1051,6 +1125,40 @@ function StockTable({
       <div className="section-header">
         <h2 className="section-title">AI Stock Watchlist</h2>
         <span className="small-muted">{stocks.length} tickers</span>
+      </div>
+      <div className="form-panel compact-form">
+        <input
+          className="field"
+          value={ticker}
+          onChange={(event) => onTickerChange(event.target.value)}
+          placeholder="Ticker"
+          aria-label="Stock ticker"
+        />
+        <input
+          className="field"
+          value={company}
+          onChange={(event) => onCompanyChange(event.target.value)}
+          placeholder="Company"
+          aria-label="Company name"
+        />
+        <input
+          className="field"
+          value={themes}
+          onChange={(event) => onThemesChange(event.target.value)}
+          placeholder="AI themes"
+          aria-label="AI themes"
+        />
+        <input
+          className="field"
+          value={keywords}
+          onChange={(event) => onKeywordsChange(event.target.value)}
+          placeholder="Keywords"
+          aria-label="Stock keywords"
+        />
+        <button className="button primary" onClick={onSubmit} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+          Add
+        </button>
       </div>
       <div className="table-wrap">
         <table>
@@ -1172,6 +1280,13 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function splitTerms(value: string) {
+  return value
+    .split(",")
+    .map((term) => term.trim())
+    .filter(Boolean);
 }
 
 function readError(err: unknown) {

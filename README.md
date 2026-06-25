@@ -71,6 +71,9 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/ingestion/product-hunt`
 - `POST http://127.0.0.1:8000/api/ingestion/rss`
 - `POST http://127.0.0.1:8000/api/manual-submissions`
+- `POST http://127.0.0.1:8000/api/watchlist/stocks`
+- `PATCH http://127.0.0.1:8000/api/watchlist/stocks/{ticker}`
+- `DELETE http://127.0.0.1:8000/api/watchlist/stocks/{ticker}`
 - `POST http://127.0.0.1:8000/api/watchlist/topics`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/save`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/hide`

@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.db.models import NormalizedItem, StockWatchlistItem, TopicWatchlistItem, UserItemAction
 from app.schemas.watchlist import (
     StockSignalSummary,
+    StockWatchlistItemCreate,
+    StockWatchlistItemUpdate,
     TopicWatchlistItemCreate,
 )
 from app.schemas.watchlist import (
@@ -28,6 +30,91 @@ def list_stock_watchlist(db: Session) -> list[StockWatchlistItem]:
             StockWatchlistItem.ticker.asc(),
         )
         .all()
+    )
+
+
+def create_stock_watchlist_item(
+    db: Session,
+    payload: StockWatchlistItemCreate,
+) -> StockWatchlistItem:
+    ticker = normalize_ticker(payload.ticker)
+    if not ticker:
+        raise ValueError("Stock ticker is required.")
+    if not payload.company_name.strip():
+        raise ValueError("Company name is required.")
+    existing = get_stock_watchlist_item(db, ticker)
+    if existing:
+        raise ValueError(f"{ticker} is already in the stock watchlist.")
+
+    item = StockWatchlistItem(
+        user_id=LOCAL_USER_ID,
+        ticker=ticker,
+        company_name=payload.company_name.strip(),
+        exchange=payload.exchange.strip().upper(),
+        sector=payload.sector.strip(),
+        industry=payload.industry.strip(),
+        priority=payload.priority.strip() or "Medium",
+        group_name=payload.group_name.strip() or "Watch Only",
+        is_pinned=payload.is_pinned,
+        is_holding=payload.is_holding,
+        shares=payload.shares,
+        average_cost=payload.average_cost,
+        related_keywords=clean_terms(payload.related_keywords),
+        related_companies=[
+            normalize_ticker(value)
+            for value in clean_terms(payload.related_companies)
+        ],
+        related_ai_themes=clean_terms(payload.related_ai_themes),
+        notes=payload.notes.strip() if payload.notes else None,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def update_stock_watchlist_item(
+    db: Session,
+    ticker: str,
+    payload: StockWatchlistItemUpdate,
+) -> StockWatchlistItem | None:
+    item = get_stock_watchlist_item(db, ticker)
+    if item is None:
+        return None
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field_name, value in updates.items():
+        if field_name in {"related_keywords", "related_ai_themes"} and value is not None:
+            value = clean_terms(value)
+        elif field_name == "related_companies" and value is not None:
+            value = [normalize_ticker(term) for term in clean_terms(value)]
+        elif isinstance(value, str):
+            value = value.strip()
+        setattr(item, field_name, value)
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_stock_watchlist_item(db: Session, ticker: str) -> bool:
+    item = get_stock_watchlist_item(db, ticker)
+    if item is None:
+        return False
+    db.delete(item)
+    db.commit()
+    return True
+
+
+def get_stock_watchlist_item(db: Session, ticker: str) -> StockWatchlistItem | None:
+    return (
+        db.query(StockWatchlistItem)
+        .filter(
+            StockWatchlistItem.user_id == LOCAL_USER_ID,
+            StockWatchlistItem.ticker == normalize_ticker(ticker),
+        )
+        .one_or_none()
     )
 
 
@@ -248,3 +335,11 @@ def unique_normalized_terms(values: list[str]) -> list[str]:
         seen.add(normalized.lower())
         terms.append(normalized)
     return terms
+
+
+def normalize_ticker(value: str) -> str:
+    return value.strip().upper().removeprefix("$")
+
+
+def clean_terms(values: list[str]) -> list[str]:
+    return unique_normalized_terms(values)

@@ -6,17 +6,22 @@ from app.api.deps import DbSession
 from app.schemas.watchlist import (
     StockSignalSummary,
     StockWatchlistItem,
+    StockWatchlistItemCreate,
+    StockWatchlistItemUpdate,
     TopicWatchlistItem,
     TopicWatchlistItemCreate,
 )
 from app.services.seed_data import initial_stock_watchlist, initial_topic_watchlist
 from app.services.watchlist import (
+    create_stock_watchlist_item,
     create_topic_watchlist_item,
+    delete_stock_watchlist_item,
     get_stock_signals,
     list_topic_watchlist,
     seed_initial_stock_watchlist,
     seed_initial_topic_watchlist,
     summarize_stock_signals,
+    update_stock_watchlist_item,
 )
 from app.services.watchlist import (
     list_stock_watchlist as list_stock_watchlist_items,
@@ -39,6 +44,18 @@ async def seed_stock_watchlist(db: DbSession) -> list[StockWatchlistItem]:
     return [StockWatchlistItem.model_validate(item) for item in items]
 
 
+@router.post("/stocks", response_model=StockWatchlistItem, status_code=201)
+async def create_stock(
+    payload: StockWatchlistItemCreate,
+    db: DbSession,
+) -> StockWatchlistItem:
+    try:
+        item = create_stock_watchlist_item(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return StockWatchlistItem.model_validate(item)
+
+
 @router.get("/stocks/signals/summary", response_model=list[StockSignalSummary])
 async def list_stock_signal_summary(
     db: DbSession,
@@ -57,6 +74,25 @@ async def list_stock_signals(
     if result is None:
         raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
     return result
+
+
+@router.patch("/stocks/{ticker}", response_model=StockWatchlistItem)
+async def update_stock(
+    ticker: str,
+    payload: StockWatchlistItemUpdate,
+    db: DbSession,
+) -> StockWatchlistItem:
+    item = update_stock_watchlist_item(db, ticker=ticker, payload=payload)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
+    return StockWatchlistItem.model_validate(item)
+
+
+@router.delete("/stocks/{ticker}", status_code=204)
+async def delete_stock(ticker: str, db: DbSession) -> None:
+    deleted = delete_stock_watchlist_item(db, ticker=ticker)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
 
 
 @router.get("/topics", response_model=list[TopicWatchlistItem])

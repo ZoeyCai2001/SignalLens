@@ -339,6 +339,11 @@ table {
   gap: 8px;
 }
 
+.compact-form {
+  grid-template-columns: 90px minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) auto;
+  align-items: center;
+}
+
 .field-label {
   color: var(--muted);
   font-size: 12px;
@@ -601,7 +606,8 @@ tr:last-child td {
   }
 
   .search-row,
-  .filter-row {
+  .filter-row,
+  .compact-form {
     grid-template-columns: 1fr;
   }
 }
