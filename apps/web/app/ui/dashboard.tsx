@@ -57,6 +57,12 @@ type FeedItem = {
   is_important: boolean;
 };
 
+type FeedItemDetail = FeedItem & {
+  text: string | null;
+  score_explanation: string;
+  action_state: Record<string, boolean>;
+};
+
 type StockWatchlistItem = {
   ticker: string;
   company_name: string;
@@ -291,6 +297,7 @@ const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[]
 
 export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [selectedFeedDetail, setSelectedFeedDetail] = useState<FeedItemDetail | null>(null);
   const [savedItems, setSavedItems] = useState<FeedItem[]>([]);
   const [stocks, setStocks] = useState<StockWatchlistItem[]>([]);
   const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
@@ -310,6 +317,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<ModuleKey>("dashboard");
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
+  const [busyDetailItemId, setBusyDetailItemId] = useState<number | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
@@ -643,6 +651,26 @@ export function Dashboard() {
       setStatus("Digest snapshot failed");
     } finally {
       setBusyDigestSave(false);
+    }
+  };
+
+  const loadFeedDetail = async (itemId: number) => {
+    if (selectedFeedDetail?.id === itemId) {
+      setSelectedFeedDetail(null);
+      return;
+    }
+
+    setBusyDetailItemId(itemId);
+    setError(null);
+    try {
+      const detail = await fetchJson<FeedItemDetail>(`/api/feed/${itemId}`);
+      setSelectedFeedDetail(detail);
+      setStatus(`Loaded item ${itemId} details`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Item detail failed");
+    } finally {
+      setBusyDetailItemId(null);
     }
   };
 
@@ -1204,8 +1232,11 @@ export function Dashboard() {
                     item={item}
                     key={item.id}
                     busy={busyItemId === item.id}
+                    detail={selectedFeedDetail?.id === item.id ? selectedFeedDetail : null}
+                    busyDetail={busyDetailItemId === item.id}
                     onSummarize={summarizeItem}
                     onClassify={classifyItem}
+                    onDetail={loadFeedDetail}
                     onAction={updateFeedAction}
                   />
                 ))
@@ -1870,14 +1901,20 @@ function SearchPanel({
 function FeedCard({
   item,
   busy,
+  detail,
+  busyDetail,
   onSummarize,
   onClassify,
+  onDetail,
   onAction,
 }: {
   item: FeedItem;
   busy: boolean;
+  detail: FeedItemDetail | null;
+  busyDetail: boolean;
   onSummarize: (itemId: number) => void;
   onClassify: (itemId: number) => void;
+  onDetail: (itemId: number) => void;
   onAction: (
     itemId: number,
     action: "save" | "unsave" | "hide" | "mark-important",
@@ -1960,6 +1997,15 @@ function FeedCard({
           </button>
           <button
             className="button"
+            onClick={() => onDetail(item.id)}
+            disabled={busyDetail}
+            title="Show item details"
+          >
+            {busyDetail ? <Loader2 className="spin" size={16} /> : <Search size={16} />}
+            Details
+          </button>
+          <button
+            className="button"
             onClick={() => onSummarize(item.id)}
             disabled={busy}
             title="Summarize with Kimi"
@@ -1981,7 +2027,44 @@ function FeedCard({
           </a>
         </div>
       </div>
+      {detail ? <FeedDetailPanel detail={detail} /> : null}
     </article>
+  );
+}
+
+function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
+  return (
+    <div className="feed-detail-panel">
+      <div className="section-header">
+        <h4 className="section-title">Item Details</h4>
+        <span className="small-muted">{detail.language}</span>
+      </div>
+      <div className="summary">{detail.score_explanation}</div>
+      <div className="score-grid">
+        <Score label="Source" value={detail.source_quality_score} />
+        <Score label="Relevance" value={detail.relevance_score} />
+        <Score label="Importance" value={detail.importance_score} />
+        <Score label="Stock" value={detail.stock_impact_score} />
+      </div>
+      <div className="badges">
+        {detail.companies.slice(0, 6).map((company) => (
+          <span className="badge" key={company}>
+            {company}
+          </span>
+        ))}
+        {detail.products.slice(0, 6).map((product) => (
+          <span className="badge" key={product}>
+            {product}
+          </span>
+        ))}
+      </div>
+      {detail.why_it_matters ? (
+        <div className="summary">
+          <strong>Why it matters:</strong> {detail.why_it_matters}
+        </div>
+      ) : null}
+      {detail.text ? <div className="detail-text">{detail.text}</div> : null}
+    </div>
   );
 }
 

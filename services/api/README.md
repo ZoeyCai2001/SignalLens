@@ -147,6 +147,7 @@ Read saved feed items:
 
 ```bash
 curl "http://127.0.0.1:8000/api/feed?saved_only=true&limit=10"
+curl "http://127.0.0.1:8000/api/feed/1"
 ```
 
 Search stored feed items:

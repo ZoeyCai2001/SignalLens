@@ -3,7 +3,13 @@ from datetime import UTC, datetime, timedelta
 from app.db.models import NormalizedItem, UserItemAction
 from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
-from app.services.feed_actions import freshness_score, rank_feed_items, serialize_feed_item
+from app.services.feed_actions import (
+    build_score_explanation,
+    freshness_score,
+    rank_feed_items,
+    serialize_feed_item,
+    serialize_feed_item_detail,
+)
 
 
 def test_serialize_feed_item_includes_user_action_flags() -> None:
@@ -39,6 +45,56 @@ def test_serialize_feed_item_includes_user_action_flags() -> None:
     assert serialized.is_saved is True
     assert serialized.is_hidden is False
     assert serialized.is_important is True
+
+
+def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> None:
+    item = NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Micron HBM demand",
+        url="https://example.com",
+        source_name="Alpha Vantage News",
+        author=None,
+        language="en",
+        published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+        text="Source article text.",
+        category="stock_company_event",
+        tickers=["MU"],
+        companies=["Micron"],
+        products=[],
+        topics=["HBM"],
+        sentiment="positive",
+        relevance_score=0.8,
+        importance_score=0.82,
+        novelty_score=0.7,
+        source_quality_score=0.75,
+        stock_impact_score=0.9,
+    )
+    action = UserItemAction(
+        item_id=1,
+        user_id="local",
+        is_saved=True,
+        is_hidden=False,
+        is_important=True,
+    )
+
+    detail = serialize_feed_item_detail(item, action)
+
+    assert detail.text == "Source article text."
+    assert detail.action_state == {
+        "is_saved": True,
+        "is_hidden": False,
+        "is_important": True,
+    }
+    assert "matched tickers MU" in detail.score_explanation
+    assert "high stock-impact score" in detail.score_explanation
+
+
+def test_build_score_explanation_has_default_reason() -> None:
+    item = make_feed_item(1, "Fallback")
+    item.category = ""
+
+    assert build_score_explanation(item) == "Shown because it matched the AI relevance prefilter."
 
 
 def test_rank_feed_items_keeps_important_saved_flags() -> None:

@@ -320,6 +320,26 @@ a {
   white-space: pre-line;
 }
 
+.feed-detail-panel {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.detail-text {
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  color: #34403e;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px;
+  white-space: pre-line;
+}
+
 .feed-actions {
   display: flex;
   align-items: center;

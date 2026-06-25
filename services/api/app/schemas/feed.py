@@ -31,3 +31,9 @@ class FeedItem(BaseModel):
     is_important: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FeedItemDetail(FeedItem):
+    text: str | None = None
+    score_explanation: str
+    action_state: dict[str, bool]

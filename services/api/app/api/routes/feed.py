@@ -3,12 +3,13 @@ from fastapi import APIRouter, HTTPException, Query
 from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.db.models import NormalizedItem
-from app.schemas.feed import FeedItem
+from app.schemas.feed import FeedItem, FeedItemDetail
 from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import (
     get_action,
     list_visible_feed_items,
     serialize_feed_item,
+    serialize_feed_item_detail,
     update_item_action,
 )
 from app.services.preferences import get_user_preferences
@@ -30,6 +31,12 @@ async def list_feed_items(
         ranking_weights=preferences.ranking_weights,
         saved_only=saved_only,
     )
+
+
+@router.get("/{item_id}", response_model=FeedItemDetail)
+async def get_feed_item_detail(item_id: int, db: DbSession) -> FeedItemDetail:
+    item = get_feed_item_or_404(db, item_id)
+    return serialize_feed_item_detail(item, get_action(db, item_id))
 
 
 @router.post("/{item_id}/summarize", response_model=FeedItem)

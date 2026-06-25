@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.db.models import NormalizedItem, UserItemAction
-from app.schemas.feed import FeedItem
+from app.schemas.feed import FeedItem, FeedItemDetail
 from app.schemas.preferences import RankingWeights
 
 LOCAL_USER_ID = "local"
@@ -19,6 +19,40 @@ def serialize_feed_item(
         data.is_hidden = action.is_hidden
         data.is_important = action.is_important
     return data
+
+
+def serialize_feed_item_detail(
+    item: NormalizedItem,
+    action: UserItemAction | None = None,
+) -> FeedItemDetail:
+    base = serialize_feed_item(item, action)
+    return FeedItemDetail(
+        **base.model_dump(),
+        text=item.text,
+        score_explanation=build_score_explanation(base),
+        action_state={
+            "is_saved": base.is_saved,
+            "is_hidden": base.is_hidden,
+            "is_important": base.is_important,
+        },
+    )
+
+
+def build_score_explanation(item: FeedItem) -> str:
+    reasons: list[str] = []
+    if item.tickers:
+        reasons.append(f"matched tickers {', '.join(item.tickers[:3])}")
+    if item.topics:
+        reasons.append(f"matched topics {', '.join(item.topics[:3])}")
+    if item.category:
+        reasons.append(f"classified as {item.category.replace('_', ' ')}")
+    if item.importance_score >= 0.75:
+        reasons.append("high importance score")
+    if item.stock_impact_score >= 0.75:
+        reasons.append("high stock-impact score")
+    if not reasons:
+        reasons.append("matched the AI relevance prefilter")
+    return "Shown because it " + "; ".join(reasons) + "."
 
 
 def list_visible_feed_items(
