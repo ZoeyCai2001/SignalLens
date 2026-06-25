@@ -117,6 +117,14 @@ Classify a stored feed item with Kimi:
 curl -X POST "http://127.0.0.1:8000/api/feed/1/classify"
 ```
 
+Summarize a bounded batch of top feed items with Kimi:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/llm/process-feed" \
+  -H "Content-Type: application/json" \
+  -d '{"limit":3,"summarize":true,"classify":false,"skip_summarized":true}'
+```
+
 Submit a manual URL:
 
 ```bash

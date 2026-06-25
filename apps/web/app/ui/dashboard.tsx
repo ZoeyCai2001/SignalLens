@@ -317,6 +317,39 @@ export function Dashboard() {
     }
   };
 
+  const processTopItemsWithLlm = async () => {
+    setLoadState("running");
+    setError(null);
+    try {
+      const result = await fetchJson<{
+        summarized_count: number;
+        classified_count: number;
+        skipped_count: number;
+        errors: { item_id: number; stage: string; error: string }[];
+      }>("/api/llm/process-feed", {
+        method: "POST",
+        body: JSON.stringify({
+          limit: 3,
+          summarize: true,
+          classify: false,
+          skip_summarized: true,
+        }),
+      });
+      setStatus(
+        `LLM processed ${result.summarized_count} summaries, ${result.skipped_count} skipped`,
+      );
+      if (result.errors.length) {
+        setError(`${result.errors.length} LLM item errors; see API response logs.`);
+      }
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("LLM batch failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
   const runSearch = async () => {
     setLoadState("loading");
     setError(null);
@@ -704,6 +737,15 @@ export function Dashboard() {
               ) : (
                 <RefreshCw size={16} />
               )}
+            </button>
+            <button
+              className="button"
+              onClick={processTopItemsWithLlm}
+              disabled={loadState !== "idle"}
+              title="Summarize top feed items with Kimi"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
+              LLM
             </button>
           </div>
         </header>

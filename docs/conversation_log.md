@@ -61,3 +61,4 @@ Implementation progress:
 - Added editable topic and product-category watchlist APIs with dashboard add controls.
 - Added editable alert rule APIs and dashboard controls for custom alert rules.
 - Added source enable/disable APIs and dashboard controls; ingestion now skips disabled sources.
+- Added bounded LLM batch processing for top feed items, plus a dashboard control to summarize the highest-priority items without clicking each card.

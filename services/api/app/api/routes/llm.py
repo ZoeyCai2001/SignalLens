@@ -1,8 +1,15 @@
 from fastapi import APIRouter, HTTPException
 
+from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.llm.kimi_coding import KimiCodingClient, KimiCodingError
-from app.schemas.llm import SmokeTestRequest, SmokeTestResponse
+from app.schemas.llm import (
+    FeedProcessingRequest,
+    FeedProcessingResponse,
+    SmokeTestRequest,
+    SmokeTestResponse,
+)
+from app.services.llm_processing import process_feed_with_llm
 
 router = APIRouter()
 
@@ -28,4 +35,25 @@ async def smoke_test(request: SmokeTestRequest) -> SmokeTestResponse:
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
         total_tokens=result.total_tokens,
+    )
+
+
+@router.post("/process-feed", response_model=FeedProcessingResponse)
+async def process_feed_items(
+    request: FeedProcessingRequest,
+    db: DbSession,
+) -> FeedProcessingResponse:
+    settings = get_settings()
+    if not settings.moonshot_api_key:
+        raise HTTPException(status_code=400, detail="MOONSHOT_API_KEY is not configured.")
+    if not request.summarize and not request.classify:
+        raise HTTPException(status_code=400, detail="Enable summarize or classify.")
+
+    return await process_feed_with_llm(
+        db=db,
+        settings=settings,
+        limit=request.limit,
+        summarize=request.summarize,
+        classify=request.classify,
+        skip_summarized=request.skip_summarized,
     )

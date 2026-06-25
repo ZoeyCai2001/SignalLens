@@ -21,6 +21,7 @@ ALLOWED_CATEGORIES = {
     "product",
     "stock_company_event",
     "manual_submission",
+    "social_trend",
 }
 
 ALLOWED_SENTIMENTS = {"positive", "neutral", "negative", "mixed"}
@@ -84,6 +85,7 @@ Allowed category values:
 - product
 - stock_company_event
 - manual_submission
+- social_trend
 
 Required JSON shape:
 {{

@@ -12,3 +12,26 @@ class SmokeTestResponse(BaseModel):
     input_tokens: int
     output_tokens: int
     total_tokens: int
+
+
+class FeedProcessingRequest(BaseModel):
+    limit: int = Field(default=3, ge=1, le=10)
+    summarize: bool = True
+    classify: bool = False
+    skip_summarized: bool = True
+
+
+class FeedProcessingError(BaseModel):
+    item_id: int
+    stage: str
+    error: str
+
+
+class FeedProcessingResponse(BaseModel):
+    requested_limit: int
+    candidates_seen: int
+    summarized_count: int
+    classified_count: int
+    skipped_count: int
+    item_ids: list[int]
+    errors: list[FeedProcessingError]
