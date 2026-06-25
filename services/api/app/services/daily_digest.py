@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app.db.models import NormalizedItem, StockWatchlistItem, UserItemAction
+from app.db.models import NormalizedItem, StockWatchlistItem, TopicWatchlistItem, UserItemAction
 from app.schemas.digest import DailyDigest, DigestSection, DigestSourceCoverage
 from app.schemas.feed import FeedItem
 from app.services.feed_actions import LOCAL_USER_ID, serialize_feed_item
@@ -22,6 +22,10 @@ def generate_daily_digest(
     selected_date = digest_date or select_latest_digest_date(db) or datetime.now(UTC).date()
     items = list_visible_items_for_digest_date(db=db, digest_date=selected_date)
     feed_items = [serialize_feed_item(item, action) for item, action in items]
+    feed_items = filter_items_by_excluded_topics(
+        feed_items,
+        excluded_terms=list_excluded_digest_topic_terms(db),
+    )
     sections = build_digest_sections(feed_items, limit_per_section=limit_per_section)
     coverage = build_source_coverage(feed_items)
     tickers = list_watchlist_tickers(db)
@@ -155,6 +159,24 @@ def build_digest_sections(
     return sections
 
 
+def filter_items_by_excluded_topics(
+    items: list[FeedItem],
+    excluded_terms: set[str],
+) -> list[FeedItem]:
+    if not excluded_terms:
+        return items
+    return [item for item in items if not matches_excluded_topic(item, excluded_terms)]
+
+
+def matches_excluded_topic(item: FeedItem, excluded_terms: set[str]) -> bool:
+    item_terms = {
+        term.strip().lower()
+        for term in [*item.topics, *item.products, *item.companies]
+        if term.strip()
+    }
+    return bool(item_terms & excluded_terms)
+
+
 def sort_for_digest(items: list[FeedItem]) -> list[FeedItem]:
     return sorted(
         items,
@@ -194,3 +216,22 @@ def list_watchlist_tickers(db: Session) -> list[str]:
         .all()
     )
     return [row[0] for row in rows]
+
+
+def list_excluded_digest_topic_terms(db: Session) -> set[str]:
+    rows = (
+        db.query(TopicWatchlistItem)
+        .filter(
+            TopicWatchlistItem.user_id == LOCAL_USER_ID,
+            TopicWatchlistItem.include_in_digest.is_(False),
+        )
+        .all()
+    )
+    terms: set[str] = set()
+    for row in rows:
+        terms.update(
+            term.strip().lower()
+            for term in [row.topic, row.label, *row.related_terms]
+            if term.strip()
+        )
+    return terms

@@ -1,7 +1,12 @@
 from datetime import UTC, datetime
 
 from app.schemas.feed import FeedItem
-from app.services.daily_digest import build_digest_sections, build_headline, build_source_coverage
+from app.services.daily_digest import (
+    build_digest_sections,
+    build_headline,
+    build_source_coverage,
+    filter_items_by_excluded_topics,
+)
 
 
 def test_daily_digest_sections_group_items() -> None:
@@ -38,6 +43,17 @@ def test_daily_digest_headline_handles_empty_day() -> None:
     headline = build_headline([], datetime(2026, 6, 25, tzinfo=UTC).date())
 
     assert headline == "No collected AI signals for 2026-06-25."
+
+
+def test_filter_items_by_excluded_topics_removes_digest_excluded_terms() -> None:
+    items = [
+        make_item(1, "Keep", "technical_trend", 0.8, topics=["agent"]),
+        make_item(2, "Exclude", "technical_trend", 0.9, topics=["model routing"]),
+    ]
+
+    filtered = filter_items_by_excluded_topics(items, {"model routing"})
+
+    assert [item.title for item in filtered] == ["Keep"]
 
 
 def make_item(

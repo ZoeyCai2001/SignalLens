@@ -580,6 +580,40 @@ export function Dashboard() {
     }
   };
 
+  const updateStock = async (
+    ticker: string,
+    payload: Partial<Pick<StockWatchlistItem, "priority" | "is_pinned">>,
+  ) => {
+    const key = `stock:${ticker}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      const updated = await fetchJson<StockWatchlistItem>(
+        `/api/watchlist/stocks/${encodeURIComponent(ticker)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        },
+      );
+      setStocks((items) => items.map((item) => (item.ticker === updated.ticker ? updated : item)));
+      setStockSignals((items) =>
+        items.map((item) =>
+          item.stock.ticker === updated.ticker ? { ...item, stock: updated } : item,
+        ),
+      );
+      if (stockBriefing?.stock.ticker === updated.ticker) {
+        setStockBriefing({ ...stockBriefing, stock: updated });
+      }
+      setStatus(`Updated ${updated.ticker}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Stock update failed");
+    } finally {
+      setBusyWatchlistKey(null);
+    }
+  };
+
   const submitTopic = async () => {
     if (!topicName.trim()) {
       setError("Topic watchlist entries need a topic name.");
@@ -627,6 +661,32 @@ export function Dashboard() {
     } catch (err) {
       setError(readError(err));
       setStatus("Topic remove failed");
+    } finally {
+      setBusyWatchlistKey(null);
+    }
+  };
+
+  const updateTopic = async (
+    topic: string,
+    payload: Partial<Pick<TopicWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+  ) => {
+    const key = `topic:${topic}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      const updated = await fetchJson<TopicWatchlistItem>(
+        `/api/watchlist/topics/${encodeURIComponent(topic)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        },
+      );
+      setTopics((items) => items.map((item) => (item.topic === updated.topic ? updated : item)));
+      setStatus(`Updated topic ${updated.label}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Topic update failed");
     } finally {
       setBusyWatchlistKey(null);
     }
@@ -969,6 +1029,7 @@ export function Dashboard() {
               onThemesChange={setStockThemes}
               onKeywordsChange={setStockKeywords}
               onSelectTicker={setSelectedTicker}
+              onUpdateStock={updateStock}
               onDeleteStock={deleteStock}
               onSubmit={submitStock}
             />
@@ -984,6 +1045,7 @@ export function Dashboard() {
               onLabelChange={setTopicLabel}
               onCategoryChange={setTopicCategory}
               onTermsChange={setTopicTerms}
+              onUpdateTopic={updateTopic}
               onDeleteTopic={deleteTopic}
               onSubmit={submitTopic}
             />
@@ -1551,6 +1613,7 @@ function StockTable({
   onThemesChange,
   onKeywordsChange,
   onSelectTicker,
+  onUpdateStock,
   onDeleteStock,
   onSubmit,
 }: {
@@ -1570,6 +1633,10 @@ function StockTable({
   onThemesChange: (value: string) => void;
   onKeywordsChange: (value: string) => void;
   onSelectTicker: (value: string) => void;
+  onUpdateStock: (
+    ticker: string,
+    payload: Partial<Pick<StockWatchlistItem, "priority" | "is_pinned">>,
+  ) => void;
   onDeleteStock: (ticker: string) => void;
   onSubmit: () => void;
 }) {
@@ -1645,19 +1712,50 @@ function StockTable({
                     {stock.is_pinned ? <Star size={13} fill="currentColor" /> : null}
                   </td>
                   <td>{stock.company_name}</td>
-                  <td className={`priority-${stock.priority.toLowerCase()}`}>{stock.priority}</td>
+                  <td>
+                    <select
+                      className={`field table-field priority-${stock.priority.toLowerCase()}`}
+                      value={stock.priority}
+                      onChange={(event) =>
+                        onUpdateStock(stock.ticker, { priority: event.target.value })
+                      }
+                      disabled={disabled || deleting}
+                      aria-label={`Priority for ${stock.ticker}`}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </td>
                   <td>{summary?.signal_count ?? 0}</td>
                   <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
                   <td>
-                    <button
-                      className="button icon-button"
-                      onClick={() => onDeleteStock(stock.ticker)}
-                      disabled={disabled || deleting}
-                      title={`Remove ${stock.ticker}`}
-                      aria-label={`Remove ${stock.ticker}`}
-                    >
-                      {deleting ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
-                    </button>
+                    <div className="table-actions">
+                      <button
+                        className="button icon-button"
+                        onClick={() => onUpdateStock(stock.ticker, { is_pinned: !stock.is_pinned })}
+                        disabled={disabled || deleting}
+                        title={stock.is_pinned ? `Unpin ${stock.ticker}` : `Pin ${stock.ticker}`}
+                        aria-label={
+                          stock.is_pinned ? `Unpin ${stock.ticker}` : `Pin ${stock.ticker}`
+                        }
+                      >
+                        {deleting ? (
+                          <Loader2 className="spin" size={16} />
+                        ) : (
+                          <Star size={16} fill={stock.is_pinned ? "currentColor" : "none"} />
+                        )}
+                      </button>
+                      <button
+                        className="button icon-button"
+                        onClick={() => onDeleteStock(stock.ticker)}
+                        disabled={disabled || deleting}
+                        title={`Remove ${stock.ticker}`}
+                        aria-label={`Remove ${stock.ticker}`}
+                      >
+                        {deleting ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -1787,6 +1885,7 @@ function TopicTable({
   onLabelChange,
   onCategoryChange,
   onTermsChange,
+  onUpdateTopic,
   onDeleteTopic,
   onSubmit,
 }: {
@@ -1801,6 +1900,10 @@ function TopicTable({
   onLabelChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
   onTermsChange: (value: string) => void;
+  onUpdateTopic: (
+    topic: string,
+    payload: Partial<Pick<TopicWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+  ) => void;
   onDeleteTopic: (topic: string) => void;
   onSubmit: () => void;
 }) {
@@ -1870,18 +1973,70 @@ function TopicTable({
                     {topic.is_pinned ? <Star size={13} fill="currentColor" /> : null}
                   </td>
                   <td>{topic.category}</td>
-                  <td className={`priority-${topic.priority.toLowerCase()}`}>{topic.priority}</td>
+                  <td>
+                    <select
+                      className={`field table-field priority-${topic.priority.toLowerCase()}`}
+                      value={topic.priority}
+                      onChange={(event) =>
+                        onUpdateTopic(topic.topic, { priority: event.target.value })
+                      }
+                      disabled={disabled || deleting}
+                      aria-label={`Priority for ${topic.label}`}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </td>
                   <td>{topic.related_terms.slice(0, 3).join(", ")}</td>
                   <td>
-                    <button
-                      className="button icon-button"
-                      onClick={() => onDeleteTopic(topic.topic)}
-                      disabled={disabled || deleting}
-                      title={`Remove ${topic.label}`}
-                      aria-label={`Remove ${topic.label}`}
-                    >
-                      {deleting ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
-                    </button>
+                    <div className="table-actions">
+                      <button
+                        className="button icon-button"
+                        onClick={() => onUpdateTopic(topic.topic, { is_pinned: !topic.is_pinned })}
+                        disabled={disabled || deleting}
+                        title={topic.is_pinned ? `Unpin ${topic.label}` : `Pin ${topic.label}`}
+                        aria-label={topic.is_pinned ? `Unpin ${topic.label}` : `Pin ${topic.label}`}
+                      >
+                        {deleting ? (
+                          <Loader2 className="spin" size={16} />
+                        ) : (
+                          <Star size={16} fill={topic.is_pinned ? "currentColor" : "none"} />
+                        )}
+                      </button>
+                      <button
+                        className={`button icon-button ${
+                          topic.include_in_digest ? "active-icon-button" : ""
+                        }`}
+                        onClick={() =>
+                          onUpdateTopic(topic.topic, {
+                            include_in_digest: !topic.include_in_digest,
+                          })
+                        }
+                        disabled={disabled || deleting}
+                        title={
+                          topic.include_in_digest
+                            ? `Exclude ${topic.label} from digest`
+                            : `Include ${topic.label} in digest`
+                        }
+                        aria-label={
+                          topic.include_in_digest
+                            ? `Exclude ${topic.label} from digest`
+                            : `Include ${topic.label} in digest`
+                        }
+                      >
+                        {deleting ? <Loader2 className="spin" size={16} /> : <CalendarDays size={16} />}
+                      </button>
+                      <button
+                        className="button icon-button"
+                        onClick={() => onDeleteTopic(topic.topic)}
+                        disabled={disabled || deleting}
+                        title={`Remove ${topic.label}`}
+                        aria-label={`Remove ${topic.label}`}
+                      >
+                        {deleting ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

@@ -370,6 +370,23 @@ table {
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
 }
 
+.table-field {
+  min-height: 32px;
+  padding: 5px 8px;
+  width: 104px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.active-icon-button {
+  border-color: #b7d8d4;
+  background: #e7f3f0;
+  color: var(--accent-strong);
+}
+
 .textarea {
   min-height: 86px;
   resize: vertical;

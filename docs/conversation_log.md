@@ -64,3 +64,4 @@ Implementation progress:
 - Added bounded LLM batch processing for top feed items, plus a dashboard control to summarize the highest-priority items without clicking each card.
 - Added per-ticker stock briefing APIs and a dashboard drill-down panel with urgency, sentiment counts, key themes, and recent stock-linked signal timeline.
 - Added dashboard controls for removing stock and topic watchlist entries, using the existing delete APIs.
+- Added dashboard controls for changing watchlist priority, pinning stocks/topics, and toggling topic digest inclusion through the existing patch APIs.
