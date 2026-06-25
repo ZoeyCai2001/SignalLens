@@ -40,6 +40,9 @@ From the repository root, start local infrastructure:
 docker compose -f infra/docker-compose.yml up -d
 ```
 
+The Docker PostgreSQL service maps to host port `55432` to avoid conflicts with a local
+Postgres running on the default `5432`.
+
 Run the API:
 
 ```bash
@@ -51,7 +54,18 @@ Useful endpoints:
 
 - `GET http://127.0.0.1:8000/api/health`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks`
+- `GET http://127.0.0.1:8000/api/feed`
+- `GET http://127.0.0.1:8000/api/sources/health`
+- `POST http://127.0.0.1:8000/api/ingestion/hacker-news`
 - `POST http://127.0.0.1:8000/api/llm/smoke-test`
+
+Run database migrations and seed the initial stock watchlist:
+
+```bash
+cd services/api
+alembic upgrade head
+python scripts/seed_database.py
+```
 
 Run the Kimi API smoke test:
 

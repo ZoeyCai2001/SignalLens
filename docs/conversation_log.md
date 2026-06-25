@@ -30,3 +30,12 @@ Follow-up decisions:
 - The API uses an Anthropic-style Messages request shape, not the normal OpenAI chat completions path.
 - GitHub SSH authentication was fixed by using an account-level SSH key instead of a read-only deploy key.
 - Begin implementation with a backend-first MVP scaffold.
+
+Implementation progress:
+
+- Added a FastAPI backend scaffold.
+- Added local Docker infrastructure for PostgreSQL with pgvector and Redis.
+- Added the first SQLAlchemy models and Alembic migration.
+- Added seeded AI Stock Watchlist support for MU, MRVL, and SNDK.
+- Added an initial Hacker News connector using the public Firebase API.
+- Added DB-backed feed, source health, watchlist, and ingestion routes.

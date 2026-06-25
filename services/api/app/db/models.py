@@ -1,0 +1,143 @@
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class Source(Base, TimestampMixin):
+    __tablename__ = "sources"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    type: Mapped[str] = mapped_column(String(80), nullable=False)
+    access_method: Mapped[str] = mapped_column(String(80), nullable=False)
+    base_url: Mapped[str | None] = mapped_column(String(500))
+    auth_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    rate_limit: Mapped[str | None] = mapped_column(String(120))
+    polling_interval: Mapped[str | None] = mapped_column(String(120))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    terms_notes: Mapped[str | None] = mapped_column(Text)
+
+    raw_items: Mapped[list["RawItem"]] = relationship(back_populates="source")
+    runs: Mapped[list["SourceRun"]] = relationship(back_populates="source")
+
+
+class SourceRun(Base):
+    __tablename__ = "source_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    items_fetched: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    items_stored: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    source: Mapped[Source] = relationship(back_populates="runs")
+
+
+class RawItem(Base):
+    __tablename__ = "raw_items"
+    __table_args__ = (
+        UniqueConstraint("source_id", "external_id", name="uq_raw_items_source_external_id"),
+        UniqueConstraint("content_hash", name="uq_raw_items_content_hash"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id"), nullable=False)
+    external_id: Mapped[str | None] = mapped_column(String(240))
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    raw_title: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_text: Mapped[str | None] = mapped_column(Text)
+    raw_author: Mapped[str | None] = mapped_column(String(240))
+    raw_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    source: Mapped[Source] = relationship(back_populates="raw_items")
+    normalized_item: Mapped["NormalizedItem | None"] = relationship(back_populates="raw_item")
+
+
+class NormalizedItem(Base):
+    __tablename__ = "normalized_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    raw_item_id: Mapped[int] = mapped_column(ForeignKey("raw_items.id"), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    source_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    author: Mapped[str | None] = mapped_column(String(240))
+    language: Mapped[str] = mapped_column(String(20), default="en", nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    text: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(80), default="technical_trend", nullable=False)
+    subcategory: Mapped[str | None] = mapped_column(String(120))
+    tickers: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    companies: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    products: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    topics: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    sentiment: Mapped[str] = mapped_column(String(40), default="neutral", nullable=False)
+    relevance_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    importance_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    novelty_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    source_quality_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    stock_impact_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    summary_short: Mapped[str | None] = mapped_column(Text)
+    summary_detailed: Mapped[str | None] = mapped_column(Text)
+    why_it_matters: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    raw_item: Mapped[RawItem] = relationship(back_populates="normalized_item")
+
+
+class StockWatchlistItem(Base, TimestampMixin):
+    __tablename__ = "stock_watchlist_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "ticker", name="uq_stock_watchlist_user_ticker"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), default="local", nullable=False)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False)
+    company_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(80), nullable=False)
+    sector: Mapped[str] = mapped_column(String(120), nullable=False)
+    industry: Mapped[str] = mapped_column(String(160), nullable=False)
+    priority: Mapped[str] = mapped_column(String(40), default="Medium", nullable=False)
+    group_name: Mapped[str] = mapped_column(String(120), default="Watch Only", nullable=False)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_holding: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    shares: Mapped[float | None] = mapped_column(Float)
+    average_cost: Mapped[float | None] = mapped_column(Float)
+    related_keywords: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    related_companies: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    related_ai_themes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)

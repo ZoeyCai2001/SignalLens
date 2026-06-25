@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     api_host: str = Field(default="127.0.0.1", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
     database_url: str = Field(
-        default="postgresql+psycopg://signallens:signallens@localhost:5432/signallens",
+        default="postgresql+psycopg://signallens:signallens@localhost:55432/signallens",
         alias="DATABASE_URL",
     )
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")

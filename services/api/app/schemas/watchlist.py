@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StockWatchlistItem(BaseModel):
@@ -14,3 +14,5 @@ class StockWatchlistItem(BaseModel):
     related_companies: list[str] = Field(default_factory=list)
     related_ai_themes: list[str] = Field(default_factory=list)
     notes: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
