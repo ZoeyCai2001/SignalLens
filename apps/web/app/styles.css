@@ -338,7 +338,7 @@ a {
 
 table {
   width: 100%;
-  min-width: 720px;
+  min-width: 960px;
   border-collapse: collapse;
 }
 
@@ -388,6 +388,11 @@ table {
 .table-actions {
   display: flex;
   gap: 6px;
+}
+
+.table-event-cell {
+  max-width: 220px;
+  line-height: 1.35;
 }
 
 .active-icon-button {

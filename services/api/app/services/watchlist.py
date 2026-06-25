@@ -310,18 +310,23 @@ def build_stock_signal_summary(
     rows = query_stock_signal_rows(db, stock=stock, limit=limit)
     top_signals = [serialize_feed_item(item, action) for item, action in rows]
     signal_count = count_stock_signal_rows(db, stock=stock)
+    latest_signal = top_signals[0] if top_signals else None
     stock_schema = stock if isinstance(stock, StockWatchlistSchema) else (
         StockWatchlistSchema.model_validate(stock)
     )
     return StockSignalSummary(
         stock=stock_schema,
         signal_count=signal_count,
+        high_impact_count=count_high_impact_stock_signal_rows(db, stock=stock),
         attention_score=compute_stock_attention_score(
             stock=stock_schema,
             top_signals=top_signals,
             signal_count=signal_count,
         ),
         market=build_stock_market_snapshot(db=db, ticker=stock_schema.ticker),
+        latest_event_title=latest_signal.title if latest_signal else None,
+        latest_event_at=latest_signal.published_at if latest_signal else None,
+        sentiment_counts=build_sentiment_counts(top_signals),
         top_signals=top_signals,
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
     )
@@ -332,7 +337,6 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
         (item.published_at for item in summary.top_signals if item.published_at is not None),
         default=None,
     )
-    sentiment_counts = Counter(item.sentiment or "neutral" for item in summary.top_signals)
     return StockBriefing(
         stock=summary.stock,
         signal_count=summary.signal_count,
@@ -340,7 +344,7 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
         market=summary.market,
         urgency=classify_stock_urgency(summary),
         latest_signal_at=latest_signal_at,
-        sentiment_counts=dict(sentiment_counts),
+        sentiment_counts=summary.sentiment_counts,
         key_themes=build_stock_briefing_themes(summary.top_signals),
         recent_timeline=[
             StockBriefingTimelineItem(
@@ -484,6 +488,26 @@ def count_stock_signal_rows(
     stock: StockWatchlistItem | StockWatchlistSchema,
 ) -> int:
     return stock_signal_query(db, stock=stock).count()
+
+
+def count_high_impact_stock_signal_rows(
+    db: Session,
+    stock: StockWatchlistItem | StockWatchlistSchema,
+) -> int:
+    return (
+        stock_signal_query(db, stock=stock)
+        .filter(
+            or_(
+                NormalizedItem.stock_impact_score >= 0.75,
+                NormalizedItem.importance_score >= 0.75,
+            )
+        )
+        .count()
+    )
+
+
+def build_sentiment_counts(items: list[FeedItem]) -> dict[str, int]:
+    return dict(Counter(item.sentiment or "neutral" for item in items))
 
 
 def stock_signal_query(db: Session, stock: StockWatchlistItem | StockWatchlistSchema):

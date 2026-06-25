@@ -25,6 +25,7 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
             related_ai_themes=["memory"],
         ),
         signal_count=2,
+        high_impact_count=1,
         attention_score=0.812,
         market=StockMarketSnapshot(
             latest=StockPricePoint(
@@ -41,6 +42,9 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
             change_percent=2.27,
             history=[],
         ),
+        latest_event_title="Micron discusses HBM demand",
+        latest_event_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
+        sentiment_counts={"positive": 1, "mixed": 1},
         top_signals=[
             make_feed_item(
                 1,
@@ -70,6 +74,8 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
     briefing = build_stock_briefing(summary)
 
     assert briefing.attention_score == 0.812
+    assert summary.high_impact_count == 1
+    assert summary.latest_event_title == "Micron discusses HBM demand"
     assert briefing.market is not None
     assert briefing.market.change_percent == 2.27
     assert briefing.urgency == "high"

@@ -48,8 +48,12 @@ class StockMarketSnapshot(BaseModel):
 class StockSignalSummary(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
+    high_impact_count: int = 0
     attention_score: float
     market: StockMarketSnapshot | None = None
+    latest_event_title: str | None = None
+    latest_event_at: datetime | None = None
+    sentiment_counts: dict[str, int] = Field(default_factory=dict)
     top_signals: list[FeedItem]
     disclaimer: str
 

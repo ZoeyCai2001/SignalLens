@@ -107,8 +107,12 @@ type StockMarketSnapshot = {
 type StockSignalSummary = {
   stock: StockWatchlistItem;
   signal_count: number;
+  high_impact_count: number;
   attention_score: number;
   market: StockMarketSnapshot | null;
+  latest_event_title: string | null;
+  latest_event_at: string | null;
+  sentiment_counts: Record<string, number>;
   top_signals: FeedItem[];
   disclaimer: string;
 };
@@ -2097,6 +2101,9 @@ function StockTable({
               <th>Change</th>
               <th>Priority</th>
               <th>Signals</th>
+              <th>High</th>
+              <th>Latest Event</th>
+              <th>Sentiment</th>
               <th>Attention</th>
               <th>Themes</th>
               <th>Action</th>
@@ -2140,6 +2147,14 @@ function StockTable({
                     </select>
                   </td>
                   <td>{summary?.signal_count ?? 0}</td>
+                  <td>{summary?.high_impact_count ?? 0}</td>
+                  <td className="table-event-cell">
+                    {summary?.latest_event_title ?? "--"}
+                    {summary?.latest_event_at ? (
+                      <div className="small-muted">{formatDate(summary.latest_event_at)}</div>
+                    ) : null}
+                  </td>
+                  <td>{formatDominantSentiment(summary?.sentiment_counts)}</td>
                   <td>{Math.round((summary?.attention_score ?? 0) * 100)}</td>
                   <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
                   <td>
@@ -2772,6 +2787,18 @@ function formatChange(market: StockMarketSnapshot | null | undefined): string {
   }
   const sign = market.change > 0 ? "+" : "";
   return `${sign}${market.change.toFixed(2)} (${sign}${market.change_percent.toFixed(2)}%)`;
+}
+
+function formatDominantSentiment(counts: Record<string, number> | null | undefined): string {
+  if (!counts) {
+    return "--";
+  }
+  const [sentiment, count] =
+    Object.entries(counts).sort((left, right) => right[1] - left[1])[0] ?? [];
+  if (!sentiment || !count) {
+    return "--";
+  }
+  return `${sentiment} ${count}`;
 }
 
 function marketChangeClass(value: number | null): string {

@@ -234,6 +234,9 @@ curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/briefing?limit=8"
 curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/prices?limit=30"
 ```
 
+Stock summaries include attention score, high-impact signal count, latest AI-related
+event, sentiment counts, optional market snapshot, and the informational-only disclaimer.
+
 Create, update, or delete a stock watchlist item:
 
 ```bash
