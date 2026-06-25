@@ -16,6 +16,7 @@ from app.sources.arxiv import ArxivConnector
 from app.sources.base import FetchCursor, RawItemInput
 from app.sources.github import GitHubConnector
 from app.sources.hacker_news import HackerNewsConnector
+from app.sources.hugging_face import HuggingFaceConnector
 
 
 @dataclass(frozen=True)
@@ -81,9 +82,27 @@ async def run_github_ingestion(db: Session, limit: int = 25) -> IngestionResult:
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
 
+async def run_hugging_face_ingestion(db: Session, limit: int = 25) -> IngestionResult:
+    connector = HuggingFaceConnector(limit=limit)
+    source = get_or_create_source(
+        db,
+        name="Hugging Face",
+        source_type="model_hub",
+        access_method="official_api",
+        base_url="https://huggingface.co/api/models",
+        auth_required=False,
+        rate_limit="Public API; keep polling conservative.",
+        polling_interval="6 hours",
+        enabled=True,
+        priority=12,
+        terms_notes="Uses Hugging Face public model metadata only.",
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
 async def run_connector_ingestion(
     db: Session,
-    connector: HackerNewsConnector | ArxivConnector | GitHubConnector,
+    connector: HackerNewsConnector | ArxivConnector | GitHubConnector | HuggingFaceConnector,
     source: Source,
 ) -> IngestionResult:
     run = SourceRun(source_id=source.id, status="running")
@@ -246,6 +265,13 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         summary_prefix = "GitHub repository"
         why_it_matters = (
             "This repository matched the AI relevance prefilter from GitHub metadata."
+        )
+    elif source.name == "Hugging Face":
+        category = "research"
+        subcategory = "model_release"
+        summary_prefix = "Hugging Face model"
+        why_it_matters = (
+            "This model metadata matched the AI relevance prefilter from Hugging Face."
         )
     elif source.type == "manual":
         category = "manual_submission"

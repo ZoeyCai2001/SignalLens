@@ -48,3 +48,4 @@ Implementation progress:
 - Added topic watchlist persistence, seed data, API endpoints, and dashboard display.
 - Added GitHub public repository ingestion for open-source AI project signals.
 - Added stock-linked signal summary and ticker detail endpoints, with dashboard signal counts.
+- Added Hugging Face public model ingestion for model-release and open-source LLM signals.

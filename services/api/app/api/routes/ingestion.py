@@ -6,6 +6,7 @@ from app.services.ingestion import (
     run_arxiv_ingestion,
     run_github_ingestion,
     run_hacker_news_ingestion,
+    run_hugging_face_ingestion,
 )
 
 router = APIRouter()
@@ -35,4 +36,13 @@ async def ingest_github(
     limit: int = Query(default=25, ge=1, le=100),
 ) -> IngestionRunResponse:
     result = await run_github_ingestion(db=db, limit=limit)
+    return IngestionRunResponse.model_validate(result)
+
+
+@router.post("/hugging-face", response_model=IngestionRunResponse)
+async def ingest_hugging_face(
+    db: DbSession,
+    limit: int = Query(default=25, ge=1, le=100),
+) -> IngestionRunResponse:
+    result = await run_hugging_face_ingestion(db=db, limit=limit)
     return IngestionRunResponse.model_validate(result)

@@ -61,6 +61,12 @@ Ingest public GitHub AI repositories:
 curl -X POST "http://127.0.0.1:8000/api/ingestion/github?limit=20"
 ```
 
+Ingest public Hugging Face model metadata:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/hugging-face?limit=25"
+```
+
 Summarize a stored feed item with Kimi:
 
 ```bash

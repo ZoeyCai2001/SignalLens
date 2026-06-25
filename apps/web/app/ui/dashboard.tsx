@@ -204,7 +204,9 @@ export function Dashboard() {
     void refreshAll();
   }, [refreshAll]);
 
-  const runIngestion = async (source: "hacker-news" | "arxiv" | "github") => {
+  const runIngestion = async (
+    source: "hacker-news" | "arxiv" | "github" | "hugging-face",
+  ) => {
     setLoadState("running");
     setError(null);
     try {
@@ -403,6 +405,15 @@ export function Dashboard() {
             >
               {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Github size={16} />}
               GitHub
+            </button>
+            <button
+              className="button"
+              onClick={() => runIngestion("hugging-face")}
+              disabled={loadState !== "idle"}
+              title="Run Hugging Face model ingestion"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
+              HF
             </button>
             <button
               className="button icon-button"
