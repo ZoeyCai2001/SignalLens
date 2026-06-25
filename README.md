@@ -12,7 +12,7 @@ The initial product requirements are documented in [ai_intelligence_dashboard_pr
 
 ## Status
 
-Current phase: backend MVP scaffold.
+Current phase: MVP implementation in progress.
 
 The initial backend scaffold lives in [services/api](services/api). The recommended MVP stack is:
 
@@ -89,6 +89,20 @@ Run the Kimi API smoke test:
 ```bash
 cd services/api
 python scripts/smoke_test_kimi.py
+```
+
+Run one scheduled ingestion cycle from the command line:
+
+```bash
+cd services/api
+python scripts/run_scheduler.py
+```
+
+Run the local scheduler continuously:
+
+```bash
+cd services/api
+SIGNALLENS_SCHEDULER_MODE=forever SIGNALLENS_SCHEDULER_INTERVAL_MINUTES=360 python scripts/run_scheduler.py
 ```
 
 ## Local Web Setup

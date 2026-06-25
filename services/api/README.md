@@ -43,6 +43,18 @@ Run the Kimi smoke test:
 python scripts/smoke_test_kimi.py
 ```
 
+Run one local scheduled ingestion cycle:
+
+```bash
+python scripts/run_scheduler.py
+```
+
+Run the scheduler continuously with a six-hour interval:
+
+```bash
+SIGNALLENS_SCHEDULER_MODE=forever SIGNALLENS_SCHEDULER_INTERVAL_MINUTES=360 python scripts/run_scheduler.py
+```
+
 Ingest Hacker News top stories:
 
 ```bash
