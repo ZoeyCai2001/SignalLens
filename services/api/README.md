@@ -55,6 +55,12 @@ Run the scheduler continuously with a six-hour interval:
 SIGNALLENS_SCHEDULER_MODE=forever SIGNALLENS_SCHEDULER_INTERVAL_MINUTES=360 python scripts/run_scheduler.py
 ```
 
+Ingest watched-ticker AI stock news with an optional `ALPHA_VANTAGE_API_KEY`:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/alpha-vantage-news?limit=25"
+```
+
 Ingest Hacker News top stories:
 
 ```bash

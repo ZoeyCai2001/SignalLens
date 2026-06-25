@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.services.alerts import generate_alerts
 from app.services.ingestion import (
     IngestionResult,
+    run_alpha_vantage_news_ingestion,
     run_arxiv_ingestion,
     run_github_ingestion,
     run_hacker_news_ingestion,
@@ -40,6 +41,11 @@ class ScheduledCycleResult:
 
 DEFAULT_INGESTION_JOBS = [
     ScheduledIngestionJob(name="hacker-news", runner=run_hacker_news_ingestion, limit=30),
+    ScheduledIngestionJob(
+        name="alpha-vantage-news",
+        runner=run_alpha_vantage_news_ingestion,
+        limit=25,
+    ),
     ScheduledIngestionJob(name="arxiv", runner=run_arxiv_ingestion, limit=25),
     ScheduledIngestionJob(name="github", runner=run_github_ingestion, limit=25),
     ScheduledIngestionJob(name="hugging-face", runner=run_hugging_face_ingestion, limit=25),

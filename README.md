@@ -64,6 +64,7 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/events/clusters`
 - `GET http://127.0.0.1:8000/api/sources/health`
 - `POST http://127.0.0.1:8000/api/ingestion/hacker-news`
+- `POST http://127.0.0.1:8000/api/ingestion/alpha-vantage-news`
 - `POST http://127.0.0.1:8000/api/ingestion/arxiv`
 - `POST http://127.0.0.1:8000/api/ingestion/github`
 - `POST http://127.0.0.1:8000/api/ingestion/hugging-face`
@@ -98,6 +99,10 @@ python scripts/smoke_test_kimi.py
 Product Hunt ingestion is optional and uses the official GraphQL API. Set
 `PRODUCT_HUNT_API_TOKEN` in `.env` to enable it; without a token the source run is
 recorded as `skipped`.
+
+Alpha Vantage stock news ingestion is optional. Set `ALPHA_VANTAGE_API_KEY` in
+`.env` to enable watched-ticker news; without a key the source run is recorded as
+`skipped`.
 
 Run one scheduled ingestion cycle from the command line:
 

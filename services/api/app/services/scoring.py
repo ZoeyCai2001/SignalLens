@@ -29,7 +29,27 @@ AI_KEYWORDS = {
     "transformer",
 }
 
-WATCHED_TICKERS = {"MU", "MRVL", "SNDK", "NVDA", "AMD", "AVGO", "TSM", "ASML", "MSFT", "GOOGL"}
+WATCHED_TICKERS = {
+    "MU",
+    "MRVL",
+    "SNDK",
+    "NVDA",
+    "AMD",
+    "AVGO",
+    "TSM",
+    "ASML",
+    "AMAT",
+    "LRCX",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "ORCL",
+    "ARM",
+    "SMCI",
+    "DELL",
+    "HPE",
+}
 
 TICKER_ALIASES = {
     "MU": ["Micron", "Micron Technology"],
@@ -40,8 +60,17 @@ TICKER_ALIASES = {
     "AVGO": ["Broadcom"],
     "TSM": ["TSMC", "Taiwan Semiconductor"],
     "ASML": ["ASML"],
+    "AMAT": ["Applied Materials"],
+    "LRCX": ["Lam Research"],
     "MSFT": ["Microsoft"],
     "GOOGL": ["Google", "Alphabet"],
+    "AMZN": ["Amazon", "AWS"],
+    "META": ["Meta", "Facebook"],
+    "ORCL": ["Oracle"],
+    "ARM": ["Arm Holdings"],
+    "SMCI": ["Super Micro", "Supermicro"],
+    "DELL": ["Dell"],
+    "HPE": ["Hewlett Packard Enterprise", "HPE"],
 }
 
 

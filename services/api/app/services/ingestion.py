@@ -7,12 +7,14 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.models import NormalizedItem, RawItem, Source, SourceRun
 from app.services.scoring import (
+    TICKER_ALIASES,
     detect_tickers,
     detect_topics,
     importance_score,
     is_ai_relevant,
     relevance_score,
 )
+from app.sources.alpha_vantage import AlphaVantageNewsConnector
 from app.sources.arxiv import ArxivConnector
 from app.sources.base import FetchCursor, RawItemInput, SourceConnector
 from app.sources.github import GitHubConnector
@@ -149,6 +151,40 @@ async def run_product_hunt_ingestion(
 
     connector = ProductHuntConnector(
         api_token=resolved_settings.product_hunt_api_token,
+        limit=limit,
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
+async def run_alpha_vantage_news_ingestion(
+    db: Session,
+    limit: int = 25,
+    settings: Settings | None = None,
+) -> IngestionResult:
+    resolved_settings = settings or get_settings()
+    source = get_or_create_source(
+        db,
+        name="Alpha Vantage News",
+        source_type="finance_news",
+        access_method="official_api",
+        base_url="https://www.alphavantage.co/query",
+        auth_required=True,
+        rate_limit="Free API key available; keep polling conservative.",
+        polling_interval="6 hours",
+        enabled=True,
+        priority=14,
+        terms_notes="Uses Alpha Vantage news sentiment metadata for public stock-related news.",
+    )
+    if not resolved_settings.alpha_vantage_api_key:
+        return record_skipped_run(
+            db=db,
+            source=source,
+            message="ALPHA_VANTAGE_API_KEY is not configured.",
+        )
+
+    connector = AlphaVantageNewsConnector(
+        api_key=resolved_settings.alpha_vantage_api_key,
+        tickers=default_finance_news_tickers(),
         limit=limit,
     )
     return await run_connector_ingestion(db=db, connector=connector, source=source)
@@ -322,6 +358,17 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
 
     topics = detect_topics(combined_text)
     tickers = detect_tickers(combined_text)
+    if raw.raw_metadata.get("ticker_sentiment"):
+        tickers = sorted(
+            {
+                *tickers,
+                *[
+                    str(item.get("ticker", "")).strip().upper()
+                    for item in raw.raw_metadata["ticker_sentiment"]
+                    if str(item.get("ticker", "")).strip()
+                ],
+            }
+        )
     source_quality = 0.75
     relevance = relevance_score(combined_text)
     importance = importance_score(source_quality_score=source_quality, text=combined_text)
@@ -359,6 +406,13 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         why_it_matters = (
             "This product launch matched the AI relevance prefilter from Product Hunt metadata."
         )
+    elif source.name == "Alpha Vantage News":
+        category = "stock_company_event"
+        subcategory = "finance_news"
+        summary_prefix = "Stock-linked AI news"
+        why_it_matters = (
+            "This finance item matched watched AI tickers or AI themes in Alpha Vantage news."
+        )
     elif source.type == "manual":
         category = "manual_submission"
         subcategory = "user_submitted_url"
@@ -384,7 +438,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         category=category,
         subcategory=subcategory,
         tickers=tickers,
-        companies=[],
+        companies=tickers,
         products=[raw.raw_metadata["product_name"]] if raw.raw_metadata.get("product_name") else [],
         topics=topics,
         sentiment="neutral",
@@ -392,7 +446,19 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         importance_score=importance,
         novelty_score=1.0,
         source_quality_score=source_quality,
-        stock_impact_score=0.2 if tickers else 0,
+        stock_impact_score=stock_impact_score_for_source(source=source, tickers=tickers),
         summary_short=f"{summary_prefix}: {raw.raw_title}",
         why_it_matters=why_it_matters,
     )
+
+
+def default_finance_news_tickers() -> list[str]:
+    return sorted(TICKER_ALIASES)
+
+
+def stock_impact_score_for_source(source: Source, tickers: list[str]) -> float:
+    if not tickers:
+        return 0
+    if source.name == "Alpha Vantage News":
+        return 0.55
+    return 0.2

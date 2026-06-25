@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     moonshot_model: str = Field(default="kimi-for-coding", alias="MOONSHOT_MODEL")
     kimi_api_format: str = Field(default="anthropic_messages", alias="KIMI_API_FORMAT")
     product_hunt_api_token: str | None = Field(default=None, alias="PRODUCT_HUNT_API_TOKEN")
+    alpha_vantage_api_key: str | None = Field(default=None, alias="ALPHA_VANTAGE_API_KEY")
     cors_origins: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 
     model_config = SettingsConfigDict(

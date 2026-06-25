@@ -250,7 +250,14 @@ export function Dashboard() {
   }, [refreshAll]);
 
   const runIngestion = async (
-    source: "hacker-news" | "arxiv" | "github" | "hugging-face" | "product-hunt" | "rss",
+    source:
+      | "hacker-news"
+      | "alpha-vantage-news"
+      | "arxiv"
+      | "github"
+      | "hugging-face"
+      | "product-hunt"
+      | "rss",
   ) => {
     setLoadState("running");
     setError(null);
@@ -462,6 +469,15 @@ export function Dashboard() {
             >
               {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Newspaper size={16} />}
               HN
+            </button>
+            <button
+              className="button"
+              onClick={() => runIngestion("alpha-vantage-news")}
+              disabled={loadState !== "idle"}
+              title="Run Alpha Vantage stock news ingestion"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <BarChart3 size={16} />}
+              Stocks
             </button>
             <button
               className="button"
