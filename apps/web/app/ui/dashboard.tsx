@@ -78,6 +78,7 @@ type StockWatchlistItem = {
 type StockSignalSummary = {
   stock: StockWatchlistItem;
   signal_count: number;
+  attention_score: number;
   top_signals: FeedItem[];
   disclaimer: string;
 };
@@ -91,6 +92,7 @@ type StockBriefingTimelineItem = {
 type StockBriefing = {
   stock: StockWatchlistItem;
   signal_count: number;
+  attention_score: number;
   urgency: string;
   latest_signal_at: string | null;
   sentiment_counts: Record<string, number>;
@@ -1826,6 +1828,7 @@ function StockTable({
               <th>Company</th>
               <th>Priority</th>
               <th>Signals</th>
+              <th>Attention</th>
               <th>Themes</th>
               <th>Action</th>
             </tr>
@@ -1864,6 +1867,7 @@ function StockTable({
                     </select>
                   </td>
                   <td>{summary?.signal_count ?? 0}</td>
+                  <td>{Math.round((summary?.attention_score ?? 0) * 100)}</td>
                   <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
                   <td>
                     <div className="table-actions">
@@ -1955,6 +1959,10 @@ function StockBriefingPanel({
         <div className="score-cell">
           <span className="score-label">Signals</span>
           <span className="score-value">{briefing.signal_count}</span>
+        </div>
+        <div className="score-cell">
+          <span className="score-label">Attention</span>
+          <span className="score-value">{Math.round(briefing.attention_score * 100)}</span>
         </div>
         <div className="score-cell">
           <span className="score-label">Positive</span>

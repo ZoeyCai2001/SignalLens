@@ -28,6 +28,7 @@ class StockWatchlistItem(BaseModel):
 class StockSignalSummary(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
+    attention_score: float
     top_signals: list[FeedItem]
     disclaimer: str
 
@@ -41,6 +42,7 @@ class StockBriefingTimelineItem(BaseModel):
 class StockBriefing(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
+    attention_score: float
     urgency: str
     latest_signal_at: datetime | None
     sentiment_counts: dict[str, int]

@@ -246,11 +246,15 @@ def summarize_stock_signals(
 ) -> list[StockSignalSummary]:
     stocks = list_stock_watchlist(db)
     if not stocks:
-        return [
+        summaries = [
             build_stock_signal_summary(db, stock, limit=limit_per_stock)
             for stock in initial_stock_watchlist()
         ]
-    return [build_stock_signal_summary(db, stock, limit=limit_per_stock) for stock in stocks]
+    else:
+        summaries = [
+            build_stock_signal_summary(db, stock, limit=limit_per_stock) for stock in stocks
+        ]
+    return sorted(summaries, key=lambda summary: summary.attention_score, reverse=True)
 
 
 def get_stock_signals(
@@ -302,6 +306,11 @@ def build_stock_signal_summary(
     return StockSignalSummary(
         stock=stock_schema,
         signal_count=signal_count,
+        attention_score=compute_stock_attention_score(
+            stock=stock_schema,
+            top_signals=top_signals,
+            signal_count=signal_count,
+        ),
         top_signals=top_signals,
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
     )
@@ -316,6 +325,7 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
     return StockBriefing(
         stock=summary.stock,
         signal_count=summary.signal_count,
+        attention_score=summary.attention_score,
         urgency=classify_stock_urgency(summary),
         latest_signal_at=latest_signal_at,
         sentiment_counts=dict(sentiment_counts),
@@ -352,6 +362,41 @@ def compute_stock_signal_score(item: FeedItem) -> float:
         ),
         3,
     )
+
+
+def compute_stock_attention_score(
+    stock: StockWatchlistSchema,
+    top_signals: list[FeedItem],
+    signal_count: int,
+) -> float:
+    strongest_signal = max(
+        (compute_stock_signal_score(item) for item in top_signals),
+        default=0,
+    )
+    signal_volume = min(signal_count / 10, 1)
+    priority = priority_score(stock.priority)
+    pinned_bonus = 1 if stock.is_pinned else 0
+    return round(
+        min(
+            1,
+            0.55 * strongest_signal
+            + 0.25 * signal_volume
+            + 0.15 * priority
+            + 0.05 * pinned_bonus,
+        ),
+        3,
+    )
+
+
+def priority_score(value: str) -> float:
+    normalized = value.strip().lower()
+    if normalized == "high":
+        return 1
+    if normalized == "medium":
+        return 0.6
+    if normalized == "low":
+        return 0.25
+    return 0.4
 
 
 def build_stock_briefing_themes(items: list[FeedItem], limit: int = 8) -> list[str]:

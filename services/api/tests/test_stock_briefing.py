@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import StockSignalSummary, StockWatchlistItem
-from app.services.watchlist import build_stock_briefing
+from app.services.watchlist import build_stock_briefing, compute_stock_attention_score
 
 
 def test_build_stock_briefing_summarizes_signal_state() -> None:
@@ -20,6 +20,7 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
             related_ai_themes=["memory"],
         ),
         signal_count=2,
+        attention_score=0.812,
         top_signals=[
             make_feed_item(
                 1,
@@ -48,6 +49,7 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
 
     briefing = build_stock_briefing(summary)
 
+    assert briefing.attention_score == 0.812
     assert briefing.urgency == "high"
     assert briefing.latest_signal_at == datetime(2026, 6, 25, 10, 0, tzinfo=UTC)
     assert briefing.sentiment_counts == {"positive": 1, "mixed": 1}
@@ -58,6 +60,34 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
         == "HBM demand links directly to watched memory names."
     )
     assert briefing.disclaimer == "Informational only."
+
+
+def test_compute_stock_attention_score_combines_signal_volume_and_preferences() -> None:
+    stock = StockWatchlistItem(
+        ticker="MU",
+        company_name="Micron",
+        exchange="NASDAQ",
+        sector="Technology",
+        industry="Semiconductors",
+        priority="High",
+        group_name="Watch Only",
+        is_pinned=True,
+    )
+    signals = [
+        make_feed_item(
+            1,
+            "Micron high impact item",
+            sentiment="positive",
+            stock_impact_score=0.8,
+            importance_score=0.6,
+            topics=["HBM"],
+            companies=["Micron"],
+        )
+    ]
+
+    score = compute_stock_attention_score(stock=stock, top_signals=signals, signal_count=4)
+
+    assert score == 0.74
 
 
 def make_feed_item(

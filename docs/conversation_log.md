@@ -67,3 +67,4 @@ Implementation progress:
 - Added dashboard controls for changing watchlist priority, pinning stocks/topics, and toggling topic digest inclusion through the existing patch APIs.
 - Added persisted user preferences for configurable feed ranking weights, plus preferences APIs and weighted feed ordering.
 - Added dashboard ranking weight controls that read and update local preferences and refresh the ranked feed.
+- Added deterministic stock attention scores to stock signal summaries, briefings, and the dashboard stock table.
