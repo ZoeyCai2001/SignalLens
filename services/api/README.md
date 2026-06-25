@@ -148,6 +148,19 @@ curl "http://127.0.0.1:8000/api/alerts?limit=10"
 curl -X POST "http://127.0.0.1:8000/api/alerts/1/dismiss"
 ```
 
+Create, update, or delete alert rules:
+
+```bash
+curl "http://127.0.0.1:8000/api/alerts/rules"
+curl -X POST "http://127.0.0.1:8000/api/alerts/rules" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Watch AVGO custom silicon","category":"stock_company_event","tickers":["AVGO"],"topics":["custom silicon"],"min_importance_score":0.65}'
+curl -X PATCH "http://127.0.0.1:8000/api/alerts/rules/1" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled":false}'
+curl -X DELETE "http://127.0.0.1:8000/api/alerts/rules/1"
+```
+
 Generate the daily digest from stored feed items:
 
 ```bash

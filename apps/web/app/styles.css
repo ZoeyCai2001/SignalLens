@@ -274,6 +274,10 @@ a {
   color: #9a3412;
 }
 
+.muted-badge {
+  opacity: 0.58;
+}
+
 .score-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(76px, 1fr));
@@ -340,7 +344,7 @@ table {
 }
 
 .compact-form {
-  grid-template-columns: 90px minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) auto;
+  grid-template-columns: repeat(5, minmax(92px, 1fr)) auto;
   align-items: center;
 }
 

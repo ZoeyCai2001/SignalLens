@@ -60,6 +60,7 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/feed`
 - `GET http://127.0.0.1:8000/api/search`
 - `GET http://127.0.0.1:8000/api/alerts`
+- `GET http://127.0.0.1:8000/api/alerts/rules`
 - `GET http://127.0.0.1:8000/api/digest/daily`
 - `GET http://127.0.0.1:8000/api/events/clusters`
 - `GET http://127.0.0.1:8000/api/sources/health`
@@ -84,6 +85,9 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/classify`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/summarize`
 - `POST http://127.0.0.1:8000/api/alerts/generate`
+- `POST http://127.0.0.1:8000/api/alerts/rules`
+- `PATCH http://127.0.0.1:8000/api/alerts/rules/{rule_id}`
+- `DELETE http://127.0.0.1:8000/api/alerts/rules/{rule_id}`
 - `POST http://127.0.0.1:8000/api/alerts/{alert_id}/dismiss`
 - `POST http://127.0.0.1:8000/api/llm/smoke-test`
 

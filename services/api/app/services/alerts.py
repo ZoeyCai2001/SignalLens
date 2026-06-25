@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import Alert, AlertRule, NormalizedItem
-from app.schemas.alerts import AlertGenerationResult, AlertItem
+from app.schemas.alerts import AlertGenerationResult, AlertItem, AlertRuleCreate, AlertRuleUpdate
 from app.services.feed_actions import LOCAL_USER_ID, get_action, serialize_feed_item
 from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER
 
@@ -53,6 +53,97 @@ def seed_default_alert_rules(db: Session) -> int:
     if created:
         db.commit()
     return created
+
+
+def list_alert_rules(db: Session) -> list[AlertRule]:
+    seed_default_alert_rules(db)
+    return (
+        db.query(AlertRule)
+        .filter(AlertRule.user_id == LOCAL_USER_ID)
+        .order_by(AlertRule.enabled.desc(), AlertRule.severity.desc(), AlertRule.name.asc())
+        .all()
+    )
+
+
+def create_alert_rule(db: Session, payload: AlertRuleCreate) -> AlertRule:
+    name = payload.name.strip()
+    if not name:
+        raise ValueError("Alert rule name is required.")
+    if get_alert_rule_by_name(db, name):
+        raise ValueError(f"{name} is already an alert rule.")
+
+    rule = AlertRule(
+        user_id=LOCAL_USER_ID,
+        name=name,
+        description=payload.description.strip() if payload.description else None,
+        category=payload.category.strip() or "all",
+        severity=payload.severity.strip() or "medium",
+        min_importance_score=payload.min_importance_score,
+        min_stock_impact_score=payload.min_stock_impact_score,
+        tickers=normalize_tickers(payload.tickers),
+        topics=clean_terms(payload.topics),
+        enabled=payload.enabled,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+def update_alert_rule(db: Session, rule_id: int, payload: AlertRuleUpdate) -> AlertRule | None:
+    rule = get_alert_rule(db, rule_id)
+    if rule is None:
+        return None
+
+    updates = payload.model_dump(exclude_unset=True)
+    if "name" in updates and updates["name"] is not None:
+        name = updates["name"].strip()
+        if not name:
+            raise ValueError("Alert rule name is required.")
+        existing = get_alert_rule_by_name(db, name)
+        if existing and existing.id != rule.id:
+            raise ValueError(f"{name} is already an alert rule.")
+        updates["name"] = name
+
+    for field_name, value in updates.items():
+        if field_name == "tickers" and value is not None:
+            value = normalize_tickers(value)
+        elif field_name == "topics" and value is not None:
+            value = clean_terms(value)
+        elif isinstance(value, str):
+            value = value.strip()
+        setattr(rule, field_name, value)
+
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+def delete_alert_rule(db: Session, rule_id: int) -> bool:
+    rule = get_alert_rule(db, rule_id)
+    if rule is None:
+        return False
+    db.query(Alert).filter(Alert.user_id == LOCAL_USER_ID, Alert.rule_id == rule.id).delete()
+    db.delete(rule)
+    db.commit()
+    return True
+
+
+def get_alert_rule(db: Session, rule_id: int) -> AlertRule | None:
+    return (
+        db.query(AlertRule)
+        .filter(AlertRule.user_id == LOCAL_USER_ID, AlertRule.id == rule_id)
+        .one_or_none()
+    )
+
+
+def get_alert_rule_by_name(db: Session, name: str) -> AlertRule | None:
+    return (
+        db.query(AlertRule)
+        .filter(AlertRule.user_id == LOCAL_USER_ID, AlertRule.name == name.strip())
+        .one_or_none()
+    )
 
 
 def generate_alerts(db: Session, limit: int = 100) -> AlertGenerationResult:
@@ -207,3 +298,19 @@ def serialize_alert(db: Session, alert: Alert) -> AlertItem:
 
 def normalize_list(values: list[str]) -> list[str]:
     return [value.strip().lower() for value in values if value.strip()]
+
+
+def normalize_tickers(values: list[str]) -> list[str]:
+    return [value.upper().removeprefix("$") for value in clean_terms(values)]
+
+
+def clean_terms(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for value in values:
+        normalized = value.strip()
+        if not normalized or normalized.lower() in seen:
+            continue
+        seen.add(normalized.lower())
+        cleaned.append(normalized)
+    return cleaned

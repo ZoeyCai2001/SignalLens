@@ -59,3 +59,4 @@ Implementation progress:
 - Added editable stock watchlist APIs and a dashboard control for adding new watched tickers.
 - Added configurable Chinese public RSS ingestion and a dashboard panel for Chinese social trend signals.
 - Added editable topic and product-category watchlist APIs with dashboard add controls.
+- Added editable alert rule APIs and dashboard controls for custom alert rules.

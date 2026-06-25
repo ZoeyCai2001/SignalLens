@@ -20,6 +20,30 @@ class AlertRule(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AlertRuleCreate(BaseModel):
+    name: str
+    description: str | None = None
+    category: str = "all"
+    severity: str = "medium"
+    min_importance_score: float = 0.75
+    min_stock_impact_score: float = 0
+    tickers: list[str] = Field(default_factory=list)
+    topics: list[str] = Field(default_factory=list)
+    enabled: bool = True
+
+
+class AlertRuleUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    category: str | None = None
+    severity: str | None = None
+    min_importance_score: float | None = None
+    min_stock_impact_score: float | None = None
+    tickers: list[str] | None = None
+    topics: list[str] | None = None
+    enabled: bool | None = None
+
+
 class AlertItem(BaseModel):
     id: int
     title: str

@@ -1,5 +1,5 @@
 from app.db.models import AlertRule, NormalizedItem
-from app.services.alerts import alert_reason, match_alert_rules
+from app.services.alerts import alert_reason, clean_terms, match_alert_rules, normalize_tickers
 
 
 def test_alert_reason_matches_high_impact_stock_signal() -> None:
@@ -40,6 +40,11 @@ def test_match_alert_rules_respects_topic_filters() -> None:
     matches = match_alert_rules(item, rules)
 
     assert [match.rule.name for match in matches] == ["Inference"]
+
+
+def test_alert_rule_input_helpers_clean_terms_and_tickers() -> None:
+    assert clean_terms([" inference ", "Inference", "", "agents"]) == ["inference", "agents"]
+    assert normalize_tickers([" mu ", "$avgo"]) == ["MU", "AVGO"]
 
 
 def make_item(

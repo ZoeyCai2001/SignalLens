@@ -154,6 +154,19 @@ type AlertItem = {
   disclaimer: string;
 };
 
+type AlertRule = {
+  id: number;
+  name: string;
+  description: string | null;
+  category: string;
+  severity: string;
+  min_importance_score: number;
+  min_stock_impact_score: number;
+  tickers: string[];
+  topics: string[];
+  enabled: boolean;
+};
+
 type LoadState = "idle" | "loading" | "running";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -176,6 +189,7 @@ export function Dashboard() {
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
@@ -192,6 +206,11 @@ export function Dashboard() {
   const [topicLabel, setTopicLabel] = useState("");
   const [topicCategory, setTopicCategory] = useState("technical_trend");
   const [topicTerms, setTopicTerms] = useState("");
+  const [alertRuleName, setAlertRuleName] = useState("");
+  const [alertRuleCategory, setAlertRuleCategory] = useState("all");
+  const [alertRuleTickers, setAlertRuleTickers] = useState("");
+  const [alertRuleTopics, setAlertRuleTopics] = useState("");
+  const [alertRuleImportance, setAlertRuleImportance] = useState("0.75");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSource, setSearchSource] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
@@ -229,6 +248,7 @@ export function Dashboard() {
         nextDigest,
         nextEventClusters,
         nextAlerts,
+        nextAlertRules,
       ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
@@ -239,6 +259,7 @@ export function Dashboard() {
           fetchJson<DailyDigest>("/api/digest/daily"),
           fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
           fetchJson<AlertItem[]>("/api/alerts?limit=8"),
+          fetchJson<AlertRule[]>("/api/alerts/rules"),
         ]);
       setFeed(nextFeed);
       setStocks(nextStocks);
@@ -248,6 +269,7 @@ export function Dashboard() {
       setDigest(nextDigest);
       setEventClusters(nextEventClusters);
       setAlerts(nextAlerts);
+      setAlertRules(nextAlertRules);
       setStatus(`Loaded ${nextFeed.length} feed items`);
     } catch (err) {
       setError(readError(err));
@@ -500,6 +522,41 @@ export function Dashboard() {
     }
   };
 
+  const submitAlertRule = async () => {
+    if (!alertRuleName.trim()) {
+      setError("Alert rules need a name.");
+      return;
+    }
+
+    setLoadState("running");
+    setError(null);
+    try {
+      const created = await fetchJson<AlertRule>("/api/alerts/rules", {
+        method: "POST",
+        body: JSON.stringify({
+          name: alertRuleName.trim(),
+          category: alertRuleCategory,
+          min_importance_score: Number(alertRuleImportance) || 0.75,
+          tickers: splitTerms(alertRuleTickers),
+          topics: splitTerms(alertRuleTopics),
+        }),
+      });
+      setAlertRules((rules) => [created, ...rules.filter((rule) => rule.id !== created.id)]);
+      setAlertRuleName("");
+      setAlertRuleCategory("all");
+      setAlertRuleTickers("");
+      setAlertRuleTopics("");
+      setAlertRuleImportance("0.75");
+      setStatus(`Added alert rule ${created.name}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert rule add failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
   const metrics = useMemo(() => {
     const highImportance = feed.filter((item) => item.importance_score >= 0.75).length;
     const summarized = feed.filter((item) => item.summary_detailed).length;
@@ -685,7 +742,24 @@ export function Dashboard() {
           </section>
 
           <aside className="stack">
-            <AlertPanel alerts={alerts} busyAlertId={busyAlertId} onDismiss={dismissAlert} />
+            <AlertPanel
+              alerts={alerts}
+              rules={alertRules}
+              busyAlertId={busyAlertId}
+              ruleName={alertRuleName}
+              ruleCategory={alertRuleCategory}
+              ruleTickers={alertRuleTickers}
+              ruleTopics={alertRuleTopics}
+              ruleImportance={alertRuleImportance}
+              disabled={loadState !== "idle"}
+              onDismiss={dismissAlert}
+              onRuleNameChange={setAlertRuleName}
+              onRuleCategoryChange={setAlertRuleCategory}
+              onRuleTickersChange={setAlertRuleTickers}
+              onRuleTopicsChange={setAlertRuleTopics}
+              onRuleImportanceChange={setAlertRuleImportance}
+              onRuleSubmit={submitAlertRule}
+            />
             <DailyDigestPanel digest={digest} />
             <ChineseSocialPanel items={feed} />
             <EventClusterPanel clusters={eventClusters} />
@@ -773,18 +847,98 @@ function ChineseSocialPanel({ items }: { items: FeedItem[] }) {
 
 function AlertPanel({
   alerts,
+  rules,
   busyAlertId,
+  ruleName,
+  ruleCategory,
+  ruleTickers,
+  ruleTopics,
+  ruleImportance,
+  disabled,
   onDismiss,
+  onRuleNameChange,
+  onRuleCategoryChange,
+  onRuleTickersChange,
+  onRuleTopicsChange,
+  onRuleImportanceChange,
+  onRuleSubmit,
 }: {
   alerts: AlertItem[];
+  rules: AlertRule[];
   busyAlertId: number | null;
+  ruleName: string;
+  ruleCategory: string;
+  ruleTickers: string;
+  ruleTopics: string;
+  ruleImportance: string;
+  disabled: boolean;
   onDismiss: (alertId: number) => void;
+  onRuleNameChange: (value: string) => void;
+  onRuleCategoryChange: (value: string) => void;
+  onRuleTickersChange: (value: string) => void;
+  onRuleTopicsChange: (value: string) => void;
+  onRuleImportanceChange: (value: string) => void;
+  onRuleSubmit: () => void;
 }) {
   return (
     <section className="section">
       <div className="section-header">
         <h2 className="section-title">Alerts</h2>
         <BellRing size={16} aria-hidden="true" />
+      </div>
+      <div className="form-panel compact-form">
+        <input
+          className="field"
+          value={ruleName}
+          onChange={(event) => onRuleNameChange(event.target.value)}
+          placeholder="Rule name"
+          aria-label="Alert rule name"
+        />
+        <select
+          className="field"
+          value={ruleCategory}
+          onChange={(event) => onRuleCategoryChange(event.target.value)}
+          aria-label="Alert rule category"
+        >
+          <option value="all">Any</option>
+          <option value="technical_trend">Trend</option>
+          <option value="research">Research</option>
+          <option value="product">Product</option>
+          <option value="stock_company_event">Stock</option>
+          <option value="social_trend">Social</option>
+        </select>
+        <input
+          className="field"
+          value={ruleTickers}
+          onChange={(event) => onRuleTickersChange(event.target.value)}
+          placeholder="Tickers"
+          aria-label="Alert rule tickers"
+        />
+        <input
+          className="field"
+          value={ruleTopics}
+          onChange={(event) => onRuleTopicsChange(event.target.value)}
+          placeholder="Topics"
+          aria-label="Alert rule topics"
+        />
+        <input
+          className="field"
+          value={ruleImportance}
+          onChange={(event) => onRuleImportanceChange(event.target.value)}
+          placeholder="Min"
+          aria-label="Alert rule minimum importance"
+        />
+        <button className="button primary" onClick={onRuleSubmit} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+          Add
+        </button>
+      </div>
+      <div className="badges">
+        {rules.slice(0, 5).map((rule) => (
+          <span className={`badge ${rule.enabled ? "" : "muted-badge"}`} key={rule.id}>
+            {rule.name}
+          </span>
+        ))}
       </div>
       <div className="alert-list">
         {alerts.length ? (
