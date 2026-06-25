@@ -17,6 +17,7 @@ from app.sources.base import FetchCursor, RawItemInput
 from app.sources.github import GitHubConnector
 from app.sources.hacker_news import HackerNewsConnector
 from app.sources.hugging_face import HuggingFaceConnector
+from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector
 
 
 @dataclass(frozen=True)
@@ -100,9 +101,33 @@ async def run_hugging_face_ingestion(db: Session, limit: int = 25) -> IngestionR
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
 
+async def run_rss_ingestion(db: Session, limit: int = 25) -> IngestionResult:
+    connector = RssConnector(limit=limit)
+    source = get_or_create_source(
+        db,
+        name="Selected RSS Feeds",
+        source_type="rss",
+        access_method="rss",
+        base_url=", ".join(feed.url for feed in DEFAULT_RSS_FEEDS),
+        auth_required=False,
+        rate_limit="Public RSS feeds; keep polling conservative.",
+        polling_interval="6 hours",
+        enabled=True,
+        priority=18,
+        terms_notes="Uses public RSS/Atom metadata and excerpts from selected AI sources.",
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
 async def run_connector_ingestion(
     db: Session,
-    connector: HackerNewsConnector | ArxivConnector | GitHubConnector | HuggingFaceConnector,
+    connector: (
+        HackerNewsConnector
+        | ArxivConnector
+        | GitHubConnector
+        | HuggingFaceConnector
+        | RssConnector
+    ),
     source: Source,
 ) -> IngestionResult:
     run = SourceRun(source_id=source.id, status="running")
@@ -273,6 +298,11 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         why_it_matters = (
             "This model metadata matched the AI relevance prefilter from Hugging Face."
         )
+    elif source.name == "Selected RSS Feeds":
+        category = "technical_trend"
+        subcategory = "company_blog"
+        summary_prefix = "RSS item"
+        why_it_matters = "This RSS item matched the AI relevance prefilter from selected feeds."
     elif source.type == "manual":
         category = "manual_submission"
         subcategory = "user_submitted_url"

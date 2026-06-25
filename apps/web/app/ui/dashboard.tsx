@@ -205,7 +205,7 @@ export function Dashboard() {
   }, [refreshAll]);
 
   const runIngestion = async (
-    source: "hacker-news" | "arxiv" | "github" | "hugging-face",
+    source: "hacker-news" | "arxiv" | "github" | "hugging-face" | "rss",
   ) => {
     setLoadState("running");
     setError(null);
@@ -414,6 +414,15 @@ export function Dashboard() {
             >
               {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
               HF
+            </button>
+            <button
+              className="button"
+              onClick={() => runIngestion("rss")}
+              disabled={loadState !== "idle"}
+              title="Run selected RSS feed ingestion"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Newspaper size={16} />}
+              RSS
             </button>
             <button
               className="button icon-button"

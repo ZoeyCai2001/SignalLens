@@ -67,6 +67,12 @@ Ingest public Hugging Face model metadata:
 curl -X POST "http://127.0.0.1:8000/api/ingestion/hugging-face?limit=25"
 ```
 
+Ingest selected public RSS feeds:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/rss?limit=25"
+```
+
 Summarize a stored feed item with Kimi:
 
 ```bash

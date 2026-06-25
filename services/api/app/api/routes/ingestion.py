@@ -7,6 +7,7 @@ from app.services.ingestion import (
     run_github_ingestion,
     run_hacker_news_ingestion,
     run_hugging_face_ingestion,
+    run_rss_ingestion,
 )
 
 router = APIRouter()
@@ -45,4 +46,13 @@ async def ingest_hugging_face(
     limit: int = Query(default=25, ge=1, le=100),
 ) -> IngestionRunResponse:
     result = await run_hugging_face_ingestion(db=db, limit=limit)
+    return IngestionRunResponse.model_validate(result)
+
+
+@router.post("/rss", response_model=IngestionRunResponse)
+async def ingest_rss(
+    db: DbSession,
+    limit: int = Query(default=25, ge=1, le=100),
+) -> IngestionRunResponse:
+    result = await run_rss_ingestion(db=db, limit=limit)
     return IngestionRunResponse.model_validate(result)
