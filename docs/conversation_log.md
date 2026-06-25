@@ -69,3 +69,4 @@ Implementation progress:
 - Added dashboard ranking weight controls that read and update local preferences and refresh the ranked feed.
 - Added deterministic stock attention scores to stock signal summaries, briefings, and the dashboard stock table.
 - Added saved-only feed retrieval, unsave actions, and a dashboard Saved Items panel.
+- Added a Markdown daily digest export endpoint and dashboard copy control.

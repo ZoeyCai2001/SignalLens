@@ -1,11 +1,13 @@
 from datetime import UTC, datetime
 
+from app.schemas.digest import DailyDigest
 from app.schemas.feed import FeedItem
 from app.services.daily_digest import (
     build_digest_sections,
     build_headline,
     build_source_coverage,
     filter_items_by_excluded_topics,
+    render_digest_markdown,
 )
 
 
@@ -54,6 +56,32 @@ def test_filter_items_by_excluded_topics_removes_digest_excluded_terms() -> None
     filtered = filter_items_by_excluded_topics(items, {"model routing"})
 
     assert [item.title for item in filtered] == ["Keep"]
+
+
+def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None:
+    items = [
+        make_item(1, "Research", "research", 0.9, topics=["llm"]),
+        make_item(2, "Stock", "stock_company_event", 0.8, tickers=["MU"]),
+    ]
+    digest = DailyDigest(
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+        headline="2 AI signals for 2026-06-25.",
+        total_items=2,
+        sections=build_digest_sections(items, limit_per_section=2),
+        source_coverage=build_source_coverage(items),
+        watchlist_tickers=["MU", "MRVL"],
+        disclaimer="Informational only.",
+    )
+
+    markdown = render_digest_markdown(digest)
+
+    assert markdown.startswith("# SignalLens Daily Digest - 2026-06-25")
+    assert "Watchlist: MU, MRVL" in markdown
+    assert "## AI Research" in markdown
+    assert "- [Research](https://example.com/1) - Test Source" in markdown
+    assert "## Disclaimer" in markdown
+    assert markdown.endswith("Informational only.\n")
 
 
 def make_item(

@@ -26,3 +26,9 @@ class DailyDigest(BaseModel):
     source_coverage: list[DigestSourceCoverage]
     watchlist_tickers: list[str]
     disclaimer: str
+
+
+class DailyDigestMarkdown(BaseModel):
+    digest_date: date
+    generated_at: datetime
+    markdown: str

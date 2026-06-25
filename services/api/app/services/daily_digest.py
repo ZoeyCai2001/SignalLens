@@ -42,6 +42,44 @@ def generate_daily_digest(
     )
 
 
+def render_digest_markdown(digest: DailyDigest) -> str:
+    lines = [
+        f"# SignalLens Daily Digest - {digest.digest_date.isoformat()}",
+        "",
+        digest.headline,
+        "",
+    ]
+    if digest.watchlist_tickers:
+        lines.extend(
+            [
+                f"Watchlist: {', '.join(digest.watchlist_tickers)}",
+                "",
+            ]
+        )
+
+    for section in digest.sections:
+        if not section.items:
+            continue
+        lines.extend([f"## {section.title}", ""])
+        for item in section.items:
+            summary = item.summary_short or item.why_it_matters or item.summary_detailed
+            labels = [*item.tickers[:3], *item.topics[:3]]
+            label_text = f" ({', '.join(labels)})" if labels else ""
+            lines.append(f"- [{item.title}]({item.url}) - {item.source_name}{label_text}")
+            if summary:
+                lines.append(f"  - {summary}")
+        lines.append("")
+
+    if digest.source_coverage:
+        coverage = ", ".join(
+            f"{item.source_name}: {item.item_count}" for item in digest.source_coverage
+        )
+        lines.extend(["## Source Coverage", "", coverage, ""])
+
+    lines.extend(["## Disclaimer", "", digest.disclaimer])
+    return "\n".join(lines).strip() + "\n"
+
+
 def select_latest_digest_date(db: Session) -> date | None:
     row = (
         db.query(NormalizedItem)

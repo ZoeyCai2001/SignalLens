@@ -190,6 +190,7 @@ Generate the daily digest from stored feed items:
 ```bash
 curl "http://127.0.0.1:8000/api/digest/daily"
 curl "http://127.0.0.1:8000/api/digest/daily?date=2026-06-25&limit_per_section=3"
+curl "http://127.0.0.1:8000/api/digest/daily/markdown?date=2026-06-25&limit_per_section=3"
 ```
 
 Read deterministic event clusters:

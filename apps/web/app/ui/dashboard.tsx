@@ -149,6 +149,12 @@ type DailyDigest = {
   disclaimer: string;
 };
 
+type DailyDigestMarkdown = {
+  digest_date: string;
+  generated_at: string;
+  markdown: string;
+};
+
 type EventCluster = {
   cluster_key: string;
   title: string;
@@ -257,6 +263,7 @@ export function Dashboard() {
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
   const [busyPreferences, setBusyPreferences] = useState(false);
+  const [busyDigestCopy, setBusyDigestCopy] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
@@ -528,6 +535,24 @@ export function Dashboard() {
     setSearchTopic("");
     setSavedOnly(false);
     await refreshAll();
+  };
+
+  const copyDailyDigest = async () => {
+    setBusyDigestCopy(true);
+    setError(null);
+    try {
+      const result = await fetchJson<DailyDigestMarkdown>("/api/digest/daily/markdown");
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable.");
+      }
+      await navigator.clipboard.writeText(result.markdown);
+      setStatus(`Copied digest ${result.digest_date}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Digest copy failed");
+    } finally {
+      setBusyDigestCopy(false);
+    }
   };
 
   const summarizeItem = async (itemId: number) => {
@@ -1089,7 +1114,7 @@ export function Dashboard() {
               onRuleImportanceChange={setAlertRuleImportance}
               onRuleSubmit={submitAlertRule}
             />
-            <DailyDigestPanel digest={digest} />
+            <DailyDigestPanel digest={digest} busyCopy={busyDigestCopy} onCopy={copyDailyDigest} />
             <SavedItemsPanel
               items={savedItems}
               busyItemId={busyItemId}
@@ -1392,13 +1417,29 @@ function AlertPanel({
   );
 }
 
-function DailyDigestPanel({ digest }: { digest: DailyDigest | null }) {
+function DailyDigestPanel({
+  digest,
+  busyCopy,
+  onCopy,
+}: {
+  digest: DailyDigest | null;
+  busyCopy: boolean;
+  onCopy: () => void;
+}) {
   const sectionsWithItems = digest?.sections.filter((section) => section.items.length) ?? [];
   return (
     <section className="section">
       <div className="section-header">
         <h2 className="section-title">Daily Digest</h2>
-        <CalendarDays size={16} aria-hidden="true" />
+        <button
+          className="button icon-button"
+          onClick={onCopy}
+          disabled={!digest || busyCopy}
+          title="Copy digest markdown"
+          aria-label="Copy digest markdown"
+        >
+          {busyCopy ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+        </button>
       </div>
       {digest ? (
         <div className="digest-panel">
