@@ -3,16 +3,26 @@ from collections import Counter
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
-from app.db.models import NormalizedItem, StockWatchlistItem, TopicWatchlistItem, UserItemAction
+from app.db.models import (
+    NormalizedItem,
+    StockPricePoint,
+    StockWatchlistItem,
+    TopicWatchlistItem,
+    UserItemAction,
+)
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
     StockBriefing,
     StockBriefingTimelineItem,
+    StockMarketSnapshot,
     StockSignalSummary,
     StockWatchlistItemCreate,
     StockWatchlistItemUpdate,
     TopicWatchlistItemCreate,
     TopicWatchlistItemUpdate,
+)
+from app.schemas.watchlist import (
+    StockPricePoint as StockPricePointSchema,
 )
 from app.schemas.watchlist import (
     StockWatchlistItem as StockWatchlistSchema,
@@ -311,6 +321,7 @@ def build_stock_signal_summary(
             top_signals=top_signals,
             signal_count=signal_count,
         ),
+        market=build_stock_market_snapshot(db=db, ticker=stock_schema.ticker),
         top_signals=top_signals,
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
     )
@@ -326,6 +337,7 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
         stock=summary.stock,
         signal_count=summary.signal_count,
         attention_score=summary.attention_score,
+        market=summary.market,
         urgency=classify_stock_urgency(summary),
         latest_signal_at=latest_signal_at,
         sentiment_counts=dict(sentiment_counts),
@@ -339,6 +351,39 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
             for item in summary.top_signals
         ],
         disclaimer=summary.disclaimer,
+    )
+
+
+def build_stock_market_snapshot(
+    db: Session,
+    ticker: str,
+    limit: int = 30,
+) -> StockMarketSnapshot | None:
+    rows = (
+        db.query(StockPricePoint)
+        .filter(StockPricePoint.ticker == normalize_ticker(ticker))
+        .order_by(StockPricePoint.price_date.desc())
+        .limit(limit)
+        .all()
+    )
+    if not rows:
+        return None
+
+    history = [StockPricePointSchema.model_validate(row) for row in reversed(rows)]
+    latest = StockPricePointSchema.model_validate(rows[0])
+    previous = rows[1] if len(rows) > 1 else None
+    change = latest.close_price - previous.close_price if previous else None
+    change_percent = (
+        round((change / previous.close_price) * 100, 2)
+        if previous and previous.close_price
+        else None
+    )
+    return StockMarketSnapshot(
+        latest=latest,
+        previous_close=previous.close_price if previous else None,
+        change=round(change, 4) if change is not None else None,
+        change_percent=change_percent,
+        history=history,
     )
 
 

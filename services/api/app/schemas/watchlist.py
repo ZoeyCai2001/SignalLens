@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,10 +25,31 @@ class StockWatchlistItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class StockPricePoint(BaseModel):
+    price_date: date
+    open_price: float
+    high_price: float
+    low_price: float
+    close_price: float
+    adjusted_close: float | None = None
+    volume: int | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StockMarketSnapshot(BaseModel):
+    latest: StockPricePoint | None = None
+    previous_close: float | None = None
+    change: float | None = None
+    change_percent: float | None = None
+    history: list[StockPricePoint] = Field(default_factory=list)
+
+
 class StockSignalSummary(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
     attention_score: float
+    market: StockMarketSnapshot | None = None
     top_signals: list[FeedItem]
     disclaimer: str
 
@@ -43,6 +64,7 @@ class StockBriefing(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
     attention_score: float
+    market: StockMarketSnapshot | None = None
     urgency: str
     latest_signal_at: datetime | None
     sentiment_counts: dict[str, int]

@@ -86,10 +86,29 @@ type StockDetailDraft = {
   notes: string;
 };
 
+type StockPricePoint = {
+  price_date: string;
+  open_price: number;
+  high_price: number;
+  low_price: number;
+  close_price: number;
+  adjusted_close: number | null;
+  volume: number | null;
+};
+
+type StockMarketSnapshot = {
+  latest: StockPricePoint | null;
+  previous_close: number | null;
+  change: number | null;
+  change_percent: number | null;
+  history: StockPricePoint[];
+};
+
 type StockSignalSummary = {
   stock: StockWatchlistItem;
   signal_count: number;
   attention_score: number;
+  market: StockMarketSnapshot | null;
   top_signals: FeedItem[];
   disclaimer: string;
 };
@@ -104,6 +123,7 @@ type StockBriefing = {
   stock: StockWatchlistItem;
   signal_count: number;
   attention_score: number;
+  market: StockMarketSnapshot | null;
   urgency: string;
   latest_signal_at: string | null;
   sentiment_counts: Record<string, number>;
@@ -1022,6 +1042,15 @@ export function Dashboard() {
             >
               {loadState === "running" ? <Loader2 className="spin" size={16} /> : <BarChart3 size={16} />}
               Stocks
+            </button>
+            <button
+              className="button"
+              onClick={() => runIngestion("alpha-vantage-prices")}
+              disabled={loadState !== "idle"}
+              title="Run Alpha Vantage daily price ingestion"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <TrendingUp size={16} />}
+              Prices
             </button>
             <button
               className="button"
@@ -2064,6 +2093,8 @@ function StockTable({
             <tr>
               <th>Ticker</th>
               <th>Company</th>
+              <th>Price</th>
+              <th>Change</th>
               <th>Priority</th>
               <th>Signals</th>
               <th>Attention</th>
@@ -2089,6 +2120,10 @@ function StockTable({
                     {stock.is_pinned ? <Star size={13} fill="currentColor" /> : null}
                   </td>
                   <td>{stock.company_name}</td>
+                  <td>{formatPrice(summary?.market?.latest?.close_price)}</td>
+                  <td className={marketChangeClass(summary?.market?.change ?? null)}>
+                    {formatChange(summary?.market)}
+                  </td>
                   <td>
                     <select
                       className={`field table-field priority-${stock.priority.toLowerCase()}`}
@@ -2318,6 +2353,16 @@ function StockBriefingPanel({
       </div>
 
       <div className="score-grid">
+        <div className="score-cell">
+          <span className="score-label">Price</span>
+          <span className="score-value">{formatPrice(briefing.market?.latest?.close_price)}</span>
+        </div>
+        <div className="score-cell">
+          <span className="score-label">Change</span>
+          <span className={`score-value ${marketChangeClass(briefing.market?.change ?? null)}`}>
+            {formatChange(briefing.market)}
+          </span>
+        </div>
         <div className="score-cell">
           <span className="score-label">Signals</span>
           <span className="score-value">{briefing.signal_count}</span>
@@ -2712,6 +2757,28 @@ function parseOptionalNumber(value: string): number | null {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatPrice(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  return `$${value.toFixed(2)}`;
+}
+
+function formatChange(market: StockMarketSnapshot | null | undefined): string {
+  if (!market || market.change === null || market.change_percent === null) {
+    return "--";
+  }
+  const sign = market.change > 0 ? "+" : "";
+  return `${sign}${market.change.toFixed(2)} (${sign}${market.change_percent.toFixed(2)}%)`;
+}
+
+function marketChangeClass(value: number | null): string {
+  if (value === null || value === 0) {
+    return "";
+  }
+  return value > 0 ? "market-up" : "market-down";
 }
 
 function clampWeight(value: number) {

@@ -162,6 +162,24 @@ class DailyDigestSnapshot(Base, TimestampMixin):
     markdown: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class StockPricePoint(Base, TimestampMixin):
+    __tablename__ = "stock_price_points"
+    __table_args__ = (
+        UniqueConstraint("ticker", "price_date", name="uq_stock_price_points_ticker_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False)
+    price_date: Mapped[date] = mapped_column(Date, nullable=False)
+    open_price: Mapped[float] = mapped_column(Float, nullable=False)
+    high_price: Mapped[float] = mapped_column(Float, nullable=False)
+    low_price: Mapped[float] = mapped_column(Float, nullable=False)
+    close_price: Mapped[float] = mapped_column(Float, nullable=False)
+    adjusted_close: Mapped[float | None] = mapped_column(Float)
+    volume: Mapped[int | None] = mapped_column(Integer)
+    source_name: Mapped[str] = mapped_column(String(120), default="Alpha Vantage", nullable=False)
+
+
 class StockWatchlistItem(Base, TimestampMixin):
     __tablename__ = "stock_watchlist_items"
     __table_args__ = (

@@ -9,6 +9,7 @@ from app.services.daily_digest import save_daily_digest_snapshot
 from app.services.ingestion import (
     IngestionResult,
     run_alpha_vantage_news_ingestion,
+    run_alpha_vantage_price_ingestion,
     run_arxiv_ingestion,
     run_chinese_rss_ingestion,
     run_github_ingestion,
@@ -49,6 +50,11 @@ DEFAULT_INGESTION_JOBS = [
         name="alpha-vantage-news",
         runner=run_alpha_vantage_news_ingestion,
         limit=25,
+    ),
+    ScheduledIngestionJob(
+        name="alpha-vantage-prices",
+        runner=run_alpha_vantage_price_ingestion,
+        limit=30,
     ),
     ScheduledIngestionJob(name="arxiv", runner=run_arxiv_ingestion, limit=25),
     ScheduledIngestionJob(name="chinese-rss", runner=run_chinese_rss_ingestion, limit=25),

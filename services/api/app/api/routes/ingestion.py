@@ -4,6 +4,7 @@ from app.api.deps import DbSession
 from app.schemas.ingestion import IngestionRunResponse
 from app.services.ingestion import (
     run_alpha_vantage_news_ingestion,
+    run_alpha_vantage_price_ingestion,
     run_arxiv_ingestion,
     run_chinese_rss_ingestion,
     run_github_ingestion,
@@ -31,6 +32,15 @@ async def ingest_alpha_vantage_news(
     limit: int = Query(default=25, ge=1, le=100),
 ) -> IngestionRunResponse:
     result = await run_alpha_vantage_news_ingestion(db=db, limit=limit)
+    return IngestionRunResponse.model_validate(result)
+
+
+@router.post("/alpha-vantage-prices", response_model=IngestionRunResponse)
+async def ingest_alpha_vantage_prices(
+    db: DbSession,
+    limit: int = Query(default=30, ge=1, le=100),
+) -> IngestionRunResponse:
+    result = await run_alpha_vantage_price_ingestion(db=db, limit=limit)
     return IngestionRunResponse.model_validate(result)
 
 

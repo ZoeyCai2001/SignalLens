@@ -57,6 +57,7 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/signals/summary`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/signals`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/briefing`
+- `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/prices`
 - `GET http://127.0.0.1:8000/api/watchlist/topics`
 - `GET http://127.0.0.1:8000/api/feed`
 - `GET http://127.0.0.1:8000/api/feed?saved_only=true`
@@ -74,6 +75,7 @@ Useful endpoints:
 - `PATCH http://127.0.0.1:8000/api/sources/{source_id}`
 - `POST http://127.0.0.1:8000/api/ingestion/hacker-news`
 - `POST http://127.0.0.1:8000/api/ingestion/alpha-vantage-news`
+- `POST http://127.0.0.1:8000/api/ingestion/alpha-vantage-prices`
 - `POST http://127.0.0.1:8000/api/ingestion/arxiv`
 - `POST http://127.0.0.1:8000/api/ingestion/chinese-rss`
 - `POST http://127.0.0.1:8000/api/ingestion/github`

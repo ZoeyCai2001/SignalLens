@@ -6,7 +6,14 @@ from hashlib import sha256
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.db.models import NormalizedItem, RawItem, Source, SourceRun
+from app.db.models import (
+    NormalizedItem,
+    RawItem,
+    Source,
+    SourceRun,
+    StockPricePoint,
+    StockWatchlistItem,
+)
 from app.services.scoring import (
     TICKER_ALIASES,
     detect_tickers,
@@ -15,7 +22,7 @@ from app.services.scoring import (
     is_ai_relevant,
     relevance_score,
 )
-from app.sources.alpha_vantage import AlphaVantageNewsConnector
+from app.sources.alpha_vantage import AlphaVantageDailyPriceConnector, AlphaVantageNewsConnector
 from app.sources.arxiv import ArxivConnector
 from app.sources.base import FetchCursor, RawItemInput, SourceConnector
 from app.sources.github import GitHubConnector
@@ -234,6 +241,82 @@ async def run_alpha_vantage_news_ingestion(
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
 
+async def run_alpha_vantage_price_ingestion(
+    db: Session,
+    limit: int = 30,
+    settings: Settings | None = None,
+) -> IngestionResult:
+    resolved_settings = settings or get_settings()
+    source = get_or_create_source(
+        db,
+        name="Alpha Vantage Prices",
+        source_type="stock_prices",
+        access_method="official_api",
+        base_url="https://www.alphavantage.co/query",
+        auth_required=True,
+        rate_limit="Free API key available; daily time-series endpoint; keep polling conservative.",
+        polling_interval="daily",
+        enabled=True,
+        priority=13,
+        terms_notes="Uses Alpha Vantage daily adjusted price data for watched tickers.",
+    )
+    if not resolved_settings.alpha_vantage_api_key:
+        return record_skipped_run(
+            db=db,
+            source=source,
+            message="ALPHA_VANTAGE_API_KEY is not configured.",
+        )
+    if not source.enabled:
+        return record_skipped_run(
+            db=db,
+            source=source,
+            message=f"{source.name} is disabled.",
+        )
+
+    tickers = list_price_watchlist_tickers(db)
+    connector = AlphaVantageDailyPriceConnector(
+        api_key=resolved_settings.alpha_vantage_api_key,
+        limit=limit,
+    )
+    run = SourceRun(source_id=source.id, status="running")
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    try:
+        fetched_count = 0
+        stored_count = 0
+        for ticker in tickers:
+            points = await connector.fetch_prices(ticker)
+            fetched_count += len(points)
+            stored_count += store_stock_price_points(db, points)
+        run.status = "success"
+        run.items_fetched = fetched_count
+        run.items_stored = stored_count
+        run.finished_at = datetime.now(UTC)
+        db.commit()
+        return IngestionResult(
+            source_name=source.name,
+            status=run.status,
+            items_fetched=run.items_fetched,
+            items_stored=run.items_stored,
+        )
+    except Exception as exc:
+        db.rollback()
+        run.status = "failed"
+        run.error_message = str(exc)
+        run.finished_at = datetime.now(UTC)
+        db.add(run)
+        db.commit()
+        return IngestionResult(
+            source_name=source.name,
+            status=run.status,
+            items_fetched=run.items_fetched,
+            items_stored=run.items_stored,
+            error_message=run.error_message,
+        )
+
+
 async def run_connector_ingestion(
     db: Session,
     connector: SourceConnector,
@@ -366,6 +449,36 @@ def store_raw_items(db: Session, source: Source, items: list[RawItemInput]) -> i
         if normalized:
             db.add(normalized)
             stored_count += 1
+
+    db.commit()
+    return stored_count
+
+
+def store_stock_price_points(db: Session, points) -> int:
+    stored_count = 0
+    for point in points:
+        existing = (
+            db.query(StockPricePoint)
+            .filter(
+                StockPricePoint.ticker == point.ticker,
+                StockPricePoint.price_date == point.price_date,
+            )
+            .one_or_none()
+        )
+        price_point = existing or StockPricePoint(
+            ticker=point.ticker,
+            price_date=point.price_date,
+        )
+        if existing is None:
+            stored_count += 1
+        price_point.open_price = point.open_price
+        price_point.high_price = point.high_price
+        price_point.low_price = point.low_price
+        price_point.close_price = point.close_price
+        price_point.adjusted_close = point.adjusted_close
+        price_point.volume = point.volume
+        price_point.source_name = "Alpha Vantage"
+        db.add(price_point)
 
     db.commit()
     return stored_count
@@ -513,6 +626,12 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
 
 def default_finance_news_tickers() -> list[str]:
     return sorted(TICKER_ALIASES)
+
+
+def list_price_watchlist_tickers(db: Session) -> list[str]:
+    watchlist_rows = db.query(StockWatchlistItem.ticker).all()
+    tickers = [row[0] for row in watchlist_rows if row[0]]
+    return sorted(set(tickers or ["MU", "MRVL", "SNDK"]))
 
 
 def stock_impact_score_for_source(source: Source, tickers: list[str]) -> float:

@@ -1,7 +1,12 @@
 from datetime import UTC, datetime
 
 from app.schemas.feed import FeedItem
-from app.schemas.watchlist import StockSignalSummary, StockWatchlistItem
+from app.schemas.watchlist import (
+    StockMarketSnapshot,
+    StockPricePoint,
+    StockSignalSummary,
+    StockWatchlistItem,
+)
 from app.services.watchlist import build_stock_briefing, compute_stock_attention_score
 
 
@@ -21,6 +26,21 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
         ),
         signal_count=2,
         attention_score=0.812,
+        market=StockMarketSnapshot(
+            latest=StockPricePoint(
+                price_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+                open_price=110,
+                high_price=113,
+                low_price=109,
+                close_price=112.5,
+                adjusted_close=112.5,
+                volume=123456,
+            ),
+            previous_close=110,
+            change=2.5,
+            change_percent=2.27,
+            history=[],
+        ),
         top_signals=[
             make_feed_item(
                 1,
@@ -50,6 +70,8 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
     briefing = build_stock_briefing(summary)
 
     assert briefing.attention_score == 0.812
+    assert briefing.market is not None
+    assert briefing.market.change_percent == 2.27
     assert briefing.urgency == "high"
     assert briefing.latest_signal_at == datetime(2026, 6, 25, 10, 0, tzinfo=UTC)
     assert briefing.sentiment_counts == {"positive": 1, "mixed": 1}

@@ -1,6 +1,6 @@
 from app.db.models import RawItem, Source
 from app.services.ingestion import normalize_item
-from app.sources.alpha_vantage import AlphaVantageNewsConnector
+from app.sources.alpha_vantage import AlphaVantageDailyPriceConnector, AlphaVantageNewsConnector
 
 
 def test_alpha_vantage_connector_converts_news_entry_to_raw_item() -> None:
@@ -67,3 +67,44 @@ def test_alpha_vantage_normalized_item_is_stock_company_event() -> None:
     assert item.tickers == ["MU"]
     assert item.companies == ["MU"]
     assert item.stock_impact_score == 0.55
+
+
+def test_alpha_vantage_daily_price_connector_parses_recent_points() -> None:
+    connector = AlphaVantageDailyPriceConnector(api_key="test-key", limit=2)
+
+    points = connector.parse_daily_prices(
+        ticker="mu",
+        payload={
+            "Time Series (Daily)": {
+                "2026-06-25": {
+                    "1. open": "110.00",
+                    "2. high": "113.00",
+                    "3. low": "109.00",
+                    "4. close": "112.50",
+                    "5. adjusted close": "112.50",
+                    "6. volume": "123456",
+                },
+                "2026-06-24": {
+                    "1. open": "108.00",
+                    "2. high": "111.00",
+                    "3. low": "107.50",
+                    "4. close": "110.00",
+                    "5. adjusted close": "110.00",
+                    "6. volume": "98765",
+                },
+                "2026-06-23": {
+                    "1. open": "106.00",
+                    "2. high": "109.00",
+                    "3. low": "105.00",
+                    "4. close": "108.00",
+                    "5. adjusted close": "108.00",
+                    "6. volume": "77777",
+                },
+            }
+        },
+    )
+
+    assert [point.price_date.isoformat() for point in points] == ["2026-06-25", "2026-06-24"]
+    assert points[0].ticker == "MU"
+    assert points[0].close_price == 112.5
+    assert points[0].volume == 123456

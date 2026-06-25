@@ -59,6 +59,7 @@ Ingest watched-ticker AI stock news with an optional `ALPHA_VANTAGE_API_KEY`:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/ingestion/alpha-vantage-news?limit=25"
+curl -X POST "http://127.0.0.1:8000/api/ingestion/alpha-vantage-prices?limit=30"
 ```
 
 Ingest Hacker News top stories:
@@ -230,6 +231,7 @@ Read stock-linked AI signals:
 curl "http://127.0.0.1:8000/api/watchlist/stocks/signals/summary"
 curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/signals?limit=10"
 curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/briefing?limit=8"
+curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/prices?limit=30"
 ```
 
 Create, update, or delete a stock watchlist item:
