@@ -21,6 +21,7 @@ import {
   Rocket,
   Search,
   Send,
+  SlidersHorizontal,
   Star,
   TrendingUp,
   Trash2,
@@ -185,9 +186,41 @@ type AlertRule = {
   enabled: boolean;
 };
 
+type RankingWeights = {
+  relevance: number;
+  importance: number;
+  novelty: number;
+  source_quality: number;
+  stock_impact: number;
+  freshness: number;
+};
+
+type UserPreferences = {
+  user_id: string;
+  ranking_weights: RankingWeights;
+};
+
 type LoadState = "idle" | "loading" | "running";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
+  relevance: 0.25,
+  importance: 0.2,
+  novelty: 0.15,
+  source_quality: 0.15,
+  stock_impact: 0.1,
+  freshness: 0.05,
+};
+
+const rankingWeightFields: { key: keyof RankingWeights; label: string }[] = [
+  { key: "relevance", label: "Relevance" },
+  { key: "importance", label: "Importance" },
+  { key: "novelty", label: "Novelty" },
+  { key: "source_quality", label: "Source" },
+  { key: "stock_impact", label: "Stock" },
+  { key: "freshness", label: "Freshness" },
+];
 
 const navItems = [
   { label: "Dashboard", icon: Activity, active: true },
@@ -210,6 +243,8 @@ export function Dashboard() {
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
+  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  const [rankingDraft, setRankingDraft] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
@@ -218,6 +253,7 @@ export function Dashboard() {
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
+  const [busyPreferences, setBusyPreferences] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
@@ -287,6 +323,7 @@ export function Dashboard() {
         nextEventClusters,
         nextAlerts,
         nextAlertRules,
+        nextPreferences,
       ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
@@ -298,6 +335,7 @@ export function Dashboard() {
           fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
           fetchJson<AlertItem[]>("/api/alerts?limit=8"),
           fetchJson<AlertRule[]>("/api/alerts/rules"),
+          fetchJson<UserPreferences>("/api/preferences"),
         ]);
       setFeed(nextFeed);
       setStocks(nextStocks);
@@ -308,6 +346,8 @@ export function Dashboard() {
       setEventClusters(nextEventClusters);
       setAlerts(nextAlerts);
       setAlertRules(nextAlertRules);
+      setPreferences(nextPreferences);
+      setRankingDraft(nextPreferences.ranking_weights);
       setStatus(`Loaded ${nextFeed.length} feed items`);
     } catch (err) {
       setError(readError(err));
@@ -420,6 +460,33 @@ export function Dashboard() {
       setStatus("LLM batch failed");
     } finally {
       setLoadState("idle");
+    }
+  };
+
+  const updateRankingDraft = (key: keyof RankingWeights, value: number) => {
+    setRankingDraft((current) => ({
+      ...current,
+      [key]: clampWeight(value),
+    }));
+  };
+
+  const saveRankingPreferences = async () => {
+    setBusyPreferences(true);
+    setError(null);
+    try {
+      const updated = await fetchJson<UserPreferences>("/api/preferences", {
+        method: "PATCH",
+        body: JSON.stringify({ ranking_weights: rankingDraft }),
+      });
+      setPreferences(updated);
+      setRankingDraft(updated.ranking_weights);
+      setStatus("Updated ranking weights");
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Ranking preference update failed");
+    } finally {
+      setBusyPreferences(false);
     }
   };
 
@@ -981,6 +1048,15 @@ export function Dashboard() {
           </section>
 
           <aside className="stack">
+            <RankingPreferencesPanel
+              preferences={preferences}
+              draft={rankingDraft}
+              disabled={loadState !== "idle"}
+              busy={busyPreferences}
+              onDraftChange={updateRankingDraft}
+              onReset={() => setRankingDraft(DEFAULT_RANKING_WEIGHTS)}
+              onSave={saveRankingPreferences}
+            />
             <AlertPanel
               alerts={alerts}
               rules={alertRules}
@@ -1058,6 +1134,66 @@ export function Dashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+function RankingPreferencesPanel({
+  preferences,
+  draft,
+  disabled,
+  busy,
+  onDraftChange,
+  onReset,
+  onSave,
+}: {
+  preferences: UserPreferences | null;
+  draft: RankingWeights;
+  disabled: boolean;
+  busy: boolean;
+  onDraftChange: (key: keyof RankingWeights, value: number) => void;
+  onReset: () => void;
+  onSave: () => void;
+}) {
+  const totalWeight = rankingWeightFields.reduce((sum, field) => sum + draft[field.key], 0);
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Ranking Weights</h2>
+        <SlidersHorizontal size={16} aria-hidden="true" />
+      </div>
+      <div className="digest-panel">
+        <div className="digest-meta">
+          <span>{preferences?.user_id ?? "local"}</span>
+          <span>{totalWeight.toFixed(2)}</span>
+        </div>
+        <div className="weights-grid">
+          {rankingWeightFields.map((field) => (
+            <label className="weight-field" key={field.key}>
+              <span className="field-label">{field.label}</span>
+              <input
+                className="field"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value={draft[field.key]}
+                onChange={(event) => onDraftChange(field.key, Number(event.target.value))}
+                disabled={disabled || busy}
+              />
+            </label>
+          ))}
+        </div>
+        <div className="toolbar">
+          <button className="button" onClick={onReset} disabled={disabled || busy}>
+            Reset
+          </button>
+          <button className="button primary" onClick={onSave} disabled={disabled || busy}>
+            {busy ? <Loader2 className="spin" size={16} /> : <SlidersHorizontal size={16} />}
+            Save
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -2129,6 +2265,13 @@ function splitTerms(value: string) {
     .split(",")
     .map((term) => term.trim())
     .filter(Boolean);
+}
+
+function clampWeight(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(1, Math.max(0, Number(value.toFixed(2))));
 }
 
 function readError(err: unknown) {
