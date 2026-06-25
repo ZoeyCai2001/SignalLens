@@ -62,3 +62,4 @@ Implementation progress:
 - Added editable alert rule APIs and dashboard controls for custom alert rules.
 - Added source enable/disable APIs and dashboard controls; ingestion now skips disabled sources.
 - Added bounded LLM batch processing for top feed items, plus a dashboard control to summarize the highest-priority items without clicking each card.
+- Added per-ticker stock briefing APIs and a dashboard drill-down panel with urgency, sentiment counts, key themes, and recent stock-linked signal timeline.

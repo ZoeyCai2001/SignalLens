@@ -80,6 +80,23 @@ type StockSignalSummary = {
   disclaimer: string;
 };
 
+type StockBriefingTimelineItem = {
+  item: FeedItem;
+  signal_score: number;
+  reason: string;
+};
+
+type StockBriefing = {
+  stock: StockWatchlistItem;
+  signal_count: number;
+  urgency: string;
+  latest_signal_at: string | null;
+  sentiment_counts: Record<string, number>;
+  key_themes: string[];
+  recent_timeline: StockBriefingTimelineItem[];
+  disclaimer: string;
+};
+
 type TopicWatchlistItem = {
   topic: string;
   label: string;
@@ -184,6 +201,8 @@ export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [stocks, setStocks] = useState<StockWatchlistItem[]>([]);
   const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
   const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
@@ -196,6 +215,7 @@ export function Dashboard() {
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
+  const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
@@ -283,6 +303,42 @@ export function Dashboard() {
   useEffect(() => {
     void refreshAll();
   }, [refreshAll]);
+
+  useEffect(() => {
+    if (!selectedTicker && stocks.length) {
+      setSelectedTicker(stocks[0].ticker);
+    }
+  }, [selectedTicker, stocks]);
+
+  useEffect(() => {
+    if (!selectedTicker) {
+      setStockBriefing(null);
+      return;
+    }
+
+    let cancelled = false;
+    setBusyStockTicker(selectedTicker);
+    fetchJson<StockBriefing>(`/api/watchlist/stocks/${selectedTicker}/briefing?limit=8`)
+      .then((briefing) => {
+        if (!cancelled) {
+          setStockBriefing(briefing);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(readError(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBusyStockTicker(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchJson, selectedTicker]);
 
   const runIngestion = async (
     source:
@@ -467,6 +523,7 @@ export function Dashboard() {
         }),
       });
       setStocks((items) => [created, ...items.filter((item) => item.ticker !== created.ticker)]);
+      setSelectedTicker(created.ticker);
       setStockTicker("");
       setStockCompany("");
       setStockThemes("");
@@ -837,6 +894,9 @@ export function Dashboard() {
             <StockTable
               stocks={stocks}
               signalSummaries={stockSignals}
+              stockBriefing={stockBriefing}
+              selectedTicker={selectedTicker}
+              busyStockTicker={busyStockTicker}
               ticker={stockTicker}
               company={stockCompany}
               themes={stockThemes}
@@ -846,6 +906,7 @@ export function Dashboard() {
               onCompanyChange={setStockCompany}
               onThemesChange={setStockThemes}
               onKeywordsChange={setStockKeywords}
+              onSelectTicker={setSelectedTicker}
               onSubmit={submitStock}
             />
             <TopicTable
@@ -1411,6 +1472,9 @@ function ManualSubmissionPanel({
 function StockTable({
   stocks,
   signalSummaries,
+  stockBriefing,
+  selectedTicker,
+  busyStockTicker,
   ticker,
   company,
   themes,
@@ -1420,10 +1484,14 @@ function StockTable({
   onCompanyChange,
   onThemesChange,
   onKeywordsChange,
+  onSelectTicker,
   onSubmit,
 }: {
   stocks: StockWatchlistItem[];
   signalSummaries: StockSignalSummary[];
+  stockBriefing: StockBriefing | null;
+  selectedTicker: string | null;
+  busyStockTicker: string | null;
   ticker: string;
   company: string;
   themes: string;
@@ -1433,6 +1501,7 @@ function StockTable({
   onCompanyChange: (value: string) => void;
   onThemesChange: (value: string) => void;
   onKeywordsChange: (value: string) => void;
+  onSelectTicker: (value: string) => void;
   onSubmit: () => void;
 }) {
   const signalMap = new Map(signalSummaries.map((summary) => [summary.stock.ticker, summary]));
@@ -1494,7 +1563,14 @@ function StockTable({
               return (
                 <tr key={stock.ticker}>
                   <td>
-                    <span className="ticker">{stock.ticker}</span>
+                    <button
+                      className={`ticker-button ${
+                        selectedTicker === stock.ticker ? "active" : ""
+                      }`}
+                      onClick={() => onSelectTicker(stock.ticker)}
+                    >
+                      {stock.ticker}
+                    </button>
                     {stock.is_pinned ? <Star size={13} fill="currentColor" /> : null}
                   </td>
                   <td>{stock.company_name}</td>
@@ -1507,8 +1583,113 @@ function StockTable({
           </tbody>
         </table>
       </div>
+      <StockBriefingPanel
+        briefing={stockBriefing}
+        loading={busyStockTicker === selectedTicker && selectedTicker !== null}
+        selectedTicker={selectedTicker}
+      />
       {disclaimer ? <div className="small-muted">{disclaimer}</div> : null}
     </section>
+  );
+}
+
+function StockBriefingPanel({
+  briefing,
+  loading,
+  selectedTicker,
+}: {
+  briefing: StockBriefing | null;
+  loading: boolean;
+  selectedTicker: string | null;
+}) {
+  if (!selectedTicker) {
+    return <div className="empty-state">No stock selected.</div>;
+  }
+
+  if (loading && !briefing) {
+    return (
+      <div className="stock-briefing">
+        <div className="section-header">
+          <h3 className="section-title">{selectedTicker} briefing</h3>
+          <Loader2 className="spin" size={16} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!briefing || briefing.stock.ticker !== selectedTicker) {
+    return <div className="empty-state">No briefing available for {selectedTicker}.</div>;
+  }
+
+  return (
+    <div className="stock-briefing">
+      <div className="section-header">
+        <div>
+          <h3 className="section-title">
+            {briefing.stock.ticker} · {briefing.stock.company_name}
+          </h3>
+          <div className="small-muted">
+            {briefing.latest_signal_at ? formatDate(briefing.latest_signal_at) : "No recent signal"}
+          </div>
+        </div>
+        <span className={`urgency urgency-${briefing.urgency}`}>{briefing.urgency}</span>
+      </div>
+
+      <div className="score-grid">
+        <div className="score-cell">
+          <span className="score-label">Signals</span>
+          <span className="score-value">{briefing.signal_count}</span>
+        </div>
+        <div className="score-cell">
+          <span className="score-label">Positive</span>
+          <span className="score-value">{briefing.sentiment_counts.positive ?? 0}</span>
+        </div>
+        <div className="score-cell">
+          <span className="score-label">Mixed</span>
+          <span className="score-value">{briefing.sentiment_counts.mixed ?? 0}</span>
+        </div>
+        <div className="score-cell">
+          <span className="score-label">Negative</span>
+          <span className="score-value">{briefing.sentiment_counts.negative ?? 0}</span>
+        </div>
+      </div>
+
+      {briefing.key_themes.length ? (
+        <div className="badges">
+          {briefing.key_themes.map((theme) => (
+            <span className="badge" key={theme}>
+              {theme}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="stock-timeline">
+        {briefing.recent_timeline.length ? (
+          briefing.recent_timeline.map((entry) => (
+            <a
+              className="timeline-row"
+              href={entry.item.url}
+              target="_blank"
+              rel="noreferrer"
+              key={entry.item.id}
+            >
+              <div>
+                <div className="timeline-title">{entry.item.title}</div>
+                <div className="small-muted">
+                  {entry.item.source_name}
+                  {entry.item.published_at ? ` · ${formatDate(entry.item.published_at)}` : ""}
+                </div>
+                <div className="timeline-reason">{entry.reason}</div>
+              </div>
+              <div className="timeline-score">{Math.round(entry.signal_score * 100)}</div>
+            </a>
+          ))
+        ) : (
+          <div className="empty-state">No stock-linked signals yet.</div>
+        )}
+      </div>
+    </div>
   );
 }
 

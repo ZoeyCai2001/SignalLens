@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.feed import FeedItem
@@ -27,6 +29,23 @@ class StockSignalSummary(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
     top_signals: list[FeedItem]
+    disclaimer: str
+
+
+class StockBriefingTimelineItem(BaseModel):
+    item: FeedItem
+    signal_score: float
+    reason: str
+
+
+class StockBriefing(BaseModel):
+    stock: StockWatchlistItem
+    signal_count: int
+    urgency: str
+    latest_signal_at: datetime | None
+    sentiment_counts: dict[str, int]
+    key_themes: list[str]
+    recent_timeline: list[StockBriefingTimelineItem]
     disclaimer: str
 
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
 from app.schemas.watchlist import (
+    StockBriefing,
     StockSignalSummary,
     StockWatchlistItem,
     StockWatchlistItemCreate,
@@ -18,6 +19,7 @@ from app.services.watchlist import (
     create_topic_watchlist_item,
     delete_stock_watchlist_item,
     delete_topic_watchlist_item,
+    get_stock_briefing,
     get_stock_signals,
     list_topic_watchlist,
     seed_initial_stock_watchlist,
@@ -74,6 +76,18 @@ async def list_stock_signals(
     limit: Annotated[int, Query(ge=0, le=100)] = 20,
 ) -> StockSignalSummary:
     result = get_stock_signals(db, ticker=ticker, limit=limit)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
+    return result
+
+
+@router.get("/stocks/{ticker}/briefing", response_model=StockBriefing)
+async def get_stock_watchlist_briefing(
+    ticker: str,
+    db: DbSession,
+    limit: Annotated[int, Query(ge=1, le=50)] = 10,
+) -> StockBriefing:
+    result = get_stock_briefing(db, ticker=ticker, limit=limit)
     if result is None:
         raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
     return result

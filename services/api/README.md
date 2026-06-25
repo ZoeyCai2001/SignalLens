@@ -210,6 +210,7 @@ Read stock-linked AI signals:
 ```bash
 curl "http://127.0.0.1:8000/api/watchlist/stocks/signals/summary"
 curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/signals?limit=10"
+curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/briefing?limit=8"
 ```
 
 Create, update, or delete a stock watchlist item:

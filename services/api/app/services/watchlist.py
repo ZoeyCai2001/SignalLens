@@ -1,8 +1,13 @@
+from collections import Counter
+
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import NormalizedItem, StockWatchlistItem, TopicWatchlistItem, UserItemAction
+from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
+    StockBriefing,
+    StockBriefingTimelineItem,
     StockSignalSummary,
     StockWatchlistItemCreate,
     StockWatchlistItemUpdate,
@@ -272,6 +277,17 @@ def get_stock_signals(
     return build_stock_signal_summary(db, stock, limit=limit)
 
 
+def get_stock_briefing(
+    db: Session,
+    ticker: str,
+    limit: int = 10,
+) -> StockBriefing | None:
+    summary = get_stock_signals(db, ticker=ticker, limit=limit)
+    if summary is None:
+        return None
+    return build_stock_briefing(summary)
+
+
 def build_stock_signal_summary(
     db: Session,
     stock: StockWatchlistItem | StockWatchlistSchema,
@@ -289,6 +305,80 @@ def build_stock_signal_summary(
         top_signals=top_signals,
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
     )
+
+
+def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
+    latest_signal_at = max(
+        (item.published_at for item in summary.top_signals if item.published_at is not None),
+        default=None,
+    )
+    sentiment_counts = Counter(item.sentiment or "neutral" for item in summary.top_signals)
+    return StockBriefing(
+        stock=summary.stock,
+        signal_count=summary.signal_count,
+        urgency=classify_stock_urgency(summary),
+        latest_signal_at=latest_signal_at,
+        sentiment_counts=dict(sentiment_counts),
+        key_themes=build_stock_briefing_themes(summary.top_signals),
+        recent_timeline=[
+            StockBriefingTimelineItem(
+                item=item,
+                signal_score=compute_stock_signal_score(item),
+                reason=build_stock_signal_reason(item),
+            )
+            for item in summary.top_signals
+        ],
+        disclaimer=summary.disclaimer,
+    )
+
+
+def classify_stock_urgency(summary: StockSignalSummary) -> str:
+    if not summary.top_signals:
+        return "low"
+    top_score = max(compute_stock_signal_score(item) for item in summary.top_signals)
+    if top_score >= 0.75:
+        return "high"
+    if top_score >= 0.45 or summary.signal_count >= 3:
+        return "medium"
+    return "low"
+
+
+def compute_stock_signal_score(item: FeedItem) -> float:
+    return round(
+        max(
+            item.stock_impact_score,
+            item.importance_score * 0.85,
+            item.relevance_score * 0.65,
+        ),
+        3,
+    )
+
+
+def build_stock_briefing_themes(items: list[FeedItem], limit: int = 8) -> list[str]:
+    counts: Counter[str] = Counter()
+    display_terms: dict[str, str] = {}
+    for item in items:
+        for term in [*item.topics, *item.products, *item.companies]:
+            normalized = term.strip().lower()
+            if not normalized:
+                continue
+            counts[normalized] += 1
+            display_terms.setdefault(normalized, term.strip())
+
+    ranked_terms = sorted(counts.items(), key=lambda row: (-row[1], row[0]))
+    return [display_terms[key] for key, _count in ranked_terms[:limit]]
+
+
+def build_stock_signal_reason(item: FeedItem) -> str:
+    if item.why_it_matters:
+        return item.why_it_matters
+    if item.summary_short:
+        return item.summary_short
+    if item.stock_impact_score >= 0.75:
+        return "High stock-impact score from an AI-related source item."
+    if item.importance_score >= 0.75:
+        return "High importance score from an AI-related source item."
+    return "Matched the ticker, company, related companies, keywords, or AI themes."
 
 
 def query_stock_signal_rows(
