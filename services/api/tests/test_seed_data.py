@@ -5,6 +5,7 @@ from app.services.watchlist import (
     build_stock_text_terms,
     clean_terms,
     normalize_ticker,
+    normalize_topic,
 )
 
 
@@ -45,3 +46,7 @@ def test_stock_symbol_terms_are_separate_from_text_terms() -> None:
 def test_stock_watchlist_input_helpers_normalize_user_values() -> None:
     assert normalize_ticker(" $avgo ") == "AVGO"
     assert clean_terms([" HBM ", "HBM", "", "ai memory"]) == ["HBM", "ai memory"]
+
+
+def test_topic_watchlist_input_helpers_normalize_user_values() -> None:
+    assert normalize_topic(" Model Routing ") == "model-routing"

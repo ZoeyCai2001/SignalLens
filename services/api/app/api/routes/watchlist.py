@@ -10,18 +10,21 @@ from app.schemas.watchlist import (
     StockWatchlistItemUpdate,
     TopicWatchlistItem,
     TopicWatchlistItemCreate,
+    TopicWatchlistItemUpdate,
 )
 from app.services.seed_data import initial_stock_watchlist, initial_topic_watchlist
 from app.services.watchlist import (
     create_stock_watchlist_item,
     create_topic_watchlist_item,
     delete_stock_watchlist_item,
+    delete_topic_watchlist_item,
     get_stock_signals,
     list_topic_watchlist,
     seed_initial_stock_watchlist,
     seed_initial_topic_watchlist,
     summarize_stock_signals,
     update_stock_watchlist_item,
+    update_topic_watchlist_item,
 )
 from app.services.watchlist import (
     list_stock_watchlist as list_stock_watchlist_items,
@@ -103,12 +106,15 @@ async def list_topics(db: DbSession) -> list[TopicWatchlistItem]:
     return [TopicWatchlistItem.model_validate(item) for item in items]
 
 
-@router.post("/topics", response_model=TopicWatchlistItem)
+@router.post("/topics", response_model=TopicWatchlistItem, status_code=201)
 async def create_topic(
     payload: TopicWatchlistItemCreate,
     db: DbSession,
 ) -> TopicWatchlistItem:
-    item = create_topic_watchlist_item(db, payload)
+    try:
+        item = create_topic_watchlist_item(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return TopicWatchlistItem.model_validate(item)
 
 
@@ -116,3 +122,22 @@ async def create_topic(
 async def seed_topics(db: DbSession) -> list[TopicWatchlistItem]:
     items = seed_initial_topic_watchlist(db)
     return [TopicWatchlistItem.model_validate(item) for item in items]
+
+
+@router.patch("/topics/{topic}", response_model=TopicWatchlistItem)
+async def update_topic(
+    topic: str,
+    payload: TopicWatchlistItemUpdate,
+    db: DbSession,
+) -> TopicWatchlistItem:
+    item = update_topic_watchlist_item(db, topic=topic, payload=payload)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Topic not found in watchlist.")
+    return TopicWatchlistItem.model_validate(item)
+
+
+@router.delete("/topics/{topic}", status_code=204)
+async def delete_topic(topic: str, db: DbSession) -> None:
+    deleted = delete_topic_watchlist_item(db, topic=topic)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Topic not found in watchlist.")

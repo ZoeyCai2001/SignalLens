@@ -7,6 +7,7 @@ from app.schemas.watchlist import (
     StockWatchlistItemCreate,
     StockWatchlistItemUpdate,
     TopicWatchlistItemCreate,
+    TopicWatchlistItemUpdate,
 )
 from app.schemas.watchlist import (
     StockWatchlistItem as StockWatchlistSchema,
@@ -166,23 +167,72 @@ def create_topic_watchlist_item(
     db: Session,
     payload: TopicWatchlistItemCreate,
 ) -> TopicWatchlistItem:
-    topic = payload.topic.strip().lower().replace(" ", "-")
+    topic = normalize_topic(payload.topic)
+    if not topic:
+        raise ValueError("Topic is required.")
+    if get_topic_watchlist_item(db, topic):
+        raise ValueError(f"{topic} is already in the topic watchlist.")
     label = payload.label.strip() if payload.label else payload.topic.strip()
+    if not label:
+        raise ValueError("Topic label is required.")
     item = TopicWatchlistItem(
-        user_id="local",
+        user_id=LOCAL_USER_ID,
         topic=topic,
         label=label,
-        category=payload.category,
-        priority=payload.priority,
+        category=payload.category.strip() or "technical_trend",
+        priority=payload.priority.strip() or "Medium",
         is_pinned=payload.is_pinned,
         include_in_digest=payload.include_in_digest,
-        related_terms=payload.related_terms,
-        notes=payload.notes,
+        related_terms=clean_terms(payload.related_terms),
+        notes=payload.notes.strip() if payload.notes else None,
     )
     db.add(item)
     db.commit()
     db.refresh(item)
     return item
+
+
+def update_topic_watchlist_item(
+    db: Session,
+    topic: str,
+    payload: TopicWatchlistItemUpdate,
+) -> TopicWatchlistItem | None:
+    item = get_topic_watchlist_item(db, topic)
+    if item is None:
+        return None
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field_name, value in updates.items():
+        if field_name == "related_terms" and value is not None:
+            value = clean_terms(value)
+        elif isinstance(value, str):
+            value = value.strip()
+        setattr(item, field_name, value)
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_topic_watchlist_item(db: Session, topic: str) -> bool:
+    item = get_topic_watchlist_item(db, topic)
+    if item is None:
+        return False
+    db.delete(item)
+    db.commit()
+    return True
+
+
+def get_topic_watchlist_item(db: Session, topic: str) -> TopicWatchlistItem | None:
+    return (
+        db.query(TopicWatchlistItem)
+        .filter(
+            TopicWatchlistItem.user_id == LOCAL_USER_ID,
+            TopicWatchlistItem.topic == normalize_topic(topic),
+        )
+        .one_or_none()
+    )
 
 
 def summarize_stock_signals(
@@ -339,6 +389,10 @@ def unique_normalized_terms(values: list[str]) -> list[str]:
 
 def normalize_ticker(value: str) -> str:
     return value.strip().upper().removeprefix("$")
+
+
+def normalize_topic(value: str) -> str:
+    return "-".join(value.strip().lower().split())
 
 
 def clean_terms(values: list[str]) -> list[str]:

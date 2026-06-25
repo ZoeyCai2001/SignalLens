@@ -58,3 +58,4 @@ Implementation progress:
 - Added optional Alpha Vantage stock-news ingestion for watched AI ticker news and sentiment metadata.
 - Added editable stock watchlist APIs and a dashboard control for adding new watched tickers.
 - Added configurable Chinese public RSS ingestion and a dashboard panel for Chinese social trend signals.
+- Added editable topic and product-category watchlist APIs with dashboard add controls.

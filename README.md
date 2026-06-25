@@ -76,6 +76,8 @@ Useful endpoints:
 - `PATCH http://127.0.0.1:8000/api/watchlist/stocks/{ticker}`
 - `DELETE http://127.0.0.1:8000/api/watchlist/stocks/{ticker}`
 - `POST http://127.0.0.1:8000/api/watchlist/topics`
+- `PATCH http://127.0.0.1:8000/api/watchlist/topics/{topic}`
+- `DELETE http://127.0.0.1:8000/api/watchlist/topics/{topic}`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/save`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/hide`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/mark-important`

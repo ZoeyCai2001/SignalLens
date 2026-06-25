@@ -188,6 +188,10 @@ export function Dashboard() {
   const [stockCompany, setStockCompany] = useState("");
   const [stockThemes, setStockThemes] = useState("");
   const [stockKeywords, setStockKeywords] = useState("");
+  const [topicName, setTopicName] = useState("");
+  const [topicLabel, setTopicLabel] = useState("");
+  const [topicCategory, setTopicCategory] = useState("technical_trend");
+  const [topicTerms, setTopicTerms] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSource, setSearchSource] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
@@ -416,6 +420,39 @@ export function Dashboard() {
     } catch (err) {
       setError(readError(err));
       setStatus("Stock add failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const submitTopic = async () => {
+    if (!topicName.trim()) {
+      setError("Topic watchlist entries need a topic name.");
+      return;
+    }
+
+    setLoadState("running");
+    setError(null);
+    try {
+      const created = await fetchJson<TopicWatchlistItem>("/api/watchlist/topics", {
+        method: "POST",
+        body: JSON.stringify({
+          topic: topicName.trim(),
+          label: topicLabel.trim() || null,
+          category: topicCategory,
+          related_terms: splitTerms(topicTerms),
+        }),
+      });
+      setTopics((items) => [created, ...items.filter((item) => item.topic !== created.topic)]);
+      setTopicName("");
+      setTopicLabel("");
+      setTopicCategory("technical_trend");
+      setTopicTerms("");
+      setStatus(`Added topic ${created.label}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Topic add failed");
     } finally {
       setLoadState("idle");
     }
@@ -676,7 +713,19 @@ export function Dashboard() {
               onKeywordsChange={setStockKeywords}
               onSubmit={submitStock}
             />
-            <TopicTable topics={topics} />
+            <TopicTable
+              topics={topics}
+              topic={topicName}
+              label={topicLabel}
+              category={topicCategory}
+              terms={topicTerms}
+              disabled={loadState !== "idle"}
+              onTopicChange={setTopicName}
+              onLabelChange={setTopicLabel}
+              onCategoryChange={setTopicCategory}
+              onTermsChange={setTopicTerms}
+              onSubmit={submitTopic}
+            />
             <SourceTable sources={sources} />
           </aside>
         </div>
@@ -1244,18 +1293,82 @@ function StockTable({
   );
 }
 
-function TopicTable({ topics }: { topics: TopicWatchlistItem[] }) {
+function TopicTable({
+  topics,
+  topic,
+  label,
+  category,
+  terms,
+  disabled,
+  onTopicChange,
+  onLabelChange,
+  onCategoryChange,
+  onTermsChange,
+  onSubmit,
+}: {
+  topics: TopicWatchlistItem[];
+  topic: string;
+  label: string;
+  category: string;
+  terms: string;
+  disabled: boolean;
+  onTopicChange: (value: string) => void;
+  onLabelChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onTermsChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
   return (
     <section className="section">
       <div className="section-header">
         <h2 className="section-title">Topic Watchlist</h2>
         <span className="small-muted">{topics.length} topics</span>
       </div>
+      <div className="form-panel compact-form">
+        <input
+          className="field"
+          value={topic}
+          onChange={(event) => onTopicChange(event.target.value)}
+          placeholder="Topic"
+          aria-label="Topic"
+        />
+        <input
+          className="field"
+          value={label}
+          onChange={(event) => onLabelChange(event.target.value)}
+          placeholder="Label"
+          aria-label="Topic label"
+        />
+        <select
+          className="field"
+          value={category}
+          onChange={(event) => onCategoryChange(event.target.value)}
+          aria-label="Topic category"
+        >
+          <option value="technical_trend">Trend</option>
+          <option value="research">Research</option>
+          <option value="product">Product</option>
+          <option value="stock_company_event">Stock</option>
+          <option value="social_trend">Social</option>
+        </select>
+        <input
+          className="field"
+          value={terms}
+          onChange={(event) => onTermsChange(event.target.value)}
+          placeholder="Terms"
+          aria-label="Related terms"
+        />
+        <button className="button primary" onClick={onSubmit} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+          Add
+        </button>
+      </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Topic</th>
+              <th>Category</th>
               <th>Priority</th>
               <th>Terms</th>
             </tr>
@@ -1267,6 +1380,7 @@ function TopicTable({ topics }: { topics: TopicWatchlistItem[] }) {
                   <span className="ticker">{topic.label}</span>
                   {topic.is_pinned ? <Star size={13} fill="currentColor" /> : null}
                 </td>
+                <td>{topic.category}</td>
                 <td className={`priority-${topic.priority.toLowerCase()}`}>{topic.priority}</td>
                 <td>{topic.related_terms.slice(0, 3).join(", ")}</td>
               </tr>

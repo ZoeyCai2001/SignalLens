@@ -169,6 +169,10 @@ curl -X POST "http://127.0.0.1:8000/api/watchlist/topics/seed"
 curl -X POST "http://127.0.0.1:8000/api/watchlist/topics" \
   -H "Content-Type: application/json" \
   -d '{"topic":"model-routing","label":"Model routing","priority":"Medium","related_terms":["router","mixture of experts"]}'
+curl -X PATCH "http://127.0.0.1:8000/api/watchlist/topics/model-routing" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"technical_trend","is_pinned":true}'
+curl -X DELETE "http://127.0.0.1:8000/api/watchlist/topics/model-routing"
 ```
 
 Read stock-linked AI signals:

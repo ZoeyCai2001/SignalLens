@@ -87,3 +87,13 @@ class TopicWatchlistItemCreate(BaseModel):
     include_in_digest: bool = True
     related_terms: list[str] = Field(default_factory=list)
     notes: str | None = None
+
+
+class TopicWatchlistItemUpdate(BaseModel):
+    label: str | None = None
+    category: str | None = None
+    priority: str | None = None
+    is_pinned: bool | None = None
+    include_in_digest: bool | None = None
+    related_terms: list[str] | None = None
+    notes: str | None = None
