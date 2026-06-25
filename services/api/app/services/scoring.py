@@ -31,6 +31,19 @@ AI_KEYWORDS = {
 
 WATCHED_TICKERS = {"MU", "MRVL", "SNDK", "NVDA", "AMD", "AVGO", "TSM", "ASML", "MSFT", "GOOGL"}
 
+TICKER_ALIASES = {
+    "MU": ["Micron", "Micron Technology"],
+    "MRVL": ["Marvell", "Marvell Technology"],
+    "SNDK": ["SanDisk"],
+    "NVDA": ["NVIDIA"],
+    "AMD": ["Advanced Micro Devices"],
+    "AVGO": ["Broadcom"],
+    "TSM": ["TSMC", "Taiwan Semiconductor"],
+    "ASML": ["ASML"],
+    "MSFT": ["Microsoft"],
+    "GOOGL": ["Google", "Alphabet"],
+}
+
 
 def detect_topics(text: str) -> list[str]:
     normalized = text.lower()
@@ -39,7 +52,12 @@ def detect_topics(text: str) -> list[str]:
 
 def detect_tickers(text: str) -> list[str]:
     upper_text = f" {text.upper()} "
-    return sorted({ticker for ticker in WATCHED_TICKERS if f" {ticker} " in upper_text})
+    normalized = text.lower()
+    detected = {ticker for ticker in WATCHED_TICKERS if f" {ticker} " in upper_text}
+    for ticker, aliases in TICKER_ALIASES.items():
+        if any(alias.lower() in normalized for alias in aliases):
+            detected.add(ticker)
+    return sorted(detected)
 
 
 def is_ai_relevant(text: str) -> bool:

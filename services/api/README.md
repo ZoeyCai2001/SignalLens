@@ -106,3 +106,10 @@ curl -X POST "http://127.0.0.1:8000/api/watchlist/topics" \
   -H "Content-Type: application/json" \
   -d '{"topic":"model-routing","label":"Model routing","priority":"Medium","related_terms":["router","mixture of experts"]}'
 ```
+
+Read stock-linked AI signals:
+
+```bash
+curl "http://127.0.0.1:8000/api/watchlist/stocks/signals/summary"
+curl "http://127.0.0.1:8000/api/watchlist/stocks/MU/signals?limit=10"
+```

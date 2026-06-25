@@ -54,6 +54,8 @@ Useful endpoints:
 
 - `GET http://127.0.0.1:8000/api/health`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks`
+- `GET http://127.0.0.1:8000/api/watchlist/stocks/signals/summary`
+- `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/signals`
 - `GET http://127.0.0.1:8000/api/watchlist/topics`
 - `GET http://127.0.0.1:8000/api/feed`
 - `GET http://127.0.0.1:8000/api/search`

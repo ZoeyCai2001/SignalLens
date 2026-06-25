@@ -47,3 +47,4 @@ Implementation progress:
 - Added deterministic daily digest generation and a dashboard digest panel.
 - Added topic watchlist persistence, seed data, API endpoints, and dashboard display.
 - Added GitHub public repository ingestion for open-source AI project signals.
+- Added stock-linked signal summary and ticker detail endpoints, with dashboard signal counts.

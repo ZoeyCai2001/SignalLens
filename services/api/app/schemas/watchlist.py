@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.feed import FeedItem
+
 
 class StockWatchlistItem(BaseModel):
     ticker: str
@@ -16,6 +18,13 @@ class StockWatchlistItem(BaseModel):
     notes: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StockSignalSummary(BaseModel):
+    stock: StockWatchlistItem
+    signal_count: int
+    top_signals: list[FeedItem]
+    disclaimer: str
 
 
 class TopicWatchlistItem(BaseModel):

@@ -66,6 +66,13 @@ type StockWatchlistItem = {
   notes: string | null;
 };
 
+type StockSignalSummary = {
+  stock: StockWatchlistItem;
+  signal_count: number;
+  top_signals: FeedItem[];
+  disclaimer: string;
+};
+
 type TopicWatchlistItem = {
   topic: string;
   label: string;
@@ -130,6 +137,7 @@ const navItems = [
 export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [stocks, setStocks] = useState<StockWatchlistItem[]>([]);
+  const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
   const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
@@ -168,15 +176,18 @@ export function Dashboard() {
     setLoadState("loading");
     setError(null);
     try {
-      const [nextFeed, nextStocks, nextTopics, nextSources, nextDigest] = await Promise.all([
-        fetchJson<FeedItem[]>("/api/feed?limit=30"),
-        fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
-        fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
-        fetchJson<SourceHealth[]>("/api/sources/health"),
-        fetchJson<DailyDigest>("/api/digest/daily"),
-      ]);
+      const [nextFeed, nextStocks, nextStockSignals, nextTopics, nextSources, nextDigest] =
+        await Promise.all([
+          fetchJson<FeedItem[]>("/api/feed?limit=30"),
+          fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
+          fetchJson<StockSignalSummary[]>("/api/watchlist/stocks/signals/summary"),
+          fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
+          fetchJson<SourceHealth[]>("/api/sources/health"),
+          fetchJson<DailyDigest>("/api/digest/daily"),
+        ]);
       setFeed(nextFeed);
       setStocks(nextStocks);
+      setStockSignals(nextStockSignals);
       setTopics(nextTopics);
       setSources(nextSources);
       setDigest(nextDigest);
@@ -472,7 +483,7 @@ export function Dashboard() {
               onTextChange={setManualText}
               onSubmit={submitManualItem}
             />
-            <StockTable stocks={stocks} />
+            <StockTable stocks={stocks} signalSummaries={stockSignals} />
             <TopicTable topics={topics} />
             <SourceTable sources={sources} />
           </aside>
@@ -794,7 +805,15 @@ function ManualSubmissionPanel({
   );
 }
 
-function StockTable({ stocks }: { stocks: StockWatchlistItem[] }) {
+function StockTable({
+  stocks,
+  signalSummaries,
+}: {
+  stocks: StockWatchlistItem[];
+  signalSummaries: StockSignalSummary[];
+}) {
+  const signalMap = new Map(signalSummaries.map((summary) => [summary.stock.ticker, summary]));
+  const disclaimer = signalSummaries[0]?.disclaimer;
   return (
     <section className="section">
       <div className="section-header">
@@ -808,24 +827,30 @@ function StockTable({ stocks }: { stocks: StockWatchlistItem[] }) {
               <th>Ticker</th>
               <th>Company</th>
               <th>Priority</th>
+              <th>Signals</th>
               <th>Themes</th>
             </tr>
           </thead>
           <tbody>
-            {stocks.map((stock) => (
-              <tr key={stock.ticker}>
-                <td>
-                  <span className="ticker">{stock.ticker}</span>
-                  {stock.is_pinned ? <Star size={13} fill="currentColor" /> : null}
-                </td>
-                <td>{stock.company_name}</td>
-                <td className={`priority-${stock.priority.toLowerCase()}`}>{stock.priority}</td>
-                <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
-              </tr>
-            ))}
+            {stocks.map((stock) => {
+              const summary = signalMap.get(stock.ticker);
+              return (
+                <tr key={stock.ticker}>
+                  <td>
+                    <span className="ticker">{stock.ticker}</span>
+                    {stock.is_pinned ? <Star size={13} fill="currentColor" /> : null}
+                  </td>
+                  <td>{stock.company_name}</td>
+                  <td className={`priority-${stock.priority.toLowerCase()}`}>{stock.priority}</td>
+                  <td>{summary?.signal_count ?? 0}</td>
+                  <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+      {disclaimer ? <div className="small-muted">{disclaimer}</div> : null}
     </section>
   );
 }

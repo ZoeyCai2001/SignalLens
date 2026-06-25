@@ -1,4 +1,9 @@
 from app.services.seed_data import initial_stock_watchlist, initial_topic_watchlist
+from app.services.watchlist import (
+    build_stock_match_terms,
+    build_stock_symbol_terms,
+    build_stock_text_terms,
+)
 
 
 def test_initial_stock_watchlist_contains_prd_tickers() -> None:
@@ -13,3 +18,23 @@ def test_initial_topic_watchlist_contains_core_ai_topics() -> None:
     assert "ai-coding-agents" in topics
     assert "agent-workflows" in topics
     assert "open-source-llms" in topics
+
+
+def test_stock_match_terms_include_ticker_company_and_related_terms() -> None:
+    stock = initial_stock_watchlist()[0]
+
+    terms = build_stock_match_terms(stock)
+
+    assert "MU" in terms
+    assert "Micron Technology" in terms
+    assert "HBM" in terms
+    assert "AI server memory" in terms
+
+
+def test_stock_symbol_terms_are_separate_from_text_terms() -> None:
+    stock = initial_stock_watchlist()[0]
+
+    assert "MU" in build_stock_symbol_terms(stock)
+    assert "NVDA" in build_stock_symbol_terms(stock)
+    assert "MU" not in build_stock_text_terms(stock)
+    assert "NVIDIA" in build_stock_text_terms(stock)
