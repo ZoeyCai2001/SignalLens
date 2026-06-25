@@ -21,12 +21,14 @@ router = APIRouter()
 async def list_feed_items(
     db: DbSession,
     limit: int = Query(default=25, ge=1, le=100),
+    saved_only: bool = Query(default=False),
 ) -> list[FeedItem]:
     preferences = get_user_preferences(db)
     return list_visible_feed_items(
         db=db,
         limit=limit,
         ranking_weights=preferences.ranking_weights,
+        saved_only=saved_only,
     )
 
 
@@ -70,6 +72,12 @@ async def classify_item(item_id: int, db: DbSession) -> FeedItem:
 async def save_item(item_id: int, db: DbSession) -> FeedItem:
     item = get_feed_item_or_404(db, item_id)
     return update_item_action(db=db, item=item, action_name="save")
+
+
+@router.post("/{item_id}/unsave", response_model=FeedItem)
+async def unsave_item(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="unsave")
 
 
 @router.post("/{item_id}/hide", response_model=FeedItem)

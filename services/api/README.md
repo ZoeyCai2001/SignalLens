@@ -137,8 +137,15 @@ Save, hide, or mark a feed item:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/feed/1/save"
+curl -X POST "http://127.0.0.1:8000/api/feed/1/unsave"
 curl -X POST "http://127.0.0.1:8000/api/feed/1/hide"
 curl -X POST "http://127.0.0.1:8000/api/feed/1/mark-important"
+```
+
+Read saved feed items:
+
+```bash
+curl "http://127.0.0.1:8000/api/feed?saved_only=true&limit=10"
 ```
 
 Search stored feed items:

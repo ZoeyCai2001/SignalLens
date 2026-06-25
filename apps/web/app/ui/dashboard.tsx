@@ -235,6 +235,7 @@ const navItems = [
 
 export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [savedItems, setSavedItems] = useState<FeedItem[]>([]);
   const [stocks, setStocks] = useState<StockWatchlistItem[]>([]);
   const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -317,6 +318,7 @@ export function Dashboard() {
     try {
       const [
         nextFeed,
+        nextSavedItems,
         nextStocks,
         nextStockSignals,
         nextTopics,
@@ -329,6 +331,7 @@ export function Dashboard() {
       ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
+          fetchJson<FeedItem[]>("/api/feed?limit=8&saved_only=true"),
           fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
           fetchJson<StockSignalSummary[]>("/api/watchlist/stocks/signals/summary"),
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
@@ -340,6 +343,7 @@ export function Dashboard() {
           fetchJson<UserPreferences>("/api/preferences"),
         ]);
       setFeed(nextFeed);
+      setSavedItems(nextSavedItems);
       setStocks(nextStocks);
       setStockSignals(nextStockSignals);
       setTopics(nextTopics);
@@ -763,7 +767,7 @@ export function Dashboard() {
 
   const updateFeedAction = async (
     itemId: number,
-    action: "save" | "hide" | "mark-important",
+    action: "save" | "unsave" | "hide" | "mark-important",
   ) => {
     setBusyItemId(itemId);
     setError(null);
@@ -773,9 +777,17 @@ export function Dashboard() {
       });
       if (action === "hide") {
         setFeed((items) => items.filter((item) => item.id !== itemId));
+        setSavedItems((items) => items.filter((item) => item.id !== itemId));
         setStatus(`Hidden item ${itemId}`);
+      } else if (action === "unsave") {
+        setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+        setSavedItems((items) => items.filter((item) => item.id !== itemId));
+        setStatus(`Removed saved item ${itemId}`);
       } else {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+        if (action === "save") {
+          setSavedItems((items) => [updated, ...items.filter((item) => item.id !== itemId)]);
+        }
         setStatus(action === "save" ? `Saved item ${itemId}` : `Marked item ${itemId}`);
       }
     } catch (err) {
@@ -1078,6 +1090,11 @@ export function Dashboard() {
               onRuleSubmit={submitAlertRule}
             />
             <DailyDigestPanel digest={digest} />
+            <SavedItemsPanel
+              items={savedItems}
+              busyItemId={busyItemId}
+              onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
+            />
             <ChineseSocialPanel items={feed} />
             <EventClusterPanel clusters={eventClusters} />
             <ManualSubmissionPanel
@@ -1424,6 +1441,49 @@ function DailyDigestPanel({ digest }: { digest: DailyDigest | null }) {
   );
 }
 
+function SavedItemsPanel({
+  items,
+  busyItemId,
+  onUnsave,
+}: {
+  items: FeedItem[];
+  busyItemId: number | null;
+  onUnsave: (itemId: number) => void;
+}) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Saved Items</h2>
+        <Bookmark size={16} aria-hidden="true" />
+      </div>
+      <div className="digest-panel">
+        {items.length ? (
+          <div className="digest-list">
+            {items.map((item) => (
+              <div className="saved-row" key={item.id}>
+                <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
+                  {item.title}
+                </a>
+                <button
+                  className="button icon-button"
+                  onClick={() => onUnsave(item.id)}
+                  disabled={busyItemId === item.id}
+                  title="Remove saved item"
+                  aria-label="Remove saved item"
+                >
+                  {busyItemId === item.id ? <Loader2 className="spin" size={16} /> : <X size={16} />}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">No saved items yet.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function EventClusterPanel({ clusters }: { clusters: EventCluster[] }) {
   return (
     <section className="section">
@@ -1569,7 +1629,10 @@ function FeedCard({
   busy: boolean;
   onSummarize: (itemId: number) => void;
   onClassify: (itemId: number) => void;
-  onAction: (itemId: number, action: "save" | "hide" | "mark-important") => void;
+  onAction: (
+    itemId: number,
+    action: "save" | "unsave" | "hide" | "mark-important",
+  ) => void;
 }) {
   const displaySummary = item.summary_detailed || item.summary_short || item.why_it_matters;
   return (
@@ -1617,12 +1680,16 @@ function FeedCard({
         <div className="toolbar">
           <button
             className="button icon-button"
-            onClick={() => onAction(item.id, "save")}
-            disabled={busy || item.is_saved}
-            title="Save item"
-            aria-label="Save item"
+            onClick={() => onAction(item.id, item.is_saved ? "unsave" : "save")}
+            disabled={busy}
+            title={item.is_saved ? "Remove saved item" : "Save item"}
+            aria-label={item.is_saved ? "Remove saved item" : "Save item"}
           >
-            {busy ? <Loader2 className="spin" size={16} /> : <Bookmark size={16} />}
+            {busy ? (
+              <Loader2 className="spin" size={16} />
+            ) : (
+              <Bookmark size={16} fill={item.is_saved ? "currentColor" : "none"} />
+            )}
           </button>
           <button
             className="button icon-button"

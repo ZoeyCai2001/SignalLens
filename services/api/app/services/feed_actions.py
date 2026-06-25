@@ -25,8 +25,9 @@ def list_visible_feed_items(
     db: Session,
     limit: int,
     ranking_weights: RankingWeights | dict | None = None,
+    saved_only: bool = False,
 ) -> list[FeedItem]:
-    rows = (
+    query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
             UserItemAction,
@@ -34,6 +35,12 @@ def list_visible_feed_items(
             & (UserItemAction.user_id == LOCAL_USER_ID),
         )
         .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+    )
+    if saved_only:
+        query = query.filter(UserItemAction.is_saved.is_(True))
+
+    rows = (
+        query
         .order_by(
             UserItemAction.is_important.desc().nullslast(),
             NormalizedItem.importance_score.desc(),
@@ -126,6 +133,8 @@ def update_item_action(
     action = get_or_create_action(db, item.id)
     if action_name == "save":
         action.is_saved = True
+    elif action_name == "unsave":
+        action.is_saved = False
     elif action_name == "hide":
         action.is_hidden = True
     elif action_name == "mark-important":

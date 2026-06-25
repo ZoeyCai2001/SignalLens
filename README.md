@@ -59,6 +59,7 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/briefing`
 - `GET http://127.0.0.1:8000/api/watchlist/topics`
 - `GET http://127.0.0.1:8000/api/feed`
+- `GET http://127.0.0.1:8000/api/feed?saved_only=true`
 - `GET http://127.0.0.1:8000/api/search`
 - `GET http://127.0.0.1:8000/api/preferences`
 - `PATCH http://127.0.0.1:8000/api/preferences`
@@ -84,6 +85,7 @@ Useful endpoints:
 - `PATCH http://127.0.0.1:8000/api/watchlist/topics/{topic}`
 - `DELETE http://127.0.0.1:8000/api/watchlist/topics/{topic}`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/save`
+- `POST http://127.0.0.1:8000/api/feed/{item_id}/unsave`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/hide`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/mark-important`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/classify`

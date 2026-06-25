@@ -41,6 +41,17 @@ def test_serialize_feed_item_includes_user_action_flags() -> None:
     assert serialized.is_important is True
 
 
+def test_rank_feed_items_keeps_important_saved_flags() -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+    important = make_feed_item(1, "Important", relevance_score=0.1, importance_score=0.1)
+    important.is_important = True
+    high_score = make_feed_item(2, "High score", relevance_score=1, importance_score=1)
+
+    ranked = rank_feed_items([high_score, important], now=now)
+
+    assert [item.title for item in ranked] == ["Important", "High score"]
+
+
 def test_rank_feed_items_uses_configurable_weights() -> None:
     now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
     relevance_item = make_feed_item(1, "Relevant", relevance_score=0.95, importance_score=0.1)
