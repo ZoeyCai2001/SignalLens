@@ -120,6 +120,14 @@ curl "http://127.0.0.1:8000/api/search?q=agent&category=research&limit=10"
 curl "http://127.0.0.1:8000/api/search?topic=inference&saved_only=true"
 ```
 
+Generate, read, and dismiss dashboard alerts:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/alerts/generate"
+curl "http://127.0.0.1:8000/api/alerts?limit=10"
+curl -X POST "http://127.0.0.1:8000/api/alerts/1/dismiss"
+```
+
 Generate the daily digest from stored feed items:
 
 ```bash

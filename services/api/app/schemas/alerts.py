@@ -1,0 +1,40 @@
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.feed import FeedItem
+
+
+class AlertRule(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    category: str
+    severity: str
+    min_importance_score: float
+    min_stock_impact_score: float
+    tickers: list[str] = Field(default_factory=list)
+    topics: list[str] = Field(default_factory=list)
+    enabled: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AlertItem(BaseModel):
+    id: int
+    title: str
+    reason: str
+    severity: str
+    status: str
+    created_at: datetime
+    rule: AlertRule
+    item: FeedItem
+    disclaimer: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AlertGenerationResult(BaseModel):
+    rules_seeded: int
+    alerts_created: int
+    active_alerts: int

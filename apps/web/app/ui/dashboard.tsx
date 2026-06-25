@@ -3,6 +3,7 @@
 import {
   Activity,
   BarChart3,
+  BellRing,
   Bookmark,
   Bot,
   CalendarDays,
@@ -20,6 +21,7 @@ import {
   Send,
   Star,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -136,6 +138,17 @@ type EventCluster = {
   items: FeedItem[];
 };
 
+type AlertItem = {
+  id: number;
+  title: string;
+  reason: string;
+  severity: string;
+  status: string;
+  created_at: string;
+  item: FeedItem;
+  disclaimer: string;
+};
+
 type LoadState = "idle" | "loading" | "running";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -157,10 +170,12 @@ export function Dashboard() {
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
+  const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
@@ -200,6 +215,7 @@ export function Dashboard() {
         nextSources,
         nextDigest,
         nextEventClusters,
+        nextAlerts,
       ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
@@ -209,6 +225,7 @@ export function Dashboard() {
           fetchJson<SourceHealth[]>("/api/sources/health"),
           fetchJson<DailyDigest>("/api/digest/daily"),
           fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
+          fetchJson<AlertItem[]>("/api/alerts?limit=8"),
         ]);
       setFeed(nextFeed);
       setStocks(nextStocks);
@@ -217,6 +234,7 @@ export function Dashboard() {
       setSources(nextSources);
       setDigest(nextDigest);
       setEventClusters(nextEventClusters);
+      setAlerts(nextAlerts);
       setStatus(`Loaded ${nextFeed.length} feed items`);
     } catch (err) {
       setError(readError(err));
@@ -378,16 +396,33 @@ export function Dashboard() {
     }
   };
 
+  const dismissAlert = async (alertId: number) => {
+    setBusyAlertId(alertId);
+    setError(null);
+    try {
+      await fetchJson<AlertItem>(`/api/alerts/${alertId}/dismiss`, {
+        method: "POST",
+      });
+      setAlerts((items) => items.filter((item) => item.id !== alertId));
+      setStatus(`Dismissed alert ${alertId}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert action failed");
+    } finally {
+      setBusyAlertId(null);
+    }
+  };
+
   const metrics = useMemo(() => {
     const highImportance = feed.filter((item) => item.importance_score >= 0.75).length;
     const summarized = feed.filter((item) => item.summary_detailed).length;
     return [
       { label: "Feed", value: feed.length },
       { label: "High", value: highImportance },
+      { label: "Alerts", value: alerts.length },
       { label: "Summaries", value: summarized },
-      { label: "Sources", value: sources.length },
     ];
-  }, [feed, sources.length]);
+  }, [alerts.length, feed]);
 
   return (
     <div className="app-shell">
@@ -536,6 +571,7 @@ export function Dashboard() {
           </section>
 
           <aside className="stack">
+            <AlertPanel alerts={alerts} busyAlertId={busyAlertId} onDismiss={dismissAlert} />
             <DailyDigestPanel digest={digest} />
             <EventClusterPanel clusters={eventClusters} />
             <ManualSubmissionPanel
@@ -555,6 +591,65 @@ export function Dashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+function AlertPanel({
+  alerts,
+  busyAlertId,
+  onDismiss,
+}: {
+  alerts: AlertItem[];
+  busyAlertId: number | null;
+  onDismiss: (alertId: number) => void;
+}) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Alerts</h2>
+        <BellRing size={16} aria-hidden="true" />
+      </div>
+      <div className="alert-list">
+        {alerts.length ? (
+          alerts.map((alert) => (
+            <article className={`alert-card severity-${alert.severity}`} key={alert.id}>
+              <div className="alert-head">
+                <div>
+                  <div className="alert-title">{alert.title}</div>
+                  <div className="small-muted">
+                    {alert.severity} · {formatDate(alert.created_at)}
+                  </div>
+                </div>
+                <button
+                  className="button icon-button"
+                  onClick={() => onDismiss(alert.id)}
+                  disabled={busyAlertId === alert.id}
+                  title="Dismiss alert"
+                  aria-label="Dismiss alert"
+                >
+                  {busyAlertId === alert.id ? <Loader2 className="spin" size={16} /> : <X size={16} />}
+                </button>
+              </div>
+              <div className="summary">{alert.reason}</div>
+              <div className="badges">
+                {alert.item.tickers.map((ticker) => (
+                  <span className="badge stock" key={ticker}>
+                    {ticker}
+                  </span>
+                ))}
+                <span className="badge">{alert.item.category}</span>
+              </div>
+              <a className="digest-link" href={alert.item.url} target="_blank">
+                {alert.item.source_name}
+              </a>
+              <div className="small-muted">{alert.disclaimer}</div>
+            </article>
+          ))
+        ) : (
+          <div className="empty-state">No active alerts.</div>
+        )}
+      </div>
+    </section>
   );
 }
 

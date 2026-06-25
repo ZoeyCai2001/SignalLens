@@ -117,6 +117,7 @@ class NormalizedItem(Base):
 
     raw_item: Mapped[RawItem] = relationship(back_populates="normalized_item")
     user_actions: Mapped[list["UserItemAction"]] = relationship(back_populates="item")
+    alerts: Mapped[list["Alert"]] = relationship(back_populates="item")
 
 
 class UserItemAction(Base, TimestampMixin):
@@ -176,3 +177,43 @@ class TopicWatchlistItem(Base, TimestampMixin):
     include_in_digest: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     related_terms: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+
+
+class AlertRule(Base, TimestampMixin):
+    __tablename__ = "alert_rules"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_alert_rules_user_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), default="local", nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(80), default="all", nullable=False)
+    severity: Mapped[str] = mapped_column(String(40), default="medium", nullable=False)
+    min_importance_score: Mapped[float] = mapped_column(Float, default=0.75, nullable=False)
+    min_stock_impact_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    tickers: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    topics: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    alerts: Mapped[list["Alert"]] = relationship(back_populates="rule")
+
+
+class Alert(Base, TimestampMixin):
+    __tablename__ = "alerts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "item_id", "rule_id", name="uq_alerts_user_item_rule"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), default="local", nullable=False)
+    item_id: Mapped[int] = mapped_column(ForeignKey("normalized_items.id"), nullable=False)
+    rule_id: Mapped[int] = mapped_column(ForeignKey("alert_rules.id"), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[str] = mapped_column(String(40), default="medium", nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="active", nullable=False)
+
+    item: Mapped[NormalizedItem] = relationship(back_populates="alerts")
+    rule: Mapped[AlertRule] = relationship(back_populates="alerts")

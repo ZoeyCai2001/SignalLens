@@ -34,11 +34,13 @@ async def test_run_ingestion_cycle_runs_jobs_in_order() -> None:
         db,
         jobs=jobs,
         seed_watchlists=lambda _db: (3, 4),
+        generate_cycle_alerts_fn=lambda _db: 2,
     )
 
     assert calls == ["one:3", "two:5"]
     assert result.seeded_stock_count == 3
     assert result.seeded_topic_count == 4
+    assert result.generated_alert_count == 2
     assert [item.source_name for item in result.ingestion_results] == ["one", "two"]
 
 
@@ -58,12 +60,14 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
             object(),
             jobs=[job],
             seed_watchlists=lambda _db: (3, 4),
+            generate_cycle_alerts_fn=lambda _db: 1,
         )
 
     log_data = scheduled_cycle_to_log_dict(asyncio.run(run_cycle()))
 
     assert log_data["seeded_stock_count"] == 3
     assert log_data["seeded_topic_count"] == 4
+    assert log_data["generated_alert_count"] == 1
     assert log_data["ingestion_results"] == [
         {
             "source_name": "test",

@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
+from app.services.alerts import generate_alerts
 from app.services.ingestion import (
     IngestionResult,
     run_arxiv_ingestion,
@@ -16,6 +17,7 @@ from app.services.watchlist import seed_initial_stock_watchlist, seed_initial_to
 
 IngestionJob = Callable[[Session, int], Awaitable[IngestionResult]]
 WatchlistSeeder = Callable[[Session], tuple[int, int]]
+AlertGenerator = Callable[[Session], int]
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,7 @@ class ScheduledCycleResult:
     finished_at: datetime
     seeded_stock_count: int
     seeded_topic_count: int
+    generated_alert_count: int
     ingestion_results: list[IngestionResult]
 
 
@@ -49,10 +52,15 @@ def seed_default_watchlists(db: Session) -> tuple[int, int]:
     return len(stocks), len(topics)
 
 
+def generate_cycle_alerts(db: Session) -> int:
+    return generate_alerts(db).alerts_created
+
+
 async def run_ingestion_cycle(
     db: Session,
     jobs: list[ScheduledIngestionJob] | None = None,
     seed_watchlists: WatchlistSeeder = seed_default_watchlists,
+    generate_cycle_alerts_fn: AlertGenerator = generate_cycle_alerts,
 ) -> ScheduledCycleResult:
     started_at = datetime.now(UTC)
     seeded_stock_count, seeded_topic_count = seed_watchlists(db)
@@ -61,12 +69,14 @@ async def run_ingestion_cycle(
     for job in jobs or DEFAULT_INGESTION_JOBS:
         result = await job.runner(db, job.limit)
         ingestion_results.append(result)
+    generated_alert_count = generate_cycle_alerts_fn(db)
 
     return ScheduledCycleResult(
         started_at=started_at,
         finished_at=datetime.now(UTC),
         seeded_stock_count=seeded_stock_count,
         seeded_topic_count=seeded_topic_count,
+        generated_alert_count=generated_alert_count,
         ingestion_results=ingestion_results,
     )
 
@@ -77,6 +87,7 @@ def scheduled_cycle_to_log_dict(result: ScheduledCycleResult) -> dict[str, objec
         "finished_at": result.finished_at.isoformat(),
         "seeded_stock_count": result.seeded_stock_count,
         "seeded_topic_count": result.seeded_topic_count,
+        "generated_alert_count": result.generated_alert_count,
         "ingestion_results": [
             {
                 "source_name": item.source_name,
