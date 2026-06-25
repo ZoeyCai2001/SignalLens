@@ -30,6 +30,7 @@ http://127.0.0.1:8000
 - Source health
 - Hacker News ingestion action
 - arXiv ingestion action
+- GitHub ingestion action
 - Kimi summarization action for stored feed items
 - Manual URL submission
 - Save, hide, and mark-important item actions

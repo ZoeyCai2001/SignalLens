@@ -46,3 +46,4 @@ Implementation progress:
 - Added keyword and filter search over stored feed items, with dashboard search controls.
 - Added deterministic daily digest generation and a dashboard digest panel.
 - Added topic watchlist persistence, seed data, API endpoints, and dashboard display.
+- Added GitHub public repository ingestion for open-source AI project signals.

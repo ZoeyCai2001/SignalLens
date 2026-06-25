@@ -12,6 +12,7 @@ import {
   FileText,
   Flag,
   FlaskConical,
+  Github,
   Loader2,
   Newspaper,
   RefreshCw,
@@ -192,16 +193,17 @@ export function Dashboard() {
     void refreshAll();
   }, [refreshAll]);
 
-  const runIngestion = async (source: "hacker-news" | "arxiv") => {
+  const runIngestion = async (source: "hacker-news" | "arxiv" | "github") => {
     setLoadState("running");
     setError(null);
     try {
+      const limit = source === "arxiv" ? 15 : source === "github" ? 20 : 25;
       const result = await fetchJson<{
         source_name: string;
         status: string;
         items_fetched: number;
         items_stored: number;
-      }>(`/api/ingestion/${source}?limit=${source === "arxiv" ? 15 : 25}`, { method: "POST" });
+      }>(`/api/ingestion/${source}?limit=${limit}`, { method: "POST" });
       setStatus(
         `${result.source_name}: ${result.items_fetched} fetched, ${result.items_stored} stored`,
       );
@@ -381,6 +383,15 @@ export function Dashboard() {
                 <FlaskConical size={16} />
               )}
               arXiv
+            </button>
+            <button
+              className="button"
+              onClick={() => runIngestion("github")}
+              disabled={loadState !== "idle"}
+              title="Run GitHub repository ingestion"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Github size={16} />}
+              GitHub
             </button>
             <button
               className="button icon-button"

@@ -14,6 +14,7 @@ from app.services.scoring import (
 )
 from app.sources.arxiv import ArxivConnector
 from app.sources.base import FetchCursor, RawItemInput
+from app.sources.github import GitHubConnector
 from app.sources.hacker_news import HackerNewsConnector
 
 
@@ -62,9 +63,27 @@ async def run_arxiv_ingestion(db: Session, limit: int = 25) -> IngestionResult:
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
 
+async def run_github_ingestion(db: Session, limit: int = 25) -> IngestionResult:
+    connector = GitHubConnector(limit=limit)
+    source = get_or_create_source(
+        db,
+        name="GitHub",
+        source_type="developer",
+        access_method="official_api",
+        base_url="https://api.github.com/search/repositories",
+        auth_required=False,
+        rate_limit="Unauthenticated public API; keep polling conservative.",
+        polling_interval="6 hours",
+        enabled=True,
+        priority=15,
+        terms_notes="Uses GitHub public repository search metadata only.",
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
 async def run_connector_ingestion(
     db: Session,
-    connector: HackerNewsConnector | ArxivConnector,
+    connector: HackerNewsConnector | ArxivConnector | GitHubConnector,
     source: Source,
 ) -> IngestionResult:
     run = SourceRun(source_id=source.id, status="running")
@@ -220,6 +239,13 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         summary_prefix = "arXiv paper"
         why_it_matters = (
             "This research item matched the AI relevance prefilter from arXiv metadata."
+        )
+    elif source.name == "GitHub":
+        category = "technical_trend"
+        subcategory = "open_source_project"
+        summary_prefix = "GitHub repository"
+        why_it_matters = (
+            "This repository matched the AI relevance prefilter from GitHub metadata."
         )
     elif source.type == "manual":
         category = "manual_submission"

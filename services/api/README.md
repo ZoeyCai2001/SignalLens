@@ -55,6 +55,12 @@ Ingest recent arXiv AI papers:
 curl -X POST "http://127.0.0.1:8000/api/ingestion/arxiv?limit=25"
 ```
 
+Ingest public GitHub AI repositories:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/github?limit=20"
+```
+
 Summarize a stored feed item with Kimi:
 
 ```bash

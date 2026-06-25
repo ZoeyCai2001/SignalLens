@@ -2,7 +2,11 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession
 from app.schemas.ingestion import IngestionRunResponse
-from app.services.ingestion import run_arxiv_ingestion, run_hacker_news_ingestion
+from app.services.ingestion import (
+    run_arxiv_ingestion,
+    run_github_ingestion,
+    run_hacker_news_ingestion,
+)
 
 router = APIRouter()
 
@@ -22,4 +26,13 @@ async def ingest_arxiv(
     limit: int = Query(default=25, ge=1, le=100),
 ) -> IngestionRunResponse:
     result = await run_arxiv_ingestion(db=db, limit=limit)
+    return IngestionRunResponse.model_validate(result)
+
+
+@router.post("/github", response_model=IngestionRunResponse)
+async def ingest_github(
+    db: DbSession,
+    limit: int = Query(default=25, ge=1, le=100),
+) -> IngestionRunResponse:
+    result = await run_github_ingestion(db=db, limit=limit)
     return IngestionRunResponse.model_validate(result)
