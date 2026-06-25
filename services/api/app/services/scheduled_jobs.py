@@ -11,6 +11,7 @@ from app.services.ingestion import (
     run_github_ingestion,
     run_hacker_news_ingestion,
     run_hugging_face_ingestion,
+    run_product_hunt_ingestion,
     run_rss_ingestion,
 )
 from app.services.watchlist import seed_initial_stock_watchlist, seed_initial_topic_watchlist
@@ -42,6 +43,7 @@ DEFAULT_INGESTION_JOBS = [
     ScheduledIngestionJob(name="arxiv", runner=run_arxiv_ingestion, limit=25),
     ScheduledIngestionJob(name="github", runner=run_github_ingestion, limit=25),
     ScheduledIngestionJob(name="hugging-face", runner=run_hugging_face_ingestion, limit=25),
+    ScheduledIngestionJob(name="product-hunt", runner=run_product_hunt_ingestion, limit=25),
     ScheduledIngestionJob(name="rss", runner=run_rss_ingestion, limit=25),
 ]
 

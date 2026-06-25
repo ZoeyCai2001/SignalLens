@@ -67,6 +67,7 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/ingestion/arxiv`
 - `POST http://127.0.0.1:8000/api/ingestion/github`
 - `POST http://127.0.0.1:8000/api/ingestion/hugging-face`
+- `POST http://127.0.0.1:8000/api/ingestion/product-hunt`
 - `POST http://127.0.0.1:8000/api/ingestion/rss`
 - `POST http://127.0.0.1:8000/api/manual-submissions`
 - `POST http://127.0.0.1:8000/api/watchlist/topics`
@@ -93,6 +94,10 @@ Run the Kimi API smoke test:
 cd services/api
 python scripts/smoke_test_kimi.py
 ```
+
+Product Hunt ingestion is optional and uses the official GraphQL API. Set
+`PRODUCT_HUNT_API_TOKEN` in `.env` to enable it; without a token the source run is
+recorded as `skipped`.
 
 Run one scheduled ingestion cycle from the command line:
 

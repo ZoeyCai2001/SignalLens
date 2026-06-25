@@ -79,6 +79,12 @@ Ingest public Hugging Face model metadata:
 curl -X POST "http://127.0.0.1:8000/api/ingestion/hugging-face?limit=25"
 ```
 
+Ingest Product Hunt launches with an optional `PRODUCT_HUNT_API_TOKEN`:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/product-hunt?limit=25"
+```
+
 Ingest selected public RSS feeds:
 
 ```bash

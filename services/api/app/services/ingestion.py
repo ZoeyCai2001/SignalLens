@@ -4,6 +4,7 @@ from hashlib import sha256
 
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings, get_settings
 from app.db.models import NormalizedItem, RawItem, Source, SourceRun
 from app.services.scoring import (
     detect_tickers,
@@ -13,10 +14,11 @@ from app.services.scoring import (
     relevance_score,
 )
 from app.sources.arxiv import ArxivConnector
-from app.sources.base import FetchCursor, RawItemInput
+from app.sources.base import FetchCursor, RawItemInput, SourceConnector
 from app.sources.github import GitHubConnector
 from app.sources.hacker_news import HackerNewsConnector
 from app.sources.hugging_face import HuggingFaceConnector
+from app.sources.product_hunt import ProductHuntConnector
 from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector
 
 
@@ -119,15 +121,42 @@ async def run_rss_ingestion(db: Session, limit: int = 25) -> IngestionResult:
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
 
+async def run_product_hunt_ingestion(
+    db: Session,
+    limit: int = 25,
+    settings: Settings | None = None,
+) -> IngestionResult:
+    resolved_settings = settings or get_settings()
+    source = get_or_create_source(
+        db,
+        name="Product Hunt",
+        source_type="product_launch",
+        access_method="official_graphql_api",
+        base_url="https://api.producthunt.com/v2/api/graphql",
+        auth_required=True,
+        rate_limit="Official API token required; keep polling conservative.",
+        polling_interval="6 hours",
+        enabled=True,
+        priority=16,
+        terms_notes="Uses Product Hunt API metadata for public product launches.",
+    )
+    if not resolved_settings.product_hunt_api_token:
+        return record_skipped_run(
+            db=db,
+            source=source,
+            message="PRODUCT_HUNT_API_TOKEN is not configured.",
+        )
+
+    connector = ProductHuntConnector(
+        api_token=resolved_settings.product_hunt_api_token,
+        limit=limit,
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
 async def run_connector_ingestion(
     db: Session,
-    connector: (
-        HackerNewsConnector
-        | ArxivConnector
-        | GitHubConnector
-        | HuggingFaceConnector
-        | RssConnector
-    ),
+    connector: SourceConnector,
     source: Source,
 ) -> IngestionResult:
     run = SourceRun(source_id=source.id, status="running")
@@ -163,6 +192,26 @@ async def run_connector_ingestion(
             items_stored=run.items_stored,
             error_message=run.error_message,
         )
+
+
+def record_skipped_run(db: Session, source: Source, message: str) -> IngestionResult:
+    run = SourceRun(
+        source_id=source.id,
+        status="skipped",
+        items_fetched=0,
+        items_stored=0,
+        error_message=message,
+        finished_at=datetime.now(UTC),
+    )
+    db.add(run)
+    db.commit()
+    return IngestionResult(
+        source_name=source.name,
+        status=run.status,
+        items_fetched=0,
+        items_stored=0,
+        error_message=message,
+    )
 
 
 def get_or_create_source(
@@ -303,6 +352,13 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         subcategory = "company_blog"
         summary_prefix = "RSS item"
         why_it_matters = "This RSS item matched the AI relevance prefilter from selected feeds."
+    elif source.name == "Product Hunt":
+        category = "product"
+        subcategory = "product_launch"
+        summary_prefix = "Product Hunt launch"
+        why_it_matters = (
+            "This product launch matched the AI relevance prefilter from Product Hunt metadata."
+        )
     elif source.type == "manual":
         category = "manual_submission"
         subcategory = "user_submitted_url"
@@ -329,7 +385,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         subcategory=subcategory,
         tickers=tickers,
         companies=[],
-        products=[],
+        products=[raw.raw_metadata["product_name"]] if raw.raw_metadata.get("product_name") else [],
         topics=topics,
         sentiment="neutral",
         relevance_score=relevance,

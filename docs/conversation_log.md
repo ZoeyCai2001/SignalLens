@@ -54,3 +54,4 @@ Implementation progress:
 - Added manual Kimi-backed feed item classification with dashboard action.
 - Added a local APScheduler-backed ingestion runner for one-off or continuous source refresh cycles.
 - Added persisted dashboard alerts with default high-impact stock and important AI development rules.
+- Added optional Product Hunt ingestion for AI product launches, using the official API when a token is configured.

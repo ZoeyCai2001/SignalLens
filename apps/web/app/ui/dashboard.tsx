@@ -17,6 +17,7 @@ import {
   Loader2,
   Newspaper,
   RefreshCw,
+  Rocket,
   Search,
   Send,
   Star,
@@ -249,7 +250,7 @@ export function Dashboard() {
   }, [refreshAll]);
 
   const runIngestion = async (
-    source: "hacker-news" | "arxiv" | "github" | "hugging-face" | "rss",
+    source: "hacker-news" | "arxiv" | "github" | "hugging-face" | "product-hunt" | "rss",
   ) => {
     setLoadState("running");
     setError(null);
@@ -492,6 +493,15 @@ export function Dashboard() {
             >
               {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
               HF
+            </button>
+            <button
+              className="button"
+              onClick={() => runIngestion("product-hunt")}
+              disabled={loadState !== "idle"}
+              title="Run Product Hunt launch ingestion"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Rocket size={16} />}
+              PH
             </button>
             <button
               className="button"
