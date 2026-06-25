@@ -26,5 +26,8 @@ class FeedItem(BaseModel):
     summary_short: str | None
     summary_detailed: str | None
     why_it_matters: str | None
+    is_saved: bool = False
+    is_hidden: bool = False
+    is_important: bool = False
 
     model_config = ConfigDict(from_attributes=True)

@@ -214,14 +214,25 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
     relevance = relevance_score(combined_text)
     importance = importance_score(source_quality_score=source_quality, text=combined_text)
 
-    category = "research" if source.name == "arXiv" else "technical_trend"
-    subcategory = "paper" if source.name == "arXiv" else "community_discussion"
-    summary_prefix = "arXiv paper" if source.name == "arXiv" else "Hacker News discussion"
-    why_it_matters = (
-        "This research item matched the AI relevance prefilter from arXiv metadata."
-        if source.name == "arXiv"
-        else "This item matched the AI relevance prefilter from a developer community source."
-    )
+    if source.name == "arXiv":
+        category = "research"
+        subcategory = "paper"
+        summary_prefix = "arXiv paper"
+        why_it_matters = (
+            "This research item matched the AI relevance prefilter from arXiv metadata."
+        )
+    elif source.type == "manual":
+        category = "manual_submission"
+        subcategory = "user_submitted_url"
+        summary_prefix = "Manual submission"
+        why_it_matters = "This user-submitted item matched the AI relevance prefilter."
+    else:
+        category = "technical_trend"
+        subcategory = "community_discussion"
+        summary_prefix = "Hacker News discussion"
+        why_it_matters = (
+            "This item matched the AI relevance prefilter from a developer community source."
+        )
 
     return NormalizedItem(
         raw_item_id=raw.id,

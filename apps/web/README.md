@@ -31,3 +31,5 @@ http://127.0.0.1:8000
 - Hacker News ingestion action
 - arXiv ingestion action
 - Kimi summarization action for stored feed items
+- Manual URL submission
+- Save, hide, and mark-important item actions

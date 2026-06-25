@@ -3,15 +3,19 @@
 import {
   Activity,
   BarChart3,
+  Bookmark,
   Bot,
   DatabaseZap,
+  EyeOff,
   ExternalLink,
   FileText,
+  Flag,
   FlaskConical,
   Loader2,
   Newspaper,
   RefreshCw,
   Search,
+  Send,
   Star,
   TrendingUp,
 } from "lucide-react";
@@ -40,6 +44,9 @@ type FeedItem = {
   summary_short: string | null;
   summary_detailed: string | null;
   why_it_matters: string | null;
+  is_saved: boolean;
+  is_hidden: boolean;
+  is_important: boolean;
 };
 
 type StockWatchlistItem = {
@@ -92,6 +99,9 @@ export function Dashboard() {
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualUrl, setManualUrl] = useState("");
+  const [manualText, setManualText] = useState("");
 
   const fetchJson = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -169,6 +179,61 @@ export function Dashboard() {
     } catch (err) {
       setError(readError(err));
       setStatus("Summarization failed");
+    } finally {
+      setBusyItemId(null);
+    }
+  };
+
+  const submitManualItem = async () => {
+    if (!manualTitle.trim() || !manualUrl.trim()) {
+      setError("Manual submissions need a title and URL.");
+      return;
+    }
+
+    setLoadState("running");
+    setError(null);
+    try {
+      const result = await fetchJson<{ item: FeedItem }>("/api/manual-submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: manualTitle.trim(),
+          url: manualUrl.trim(),
+          text: manualText.trim() || null,
+        }),
+      });
+      setFeed((items) => [result.item, ...items.filter((item) => item.id !== result.item.id)]);
+      setManualTitle("");
+      setManualUrl("");
+      setManualText("");
+      setStatus(`Submitted item ${result.item.id}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Manual submission failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const updateFeedAction = async (
+    itemId: number,
+    action: "save" | "hide" | "mark-important",
+  ) => {
+    setBusyItemId(itemId);
+    setError(null);
+    try {
+      const updated = await fetchJson<FeedItem>(`/api/feed/${itemId}/${action}`, {
+        method: "POST",
+      });
+      if (action === "hide") {
+        setFeed((items) => items.filter((item) => item.id !== itemId));
+        setStatus(`Hidden item ${itemId}`);
+      } else {
+        setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+        setStatus(action === "save" ? `Saved item ${itemId}` : `Marked item ${itemId}`);
+      }
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Item action failed");
     } finally {
       setBusyItemId(null);
     }
@@ -277,6 +342,7 @@ export function Dashboard() {
                     key={item.id}
                     busy={busyItemId === item.id}
                     onSummarize={summarizeItem}
+                    onAction={updateFeedAction}
                   />
                 ))
               ) : (
@@ -286,6 +352,16 @@ export function Dashboard() {
           </section>
 
           <aside className="stack">
+            <ManualSubmissionPanel
+              title={manualTitle}
+              url={manualUrl}
+              text={manualText}
+              disabled={loadState !== "idle"}
+              onTitleChange={setManualTitle}
+              onUrlChange={setManualUrl}
+              onTextChange={setManualText}
+              onSubmit={submitManualItem}
+            />
             <StockTable stocks={stocks} />
             <SourceTable sources={sources} />
           </aside>
@@ -299,10 +375,12 @@ function FeedCard({
   item,
   busy,
   onSummarize,
+  onAction,
 }: {
   item: FeedItem;
   busy: boolean;
   onSummarize: (itemId: number) => void;
+  onAction: (itemId: number, action: "save" | "hide" | "mark-important") => void;
 }) {
   const displaySummary = item.summary_detailed || item.summary_short || item.why_it_matters;
   return (
@@ -315,6 +393,8 @@ function FeedCard({
           </div>
         </div>
         <div className="badges">
+          {item.is_important ? <span className="badge stock">important</span> : null}
+          {item.is_saved ? <span className="badge">saved</span> : null}
           <span className={`badge ${item.category === "research" ? "research" : ""}`}>
             {item.category}
           </span>
@@ -347,6 +427,33 @@ function FeedCard({
         <div className="small-muted">{item.author ? `by ${item.author}` : "source-linked item"}</div>
         <div className="toolbar">
           <button
+            className="button icon-button"
+            onClick={() => onAction(item.id, "save")}
+            disabled={busy || item.is_saved}
+            title="Save item"
+            aria-label="Save item"
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <Bookmark size={16} />}
+          </button>
+          <button
+            className="button icon-button"
+            onClick={() => onAction(item.id, "mark-important")}
+            disabled={busy || item.is_important}
+            title="Mark important"
+            aria-label="Mark important"
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <Flag size={16} />}
+          </button>
+          <button
+            className="button icon-button"
+            onClick={() => onAction(item.id, "hide")}
+            disabled={busy}
+            title="Hide item"
+            aria-label="Hide item"
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <EyeOff size={16} />}
+          </button>
+          <button
             className="button"
             onClick={() => onSummarize(item.id)}
             disabled={busy}
@@ -361,6 +468,71 @@ function FeedCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function ManualSubmissionPanel({
+  title,
+  url,
+  text,
+  disabled,
+  onTitleChange,
+  onUrlChange,
+  onTextChange,
+  onSubmit,
+}: {
+  title: string;
+  url: string;
+  text: string;
+  disabled: boolean;
+  onTitleChange: (value: string) => void;
+  onUrlChange: (value: string) => void;
+  onTextChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Manual Submission</h2>
+        <Send size={16} aria-hidden="true" />
+      </div>
+      <div className="form-panel">
+        <label className="field-label" htmlFor="manual-title">
+          Title
+        </label>
+        <input
+          id="manual-title"
+          className="field"
+          value={title}
+          onChange={(event) => onTitleChange(event.target.value)}
+          placeholder="Paste an AI item title"
+        />
+        <label className="field-label" htmlFor="manual-url">
+          URL
+        </label>
+        <input
+          id="manual-url"
+          className="field"
+          value={url}
+          onChange={(event) => onUrlChange(event.target.value)}
+          placeholder="https://..."
+        />
+        <label className="field-label" htmlFor="manual-text">
+          Notes or excerpt
+        </label>
+        <textarea
+          id="manual-text"
+          className="field textarea"
+          value={text}
+          onChange={(event) => onTextChange(event.target.value)}
+          placeholder="Optional context for classification and summary"
+        />
+        <button className="button primary" onClick={onSubmit} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Send size={16} />}
+          Submit
+        </button>
+      </div>
+    </section>
   );
 }
 

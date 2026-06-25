@@ -60,3 +60,19 @@ Summarize a stored feed item with Kimi:
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/feed/1/summarize"
 ```
+
+Submit a manual URL:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/manual-submissions" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Manual AI note","url":"https://example.com","text":"Optional context"}'
+```
+
+Save, hide, or mark a feed item:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/feed/1/save"
+curl -X POST "http://127.0.0.1:8000/api/feed/1/hide"
+curl -X POST "http://127.0.0.1:8000/api/feed/1/mark-important"
+```

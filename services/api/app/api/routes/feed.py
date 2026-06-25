@@ -4,6 +4,12 @@ from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.db.models import NormalizedItem
 from app.schemas.feed import FeedItem
+from app.services.feed_actions import (
+    get_action,
+    list_visible_feed_items,
+    serialize_feed_item,
+    update_item_action,
+)
 from app.services.summarization import SummarizationError, summarize_feed_item
 
 router = APIRouter()
@@ -14,18 +20,7 @@ async def list_feed_items(
     db: DbSession,
     limit: int = Query(default=25, ge=1, le=100),
 ) -> list[FeedItem]:
-    items = (
-        db.query(NormalizedItem)
-        .order_by(
-            NormalizedItem.importance_score.desc(),
-            NormalizedItem.relevance_score.desc(),
-            NormalizedItem.published_at.desc().nullslast(),
-            NormalizedItem.created_at.desc(),
-        )
-        .limit(limit)
-        .all()
-    )
-    return [FeedItem.model_validate(item) for item in items]
+    return list_visible_feed_items(db=db, limit=limit)
 
 
 @router.post("/{item_id}/summarize", response_model=FeedItem)
@@ -43,4 +38,29 @@ async def summarize_item(item_id: int, db: DbSession) -> FeedItem:
     except SummarizationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    return FeedItem.model_validate(summarized_item)
+    return serialize_feed_item(summarized_item, get_action(db, item_id))
+
+
+@router.post("/{item_id}/save", response_model=FeedItem)
+async def save_item(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="save")
+
+
+@router.post("/{item_id}/hide", response_model=FeedItem)
+async def hide_item(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="hide")
+
+
+@router.post("/{item_id}/mark-important", response_model=FeedItem)
+async def mark_item_important(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="mark-important")
+
+
+def get_feed_item_or_404(db: DbSession, item_id: int) -> NormalizedItem:
+    item = db.get(NormalizedItem, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Feed item not found.")
+    return item

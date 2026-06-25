@@ -58,6 +58,10 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/sources/health`
 - `POST http://127.0.0.1:8000/api/ingestion/hacker-news`
 - `POST http://127.0.0.1:8000/api/ingestion/arxiv`
+- `POST http://127.0.0.1:8000/api/manual-submissions`
+- `POST http://127.0.0.1:8000/api/feed/{item_id}/save`
+- `POST http://127.0.0.1:8000/api/feed/{item_id}/hide`
+- `POST http://127.0.0.1:8000/api/feed/{item_id}/mark-important`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/summarize`
 - `POST http://127.0.0.1:8000/api/llm/smoke-test`
 

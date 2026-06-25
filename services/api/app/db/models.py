@@ -116,6 +116,23 @@ class NormalizedItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     raw_item: Mapped[RawItem] = relationship(back_populates="normalized_item")
+    user_actions: Mapped[list["UserItemAction"]] = relationship(back_populates="item")
+
+
+class UserItemAction(Base, TimestampMixin):
+    __tablename__ = "user_item_actions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "item_id", name="uq_user_item_actions_user_item"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), default="local", nullable=False)
+    item_id: Mapped[int] = mapped_column(ForeignKey("normalized_items.id"), nullable=False)
+    is_saved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_important: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    item: Mapped[NormalizedItem] = relationship(back_populates="user_actions")
 
 
 class StockWatchlistItem(Base, TimestampMixin):
