@@ -158,3 +158,21 @@ class StockWatchlistItem(Base, TimestampMixin):
     related_companies: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     related_ai_themes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+
+
+class TopicWatchlistItem(Base, TimestampMixin):
+    __tablename__ = "topic_watchlist_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "topic", name="uq_topic_watchlist_user_topic"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), default="local", nullable=False)
+    topic: Mapped[str] = mapped_column(String(160), nullable=False)
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), default="technical_trend", nullable=False)
+    priority: Mapped[str] = mapped_column(String(40), default="Medium", nullable=False)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    include_in_digest: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    related_terms: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)

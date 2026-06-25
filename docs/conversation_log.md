@@ -45,3 +45,4 @@ Implementation progress:
 - Added manual URL submission and feed actions for save, hide, and mark important.
 - Added keyword and filter search over stored feed items, with dashboard search controls.
 - Added deterministic daily digest generation and a dashboard digest panel.
+- Added topic watchlist persistence, seed data, API endpoints, and dashboard display.

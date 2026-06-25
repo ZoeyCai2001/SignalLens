@@ -90,3 +90,13 @@ Generate the daily digest from stored feed items:
 curl "http://127.0.0.1:8000/api/digest/daily"
 curl "http://127.0.0.1:8000/api/digest/daily?date=2026-06-25&limit_per_section=3"
 ```
+
+Read and seed topic watchlist items:
+
+```bash
+curl "http://127.0.0.1:8000/api/watchlist/topics"
+curl -X POST "http://127.0.0.1:8000/api/watchlist/topics/seed"
+curl -X POST "http://127.0.0.1:8000/api/watchlist/topics" \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"model-routing","label":"Model routing","priority":"Medium","related_terms":["router","mixture of experts"]}'
+```

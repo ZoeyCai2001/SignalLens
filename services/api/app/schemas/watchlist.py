@@ -16,3 +16,27 @@ class StockWatchlistItem(BaseModel):
     notes: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TopicWatchlistItem(BaseModel):
+    topic: str
+    label: str
+    category: str = "technical_trend"
+    priority: str = "Medium"
+    is_pinned: bool = False
+    include_in_digest: bool = True
+    related_terms: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TopicWatchlistItemCreate(BaseModel):
+    topic: str
+    label: str | None = None
+    category: str = "technical_trend"
+    priority: str = "Medium"
+    is_pinned: bool = False
+    include_in_digest: bool = True
+    related_terms: list[str] = Field(default_factory=list)
+    notes: str | None = None

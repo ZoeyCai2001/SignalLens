@@ -65,6 +65,17 @@ type StockWatchlistItem = {
   notes: string | null;
 };
 
+type TopicWatchlistItem = {
+  topic: string;
+  label: string;
+  category: string;
+  priority: string;
+  is_pinned: boolean;
+  include_in_digest: boolean;
+  related_terms: string[];
+  notes: string | null;
+};
+
 type SourceHealth = {
   id: number;
   name: string;
@@ -118,6 +129,7 @@ const navItems = [
 export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [stocks, setStocks] = useState<StockWatchlistItem[]>([]);
+  const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -155,14 +167,16 @@ export function Dashboard() {
     setLoadState("loading");
     setError(null);
     try {
-      const [nextFeed, nextStocks, nextSources, nextDigest] = await Promise.all([
+      const [nextFeed, nextStocks, nextTopics, nextSources, nextDigest] = await Promise.all([
         fetchJson<FeedItem[]>("/api/feed?limit=30"),
         fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
+        fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
         fetchJson<SourceHealth[]>("/api/sources/health"),
         fetchJson<DailyDigest>("/api/digest/daily"),
       ]);
       setFeed(nextFeed);
       setStocks(nextStocks);
+      setTopics(nextTopics);
       setSources(nextSources);
       setDigest(nextDigest);
       setStatus(`Loaded ${nextFeed.length} feed items`);
@@ -448,6 +462,7 @@ export function Dashboard() {
               onSubmit={submitManualItem}
             />
             <StockTable stocks={stocks} />
+            <TopicTable topics={topics} />
             <SourceTable sources={sources} />
           </aside>
         </div>
@@ -795,6 +810,40 @@ function StockTable({ stocks }: { stocks: StockWatchlistItem[] }) {
                 <td>{stock.company_name}</td>
                 <td className={`priority-${stock.priority.toLowerCase()}`}>{stock.priority}</td>
                 <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function TopicTable({ topics }: { topics: TopicWatchlistItem[] }) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Topic Watchlist</h2>
+        <span className="small-muted">{topics.length} topics</span>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Priority</th>
+              <th>Terms</th>
+            </tr>
+          </thead>
+          <tbody>
+            {topics.map((topic) => (
+              <tr key={topic.topic}>
+                <td>
+                  <span className="ticker">{topic.label}</span>
+                  {topic.is_pinned ? <Star size={13} fill="currentColor" /> : null}
+                </td>
+                <td className={`priority-${topic.priority.toLowerCase()}`}>{topic.priority}</td>
+                <td>{topic.related_terms.slice(0, 3).join(", ")}</td>
               </tr>
             ))}
           </tbody>

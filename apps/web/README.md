@@ -35,3 +35,4 @@ http://127.0.0.1:8000
 - Save, hide, and mark-important item actions
 - Search and filters over stored feed items
 - Daily digest panel generated from stored feed items
+- Topic watchlist display

@@ -1,4 +1,4 @@
-from app.schemas.watchlist import StockWatchlistItem
+from app.schemas.watchlist import StockWatchlistItem, TopicWatchlistItem
 
 
 def initial_stock_watchlist() -> list[StockWatchlistItem]:
@@ -75,5 +75,94 @@ def initial_stock_watchlist() -> list[StockWatchlistItem]:
                 "AI data storage",
             ],
             notes="Monitor AI storage demand and NAND cycle signals.",
+        ),
+    ]
+
+
+def initial_topic_watchlist() -> list[TopicWatchlistItem]:
+    return [
+        TopicWatchlistItem(
+            topic="ai-coding-agents",
+            label="AI coding agents",
+            category="technical_trend",
+            priority="High",
+            is_pinned=True,
+            related_terms=[
+                "coding agent",
+                "agentic coding",
+                "software engineering agent",
+                "code generation",
+            ],
+            notes="Track coding agents, IDE-native agents, and autonomous software workflows.",
+        ),
+        TopicWatchlistItem(
+            topic="agent-workflows",
+            label="Agent workflows",
+            category="technical_trend",
+            priority="High",
+            is_pinned=True,
+            related_terms=[
+                "agent harness",
+                "tool use",
+                "multi-agent",
+                "MCP",
+                "agent memory",
+            ],
+            notes="Watch for durable patterns in agent orchestration, tools, and memory.",
+        ),
+        TopicWatchlistItem(
+            topic="open-source-llms",
+            label="Open-source LLMs",
+            category="research",
+            priority="High",
+            is_pinned=True,
+            related_terms=[
+                "open weights",
+                "model release",
+                "inference",
+                "fine-tuning",
+            ],
+            notes="Monitor model releases, benchmark movement, and deployment cost shifts.",
+        ),
+        TopicWatchlistItem(
+            topic="ai-infrastructure",
+            label="AI infrastructure",
+            category="technical_trend",
+            priority="High",
+            related_terms=[
+                "GPU",
+                "ASIC",
+                "inference optimization",
+                "data center",
+                "serving",
+            ],
+            notes="Connect technical infra news with stock-watchlist context.",
+        ),
+        TopicWatchlistItem(
+            topic="multimodal-models",
+            label="Multimodal models",
+            category="research",
+            priority="Medium",
+            related_terms=[
+                "vision language model",
+                "audio model",
+                "video generation",
+                "multimodal reasoning",
+            ],
+            notes="Track model capability shifts across image, audio, video, and reasoning.",
+        ),
+        TopicWatchlistItem(
+            topic="ai-products",
+            label="AI products",
+            category="product",
+            priority="Medium",
+            related_terms=[
+                "AI app",
+                "AI search",
+                "AI browser",
+                "AI productivity",
+                "launch",
+            ],
+            notes="Catch new user-facing products and AI-native workflows.",
         ),
     ]
