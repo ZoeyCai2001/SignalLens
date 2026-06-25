@@ -79,6 +79,12 @@ Summarize a stored feed item with Kimi:
 curl -X POST "http://127.0.0.1:8000/api/feed/1/summarize"
 ```
 
+Classify a stored feed item with Kimi:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/feed/1/classify"
+```
+
 Submit a manual URL:
 
 ```bash

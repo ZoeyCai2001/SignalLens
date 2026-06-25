@@ -306,6 +306,23 @@ export function Dashboard() {
     }
   };
 
+  const classifyItem = async (itemId: number) => {
+    setBusyItemId(itemId);
+    setError(null);
+    try {
+      const classified = await fetchJson<FeedItem>(`/api/feed/${itemId}/classify`, {
+        method: "POST",
+      });
+      setFeed((items) => items.map((item) => (item.id === itemId ? classified : item)));
+      setStatus(`Classified item ${itemId}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Classification failed");
+    } finally {
+      setBusyItemId(null);
+    }
+  };
+
   const submitManualItem = async () => {
     if (!manualTitle.trim() || !manualUrl.trim()) {
       setError("Manual submissions need a title and URL.");
@@ -508,6 +525,7 @@ export function Dashboard() {
                     key={item.id}
                     busy={busyItemId === item.id}
                     onSummarize={summarizeItem}
+                    onClassify={classifyItem}
                     onAction={updateFeedAction}
                   />
                 ))
@@ -726,11 +744,13 @@ function FeedCard({
   item,
   busy,
   onSummarize,
+  onClassify,
   onAction,
 }: {
   item: FeedItem;
   busy: boolean;
   onSummarize: (itemId: number) => void;
+  onClassify: (itemId: number) => void;
   onAction: (itemId: number, action: "save" | "hide" | "mark-important") => void;
 }) {
   const displaySummary = item.summary_detailed || item.summary_short || item.why_it_matters;
@@ -812,6 +832,15 @@ function FeedCard({
           >
             {busy ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
             Summarize
+          </button>
+          <button
+            className="button"
+            onClick={() => onClassify(item.id)}
+            disabled={busy}
+            title="Classify with Kimi"
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
+            Classify
           </button>
           <a className="button icon-button" href={item.url} target="_blank" title="Open source">
             <ExternalLink size={16} />

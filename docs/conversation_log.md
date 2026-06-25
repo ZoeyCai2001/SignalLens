@@ -51,3 +51,4 @@ Implementation progress:
 - Added Hugging Face public model ingestion for model-release and open-source LLM signals.
 - Added selected RSS feed ingestion for AI company and research blog signals.
 - Added deterministic event clustering and dashboard event cluster display.
+- Added manual Kimi-backed feed item classification with dashboard action.

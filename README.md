@@ -72,6 +72,7 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/save`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/hide`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/mark-important`
+- `POST http://127.0.0.1:8000/api/feed/{item_id}/classify`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/summarize`
 - `POST http://127.0.0.1:8000/api/llm/smoke-test`
 

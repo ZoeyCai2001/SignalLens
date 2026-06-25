@@ -4,6 +4,7 @@ from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.db.models import NormalizedItem
 from app.schemas.feed import FeedItem
+from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import (
     get_action,
     list_visible_feed_items,
@@ -39,6 +40,24 @@ async def summarize_item(item_id: int, db: DbSession) -> FeedItem:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return serialize_feed_item(summarized_item, get_action(db, item_id))
+
+
+@router.post("/{item_id}/classify", response_model=FeedItem)
+async def classify_item(item_id: int, db: DbSession) -> FeedItem:
+    item = db.get(NormalizedItem, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Feed item not found.")
+
+    try:
+        classified_item = await classify_feed_item(
+            db=db,
+            item=item,
+            settings=get_settings(),
+        )
+    except ClassificationError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return serialize_feed_item(classified_item, get_action(db, item_id))
 
 
 @router.post("/{item_id}/save", response_model=FeedItem)
