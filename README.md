@@ -12,9 +12,9 @@ The initial product requirements are documented in [ai_intelligence_dashboard_pr
 
 ## Status
 
-Current phase: technical design first.
+Current phase: backend MVP scaffold.
 
-No application code has been scaffolded yet. The recommended MVP stack is:
+The initial backend scaffold lives in [services/api](services/api). The recommended MVP stack is:
 
 - Frontend: Next.js, React, TypeScript, Tailwind CSS
 - Backend: Python FastAPI
@@ -22,3 +22,40 @@ No application code has been scaffolded yet. The recommended MVP stack is:
 - Scheduler: APScheduler for MVP, Celery/RQ later if needed
 - Cache/queue: Redis
 - LLM providers: configurable API-based providers
+
+## Local Backend Setup
+
+Create a virtual environment and install the API service:
+
+```bash
+cd services/api
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+From the repository root, start local infrastructure:
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+```
+
+Run the API:
+
+```bash
+cd services/api
+uvicorn app.main:app --reload
+```
+
+Useful endpoints:
+
+- `GET http://127.0.0.1:8000/api/health`
+- `GET http://127.0.0.1:8000/api/watchlist/stocks`
+- `POST http://127.0.0.1:8000/api/llm/smoke-test`
+
+Run the Kimi API smoke test:
+
+```bash
+cd services/api
+python scripts/smoke_test_kimi.py
+```
