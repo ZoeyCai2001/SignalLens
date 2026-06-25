@@ -39,3 +39,5 @@ Implementation progress:
 - Added seeded AI Stock Watchlist support for MU, MRVL, and SNDK.
 - Added an initial Hacker News connector using the public Firebase API.
 - Added DB-backed feed, source health, watchlist, and ingestion routes.
+- Added an arXiv connector using the public Atom API.
+- Added a Kimi-backed item summarization endpoint that stores summaries on feed items.

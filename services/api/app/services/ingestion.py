@@ -12,6 +12,7 @@ from app.services.scoring import (
     is_ai_relevant,
     relevance_score,
 )
+from app.sources.arxiv import ArxivConnector
 from app.sources.base import FetchCursor, RawItemInput
 from app.sources.hacker_news import HackerNewsConnector
 
@@ -27,7 +28,45 @@ class IngestionResult:
 
 async def run_hacker_news_ingestion(db: Session, limit: int = 30) -> IngestionResult:
     connector = HackerNewsConnector(limit=limit)
-    source = get_or_create_source(db)
+    source = get_or_create_source(
+        db,
+        name="Hacker News",
+        source_type="community",
+        access_method="official_api",
+        base_url="https://hacker-news.firebaseio.com/v0",
+        auth_required=False,
+        rate_limit="Public Firebase API; keep polling conservative.",
+        polling_interval="30 minutes",
+        enabled=True,
+        priority=20,
+        terms_notes="Uses public Hacker News Firebase API metadata and URLs.",
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
+async def run_arxiv_ingestion(db: Session, limit: int = 25) -> IngestionResult:
+    connector = ArxivConnector(limit=limit)
+    source = get_or_create_source(
+        db,
+        name="arXiv",
+        source_type="research",
+        access_method="official_api",
+        base_url="https://export.arxiv.org/api/query",
+        auth_required=False,
+        rate_limit="Public API; keep requests conservative and cache results.",
+        polling_interval="6 hours",
+        enabled=True,
+        priority=10,
+        terms_notes="Uses arXiv Atom API metadata and abstracts.",
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
+async def run_connector_ingestion(
+    db: Session,
+    connector: HackerNewsConnector | ArxivConnector,
+    source: Source,
+) -> IngestionResult:
     run = SourceRun(source_id=source.id, status="running")
     db.add(run)
     db.commit()
@@ -63,22 +102,34 @@ async def run_hacker_news_ingestion(db: Session, limit: int = 30) -> IngestionRe
         )
 
 
-def get_or_create_source(db: Session) -> Source:
-    source = db.query(Source).filter(Source.name == "Hacker News").one_or_none()
+def get_or_create_source(
+    db: Session,
+    name: str,
+    source_type: str,
+    access_method: str,
+    base_url: str,
+    auth_required: bool,
+    rate_limit: str,
+    polling_interval: str,
+    enabled: bool,
+    priority: int,
+    terms_notes: str,
+) -> Source:
+    source = db.query(Source).filter(Source.name == name).one_or_none()
     if source:
         return source
 
     source = Source(
-        name="Hacker News",
-        type="community",
-        access_method="official_api",
-        base_url="https://hacker-news.firebaseio.com/v0",
-        auth_required=False,
-        rate_limit="Public Firebase API; keep polling conservative.",
-        polling_interval="30 minutes",
-        enabled=True,
-        priority=20,
-        terms_notes="Uses public Hacker News Firebase API metadata and URLs.",
+        name=name,
+        type=source_type,
+        access_method=access_method,
+        base_url=base_url,
+        auth_required=auth_required,
+        rate_limit=rate_limit,
+        polling_interval=polling_interval,
+        enabled=enabled,
+        priority=priority,
+        terms_notes=terms_notes,
     )
     db.add(source)
     db.commit()
@@ -163,6 +214,15 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
     relevance = relevance_score(combined_text)
     importance = importance_score(source_quality_score=source_quality, text=combined_text)
 
+    category = "research" if source.name == "arXiv" else "technical_trend"
+    subcategory = "paper" if source.name == "arXiv" else "community_discussion"
+    summary_prefix = "arXiv paper" if source.name == "arXiv" else "Hacker News discussion"
+    why_it_matters = (
+        "This research item matched the AI relevance prefilter from arXiv metadata."
+        if source.name == "arXiv"
+        else "This item matched the AI relevance prefilter from a developer community source."
+    )
+
     return NormalizedItem(
         raw_item_id=raw.id,
         title=raw.raw_title,
@@ -172,8 +232,8 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         language="en",
         published_at=raw.published_at,
         text=raw.raw_text,
-        category="technical_trend",
-        subcategory="community_discussion",
+        category=category,
+        subcategory=subcategory,
         tickers=tickers,
         companies=[],
         products=[],
@@ -184,8 +244,6 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         novelty_score=1.0,
         source_quality_score=source_quality,
         stock_impact_score=0.2 if tickers else 0,
-        summary_short=f"Hacker News discussion: {raw.raw_title}",
-        why_it_matters=(
-            "This item matched the AI relevance prefilter from a developer community source."
-        ),
+        summary_short=f"{summary_prefix}: {raw.raw_title}",
+        why_it_matters=why_it_matters,
     )

@@ -24,6 +24,7 @@ class FeedItem(BaseModel):
     source_quality_score: float
     stock_impact_score: float
     summary_short: str | None
+    summary_detailed: str | None
     why_it_matters: str | None
 
     model_config = ConfigDict(from_attributes=True)

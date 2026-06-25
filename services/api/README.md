@@ -48,3 +48,15 @@ Ingest Hacker News top stories:
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/ingestion/hacker-news?limit=30"
 ```
+
+Ingest recent arXiv AI papers:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/arxiv?limit=25"
+```
+
+Summarize a stored feed item with Kimi:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/feed/1/summarize"
+```
