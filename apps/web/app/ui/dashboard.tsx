@@ -195,6 +195,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
+  const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
@@ -557,6 +558,24 @@ export function Dashboard() {
     }
   };
 
+  const toggleSource = async (source: SourceHealth) => {
+    setBusySourceId(source.id);
+    setError(null);
+    try {
+      const updated = await fetchJson<SourceHealth>(`/api/sources/${source.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled: !source.enabled }),
+      });
+      setSources((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      setStatus(`${updated.enabled ? "Enabled" : "Disabled"} ${updated.name}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Source update failed");
+    } finally {
+      setBusySourceId(null);
+    }
+  };
+
   const metrics = useMemo(() => {
     const highImportance = feed.filter((item) => item.importance_score >= 0.75).length;
     const summarized = feed.filter((item) => item.summary_detailed).length;
@@ -800,7 +819,11 @@ export function Dashboard() {
               onTermsChange={setTopicTerms}
               onSubmit={submitTopic}
             />
-            <SourceTable sources={sources} />
+            <SourceTable
+              sources={sources}
+              busySourceId={busySourceId}
+              onToggleSource={toggleSource}
+            />
           </aside>
         </div>
       </main>
@@ -1546,7 +1569,15 @@ function TopicTable({
   );
 }
 
-function SourceTable({ sources }: { sources: SourceHealth[] }) {
+function SourceTable({
+  sources,
+  busySourceId,
+  onToggleSource,
+}: {
+  sources: SourceHealth[];
+  busySourceId: number | null;
+  onToggleSource: (source: SourceHealth) => void;
+}) {
   return (
     <section className="section">
       <div className="section-header">
@@ -1558,20 +1589,35 @@ function SourceTable({ sources }: { sources: SourceHealth[] }) {
           <thead>
             <tr>
               <th>Source</th>
+              <th>Enabled</th>
               <th>Status</th>
               <th>Stored</th>
               <th>Last Run</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {sources.map((source) => (
               <tr key={source.id}>
                 <td>{source.name}</td>
+                <td>{source.enabled ? "Yes" : "No"}</td>
                 <td className={source.latest_status === "success" ? "health-ok" : ""}>
                   {source.latest_status}
                 </td>
                 <td>{source.items_stored}</td>
                 <td>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</td>
+                <td>
+                  <button
+                    className="button"
+                    onClick={() => onToggleSource(source)}
+                    disabled={busySourceId === source.id}
+                  >
+                    {busySourceId === source.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : null}
+                    {source.enabled ? "Disable" : "Enable"}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

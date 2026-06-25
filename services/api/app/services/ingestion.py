@@ -239,6 +239,13 @@ async def run_connector_ingestion(
     connector: SourceConnector,
     source: Source,
 ) -> IngestionResult:
+    if not source.enabled:
+        return record_skipped_run(
+            db=db,
+            source=source,
+            message=f"{source.name} is disabled.",
+        )
+
     run = SourceRun(source_id=source.id, status="running")
     db.add(run)
     db.commit()

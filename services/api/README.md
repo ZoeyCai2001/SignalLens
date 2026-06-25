@@ -174,6 +174,15 @@ Read deterministic event clusters:
 curl "http://127.0.0.1:8000/api/events/clusters?limit=10&min_items=1"
 ```
 
+Read source health and enable or disable a source:
+
+```bash
+curl "http://127.0.0.1:8000/api/sources/health"
+curl -X PATCH "http://127.0.0.1:8000/api/sources/1" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled":false}'
+```
+
 Read and seed topic watchlist items:
 
 ```bash

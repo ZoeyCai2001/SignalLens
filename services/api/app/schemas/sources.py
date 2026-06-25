@@ -15,3 +15,10 @@ class SourceHealth(BaseModel):
     last_finished_at: datetime | None
     items_fetched: int
     items_stored: int
+
+
+class SourceUpdate(BaseModel):
+    enabled: bool | None = None
+    priority: int | None = None
+    polling_interval: str | None = None
+    terms_notes: str | None = None

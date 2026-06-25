@@ -1,49 +1,31 @@
-from fastapi import APIRouter
-from sqlalchemy import func
+from fastapi import APIRouter, HTTPException
 
 from app.api.deps import DbSession
-from app.db.models import Source, SourceRun
-from app.schemas.sources import SourceHealth
+from app.schemas.sources import SourceHealth, SourceUpdate
+from app.services.source_health import (
+    get_latest_source_run,
+    serialize_source_health,
+    update_source,
+)
+from app.services.source_health import (
+    list_source_health as list_source_health_items,
+)
 
 router = APIRouter()
 
 
 @router.get("/health", response_model=list[SourceHealth])
 async def list_source_health(db: DbSession) -> list[SourceHealth]:
-    latest_run_subquery = (
-        db.query(
-            SourceRun.source_id,
-            func.max(SourceRun.started_at).label("latest_started_at"),
-        )
-        .group_by(SourceRun.source_id)
-        .subquery()
-    )
+    return list_source_health_items(db)
 
-    rows = (
-        db.query(Source, SourceRun)
-        .outerjoin(latest_run_subquery, Source.id == latest_run_subquery.c.source_id)
-        .outerjoin(
-            SourceRun,
-            (SourceRun.source_id == Source.id)
-            & (SourceRun.started_at == latest_run_subquery.c.latest_started_at),
-        )
-        .order_by(Source.priority.asc(), Source.name.asc())
-        .all()
-    )
 
-    return [
-        SourceHealth(
-            id=source.id,
-            name=source.name,
-            type=source.type,
-            access_method=source.access_method,
-            enabled=source.enabled,
-            latest_status=run.status if run else "never_run",
-            latest_error=run.error_message if run else None,
-            last_started_at=run.started_at if run else None,
-            last_finished_at=run.finished_at if run else None,
-            items_fetched=run.items_fetched if run else 0,
-            items_stored=run.items_stored if run else 0,
-        )
-        for source, run in rows
-    ]
+@router.patch("/{source_id}", response_model=SourceHealth)
+async def patch_source(
+    source_id: int,
+    payload: SourceUpdate,
+    db: DbSession,
+) -> SourceHealth:
+    source = update_source(db, source_id=source_id, payload=payload)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Source not found.")
+    return serialize_source_health(source, get_latest_source_run(db, source_id=source.id))
