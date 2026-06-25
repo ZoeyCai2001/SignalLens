@@ -136,6 +136,14 @@ class UserItemAction(Base, TimestampMixin):
     item: Mapped[NormalizedItem] = relationship(back_populates="user_actions")
 
 
+class UserPreference(Base, TimestampMixin):
+    __tablename__ = "user_preferences"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), unique=True, default="local", nullable=False)
+    ranking_weights: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
 class StockWatchlistItem(Base, TimestampMixin):
     __tablename__ = "stock_watchlist_items"
     __table_args__ = (

@@ -148,6 +148,15 @@ curl "http://127.0.0.1:8000/api/search?q=agent&category=research&limit=10"
 curl "http://127.0.0.1:8000/api/search?topic=inference&saved_only=true"
 ```
 
+Read or update local ranking preferences:
+
+```bash
+curl "http://127.0.0.1:8000/api/preferences"
+curl -X PATCH "http://127.0.0.1:8000/api/preferences" \
+  -H "Content-Type: application/json" \
+  -d '{"ranking_weights":{"relevance":0.35,"importance":0.25,"novelty":0.1,"source_quality":0.1,"stock_impact":0.15,"freshness":0.05}}'
+```
+
 Generate, read, and dismiss dashboard alerts:
 
 ```bash

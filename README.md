@@ -60,6 +60,8 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/watchlist/topics`
 - `GET http://127.0.0.1:8000/api/feed`
 - `GET http://127.0.0.1:8000/api/search`
+- `GET http://127.0.0.1:8000/api/preferences`
+- `PATCH http://127.0.0.1:8000/api/preferences`
 - `GET http://127.0.0.1:8000/api/alerts`
 - `GET http://127.0.0.1:8000/api/alerts/rules`
 - `GET http://127.0.0.1:8000/api/digest/daily`

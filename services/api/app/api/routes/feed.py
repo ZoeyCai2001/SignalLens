@@ -11,6 +11,7 @@ from app.services.feed_actions import (
     serialize_feed_item,
     update_item_action,
 )
+from app.services.preferences import get_user_preferences
 from app.services.summarization import SummarizationError, summarize_feed_item
 
 router = APIRouter()
@@ -21,7 +22,12 @@ async def list_feed_items(
     db: DbSession,
     limit: int = Query(default=25, ge=1, le=100),
 ) -> list[FeedItem]:
-    return list_visible_feed_items(db=db, limit=limit)
+    preferences = get_user_preferences(db)
+    return list_visible_feed_items(
+        db=db,
+        limit=limit,
+        ranking_weights=preferences.ranking_weights,
+    )
 
 
 @router.post("/{item_id}/summarize", response_model=FeedItem)

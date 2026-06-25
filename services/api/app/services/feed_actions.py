@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
+
 from sqlalchemy.orm import Session
 
 from app.db.models import NormalizedItem, UserItemAction
 from app.schemas.feed import FeedItem
+from app.schemas.preferences import RankingWeights
 
 LOCAL_USER_ID = "local"
 
@@ -18,7 +21,11 @@ def serialize_feed_item(
     return data
 
 
-def list_visible_feed_items(db: Session, limit: int) -> list[FeedItem]:
+def list_visible_feed_items(
+    db: Session,
+    limit: int,
+    ranking_weights: RankingWeights | dict | None = None,
+) -> list[FeedItem]:
     rows = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
@@ -34,10 +41,62 @@ def list_visible_feed_items(db: Session, limit: int) -> list[FeedItem]:
             NormalizedItem.published_at.desc().nullslast(),
             NormalizedItem.created_at.desc(),
         )
-        .limit(limit)
+        .limit(max(limit, 100))
         .all()
     )
-    return [serialize_feed_item(item, action) for item, action in rows]
+    items = [serialize_feed_item(item, action) for item, action in rows]
+    return rank_feed_items(items, ranking_weights=ranking_weights)[:limit]
+
+
+def rank_feed_items(
+    items: list[FeedItem],
+    ranking_weights: RankingWeights | dict | None = None,
+    now: datetime | None = None,
+) -> list[FeedItem]:
+    weights = resolve_ranking_weights(ranking_weights)
+    reference_time = now or datetime.now(UTC)
+    return sorted(
+        items,
+        key=lambda item: (
+            item.is_important,
+            weighted_feed_score(item, weights, now=reference_time),
+            item.published_at or datetime.min.replace(tzinfo=UTC),
+        ),
+        reverse=True,
+    )
+
+
+def weighted_feed_score(
+    item: FeedItem,
+    weights: RankingWeights,
+    now: datetime | None = None,
+) -> float:
+    reference_time = now or datetime.now(UTC)
+    return round(
+        weights.relevance * item.relevance_score
+        + weights.importance * item.importance_score
+        + weights.novelty * item.novelty_score
+        + weights.source_quality * item.source_quality_score
+        + weights.stock_impact * item.stock_impact_score
+        + weights.freshness * freshness_score(item, now=reference_time),
+        4,
+    )
+
+
+def resolve_ranking_weights(value: RankingWeights | dict | None) -> RankingWeights:
+    if isinstance(value, RankingWeights):
+        return value
+    if isinstance(value, dict):
+        return RankingWeights(**value)
+    return RankingWeights()
+
+
+def freshness_score(item: FeedItem, now: datetime | None = None) -> float:
+    if item.published_at is None:
+        return 0
+    reference_time = now or datetime.now(UTC)
+    age_hours = max(0, (reference_time - item.published_at).total_seconds() / 3600)
+    return round(max(0, 1 - age_hours / 72), 4)
 
 
 def get_action(db: Session, item_id: int) -> UserItemAction | None:

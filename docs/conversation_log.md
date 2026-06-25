@@ -65,3 +65,4 @@ Implementation progress:
 - Added per-ticker stock briefing APIs and a dashboard drill-down panel with urgency, sentiment counts, key themes, and recent stock-linked signal timeline.
 - Added dashboard controls for removing stock and topic watchlist entries, using the existing delete APIs.
 - Added dashboard controls for changing watchlist priority, pinning stocks/topics, and toggling topic digest inclusion through the existing patch APIs.
+- Added persisted user preferences for configurable feed ranking weights, plus preferences APIs and weighted feed ordering.
