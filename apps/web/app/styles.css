@@ -90,15 +90,24 @@ a {
   gap: 9px;
   min-height: 36px;
   padding: 0 10px;
+  border: 0;
   border-radius: 7px;
+  background: transparent;
   color: #34403e;
   font-size: 14px;
+  text-align: left;
 }
 
 .nav-item.active {
   background: #e7f3f0;
   color: var(--accent-strong);
   font-weight: 700;
+}
+
+.nav-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .main {

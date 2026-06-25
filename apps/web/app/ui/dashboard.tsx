@@ -220,6 +220,7 @@ type UserPreferences = {
 };
 
 type LoadState = "idle" | "loading" | "running";
+type ModuleKey = "dashboard" | "trends" | "research" | "products" | "stocks" | "chinese" | "digest";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -241,13 +242,14 @@ const rankingWeightFields: { key: keyof RankingWeights; label: string }[] = [
   { key: "freshness", label: "Freshness" },
 ];
 
-const navItems = [
-  { label: "Dashboard", icon: Activity, active: true },
-  { label: "AI Trends", icon: TrendingUp, active: false },
-  { label: "Research", icon: FlaskConical, active: false },
-  { label: "AI Stocks", icon: BarChart3, active: false },
-  { label: "Products", icon: Bot, active: false },
-  { label: "Search", icon: Search, active: false },
+const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[] = [
+  { key: "dashboard", label: "Dashboard", icon: Activity },
+  { key: "trends", label: "AI Trends", icon: TrendingUp },
+  { key: "research", label: "Research", icon: FlaskConical },
+  { key: "products", label: "Products", icon: Bot },
+  { key: "stocks", label: "AI Stocks", icon: BarChart3 },
+  { key: "chinese", label: "Chinese Social", icon: Newspaper },
+  { key: "digest", label: "Daily Digest", icon: CalendarDays },
 ];
 
 export function Dashboard() {
@@ -268,6 +270,7 @@ export function Dashboard() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
+  const [activeModule, setActiveModule] = useState<ModuleKey>("dashboard");
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
@@ -904,16 +907,28 @@ export function Dashboard() {
     }
   };
 
+  const moduleCounts = useMemo(
+    () => buildModuleCounts(feed, digest),
+    [digest, feed],
+  );
+  const moduleFeed = useMemo(
+    () => filterFeedByModule(feed, activeModule, digest),
+    [activeModule, digest, feed],
+  );
+  const activeModuleLabel =
+    moduleNavItems.find((item) => item.key === activeModule)?.label ?? "Dashboard";
+
   const metrics = useMemo(() => {
-    const highImportance = feed.filter((item) => item.importance_score >= 0.75).length;
-    const summarized = feed.filter((item) => item.summary_detailed).length;
+    const highImportance = moduleFeed.filter((item) => item.importance_score >= 0.75).length;
+    const summarized = moduleFeed.filter((item) => item.summary_detailed).length;
     return [
       { label: "Feed", value: feed.length },
+      { label: "View", value: moduleFeed.length },
       { label: "High", value: highImportance },
       { label: "Alerts", value: alerts.length },
       { label: "Summaries", value: summarized },
     ];
-  }, [alerts.length, feed]);
+  }, [alerts.length, feed.length, moduleFeed]);
 
   return (
     <div className="app-shell">
@@ -923,13 +938,20 @@ export function Dashboard() {
           <div className="brand-subtitle">Personal AI intelligence dashboard</div>
         </div>
         <nav className="nav-list" aria-label="Primary">
-          {navItems.map((item) => {
+          {moduleNavItems.map((item) => {
             const Icon = item.icon;
+            const active = item.key === activeModule;
             return (
-              <div className={`nav-item ${item.active ? "active" : ""}`} key={item.label}>
+              <button
+                className={`nav-item ${active ? "active" : ""}`}
+                key={item.key}
+                onClick={() => setActiveModule(item.key)}
+                type="button"
+              >
                 <Icon size={16} aria-hidden="true" />
                 <span>{item.label}</span>
-              </div>
+                <span className="nav-count">{moduleCounts[item.key]}</span>
+              </button>
             );
           })}
         </nav>
@@ -1059,8 +1081,10 @@ export function Dashboard() {
         <div className="content-grid">
           <section className="section">
             <div className="section-header">
-              <h2 className="section-title">Ranked Feed</h2>
-              <span className="small-muted">{feed.length} items</span>
+              <h2 className="section-title">
+                {activeModule === "dashboard" ? "Ranked Feed" : `${activeModuleLabel} Feed`}
+              </h2>
+              <span className="small-muted">{moduleFeed.length} items</span>
             </div>
             <SearchPanel
               query={searchQuery}
@@ -1080,8 +1104,8 @@ export function Dashboard() {
               onClear={clearSearch}
             />
             <div className="feed-list">
-              {feed.length ? (
-                feed.map((item) => (
+              {moduleFeed.length ? (
+                moduleFeed.map((item) => (
                   <FeedCard
                     item={item}
                     key={item.id}
@@ -1092,7 +1116,7 @@ export function Dashboard() {
                   />
                 ))
               ) : (
-                <div className="empty-state">No feed items loaded from the API.</div>
+                <div className="empty-state">No items for this module.</div>
               )}
             </div>
           </section>
@@ -2530,6 +2554,59 @@ function Score({ label, value }: { label: string; value: number }) {
       <span className="score-value">{Math.round(value * 100)}</span>
     </div>
   );
+}
+
+function buildModuleCounts(feed: FeedItem[], digest: DailyDigest | null): Record<ModuleKey, number> {
+  return {
+    dashboard: feed.length,
+    trends: feed.filter((item) => itemMatchesModule(item, "trends")).length,
+    research: feed.filter((item) => itemMatchesModule(item, "research")).length,
+    products: feed.filter((item) => itemMatchesModule(item, "products")).length,
+    stocks: feed.filter((item) => itemMatchesModule(item, "stocks")).length,
+    chinese: feed.filter((item) => itemMatchesModule(item, "chinese")).length,
+    digest: collectDigestFeedItems(digest).length,
+  };
+}
+
+function filterFeedByModule(
+  feed: FeedItem[],
+  moduleKey: ModuleKey,
+  digest: DailyDigest | null,
+): FeedItem[] {
+  if (moduleKey === "dashboard") {
+    return feed;
+  }
+  if (moduleKey === "digest") {
+    return collectDigestFeedItems(digest);
+  }
+  return feed.filter((item) => itemMatchesModule(item, moduleKey));
+}
+
+function itemMatchesModule(item: FeedItem, moduleKey: ModuleKey): boolean {
+  if (moduleKey === "trends") {
+    return item.category === "technical_trend";
+  }
+  if (moduleKey === "research") {
+    return item.category === "research";
+  }
+  if (moduleKey === "products") {
+    return item.category === "product" || item.products.length > 0;
+  }
+  if (moduleKey === "stocks") {
+    return item.category === "stock_company_event" || item.tickers.length > 0;
+  }
+  if (moduleKey === "chinese") {
+    return item.category === "social_trend" || item.language === "zh";
+  }
+  return false;
+}
+
+function collectDigestFeedItems(digest: DailyDigest | null): FeedItem[] {
+  const byId = new Map<number, FeedItem>();
+  digest?.sections.forEach((section) => {
+    section.items.forEach((item) => byId.set(item.id, item));
+  });
+  return [...byId.values()];
 }
 
 function formatDate(value: string) {
