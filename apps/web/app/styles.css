@@ -34,7 +34,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -362,6 +363,10 @@ table {
   border-collapse: collapse;
 }
 
+.source-table {
+  min-width: 1240px;
+}
+
 .form-panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -403,6 +408,18 @@ table {
   min-height: 32px;
   padding: 5px 8px;
   width: 104px;
+}
+
+.source-priority-field {
+  width: 76px;
+}
+
+.source-short-field {
+  width: 132px;
+}
+
+.source-notes-field {
+  width: 220px;
 }
 
 .table-actions {

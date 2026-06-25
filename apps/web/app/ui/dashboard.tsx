@@ -19,6 +19,7 @@ import {
   Plus,
   RefreshCw,
   Rocket,
+  Save,
   Search,
   Send,
   SlidersHorizontal,
@@ -158,13 +159,34 @@ type SourceHealth = {
   name: string;
   type: string;
   access_method: string;
+  base_url: string | null;
+  auth_required: boolean;
+  rate_limit: string | null;
+  polling_interval: string | null;
   enabled: boolean;
+  priority: number;
+  terms_notes: string | null;
   latest_status: string;
   latest_error: string | null;
   last_started_at: string | null;
   last_finished_at: string | null;
   items_fetched: number;
   items_stored: number;
+};
+
+type SourceUpdatePayload = {
+  enabled?: boolean;
+  priority?: number;
+  rate_limit?: string | null;
+  polling_interval?: string | null;
+  terms_notes?: string | null;
+};
+
+type SourceDraft = {
+  priority: string;
+  polling_interval: string;
+  rate_limit: string;
+  terms_notes: string;
 };
 
 type DigestSourceCoverage = {
@@ -482,6 +504,7 @@ export function Dashboard() {
     source:
       | "hacker-news"
       | "alpha-vantage-news"
+      | "alpha-vantage-prices"
       | "arxiv"
       | "chinese-rss"
       | "github"
@@ -995,15 +1018,19 @@ export function Dashboard() {
   };
 
   const toggleSource = async (source: SourceHealth) => {
+    await updateSource(source, { enabled: !source.enabled });
+  };
+
+  const updateSource = async (source: SourceHealth, payload: SourceUpdatePayload) => {
     setBusySourceId(source.id);
     setError(null);
     try {
       const updated = await fetchJson<SourceHealth>(`/api/sources/${source.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ enabled: !source.enabled }),
+        body: JSON.stringify(payload),
       });
       setSources((items) => items.map((item) => (item.id === updated.id ? updated : item)));
-      setStatus(`${updated.enabled ? "Enabled" : "Disabled"} ${updated.name}`);
+      setStatus(`Updated ${updated.name}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Source update failed");
@@ -1340,6 +1367,7 @@ export function Dashboard() {
               sources={sources}
               busySourceId={busySourceId}
               onToggleSource={toggleSource}
+              onUpdateSource={updateSource}
             />
           </aside>
         </div>
@@ -2776,11 +2804,29 @@ function SourceTable({
   sources,
   busySourceId,
   onToggleSource,
+  onUpdateSource,
 }: {
   sources: SourceHealth[];
   busySourceId: number | null;
   onToggleSource: (source: SourceHealth) => void;
+  onUpdateSource: (source: SourceHealth, payload: SourceUpdatePayload) => void;
 }) {
+  const [drafts, setDrafts] = useState<Record<number, SourceDraft>>({});
+
+  useEffect(() => {
+    setDrafts(Object.fromEntries(sources.map((source) => [source.id, buildSourceDraft(source)])));
+  }, [sources]);
+
+  const setDraftValue = (sourceId: number, field: keyof SourceDraft, value: string) => {
+    setDrafts((current) => ({
+      ...current,
+      [sourceId]: {
+        ...(current[sourceId] ?? buildSourceDraft(sources.find((source) => source.id === sourceId)!)),
+        [field]: value,
+      },
+    }));
+  };
+
   return (
     <section className="section">
       <div className="section-header">
@@ -2788,11 +2834,15 @@ function SourceTable({
         <DatabaseZap size={16} aria-hidden="true" />
       </div>
       <div className="table-wrap">
-        <table>
+        <table className="source-table">
           <thead>
             <tr>
               <th>Source</th>
               <th>Enabled</th>
+              <th>Priority</th>
+              <th>Polling</th>
+              <th>Rate Limit</th>
+              <th>Terms Notes</th>
               <th>Status</th>
               <th>Stored</th>
               <th>Last Run</th>
@@ -2800,33 +2850,118 @@ function SourceTable({
             </tr>
           </thead>
           <tbody>
-            {sources.map((source) => (
-              <tr key={source.id}>
-                <td>{source.name}</td>
-                <td>{source.enabled ? "Yes" : "No"}</td>
-                <td className={source.latest_status === "success" ? "health-ok" : ""}>
-                  {source.latest_status}
-                </td>
-                <td>{source.items_stored}</td>
-                <td>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</td>
-                <td>
-                  <button
-                    className="button"
-                    onClick={() => onToggleSource(source)}
-                    disabled={busySourceId === source.id}
-                  >
-                    {busySourceId === source.id ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : null}
-                    {source.enabled ? "Disable" : "Enable"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {sources.map((source) => {
+              const draft = drafts[source.id] ?? buildSourceDraft(source);
+              const changed = isSourceDraftChanged(source, draft);
+              const saving = busySourceId === source.id;
+              return (
+                <tr key={source.id}>
+                  <td>
+                    <div className="table-event-cell">{source.name}</div>
+                    <div className="small-muted">
+                      {source.type} · {source.access_method}
+                      {source.auth_required ? " · key required" : ""}
+                    </div>
+                  </td>
+                  <td>{source.enabled ? "Yes" : "No"}</td>
+                  <td>
+                    <input
+                      className="field table-field source-priority-field"
+                      min="0"
+                      type="number"
+                      value={draft.priority}
+                      onChange={(event) => setDraftValue(source.id, "priority", event.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="field table-field source-short-field"
+                      value={draft.polling_interval}
+                      onChange={(event) =>
+                        setDraftValue(source.id, "polling_interval", event.target.value)
+                      }
+                      placeholder="hourly"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="field table-field source-short-field"
+                      value={draft.rate_limit}
+                      onChange={(event) => setDraftValue(source.id, "rate_limit", event.target.value)}
+                      placeholder="60/hour"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="field table-field source-notes-field"
+                      value={draft.terms_notes}
+                      onChange={(event) => setDraftValue(source.id, "terms_notes", event.target.value)}
+                      placeholder="Usage notes"
+                    />
+                  </td>
+                  <td className={source.latest_status === "success" ? "health-ok" : ""}>
+                    {source.latest_status}
+                  </td>
+                  <td>{source.items_stored}</td>
+                  <td>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="button icon-button"
+                        onClick={() => onToggleSource(source)}
+                        disabled={saving}
+                        title={source.enabled ? "Disable source" : "Enable source"}
+                        type="button"
+                      >
+                        {saving ? <Loader2 className="spin" size={16} /> : <DatabaseZap size={16} />}
+                      </button>
+                      <button
+                        className="button icon-button"
+                        onClick={() => onUpdateSource(source, buildSourcePayload(draft))}
+                        disabled={saving || !changed}
+                        title="Save source settings"
+                        type="button"
+                      >
+                        {saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
     </section>
+  );
+}
+
+function buildSourceDraft(source: SourceHealth): SourceDraft {
+  return {
+    priority: String(source.priority),
+    polling_interval: source.polling_interval ?? "",
+    rate_limit: source.rate_limit ?? "",
+    terms_notes: source.terms_notes ?? "",
+  };
+}
+
+function buildSourcePayload(draft: SourceDraft): SourceUpdatePayload {
+  const priority = Number(draft.priority);
+
+  return {
+    priority: Number.isFinite(priority) && priority >= 0 ? priority : 100,
+    polling_interval: draft.polling_interval.trim() || null,
+    rate_limit: draft.rate_limit.trim() || null,
+    terms_notes: draft.terms_notes.trim() || null,
+  };
+}
+
+function isSourceDraftChanged(source: SourceHealth, draft: SourceDraft): boolean {
+  return (
+    String(source.priority) !== draft.priority.trim() ||
+    (source.polling_interval ?? "") !== draft.polling_interval.trim() ||
+    (source.rate_limit ?? "") !== draft.rate_limit.trim() ||
+    (source.terms_notes ?? "") !== draft.terms_notes.trim()
   );
 }
 

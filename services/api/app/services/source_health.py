@@ -38,7 +38,7 @@ def update_source(db: Session, source_id: int, payload: SourceUpdate) -> Source 
     updates = payload.model_dump(exclude_unset=True)
     for field_name, value in updates.items():
         if isinstance(value, str):
-            value = value.strip()
+            value = value.strip() or None
         setattr(source, field_name, value)
 
     db.add(source)
@@ -62,7 +62,13 @@ def serialize_source_health(source: Source, run: SourceRun | None) -> SourceHeal
         name=source.name,
         type=source.type,
         access_method=source.access_method,
-        enabled=source.enabled,
+        base_url=source.base_url,
+        auth_required=bool(source.auth_required),
+        rate_limit=source.rate_limit,
+        polling_interval=source.polling_interval,
+        enabled=bool(source.enabled),
+        priority=source.priority if source.priority is not None else 100,
+        terms_notes=source.terms_notes,
         latest_status=run.status if run else "never_run",
         latest_error=run.error_message if run else None,
         last_started_at=run.started_at if run else None,
