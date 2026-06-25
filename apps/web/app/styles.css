@@ -367,6 +367,39 @@ table {
   line-height: 1.45;
 }
 
+.search-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  display: grid;
+  gap: 9px;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 8px;
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 110px 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.checkbox-row {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 0 4px;
+}
+
 th,
 td {
   padding: 10px 12px;
@@ -465,5 +498,10 @@ tr:last-child td {
 
   .score-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .search-row,
+  .filter-row {
+    grid-template-columns: 1fr;
   }
 }

@@ -102,6 +102,12 @@ export function Dashboard() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchSource, setSearchSource] = useState("");
+  const [searchCategory, setSearchCategory] = useState("");
+  const [searchTicker, setSearchTicker] = useState("");
+  const [searchTopic, setSearchTopic] = useState("");
+  const [savedOnly, setSavedOnly] = useState(false);
 
   const fetchJson = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -165,6 +171,40 @@ export function Dashboard() {
     } finally {
       setLoadState("idle");
     }
+  };
+
+  const runSearch = async () => {
+    setLoadState("loading");
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery.trim()) params.set("q", searchQuery.trim());
+      if (searchSource.trim()) params.set("source", searchSource.trim());
+      if (searchCategory.trim()) params.set("category", searchCategory.trim());
+      if (searchTicker.trim()) params.set("ticker", searchTicker.trim().toUpperCase());
+      if (searchTopic.trim()) params.set("topic", searchTopic.trim());
+      if (savedOnly) params.set("saved_only", "true");
+      params.set("limit", "30");
+
+      const results = await fetchJson<FeedItem[]>(`/api/search?${params.toString()}`);
+      setFeed(results);
+      setStatus(`Search returned ${results.length} items`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Search failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const clearSearch = async () => {
+    setSearchQuery("");
+    setSearchSource("");
+    setSearchCategory("");
+    setSearchTicker("");
+    setSearchTopic("");
+    setSavedOnly(false);
+    await refreshAll();
   };
 
   const summarizeItem = async (itemId: number) => {
@@ -334,6 +374,23 @@ export function Dashboard() {
               <h2 className="section-title">Ranked Feed</h2>
               <span className="small-muted">{feed.length} items</span>
             </div>
+            <SearchPanel
+              query={searchQuery}
+              source={searchSource}
+              category={searchCategory}
+              ticker={searchTicker}
+              topic={searchTopic}
+              savedOnly={savedOnly}
+              disabled={loadState !== "idle"}
+              onQueryChange={setSearchQuery}
+              onSourceChange={setSearchSource}
+              onCategoryChange={setSearchCategory}
+              onTickerChange={setSearchTicker}
+              onTopicChange={setSearchTopic}
+              onSavedOnlyChange={setSavedOnly}
+              onSearch={runSearch}
+              onClear={clearSearch}
+            />
             <div className="feed-list">
               {feed.length ? (
                 feed.map((item) => (
@@ -367,6 +424,104 @@ export function Dashboard() {
           </aside>
         </div>
       </main>
+    </div>
+  );
+}
+
+function SearchPanel({
+  query,
+  source,
+  category,
+  ticker,
+  topic,
+  savedOnly,
+  disabled,
+  onQueryChange,
+  onSourceChange,
+  onCategoryChange,
+  onTickerChange,
+  onTopicChange,
+  onSavedOnlyChange,
+  onSearch,
+  onClear,
+}: {
+  query: string;
+  source: string;
+  category: string;
+  ticker: string;
+  topic: string;
+  savedOnly: boolean;
+  disabled: boolean;
+  onQueryChange: (value: string) => void;
+  onSourceChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onTickerChange: (value: string) => void;
+  onTopicChange: (value: string) => void;
+  onSavedOnlyChange: (value: boolean) => void;
+  onSearch: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="search-panel">
+      <div className="search-row">
+        <input
+          className="field search-input"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onSearch();
+          }}
+          placeholder="Search AI topics, companies, summaries"
+        />
+        <button className="button primary" onClick={onSearch} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Search size={16} />}
+          Search
+        </button>
+        <button className="button" onClick={onClear} disabled={disabled}>
+          Clear
+        </button>
+      </div>
+      <div className="filter-row">
+        <input
+          className="field"
+          value={source}
+          onChange={(event) => onSourceChange(event.target.value)}
+          placeholder="Source"
+        />
+        <select
+          className="field"
+          value={category}
+          onChange={(event) => onCategoryChange(event.target.value)}
+          aria-label="Category filter"
+        >
+          <option value="">Any category</option>
+          <option value="research">Research</option>
+          <option value="technical_trend">Technical trend</option>
+          <option value="manual_submission">Manual submission</option>
+          <option value="stock_company_event">Stock/company</option>
+          <option value="product">Product</option>
+        </select>
+        <input
+          className="field"
+          value={ticker}
+          onChange={(event) => onTickerChange(event.target.value)}
+          placeholder="Ticker"
+        />
+        <input
+          className="field"
+          value={topic}
+          onChange={(event) => onTopicChange(event.target.value)}
+          placeholder="Topic"
+        />
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={savedOnly}
+            onChange={(event) => onSavedOnlyChange(event.target.checked)}
+          />
+          Saved
+        </label>
+      </div>
     </div>
   );
 }

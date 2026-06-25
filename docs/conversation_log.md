@@ -43,3 +43,4 @@ Implementation progress:
 - Added a Kimi-backed item summarization endpoint that stores summaries on feed items.
 - Added the first Next.js frontend dashboard for feed, stock watchlist, source health, ingestion, and summarization actions.
 - Added manual URL submission and feed actions for save, hide, and mark important.
+- Added keyword and filter search over stored feed items, with dashboard search controls.

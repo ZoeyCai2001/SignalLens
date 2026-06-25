@@ -76,3 +76,10 @@ curl -X POST "http://127.0.0.1:8000/api/feed/1/save"
 curl -X POST "http://127.0.0.1:8000/api/feed/1/hide"
 curl -X POST "http://127.0.0.1:8000/api/feed/1/mark-important"
 ```
+
+Search stored feed items:
+
+```bash
+curl "http://127.0.0.1:8000/api/search?q=agent&category=research&limit=10"
+curl "http://127.0.0.1:8000/api/search?topic=inference&saved_only=true"
+```
