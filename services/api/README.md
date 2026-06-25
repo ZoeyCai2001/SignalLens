@@ -109,6 +109,12 @@ curl "http://127.0.0.1:8000/api/digest/daily"
 curl "http://127.0.0.1:8000/api/digest/daily?date=2026-06-25&limit_per_section=3"
 ```
 
+Read deterministic event clusters:
+
+```bash
+curl "http://127.0.0.1:8000/api/events/clusters?limit=10&min_items=1"
+```
+
 Read and seed topic watchlist items:
 
 ```bash

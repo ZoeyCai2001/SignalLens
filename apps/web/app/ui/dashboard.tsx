@@ -121,6 +121,21 @@ type DailyDigest = {
   disclaimer: string;
 };
 
+type EventCluster = {
+  cluster_key: string;
+  title: string;
+  category: string;
+  topics: string[];
+  tickers: string[];
+  sources: string[];
+  item_count: number;
+  top_score: number;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+  representative_item: FeedItem;
+  items: FeedItem[];
+};
+
 type LoadState = "idle" | "loading" | "running";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -141,6 +156,7 @@ export function Dashboard() {
   const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
+  const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
@@ -176,7 +192,15 @@ export function Dashboard() {
     setLoadState("loading");
     setError(null);
     try {
-      const [nextFeed, nextStocks, nextStockSignals, nextTopics, nextSources, nextDigest] =
+      const [
+        nextFeed,
+        nextStocks,
+        nextStockSignals,
+        nextTopics,
+        nextSources,
+        nextDigest,
+        nextEventClusters,
+      ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
           fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
@@ -184,6 +208,7 @@ export function Dashboard() {
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
           fetchJson<SourceHealth[]>("/api/sources/health"),
           fetchJson<DailyDigest>("/api/digest/daily"),
+          fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
         ]);
       setFeed(nextFeed);
       setStocks(nextStocks);
@@ -191,6 +216,7 @@ export function Dashboard() {
       setTopics(nextTopics);
       setSources(nextSources);
       setDigest(nextDigest);
+      setEventClusters(nextEventClusters);
       setStatus(`Loaded ${nextFeed.length} feed items`);
     } catch (err) {
       setError(readError(err));
@@ -493,6 +519,7 @@ export function Dashboard() {
 
           <aside className="stack">
             <DailyDigestPanel digest={digest} />
+            <EventClusterPanel clusters={eventClusters} />
             <ManualSubmissionPanel
               title={manualTitle}
               url={manualUrl}
@@ -558,6 +585,41 @@ function DailyDigestPanel({ digest }: { digest: DailyDigest | null }) {
       ) : (
         <div className="empty-state">Digest unavailable.</div>
       )}
+    </section>
+  );
+}
+
+function EventClusterPanel({ clusters }: { clusters: EventCluster[] }) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Event Clusters</h2>
+        <span className="small-muted">{clusters.length} clusters</span>
+      </div>
+      <div className="digest-panel">
+        {clusters.length ? (
+          clusters.slice(0, 5).map((cluster) => (
+            <div className="digest-section" key={cluster.cluster_key}>
+              <div className="digest-section-title">
+                {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"} ·{" "}
+                {cluster.sources.slice(0, 2).join(", ")}
+              </div>
+              <a className="digest-link" href={cluster.representative_item.url} target="_blank">
+                {cluster.title}
+              </a>
+              <div className="badges">
+                {[...cluster.tickers, ...cluster.topics.slice(0, 3)].map((label) => (
+                  <span className="badge" key={label}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="empty-state">No clusters available.</div>
+        )}
+      </div>
     </section>
   );
 }

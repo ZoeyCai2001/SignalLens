@@ -60,6 +60,7 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/feed`
 - `GET http://127.0.0.1:8000/api/search`
 - `GET http://127.0.0.1:8000/api/digest/daily`
+- `GET http://127.0.0.1:8000/api/events/clusters`
 - `GET http://127.0.0.1:8000/api/sources/health`
 - `POST http://127.0.0.1:8000/api/ingestion/hacker-news`
 - `POST http://127.0.0.1:8000/api/ingestion/arxiv`

@@ -1,0 +1,125 @@
+import re
+from collections import Counter, defaultdict
+from datetime import datetime
+
+from sqlalchemy.orm import Session
+
+from app.schemas.events import EventCluster
+from app.schemas.feed import FeedItem
+from app.services.feed_actions import list_visible_feed_items
+from app.services.scoring import detect_tickers
+
+STOP_WORDS = {
+    "about",
+    "after",
+    "from",
+    "into",
+    "more",
+    "new",
+    "news",
+    "over",
+    "that",
+    "their",
+    "this",
+    "with",
+    "using",
+}
+
+
+def list_event_clusters(
+    db: Session,
+    limit: int = 12,
+    items_limit: int = 200,
+    min_items: int = 1,
+) -> list[EventCluster]:
+    items = list_visible_feed_items(db=db, limit=items_limit)
+    grouped: dict[str, list[FeedItem]] = defaultdict(list)
+    for item in items:
+        grouped[build_cluster_key(item)].append(item)
+
+    clusters = [
+        build_event_cluster(cluster_key=cluster_key, items=cluster_items)
+        for cluster_key, cluster_items in grouped.items()
+        if len(cluster_items) >= min_items
+    ]
+    clusters.sort(
+        key=lambda cluster: (
+            cluster.item_count,
+            cluster.top_score,
+            cluster.last_seen_at or datetime.min,
+        ),
+        reverse=True,
+    )
+    return clusters[:limit]
+
+
+def build_event_cluster(cluster_key: str, items: list[FeedItem]) -> EventCluster:
+    ranked_items = sorted(
+        items,
+        key=lambda item: (
+            item.is_important,
+            item.importance_score,
+            item.relevance_score,
+            item.published_at or datetime.min,
+        ),
+        reverse=True,
+    )
+    representative = ranked_items[0]
+    timestamps = [item.published_at for item in items if item.published_at is not None]
+    topics = most_common_values(value for item in items for value in item.topics)
+    tickers = most_common_values(value for item in items for value in item_tickers(item))
+    sources = most_common_values(item.source_name for item in items)
+
+    return EventCluster(
+        cluster_key=cluster_key,
+        title=build_cluster_title(representative, item_count=len(items), sources=sources),
+        category=representative.category,
+        topics=topics[:8],
+        tickers=tickers[:6],
+        sources=sources,
+        item_count=len(items),
+        top_score=max(item.importance_score for item in items),
+        first_seen_at=min(timestamps) if timestamps else None,
+        last_seen_at=max(timestamps) if timestamps else None,
+        representative_item=representative,
+        items=ranked_items[:5],
+    )
+
+
+def build_cluster_key(item: FeedItem) -> str:
+    strong_terms = [*item_tickers(item), *item.products]
+    if strong_terms:
+        return "|".join(["strong", item.category, *sorted(term.lower() for term in strong_terms)])
+
+    title_terms = extract_title_terms(item.title)
+    topic_terms = [topic.lower() for topic in item.topics[:4]]
+    key_terms = sorted(set([*topic_terms, *title_terms[:4]]))
+    return "|".join([item.category, *key_terms]) if key_terms else f"item:{item.id}"
+
+
+def item_tickers(item: FeedItem) -> list[str]:
+    if item.tickers:
+        return item.tickers
+    text = " ".join(
+        part
+        for part in [item.title, item.summary_short or "", item.why_it_matters or ""]
+        if part
+    )
+    return detect_tickers(text)
+
+
+def extract_title_terms(title: str) -> list[str]:
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{2,}", title.lower())
+    return [word for word in words if word not in STOP_WORDS]
+
+
+def most_common_values(values) -> list[str]:
+    counts = Counter(value for value in values if value)
+    return [value for value, _count in counts.most_common()]
+
+
+def build_cluster_title(item: FeedItem, item_count: int, sources: list[str]) -> str:
+    if item_count <= 1:
+        return item.title
+    source_text = ", ".join(sources[:3])
+    return f"{item.title} ({item_count} related items from {source_text})"

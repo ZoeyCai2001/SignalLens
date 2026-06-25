@@ -50,3 +50,4 @@ Implementation progress:
 - Added stock-linked signal summary and ticker detail endpoints, with dashboard signal counts.
 - Added Hugging Face public model ingestion for model-release and open-source LLM signals.
 - Added selected RSS feed ingestion for AI company and research blog signals.
+- Added deterministic event clustering and dashboard event cluster display.
