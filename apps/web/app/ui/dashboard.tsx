@@ -330,6 +330,7 @@ export function Dashboard() {
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
+  const [selectedEventCluster, setSelectedEventCluster] = useState<EventCluster | null>(null);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -341,6 +342,7 @@ export function Dashboard() {
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [busyDetailItemId, setBusyDetailItemId] = useState<number | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
+  const [busyClusterKey, setBusyClusterKey] = useState<string | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
@@ -982,6 +984,28 @@ export function Dashboard() {
     }
   };
 
+  const loadEventCluster = async (cluster: EventCluster) => {
+    if (selectedEventCluster?.cluster_key === cluster.cluster_key) {
+      setSelectedEventCluster(null);
+      return;
+    }
+
+    setBusyClusterKey(cluster.cluster_key);
+    setError(null);
+    try {
+      const detail = await fetchJson<EventCluster>(
+        `/api/events/clusters/${encodeURIComponent(cluster.cluster_key)}`,
+      );
+      setSelectedEventCluster(detail);
+      setStatus(`Loaded cluster with ${detail.item_count} item${detail.item_count === 1 ? "" : "s"}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Cluster load failed");
+    } finally {
+      setBusyClusterKey(null);
+    }
+  };
+
   const submitAlertRule = async () => {
     if (!alertRuleName.trim()) {
       setError("Alert rules need a name.");
@@ -1315,7 +1339,12 @@ export function Dashboard() {
               onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
             />
             <ChineseSocialPanel items={feed} />
-            <EventClusterPanel clusters={eventClusters} />
+            <EventClusterPanel
+              clusters={eventClusters}
+              selectedCluster={selectedEventCluster}
+              busyClusterKey={busyClusterKey}
+              onSelectCluster={loadEventCluster}
+            />
             <ManualSubmissionPanel
               title={manualTitle}
               url={manualUrl}
@@ -1739,7 +1768,17 @@ function SavedItemsPanel({
   );
 }
 
-function EventClusterPanel({ clusters }: { clusters: EventCluster[] }) {
+function EventClusterPanel({
+  clusters,
+  selectedCluster,
+  busyClusterKey,
+  onSelectCluster,
+}: {
+  clusters: EventCluster[];
+  selectedCluster: EventCluster | null;
+  busyClusterKey: string | null;
+  onSelectCluster: (cluster: EventCluster) => void;
+}) {
   return (
     <section className="section">
       <div className="section-header">
@@ -1748,24 +1787,70 @@ function EventClusterPanel({ clusters }: { clusters: EventCluster[] }) {
       </div>
       <div className="digest-panel">
         {clusters.length ? (
-          clusters.slice(0, 5).map((cluster) => (
-            <div className="digest-section" key={cluster.cluster_key}>
-              <div className="digest-section-title">
-                {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"} ·{" "}
-                {cluster.sources.slice(0, 2).join(", ")}
+          clusters.slice(0, 5).map((cluster) => {
+            const expanded = selectedCluster?.cluster_key === cluster.cluster_key;
+            const detail = expanded ? selectedCluster : cluster;
+            return (
+              <div className="digest-section" key={cluster.cluster_key}>
+                <div className="cluster-head">
+                  <div>
+                    <div className="digest-section-title">
+                      {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"} ·{" "}
+                      {cluster.sources.slice(0, 2).join(", ")}
+                    </div>
+                    <a
+                      className="digest-link"
+                      href={cluster.representative_item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {cluster.title}
+                    </a>
+                  </div>
+                  <button
+                    className={`button icon-button ${expanded ? "active-icon-button" : ""}`}
+                    onClick={() => onSelectCluster(cluster)}
+                    disabled={busyClusterKey === cluster.cluster_key}
+                    title={expanded ? "Hide cluster evidence" : "View cluster evidence"}
+                    aria-label={expanded ? "Hide cluster evidence" : "View cluster evidence"}
+                    type="button"
+                  >
+                    {busyClusterKey === cluster.cluster_key ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <FileText size={16} />
+                    )}
+                  </button>
+                </div>
+                <div className="badges">
+                  {[...cluster.tickers, ...cluster.topics.slice(0, 3)].map((label) => (
+                    <span className="badge" key={label}>
+                      {label}
+                    </span>
+                  ))}
+                </div>
+                {expanded ? (
+                  <div className="cluster-evidence-list">
+                    {detail.items.map((item) => (
+                      <a
+                        className="cluster-evidence-row"
+                        href={item.url}
+                        key={item.id}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <span>{item.title}</span>
+                        <span className="small-muted">
+                          {item.source_name} · {Math.round(item.importance_score * 100)}
+                          {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-              <a className="digest-link" href={cluster.representative_item.url} target="_blank">
-                {cluster.title}
-              </a>
-              <div className="badges">
-                {[...cluster.tickers, ...cluster.topics.slice(0, 3)].map((label) => (
-                  <span className="badge" key={label}>
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="empty-state">No clusters available.</div>
         )}

@@ -33,10 +33,29 @@ def list_event_clusters(
     min_items: int = 1,
 ) -> list[EventCluster]:
     items = list_visible_feed_items(db=db, limit=items_limit)
-    grouped: dict[str, list[FeedItem]] = defaultdict(list)
-    for item in items:
-        grouped[build_cluster_key(item)].append(item)
+    return build_event_clusters_from_items(items=items, limit=limit, min_items=min_items)
 
+
+def get_event_cluster(
+    db: Session,
+    cluster_key: str,
+    items_limit: int = 500,
+    min_items: int = 1,
+) -> EventCluster | None:
+    items = list_visible_feed_items(db=db, limit=items_limit)
+    grouped = group_items_by_cluster(items)
+    cluster_items = grouped.get(cluster_key, [])
+    if len(cluster_items) < min_items:
+        return None
+    return build_event_cluster(cluster_key=cluster_key, items=cluster_items)
+
+
+def build_event_clusters_from_items(
+    items: list[FeedItem],
+    limit: int = 12,
+    min_items: int = 1,
+) -> list[EventCluster]:
+    grouped = group_items_by_cluster(items)
     clusters = [
         build_event_cluster(cluster_key=cluster_key, items=cluster_items)
         for cluster_key, cluster_items in grouped.items()
@@ -51,6 +70,13 @@ def list_event_clusters(
         reverse=True,
     )
     return clusters[:limit]
+
+
+def group_items_by_cluster(items: list[FeedItem]) -> dict[str, list[FeedItem]]:
+    grouped: dict[str, list[FeedItem]] = defaultdict(list)
+    for item in items:
+        grouped[build_cluster_key(item)].append(item)
+    return grouped
 
 
 def build_event_cluster(cluster_key: str, items: list[FeedItem]) -> EventCluster:

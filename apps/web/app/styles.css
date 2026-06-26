@@ -570,6 +570,29 @@ table {
   gap: 6px;
 }
 
+.cluster-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.cluster-evidence-list {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.cluster-evidence-row {
+  display: grid;
+  gap: 3px;
+  border-radius: 7px;
+  background: var(--panel-soft);
+  padding: 8px;
+  line-height: 1.35;
+}
+
 .digest-section-title {
   color: var(--muted);
   font-size: 12px;
