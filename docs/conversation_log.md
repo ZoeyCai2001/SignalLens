@@ -80,3 +80,4 @@ Implementation progress:
 - Added editable source operations metadata for priority, polling interval, rate limit, and terms notes in the dashboard Source Health panel.
 - Added an event cluster detail API and dashboard evidence drill-down so related source items can be inspected from one cluster card.
 - Added system readiness reporting for LLM/API integration configuration and a dashboard panel showing readiness plus live local counts.
+- Added lightweight natural-language search intent parsing for recent/latest queries, stock tickers, product/research/social categories, Chinese language signals, saved-item searches, and high-importance filters.
