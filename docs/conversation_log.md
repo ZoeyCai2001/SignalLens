@@ -81,3 +81,4 @@ Implementation progress:
 - Added an event cluster detail API and dashboard evidence drill-down so related source items can be inspected from one cluster card.
 - Added system readiness reporting for LLM/API integration configuration and a dashboard panel showing readiness plus live local counts.
 - Added lightweight natural-language search intent parsing for recent/latest queries, stock tickers, product/research/social categories, Chinese language signals, saved-item searches, and high-importance filters.
+- Added deterministic enrichment for manual URL submissions so pasted AI product, research, stock, and social-trend links are categorized, scored, summarized, and routed into the right dashboard modules without requiring an LLM call.

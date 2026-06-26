@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -6,7 +7,19 @@ from app.db.models import NormalizedItem, RawItem, Source
 from app.schemas.feed import FeedItem
 from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.feed_actions import get_action, serialize_feed_item
-from app.services.ingestion import compute_content_hash, get_or_create_source, normalize_item
+from app.services.ingestion import (
+    compute_content_hash,
+    detect_language,
+    get_or_create_source,
+    normalize_item,
+)
+from app.services.scoring import (
+    detect_tickers,
+    detect_topics,
+    importance_score,
+    is_ai_relevant,
+    relevance_score,
+)
 from app.sources.base import RawItemInput
 
 
@@ -26,12 +39,17 @@ def create_manual_submission(db: Session, request: ManualSubmissionRequest) -> F
     )
     raw = create_raw_manual_item(db=db, source=source, request=request)
     if raw.normalized_item:
+        enrich_manual_normalized_item(raw.normalized_item, raw)
+        db.add(raw.normalized_item)
+        db.commit()
+        db.refresh(raw.normalized_item)
         return serialize_feed_item(raw.normalized_item, get_action(db, raw.normalized_item.id))
 
     normalized = normalize_item(raw=raw, source=source) or create_manual_normalized_item(
         raw=raw,
         source=source,
     )
+    enrich_manual_normalized_item(normalized, raw)
     db.add(normalized)
     db.commit()
     db.refresh(normalized)
@@ -76,13 +94,14 @@ def create_raw_manual_item(
 
 
 def create_manual_normalized_item(raw: RawItem, source: Source) -> NormalizedItem:
+    combined_text = combined_manual_text(raw)
     return NormalizedItem(
         raw_item_id=raw.id,
         title=raw.raw_title,
         url=raw.url,
         source_name=source.name,
         author=raw.raw_author,
-        language="en",
+        language=detect_language(combined_text),
         published_at=raw.published_at,
         text=raw.raw_text,
         category="manual_submission",
@@ -100,3 +119,105 @@ def create_manual_normalized_item(raw: RawItem, source: Source) -> NormalizedIte
         summary_short=f"Manual submission: {raw.raw_title}",
         why_it_matters="This item was manually submitted for review.",
     )
+
+
+def enrich_manual_normalized_item(item: NormalizedItem, raw: RawItem) -> None:
+    combined_text = combined_manual_text(raw)
+    if not is_ai_relevant(combined_text):
+        return
+
+    category, subcategory = infer_manual_category(combined_text)
+    topics = detect_topics(combined_text)
+    tickers = detect_tickers(combined_text)
+    products = detect_manual_products(raw.raw_title, combined_text)
+    source_quality = 0.65
+
+    item.language = detect_language(combined_text)
+    item.category = category
+    item.subcategory = subcategory
+    item.tickers = tickers
+    item.companies = tickers
+    item.products = products
+    item.topics = topics
+    item.relevance_score = max(item.relevance_score or 0, relevance_score(combined_text))
+    item.importance_score = max(
+        item.importance_score or 0,
+        importance_score(source_quality_score=source_quality, text=combined_text),
+    )
+    item.source_quality_score = max(item.source_quality_score or 0, source_quality)
+    item.stock_impact_score = 0.35 if tickers and category == "stock_company_event" else 0
+    item.summary_short = build_manual_summary(raw)
+    item.why_it_matters = build_manual_why_it_matters(category=category, tickers=tickers)
+
+
+def combined_manual_text(raw: RawItem) -> str:
+    return " ".join(part for part in [raw.raw_title, raw.raw_text or ""] if part)
+
+
+def infer_manual_category(text: str) -> tuple[str, str]:
+    lowered = text.lower()
+    if detect_tickers(text) or re.search(
+        r"\b(earnings|guidance|semiconductor|chip|data center|capex|revenue|stock)\b",
+        lowered,
+    ):
+        return "stock_company_event", "manual_stock_signal"
+    if re.search(r"\b(paper|research|arxiv|benchmark|study|evaluation)\b", lowered):
+        return "research", "manual_research"
+    if re.search(r"\b(chinese|xiaohongshu|wechat|social trend|viral)\b", lowered) or any(
+        term in text for term in ["中文", "小红书", "微信"]
+    ):
+        return "social_trend", "manual_social_signal"
+    if re.search(r"\b(product|launch|app|tool|workflow|browser|photo|video)\b", lowered):
+        return "product", "manual_product"
+    return "technical_trend", "manual_ai_signal"
+
+
+def detect_manual_products(title: str, text: str) -> list[str]:
+    products: list[str] = []
+    if ":" in title:
+        candidate = title.split(":", 1)[0].strip()
+        if 2 <= len(candidate) <= 60:
+            products.append(candidate)
+
+    known_products = [
+        "ChatGPT",
+        "Claude",
+        "Cursor",
+        "Perplexity",
+        "Midjourney",
+        "Runway",
+        "Gemini",
+        "Copilot",
+    ]
+    for product in known_products:
+        if product.lower() in text.lower() and product not in products:
+            products.append(product)
+    return products[:6]
+
+
+def build_manual_summary(raw: RawItem) -> str:
+    excerpt = first_sentence(raw.raw_text or "")
+    if excerpt:
+        return f"Manual submission: {raw.raw_title} - {excerpt}"
+    return f"Manual submission: {raw.raw_title}"
+
+
+def first_sentence(text: str, limit: int = 220) -> str | None:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if not cleaned:
+        return None
+    match = re.search(r"(.+?[.!?。！？])", cleaned)
+    sentence = match.group(1) if match else cleaned
+    return sentence[:limit].rstrip()
+
+
+def build_manual_why_it_matters(category: str, tickers: list[str]) -> str:
+    if category == "stock_company_event" and tickers:
+        return f"This user-submitted item matched watched AI tickers: {', '.join(tickers)}."
+    if category == "product":
+        return "This user-submitted item appears to describe an AI product or workflow."
+    if category == "research":
+        return "This user-submitted item appears to be AI research or evaluation material."
+    if category == "social_trend":
+        return "This user-submitted item appears to be an AI social trend signal."
+    return "This user-submitted item matched AI relevance signals for technical review."
