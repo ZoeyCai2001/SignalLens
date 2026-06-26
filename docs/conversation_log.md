@@ -77,3 +77,6 @@ Implementation progress:
 - Added richer stock watchlist summaries with high-impact counts, latest AI-related event, sentiment counts, and dashboard table columns.
 - Added date range, language, and minimum-importance search filters to the API and dashboard search panel.
 - Added feed item detail API and dashboard Details panel with source text, score explanation, entities, products, and action state.
+- Added editable source operations metadata for priority, polling interval, rate limit, and terms notes in the dashboard Source Health panel.
+- Added an event cluster detail API and dashboard evidence drill-down so related source items can be inspected from one cluster card.
+- Added system readiness reporting for LLM/API integration configuration and a dashboard panel showing readiness plus live local counts.

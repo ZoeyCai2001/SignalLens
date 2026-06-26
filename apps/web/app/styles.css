@@ -543,6 +543,26 @@ table {
   line-height: 1.4;
 }
 
+.readiness-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(64px, 1fr));
+  gap: 6px;
+}
+
+.readiness-metric {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  padding: 7px;
+}
+
 .digest-coverage {
   display: flex;
   flex-wrap: wrap;

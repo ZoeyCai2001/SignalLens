@@ -174,6 +174,23 @@ type SourceHealth = {
   items_stored: number;
 };
 
+type IntegrationStatus = {
+  kimi_coding_api: boolean;
+  product_hunt_api: boolean;
+  alpha_vantage_api: boolean;
+  chinese_rss_feeds: boolean;
+};
+
+type SystemStatus = {
+  status: string;
+  service: string;
+  environment: string;
+  llm_provider: string;
+  llm_model: string;
+  llm_configured: boolean;
+  integrations: IntegrationStatus;
+};
+
 type SourceUpdatePayload = {
   enabled?: boolean;
   priority?: number;
@@ -334,6 +351,7 @@ export function Dashboard() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [rankingDraft, setRankingDraft] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [status, setStatus] = useState("Ready");
@@ -425,6 +443,7 @@ export function Dashboard() {
         nextAlerts,
         nextAlertRules,
         nextPreferences,
+        nextSystemStatus,
       ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
@@ -439,6 +458,7 @@ export function Dashboard() {
           fetchJson<AlertItem[]>("/api/alerts?limit=8"),
           fetchJson<AlertRule[]>("/api/alerts/rules"),
           fetchJson<UserPreferences>("/api/preferences"),
+          fetchJson<SystemStatus>("/api/health"),
         ]);
       setFeed(nextFeed);
       setSavedItems(nextSavedItems);
@@ -452,6 +472,7 @@ export function Dashboard() {
       setAlerts(nextAlerts);
       setAlertRules(nextAlertRules);
       setPreferences(nextPreferences);
+      setSystemStatus(nextSystemStatus);
       setRankingDraft(nextPreferences.ranking_weights);
       setStatus(`Loaded ${nextFeed.length} feed items`);
     } catch (err) {
@@ -1298,6 +1319,14 @@ export function Dashboard() {
           </section>
 
           <aside className="stack">
+            <SystemStatusPanel
+              status={systemStatus}
+              itemCount={feed.length}
+              sourceCount={sources.length}
+              enabledSourceCount={sources.filter((source) => source.enabled).length}
+              alertCount={alerts.length}
+              watchlistCount={stocks.length + topics.length}
+            />
             <RankingPreferencesPanel
               preferences={preferences}
               draft={rankingDraft}
@@ -1499,6 +1528,81 @@ function ChineseSocialPanel({ items }: { items: FeedItem[] }) {
         )}
       </div>
     </section>
+  );
+}
+
+function SystemStatusPanel({
+  status,
+  itemCount,
+  sourceCount,
+  enabledSourceCount,
+  alertCount,
+  watchlistCount,
+}: {
+  status: SystemStatus | null;
+  itemCount: number;
+  sourceCount: number;
+  enabledSourceCount: number;
+  alertCount: number;
+  watchlistCount: number;
+}) {
+  const integrationRows: Array<[string, boolean]> = status
+    ? [
+        ["Kimi", status.integrations.kimi_coding_api],
+        ["Alpha Vantage", status.integrations.alpha_vantage_api],
+        ["Product Hunt", status.integrations.product_hunt_api],
+        ["Chinese RSS", status.integrations.chinese_rss_feeds],
+      ]
+    : [];
+
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">System Readiness</h2>
+        <DatabaseZap size={16} aria-hidden="true" />
+      </div>
+      <div className="digest-panel">
+        {status ? (
+          <>
+            <div className="readiness-head">
+              <div>
+                <div className="digest-section-title">{status.environment}</div>
+                <div className="digest-headline">
+                  {status.llm_provider} · {status.llm_model}
+                </div>
+              </div>
+              <span className={`badge ${status.llm_configured ? "" : "muted-badge"}`}>
+                {status.llm_configured ? "LLM ready" : "LLM key missing"}
+              </span>
+            </div>
+            <div className="readiness-grid">
+              <ReadinessMetric label="Items" value={itemCount} />
+              <ReadinessMetric label="Sources" value={`${enabledSourceCount}/${sourceCount}`} />
+              <ReadinessMetric label="Alerts" value={alertCount} />
+              <ReadinessMetric label="Watchlist" value={watchlistCount} />
+            </div>
+            <div className="badges">
+              {integrationRows.map(([label, ready]) => (
+                <span className={`badge ${ready ? "" : "muted-badge"}`} key={label}>
+                  {label} {ready ? "on" : "off"}
+                </span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="empty-state">System status unavailable.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ReadinessMetric({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="readiness-metric">
+      <span className="score-label">{label}</span>
+      <span className="score-value">{value}</span>
+    </div>
   );
 }
 
