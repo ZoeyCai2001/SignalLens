@@ -174,6 +174,18 @@ type SourceHealth = {
   items_stored: number;
 };
 
+type SourceRunHistoryItem = {
+  id: number;
+  source_id: number;
+  source_name: string;
+  status: string;
+  items_fetched: number;
+  items_stored: number;
+  error_message: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
 type IntegrationStatus = {
   kimi_coding_api: boolean;
   product_hunt_api: boolean;
@@ -345,6 +357,7 @@ export function Dashboard() {
   const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
   const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
   const [sources, setSources] = useState<SourceHealth[]>([]);
+  const [sourceRuns, setSourceRuns] = useState<SourceRunHistoryItem[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
@@ -439,6 +452,7 @@ export function Dashboard() {
         nextStockSignals,
         nextTopics,
         nextSources,
+        nextSourceRuns,
         nextDigest,
         nextDigestSnapshots,
         nextEventClusters,
@@ -454,6 +468,7 @@ export function Dashboard() {
           fetchJson<StockSignalSummary[]>("/api/watchlist/stocks/signals/summary"),
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
           fetchJson<SourceHealth[]>("/api/sources/health"),
+          fetchJson<SourceRunHistoryItem[]>("/api/sources/runs?limit=8"),
           fetchJson<DailyDigest>("/api/digest/daily"),
           fetchJson<DailyDigestSnapshot[]>("/api/digest/daily/snapshots?limit=5"),
           fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
@@ -468,6 +483,7 @@ export function Dashboard() {
       setStockSignals(nextStockSignals);
       setTopics(nextTopics);
       setSources(nextSources);
+      setSourceRuns(nextSourceRuns);
       setDigest(nextDigest);
       setDigestSnapshots(nextDigestSnapshots);
       setEventClusters(nextEventClusters);
@@ -1464,6 +1480,7 @@ export function Dashboard() {
             />
             <SourceTable
               sources={sources}
+              runs={sourceRuns}
               busySourceId={busySourceId}
               onToggleSource={toggleSource}
               onUpdateSource={updateSource}
@@ -3077,11 +3094,13 @@ function TopicTable({
 
 function SourceTable({
   sources,
+  runs,
   busySourceId,
   onToggleSource,
   onUpdateSource,
 }: {
   sources: SourceHealth[];
+  runs: SourceRunHistoryItem[];
   busySourceId: number | null;
   onToggleSource: (source: SourceHealth) => void;
   onUpdateSource: (source: SourceHealth, payload: SourceUpdatePayload) => void;
@@ -3206,6 +3225,27 @@ function SourceTable({
             })}
           </tbody>
         </table>
+      </div>
+      <div className="source-run-list">
+        {runs.length ? (
+          runs.map((run) => (
+            <div className="source-run-row" key={run.id}>
+              <div>
+                <div className="digest-link">{run.source_name}</div>
+                <div className="small-muted">
+                  {formatDate(run.started_at)} · fetched {run.items_fetched} · stored{" "}
+                  {run.items_stored}
+                  {run.error_message ? ` · ${run.error_message}` : ""}
+                </div>
+              </div>
+              <span className={`badge ${run.status === "success" ? "" : "muted-badge"}`}>
+                {run.status}
+              </span>
+            </div>
+          ))
+        ) : (
+          <div className="empty-state">No source runs recorded yet.</div>
+        )}
       </div>
     </section>
   );

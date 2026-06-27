@@ -1,9 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
-from app.schemas.sources import SourceHealth, SourceUpdate
+from app.schemas.sources import SourceHealth, SourceRunHistoryItem, SourceUpdate
 from app.services.source_health import (
     get_latest_source_run,
+    list_source_run_history,
     serialize_source_health,
     update_source,
 )
@@ -17,6 +20,14 @@ router = APIRouter()
 @router.get("/health", response_model=list[SourceHealth])
 async def list_source_health(db: DbSession) -> list[SourceHealth]:
     return list_source_health_items(db)
+
+
+@router.get("/runs", response_model=list[SourceRunHistoryItem])
+async def list_source_runs(
+    db: DbSession,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[SourceRunHistoryItem]:
+    return list_source_run_history(db=db, limit=limit)
 
 
 @router.patch("/{source_id}", response_model=SourceHealth)

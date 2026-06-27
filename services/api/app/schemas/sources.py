@@ -23,6 +23,18 @@ class SourceHealth(BaseModel):
     items_stored: int
 
 
+class SourceRunHistoryItem(BaseModel):
+    id: int
+    source_id: int
+    source_name: str
+    status: str
+    items_fetched: int
+    items_stored: int
+    error_message: str | None
+    started_at: datetime
+    finished_at: datetime | None
+
+
 class SourceUpdate(BaseModel):
     enabled: bool | None = None
     priority: int | None = None

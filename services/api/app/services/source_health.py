@@ -2,7 +2,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.models import Source, SourceRun
-from app.schemas.sources import SourceHealth, SourceUpdate
+from app.schemas.sources import SourceHealth, SourceRunHistoryItem, SourceUpdate
 
 
 def list_source_health(db: Session) -> list[SourceHealth]:
@@ -47,6 +47,17 @@ def update_source(db: Session, source_id: int, payload: SourceUpdate) -> Source 
     return source
 
 
+def list_source_run_history(db: Session, limit: int = 20) -> list[SourceRunHistoryItem]:
+    rows = (
+        db.query(SourceRun, Source)
+        .join(Source, Source.id == SourceRun.source_id)
+        .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [serialize_source_run_history_item(run=run, source=source) for run, source in rows]
+
+
 def get_latest_source_run(db: Session, source_id: int) -> SourceRun | None:
     return (
         db.query(SourceRun)
@@ -75,4 +86,21 @@ def serialize_source_health(source: Source, run: SourceRun | None) -> SourceHeal
         last_finished_at=run.finished_at if run else None,
         items_fetched=run.items_fetched if run else 0,
         items_stored=run.items_stored if run else 0,
+    )
+
+
+def serialize_source_run_history_item(
+    run: SourceRun,
+    source: Source,
+) -> SourceRunHistoryItem:
+    return SourceRunHistoryItem(
+        id=run.id,
+        source_id=source.id,
+        source_name=source.name,
+        status=run.status,
+        items_fetched=run.items_fetched,
+        items_stored=run.items_stored,
+        error_message=run.error_message,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
     )

@@ -422,6 +422,22 @@ table {
   width: 220px;
 }
 
+.source-run-list {
+  display: grid;
+  gap: 6px;
+}
+
+.source-run-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  padding: 8px;
+}
+
 .table-actions {
   display: flex;
   gap: 6px;

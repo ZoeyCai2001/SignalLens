@@ -1,9 +1,15 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from app.db.models import Source, SourceRun
 from app.schemas.sources import SourceUpdate
 from app.services.ingestion import run_connector_ingestion
-from app.services.source_health import serialize_source_health, update_source
+from app.services.source_health import (
+    serialize_source_health,
+    serialize_source_run_history_item,
+    update_source,
+)
 from app.sources.base import FetchCursor, FetchResult, SourceConnector
 
 
@@ -71,6 +77,29 @@ def test_update_source_trims_editable_settings_and_clears_empty_notes() -> None:
     assert source.rate_limit == "75/day"
     assert source.terms_notes is None
     assert db.commits == 1
+
+
+def test_serialize_source_run_history_item_includes_source_name_and_counts() -> None:
+    source = Source(id=3, name="arXiv", type="research", access_method="api")
+    run = SourceRun(
+        id=9,
+        source_id=3,
+        status="failed",
+        items_fetched=4,
+        items_stored=2,
+        error_message="rate limited",
+        started_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
+        finished_at=datetime(2026, 6, 27, 8, 1, tzinfo=UTC),
+    )
+
+    item = serialize_source_run_history_item(run=run, source=source)
+
+    assert item.id == 9
+    assert item.source_name == "arXiv"
+    assert item.status == "failed"
+    assert item.items_fetched == 4
+    assert item.items_stored == 2
+    assert item.error_message == "rate limited"
 
 
 @pytest.mark.anyio
