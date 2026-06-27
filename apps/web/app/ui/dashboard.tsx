@@ -186,6 +186,22 @@ type SourceRunHistoryItem = {
   finished_at: string | null;
 };
 
+type SearchIntent = {
+  query: string | null;
+  category: string | null;
+  ticker: string | null;
+  topic: string | null;
+  language: string | null;
+  date_from: string | null;
+  min_importance_score: number | null;
+  saved_only: boolean;
+};
+
+type NaturalLanguageSearchResponse = {
+  intent: SearchIntent;
+  items: FeedItem[];
+};
+
 type IntegrationStatus = {
   kimi_coding_api: boolean;
   product_hunt_api: boolean;
@@ -407,6 +423,7 @@ export function Dashboard() {
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
   const [searchMinImportance, setSearchMinImportance] = useState("");
+  const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
   const [savedOnly, setSavedOnly] = useState(false);
 
   const fetchJson = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
@@ -639,6 +656,31 @@ export function Dashboard() {
     setLoadState("loading");
     setError(null);
     try {
+      const hasManualFilters = [
+        searchSource,
+        searchCategory,
+        searchTicker,
+        searchTopic,
+        searchLanguage,
+        searchDateFrom,
+        searchDateTo,
+        searchMinImportance,
+      ].some((value) => value.trim()) || savedOnly;
+
+      if (searchQuery.trim() && !hasManualFilters) {
+        const result = await fetchJson<NaturalLanguageSearchResponse>(
+          "/api/search/natural-language",
+          {
+            method: "POST",
+            body: JSON.stringify({ query: searchQuery.trim(), limit: 30 }),
+          },
+        );
+        setFeed(result.items);
+        setSearchIntent(result.intent);
+        setStatus(`Search returned ${result.items.length} items`);
+        return;
+      }
+
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.set("q", searchQuery.trim());
       if (searchSource.trim()) params.set("source", searchSource.trim());
@@ -656,6 +698,7 @@ export function Dashboard() {
 
       const results = await fetchJson<FeedItem[]>(`/api/search?${params.toString()}`);
       setFeed(results);
+      setSearchIntent(null);
       setStatus(`Search returned ${results.length} items`);
     } catch (err) {
       setError(readError(err));
@@ -675,8 +718,19 @@ export function Dashboard() {
     setSearchDateFrom("");
     setSearchDateTo("");
     setSearchMinImportance("");
+    setSearchIntent(null);
     setSavedOnly(false);
     await refreshAll();
+  };
+
+  const updateSearchField = (setter: (value: string) => void, value: string) => {
+    setter(value);
+    setSearchIntent(null);
+  };
+
+  const updateSavedOnlySearchFilter = (value: boolean) => {
+    setSavedOnly(value);
+    setSearchIntent(null);
   };
 
   const copyDailyDigest = async () => {
@@ -1358,18 +1412,19 @@ export function Dashboard() {
               dateFrom={searchDateFrom}
               dateTo={searchDateTo}
               minImportance={searchMinImportance}
+              intent={searchIntent}
               savedOnly={savedOnly}
               disabled={loadState !== "idle"}
-              onQueryChange={setSearchQuery}
-              onSourceChange={setSearchSource}
-              onCategoryChange={setSearchCategory}
-              onTickerChange={setSearchTicker}
-              onTopicChange={setSearchTopic}
-              onLanguageChange={setSearchLanguage}
-              onDateFromChange={setSearchDateFrom}
-              onDateToChange={setSearchDateTo}
-              onMinImportanceChange={setSearchMinImportance}
-              onSavedOnlyChange={setSavedOnly}
+              onQueryChange={(value) => updateSearchField(setSearchQuery, value)}
+              onSourceChange={(value) => updateSearchField(setSearchSource, value)}
+              onCategoryChange={(value) => updateSearchField(setSearchCategory, value)}
+              onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
+              onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
+              onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
+              onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
+              onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
+              onMinImportanceChange={(value) => updateSearchField(setSearchMinImportance, value)}
+              onSavedOnlyChange={updateSavedOnlySearchFilter}
               onSearch={runSearch}
               onClear={clearSearch}
             />
@@ -2099,6 +2154,7 @@ function SearchPanel({
   dateFrom,
   dateTo,
   minImportance,
+  intent,
   savedOnly,
   disabled,
   onQueryChange,
@@ -2123,6 +2179,7 @@ function SearchPanel({
   dateFrom: string;
   dateTo: string;
   minImportance: string;
+  intent: SearchIntent | null;
   savedOnly: boolean;
   disabled: boolean;
   onQueryChange: (value: string) => void;
@@ -2138,6 +2195,8 @@ function SearchPanel({
   onSearch: () => void;
   onClear: () => void;
 }) {
+  const intentChips = buildSearchIntentChips(intent);
+
   return (
     <div className="search-panel">
       <div className="search-row">
@@ -2237,6 +2296,15 @@ function SearchPanel({
           Saved
         </label>
       </div>
+      {intentChips.length ? (
+        <div className="intent-row" aria-label="Interpreted search filters">
+          {intentChips.map((chip) => (
+            <span className="badge" key={chip}>
+              {chip}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3390,6 +3458,25 @@ function splitTerms(value: string) {
     .split(",")
     .map((term) => term.trim())
     .filter(Boolean);
+}
+
+function buildSearchIntentChips(intent: SearchIntent | null): string[] {
+  if (!intent) {
+    return [];
+  }
+
+  const chips = [
+    intent.query ? `query: ${intent.query}` : null,
+    intent.category ? `category: ${intent.category}` : null,
+    intent.ticker ? `ticker: ${intent.ticker}` : null,
+    intent.topic ? `topic: ${intent.topic}` : null,
+    intent.language ? `language: ${intent.language}` : null,
+    intent.date_from ? `from: ${intent.date_from}` : null,
+    intent.min_importance_score !== null ? `importance: ${intent.min_importance_score}` : null,
+    intent.saved_only ? "saved" : null,
+  ];
+
+  return chips.filter(Boolean) as string[];
 }
 
 function stockToDetailDraft(stock: StockWatchlistItem | null): StockDetailDraft {
