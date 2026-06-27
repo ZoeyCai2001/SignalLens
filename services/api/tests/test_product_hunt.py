@@ -49,7 +49,11 @@ def test_product_hunt_normalized_item_is_product_launch() -> None:
         raw_title="AgentDesk: AI agents for product teams",
         url="https://example.com/agentdesk",
         raw_text="AI agents coordinate LLM workflows for product teams.",
-        raw_metadata={"product_name": "AgentDesk"},
+        raw_metadata={
+            "product_name": "AgentDesk",
+            "votes_count": 340,
+            "comments_count": 24,
+        },
     )
 
     item = normalize_item(raw=raw, source=source)
@@ -59,3 +63,7 @@ def test_product_hunt_normalized_item_is_product_launch() -> None:
     assert item.subcategory == "product_launch"
     assert item.products == ["AgentDesk"]
     assert item.summary_short == "Product Hunt launch: AgentDesk: AI agents for product teams"
+    assert item.summary_detailed is not None
+    assert "Product use case: AI agents coordinate LLM workflows" in item.summary_detailed
+    assert "Product audience: product and growth teams" in item.summary_detailed
+    assert "Traction signal: 340 Product Hunt votes, 24 comments" in item.summary_detailed

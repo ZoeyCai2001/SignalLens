@@ -674,8 +674,81 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         source_quality_score=source_quality,
         stock_impact_score=stock_impact_score_for_source(source=source, tickers=tickers),
         summary_short=f"{summary_prefix}: {raw.raw_title}",
+        summary_detailed=build_initial_detailed_summary(
+            raw=raw,
+            category=category,
+            topics=topics,
+        ),
         why_it_matters=why_it_matters,
     )
+
+
+def build_initial_detailed_summary(
+    raw: RawItem,
+    category: str,
+    topics: list[str],
+) -> str | None:
+    source_excerpt = first_sentence(raw.raw_text or raw.raw_title)
+    topic_text = ", ".join(topics[:5]) if topics else "AI relevance prefilter"
+
+    if category == "research":
+        return "\n".join(
+            [
+                f"Research contribution: {source_excerpt}",
+                (
+                    "Research method: Not explicit in source metadata; review the source "
+                    "abstract for method and evaluation details."
+                ),
+                f"Technical relevance: Matched watched research topics: {topic_text}.",
+            ]
+        )
+
+    if category == "product":
+        traction = build_product_traction_signal(raw.raw_metadata)
+        parts = [
+            f"Product use case: {source_excerpt}",
+            f"Product audience: {infer_product_audience(raw.raw_text or raw.raw_title)}",
+        ]
+        if traction:
+            parts.append(f"Traction signal: {traction}")
+        return "\n".join(parts)
+
+    return None
+
+
+def build_product_traction_signal(metadata: dict) -> str | None:
+    votes = metadata.get("votes_count")
+    comments = metadata.get("comments_count")
+    signals = []
+    if votes is not None:
+        signals.append(f"{votes} Product Hunt votes")
+    if comments is not None:
+        signals.append(f"{comments} comments")
+    return ", ".join(signals) if signals else None
+
+
+def infer_product_audience(text: str) -> str:
+    lowered = text.lower()
+    if re.search(r"\b(developer|developers|coding|code|engineer|software)\b", lowered):
+        return "developers and software teams"
+    if re.search(r"\b(product teams?|product managers?|pm|launch)\b", lowered):
+        return "product and growth teams"
+    if re.search(r"\b(marketing|sales|customer|business)\b", lowered):
+        return "business teams"
+    if re.search(r"\b(student|education|learn|study)\b", lowered):
+        return "learners and educators"
+    if re.search(r"\b(photo|video|image|media|creative)\b", lowered):
+        return "creative and media users"
+    return "AI product evaluators"
+
+
+def first_sentence(text: str, limit: int = 260) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if not cleaned:
+        return "Source metadata describes an AI-related item."
+    match = re.search(r"(.+?[.!?。！？])", cleaned)
+    sentence = match.group(1) if match else cleaned
+    return sentence[:limit].rstrip()
 
 
 def default_finance_news_tickers() -> list[str]:

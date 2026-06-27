@@ -21,6 +21,11 @@ class ItemSummary:
     why_it_matters: str
     technical_relevance: str | None = None
     market_relevance: str | None = None
+    research_contribution: str | None = None
+    research_method: str | None = None
+    product_use_case: str | None = None
+    product_audience: str | None = None
+    traction_signal: str | None = None
     uncertainties: list[str] | None = None
 
 
@@ -62,6 +67,11 @@ Required JSON shape:
   "why_it_matters": "short explanation of technical, product, or market relevance",
   "technical_relevance": "short optional text or empty string",
   "market_relevance": "short optional text or empty string",
+  "research_contribution": "for research items: key contribution or empty string",
+  "research_method": "for research items: method/evaluation approach or empty string",
+  "product_use_case": "for product items: what the product does or empty string",
+  "product_audience": "for product items: likely user segment or empty string",
+  "traction_signal": "for product/social/community items: visible traction signal or empty string",
   "uncertainties": ["0 to 3 uncertainty notes"]
 }}
 
@@ -69,6 +79,8 @@ Rules:
 - Keep everything in English.
 - Do not give investment advice.
 - Use conservative wording for market impact.
+- For research items, identify the contribution, method, and relevance when the source gives enough evidence.
+- For product items, identify what the product does, its likely category/use case, and any traction signal from the source.
 - Preserve source attribution by referring to the item as source material, not verified fact.
 
 Item:
@@ -102,6 +114,11 @@ def parse_summary(text: str) -> ItemSummary:
         why_it_matters=why,
         technical_relevance=optional_string(data.get("technical_relevance")),
         market_relevance=optional_string(data.get("market_relevance")),
+        research_contribution=optional_string(data.get("research_contribution")),
+        research_method=optional_string(data.get("research_method")),
+        product_use_case=optional_string(data.get("product_use_case")),
+        product_audience=optional_string(data.get("product_audience")),
+        traction_signal=optional_string(data.get("traction_signal")),
         uncertainties=optional_string_list(data.get("uncertainties")),
     )
 
@@ -142,6 +159,16 @@ def format_detailed_summary(summary: ItemSummary) -> str:
         parts.append(f"Technical relevance: {summary.technical_relevance}")
     if summary.market_relevance:
         parts.append(f"Market relevance: {summary.market_relevance}")
+    if summary.research_contribution:
+        parts.append(f"Research contribution: {summary.research_contribution}")
+    if summary.research_method:
+        parts.append(f"Research method: {summary.research_method}")
+    if summary.product_use_case:
+        parts.append(f"Product use case: {summary.product_use_case}")
+    if summary.product_audience:
+        parts.append(f"Product audience: {summary.product_audience}")
+    if summary.traction_signal:
+        parts.append(f"Traction signal: {summary.traction_signal}")
     if summary.uncertainties:
         parts.append("Uncertainties: " + "; ".join(summary.uncertainties))
     return "\n".join(parts)

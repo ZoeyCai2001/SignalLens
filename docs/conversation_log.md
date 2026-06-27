@@ -89,3 +89,4 @@ Implementation progress:
 - Connected the dashboard search box to the natural-language search endpoint and added interpreted filter chips for zero-cost explainable search.
 - Added the Phase 0 source feasibility table with API-key checklist, cost posture, and compliance risk notes for MVP and deferred sources.
 - Added safe integration setup metadata to `/api/health` and surfaced missing optional API keys/feed configuration in the System Readiness panel without exposing secrets.
+- Expanded research and product summaries with contribution/method/use-case/audience/traction fields, including deterministic detail scaffolding before any LLM call.
