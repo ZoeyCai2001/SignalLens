@@ -788,6 +788,28 @@ tr:last-child td {
   gap: 10px;
 }
 
+.topic-briefing {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.topic-briefing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.topic-activity-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .urgency {
   border: 1px solid var(--line);
   border-radius: 999px;

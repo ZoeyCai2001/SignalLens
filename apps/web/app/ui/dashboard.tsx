@@ -154,6 +154,27 @@ type TopicWatchlistItem = {
   notes: string | null;
 };
 
+type TopicSourceCount = {
+  source_name: string;
+  item_count: number;
+};
+
+type TopicActivityBucket = {
+  activity_date: string;
+  item_count: number;
+};
+
+type TopicBriefing = {
+  topic: TopicWatchlistItem;
+  item_count: number;
+  trending_sources: TopicSourceCount[];
+  related_papers: FeedItem[];
+  related_products: FeedItem[];
+  related_companies: string[];
+  recent_timeline: FeedItem[];
+  activity_timeline: TopicActivityBucket[];
+};
+
 type SourceHealth = {
   id: number;
   name: string;
@@ -382,6 +403,8 @@ export function Dashboard() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
   const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [topicBriefing, setTopicBriefing] = useState<TopicBriefing | null>(null);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [sourceRuns, setSourceRuns] = useState<SourceRunHistoryItem[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
@@ -404,6 +427,7 @@ export function Dashboard() {
   const [busyClusterKey, setBusyClusterKey] = useState<string | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
+  const [busyTopicBriefing, setBusyTopicBriefing] = useState<string | null>(null);
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
   const [busyPreferences, setBusyPreferences] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
@@ -539,6 +563,12 @@ export function Dashboard() {
   }, [selectedTicker, stocks]);
 
   useEffect(() => {
+    if (!selectedTopic && topics.length) {
+      setSelectedTopic(topics[0].topic);
+    }
+  }, [selectedTopic, topics]);
+
+  useEffect(() => {
     if (!selectedTicker) {
       setStockBriefing(null);
       return;
@@ -567,6 +597,38 @@ export function Dashboard() {
       cancelled = true;
     };
   }, [fetchJson, selectedTicker]);
+
+  useEffect(() => {
+    if (!selectedTopic) {
+      setTopicBriefing(null);
+      return;
+    }
+
+    let cancelled = false;
+    setBusyTopicBriefing(selectedTopic);
+    fetchJson<TopicBriefing>(
+      `/api/watchlist/topics/${encodeURIComponent(selectedTopic)}/briefing?limit=20`,
+    )
+      .then((briefing) => {
+        if (!cancelled) {
+          setTopicBriefing(briefing);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(readError(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBusyTopicBriefing(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchJson, selectedTopic]);
 
   const runIngestion = async (
     source:
@@ -978,6 +1040,7 @@ export function Dashboard() {
         }),
       });
       setTopics((items) => [created, ...items.filter((item) => item.topic !== created.topic)]);
+      setSelectedTopic(created.topic);
       setTopicName("");
       setTopicLabel("");
       setTopicCategory("technical_trend");
@@ -1000,7 +1063,12 @@ export function Dashboard() {
       await sendRequest(`/api/watchlist/topics/${encodeURIComponent(topic)}`, {
         method: "DELETE",
       });
-      setTopics((items) => items.filter((item) => item.topic !== topic));
+      const remainingTopics = topics.filter((item) => item.topic !== topic);
+      setTopics(remainingTopics);
+      if (selectedTopic === topic) {
+        setSelectedTopic(remainingTopics[0]?.topic ?? null);
+        setTopicBriefing(null);
+      }
       setStatus(`Removed topic ${topic}`);
       await refreshAll();
     } catch (err) {
@@ -1027,6 +1095,9 @@ export function Dashboard() {
         },
       );
       setTopics((items) => items.map((item) => (item.topic === updated.topic ? updated : item)));
+      if (topicBriefing?.topic.topic === updated.topic) {
+        setTopicBriefing({ ...topicBriefing, topic: updated });
+      }
       setStatus(`Updated topic ${updated.label}`);
       await refreshAll();
     } catch (err) {
@@ -1551,6 +1622,9 @@ export function Dashboard() {
             />
             <TopicTable
               topics={topics}
+              topicBriefing={topicBriefing}
+              selectedTopic={selectedTopic}
+              busyTopicBriefing={busyTopicBriefing}
               topic={topicName}
               label={topicLabel}
               category={topicCategory}
@@ -1561,6 +1635,7 @@ export function Dashboard() {
               onLabelChange={setTopicLabel}
               onCategoryChange={setTopicCategory}
               onTermsChange={setTopicTerms}
+              onSelectTopic={setSelectedTopic}
               onUpdateTopic={updateTopic}
               onDeleteTopic={deleteTopic}
               onSubmit={submitTopic}
@@ -3038,6 +3113,9 @@ function StockBriefingPanel({
 
 function TopicTable({
   topics,
+  topicBriefing,
+  selectedTopic,
+  busyTopicBriefing,
   topic,
   label,
   category,
@@ -3048,11 +3126,15 @@ function TopicTable({
   onLabelChange,
   onCategoryChange,
   onTermsChange,
+  onSelectTopic,
   onUpdateTopic,
   onDeleteTopic,
   onSubmit,
 }: {
   topics: TopicWatchlistItem[];
+  topicBriefing: TopicBriefing | null;
+  selectedTopic: string | null;
+  busyTopicBriefing: string | null;
   topic: string;
   label: string;
   category: string;
@@ -3063,6 +3145,7 @@ function TopicTable({
   onLabelChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
   onTermsChange: (value: string) => void;
+  onSelectTopic: (topic: string) => void;
   onUpdateTopic: (
     topic: string,
     payload: Partial<Pick<TopicWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
@@ -3132,7 +3215,13 @@ function TopicTable({
               return (
                 <tr key={topic.topic}>
                   <td>
-                    <span className="ticker">{topic.label}</span>
+                    <button
+                      className={`ticker-button ${selectedTopic === topic.topic ? "active" : ""}`}
+                      onClick={() => onSelectTopic(topic.topic)}
+                      type="button"
+                    >
+                      {topic.label}
+                    </button>
                     {topic.is_pinned ? <Star size={13} fill="currentColor" /> : null}
                   </td>
                   <td>{topic.category}</td>
@@ -3207,7 +3296,170 @@ function TopicTable({
           </tbody>
         </table>
       </div>
+      <TopicBriefingPanel
+        briefing={topicBriefing}
+        loading={busyTopicBriefing === selectedTopic && selectedTopic !== null}
+        selectedTopic={selectedTopic}
+      />
     </section>
+  );
+}
+
+function TopicBriefingPanel({
+  briefing,
+  loading,
+  selectedTopic,
+}: {
+  briefing: TopicBriefing | null;
+  loading: boolean;
+  selectedTopic: string | null;
+}) {
+  if (!selectedTopic) {
+    return <div className="empty-state">Select a topic to inspect related signals.</div>;
+  }
+
+  if (loading && !briefing) {
+    return (
+      <div className="topic-briefing">
+        <Loader2 className="spin" size={16} />
+        <span className="small-muted">Loading topic briefing...</span>
+      </div>
+    );
+  }
+
+  if (!briefing || briefing.topic.topic !== selectedTopic) {
+    return <div className="empty-state">No topic briefing available for {selectedTopic}.</div>;
+  }
+
+  return (
+    <div className="topic-briefing">
+      <div className="readiness-head">
+        <div>
+          <div className="digest-section-title">{briefing.topic.category}</div>
+          <div className="digest-headline">{briefing.topic.label}</div>
+          <div className="small-muted">{briefing.topic.notes ?? "Topic watchlist signal view"}</div>
+        </div>
+        <span className="badge">{briefing.item_count} items</span>
+      </div>
+
+      <div className="badges">
+        {briefing.topic.related_terms.map((term) => (
+          <span className="badge" key={term}>
+            {term}
+          </span>
+        ))}
+      </div>
+
+      <div className="topic-briefing-grid">
+        <TopicBriefingList
+          title="Trending Sources"
+          emptyText="No source activity yet."
+          items={briefing.trending_sources.map(
+            (source) => `${source.source_name} (${source.item_count})`,
+          )}
+        />
+        <TopicBriefingList
+          title="Related Companies"
+          emptyText="No related companies yet."
+          items={briefing.related_companies}
+        />
+        <TopicBriefingLinks
+          title="Related Papers"
+          emptyText="No related papers yet."
+          items={briefing.related_papers}
+        />
+        <TopicBriefingLinks
+          title="Related Products"
+          emptyText="No related products yet."
+          items={briefing.related_products}
+        />
+      </div>
+
+      <div className="topic-activity-row">
+        {briefing.activity_timeline.length ? (
+          briefing.activity_timeline.map((bucket) => (
+            <span className="badge" key={bucket.activity_date}>
+              {bucket.activity_date}: {bucket.item_count}
+            </span>
+          ))
+        ) : (
+          <span className="small-muted">No dated activity yet.</span>
+        )}
+      </div>
+
+      <div className="stock-timeline">
+        {briefing.recent_timeline.length ? (
+          briefing.recent_timeline.map((item) => (
+            <a className="timeline-row" href={item.url} target="_blank" rel="noreferrer" key={item.id}>
+              <div>
+                <div className="timeline-title">{item.title}</div>
+                <div className="small-muted">
+                  {item.source_name}
+                  {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                </div>
+              </div>
+              <div className="timeline-score">{Math.round(item.importance_score * 100)}</div>
+            </a>
+          ))
+        ) : (
+          <div className="empty-state">No topic-linked signals yet.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TopicBriefingList({
+  title,
+  emptyText,
+  items,
+}: {
+  title: string;
+  emptyText: string;
+  items: string[];
+}) {
+  return (
+    <div className="digest-section">
+      <div className="digest-section-title">{title}</div>
+      {items.length ? (
+        <div className="badges">
+          {items.slice(0, 8).map((item) => (
+            <span className="badge" key={item}>
+              {item}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="small-muted">{emptyText}</div>
+      )}
+    </div>
+  );
+}
+
+function TopicBriefingLinks({
+  title,
+  emptyText,
+  items,
+}: {
+  title: string;
+  emptyText: string;
+  items: FeedItem[];
+}) {
+  return (
+    <div className="digest-section">
+      <div className="digest-section-title">{title}</div>
+      {items.length ? (
+        <div className="digest-list">
+          {items.slice(0, 5).map((item) => (
+            <a className="digest-link" href={item.url} target="_blank" rel="noreferrer" key={item.id}>
+              {item.title}
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div className="small-muted">{emptyText}</div>
+      )}
+    </div>
   );
 }
 
