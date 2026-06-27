@@ -3,7 +3,13 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
+from app.schemas.ingestion import IngestionRunResponse
 from app.schemas.sources import SourceHealth, SourceRunHistoryItem, SourceUpdate
+from app.services.ingestion import (
+    SourceNotFoundError,
+    SourceRunnerNotFoundError,
+    run_source_ingestion_by_id,
+)
 from app.services.source_health import (
     get_latest_source_run,
     list_source_run_history,
@@ -28,6 +34,24 @@ async def list_source_runs(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> list[SourceRunHistoryItem]:
     return list_source_run_history(db=db, limit=limit)
+
+
+@router.post("/{source_id}/run", response_model=IngestionRunResponse)
+async def run_source_now(
+    source_id: int,
+    db: DbSession,
+    limit: Annotated[int | None, Query(ge=1, le=100)] = None,
+) -> IngestionRunResponse:
+    try:
+        result = await run_source_ingestion_by_id(db=db, source_id=source_id, limit=limit)
+    except SourceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Source not found.") from exc
+    except SourceRunnerNotFoundError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="No runnable connector is registered for this source.",
+        ) from exc
+    return IngestionRunResponse.model_validate(result)
 
 
 @router.patch("/{source_id}", response_model=SourceHealth)

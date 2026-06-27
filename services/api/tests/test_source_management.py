@@ -4,7 +4,12 @@ import pytest
 
 from app.db.models import Source, SourceRun
 from app.schemas.sources import SourceUpdate
-from app.services.ingestion import run_connector_ingestion
+from app.services.ingestion import (
+    IngestionResult,
+    RegisteredSourceRunner,
+    run_connector_ingestion,
+    run_source_ingestion_by_id,
+)
 from app.services.source_health import (
     serialize_source_health,
     serialize_source_run_history_item,
@@ -120,6 +125,44 @@ async def test_disabled_source_ingestion_is_skipped_without_fetching() -> None:
     assert result.error_message == "Disabled Source is disabled."
     assert connector.fetch_called is False
     assert db.commits == 1
+
+
+@pytest.mark.anyio
+async def test_run_source_ingestion_by_id_uses_registered_runner_default_limit() -> None:
+    source = Source(
+        id=4,
+        name="Hacker News",
+        type="community",
+        access_method="official_api",
+    )
+    db = FakeSourceDb(source)
+    calls: list[tuple[object, int]] = []
+
+    async def fake_runner(runner_db, limit: int) -> IngestionResult:
+        calls.append((runner_db, limit))
+        return IngestionResult(
+            source_name="Hacker News",
+            status="success",
+            items_fetched=limit,
+            items_stored=limit - 1,
+        )
+
+    result = await run_source_ingestion_by_id(
+        db=db,
+        source_id=4,
+        runners_by_name={
+            "Hacker News": RegisteredSourceRunner(
+                source_name="Hacker News",
+                runner=fake_runner,
+                default_limit=30,
+            )
+        },
+    )
+
+    assert calls == [(db, 30)]
+    assert result.source_name == "Hacker News"
+    assert result.items_fetched == 30
+    assert result.items_stored == 29
 
 
 class FakeDb:

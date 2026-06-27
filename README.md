@@ -73,7 +73,9 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/digest/daily/snapshots`
 - `GET http://127.0.0.1:8000/api/events/clusters`
 - `GET http://127.0.0.1:8000/api/sources/health`
+- `GET http://127.0.0.1:8000/api/sources/runs`
 - `PATCH http://127.0.0.1:8000/api/sources/{source_id}`
+- `POST http://127.0.0.1:8000/api/sources/{source_id}/run`
 - `POST http://127.0.0.1:8000/api/ingestion/hacker-news`
 - `POST http://127.0.0.1:8000/api/ingestion/alpha-vantage-news`
 - `POST http://127.0.0.1:8000/api/ingestion/alpha-vantage-prices`

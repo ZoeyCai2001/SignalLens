@@ -1138,6 +1138,28 @@ export function Dashboard() {
     }
   };
 
+  const runSourceNow = async (source: SourceHealth) => {
+    setBusySourceId(source.id);
+    setError(null);
+    try {
+      const result = await fetchJson<{
+        source_name: string;
+        status: string;
+        items_fetched: number;
+        items_stored: number;
+      }>(`/api/sources/${source.id}/run`, { method: "POST" });
+      setStatus(
+        `${result.source_name}: ${result.status}, ${result.items_fetched} fetched, ${result.items_stored} stored`,
+      );
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Source run failed");
+    } finally {
+      setBusySourceId(null);
+    }
+  };
+
   const moduleCounts = useMemo(
     () => buildModuleCounts(feed, digest),
     [digest, feed],
@@ -1482,6 +1504,7 @@ export function Dashboard() {
               sources={sources}
               runs={sourceRuns}
               busySourceId={busySourceId}
+              onRunSource={runSourceNow}
               onToggleSource={toggleSource}
               onUpdateSource={updateSource}
             />
@@ -3096,12 +3119,14 @@ function SourceTable({
   sources,
   runs,
   busySourceId,
+  onRunSource,
   onToggleSource,
   onUpdateSource,
 }: {
   sources: SourceHealth[];
   runs: SourceRunHistoryItem[];
   busySourceId: number | null;
+  onRunSource: (source: SourceHealth) => void;
   onToggleSource: (source: SourceHealth) => void;
   onUpdateSource: (source: SourceHealth, payload: SourceUpdatePayload) => void;
 }) {
@@ -3200,6 +3225,15 @@ function SourceTable({
                   <td>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</td>
                   <td>
                     <div className="table-actions">
+                      <button
+                        className="button icon-button"
+                        onClick={() => onRunSource(source)}
+                        disabled={saving}
+                        title="Run source now"
+                        type="button"
+                      >
+                        {saving ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+                      </button>
                       <button
                         className="button icon-button"
                         onClick={() => onToggleSource(source)}

@@ -84,3 +84,4 @@ Implementation progress:
 - Added deterministic enrichment for manual URL submissions so pasted AI product, research, stock, and social-trend links are categorized, scored, summarized, and routed into the right dashboard modules without requiring an LLM call.
 - Added dashboard controls for enabling, disabling, and deleting alert rules; disabling a rule now suppresses its active alerts from the default alert view.
 - Added source run history APIs and a dashboard run trail so recent ingestion successes, skips, failures, counts, and error messages are visible from Source Health.
+- Added a registered source runner endpoint and Source Health row action so individual configured sources can be triggered directly while preserving source-run status tracking.

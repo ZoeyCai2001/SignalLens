@@ -1,4 +1,5 @@
 import re
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
@@ -39,6 +40,24 @@ class IngestionResult:
     items_fetched: int
     items_stored: int
     error_message: str | None = None
+
+
+IngestionRunner = Callable[[Session, int], Awaitable[IngestionResult]]
+
+
+@dataclass(frozen=True)
+class RegisteredSourceRunner:
+    source_name: str
+    runner: IngestionRunner
+    default_limit: int
+
+
+class SourceNotFoundError(ValueError):
+    pass
+
+
+class SourceRunnerNotFoundError(ValueError):
+    pass
 
 
 async def run_hacker_news_ingestion(db: Session, limit: int = 30) -> IngestionResult:
@@ -315,6 +334,41 @@ async def run_alpha_vantage_price_ingestion(
             items_stored=run.items_stored,
             error_message=run.error_message,
         )
+
+
+REGISTERED_SOURCE_RUNNERS = (
+    RegisteredSourceRunner("Hacker News", run_hacker_news_ingestion, 30),
+    RegisteredSourceRunner("Alpha Vantage News", run_alpha_vantage_news_ingestion, 25),
+    RegisteredSourceRunner("Alpha Vantage Prices", run_alpha_vantage_price_ingestion, 30),
+    RegisteredSourceRunner("arXiv", run_arxiv_ingestion, 25),
+    RegisteredSourceRunner("Chinese RSS Feeds", run_chinese_rss_ingestion, 25),
+    RegisteredSourceRunner("GitHub", run_github_ingestion, 25),
+    RegisteredSourceRunner("Hugging Face", run_hugging_face_ingestion, 25),
+    RegisteredSourceRunner("Product Hunt", run_product_hunt_ingestion, 25),
+    RegisteredSourceRunner("Selected RSS Feeds", run_rss_ingestion, 25),
+)
+REGISTERED_SOURCE_RUNNERS_BY_NAME = {
+    item.source_name: item for item in REGISTERED_SOURCE_RUNNERS
+}
+
+
+async def run_source_ingestion_by_id(
+    db: Session,
+    source_id: int,
+    limit: int | None = None,
+    runners_by_name: Mapping[str, RegisteredSourceRunner] = REGISTERED_SOURCE_RUNNERS_BY_NAME,
+) -> IngestionResult:
+    source = db.get(Source, source_id)
+    if source is None:
+        raise SourceNotFoundError(f"Source {source_id} was not found.")
+
+    registered = runners_by_name.get(source.name)
+    if registered is None:
+        raise SourceRunnerNotFoundError(
+            f"No runnable connector is registered for source {source.name}."
+        )
+
+    return await registered.runner(db, limit or registered.default_limit)
 
 
 async def run_connector_ingestion(
