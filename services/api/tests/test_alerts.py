@@ -42,6 +42,18 @@ def test_match_alert_rules_respects_topic_filters() -> None:
     assert [match.rule.name for match in matches] == ["Inference"]
 
 
+def test_match_alert_rules_skips_disabled_rules() -> None:
+    item = make_item(topics=["inference"])
+    rules = [
+        make_rule(name="Disabled", topics=["inference"], enabled=False),
+        make_rule(name="Enabled", topics=["inference"], enabled=True),
+    ]
+
+    matches = match_alert_rules(item, rules)
+
+    assert [match.rule.name for match in matches] == ["Enabled"]
+
+
 def test_alert_rule_input_helpers_clean_terms_and_tickers() -> None:
     assert clean_terms([" inference ", "Inference", "", "agents"]) == ["inference", "agents"]
     assert normalize_tickers([" mu ", "$avgo"]) == ["MU", "AVGO"]
@@ -83,6 +95,7 @@ def make_rule(
     min_stock_impact_score: float = 0,
     tickers: list[str] | None = None,
     topics: list[str] | None = None,
+    enabled: bool = True,
 ) -> AlertRule:
     return AlertRule(
         id=1,
@@ -94,5 +107,5 @@ def make_rule(
         min_stock_impact_score=min_stock_impact_score,
         tickers=tickers or [],
         topics=topics or [],
-        enabled=True,
+        enabled=enabled,
     )

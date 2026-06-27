@@ -496,6 +496,26 @@ table {
   gap: 8px;
 }
 
+.alert-rule-list {
+  display: grid;
+  gap: 6px;
+}
+
+.alert-rule-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  padding: 8px;
+}
+
+.alert-rule-row.muted {
+  opacity: 0.64;
+}
+
 .alert-card {
   background: var(--panel);
   border: 1px solid var(--line);

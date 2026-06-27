@@ -270,6 +270,7 @@ type AlertItem = {
   severity: string;
   status: string;
   created_at: string;
+  rule: AlertRule;
   item: FeedItem;
   disclaimer: string;
 };
@@ -360,6 +361,7 @@ export function Dashboard() {
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [busyDetailItemId, setBusyDetailItemId] = useState<number | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
+  const [busyAlertRuleId, setBusyAlertRuleId] = useState<number | null>(null);
   const [busyClusterKey, setBusyClusterKey] = useState<string | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
@@ -1005,6 +1007,42 @@ export function Dashboard() {
     }
   };
 
+  const toggleAlertRule = async (rule: AlertRule) => {
+    setBusyAlertRuleId(rule.id);
+    setError(null);
+    try {
+      const updated = await fetchJson<AlertRule>(`/api/alerts/rules/${rule.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled: !rule.enabled }),
+      });
+      setAlertRules((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      setStatus(`${updated.enabled ? "Enabled" : "Disabled"} alert rule ${updated.name}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert rule update failed");
+    } finally {
+      setBusyAlertRuleId(null);
+    }
+  };
+
+  const deleteAlertRule = async (ruleId: number) => {
+    setBusyAlertRuleId(ruleId);
+    setError(null);
+    try {
+      await sendRequest(`/api/alerts/rules/${ruleId}`, { method: "DELETE" });
+      setAlertRules((items) => items.filter((item) => item.id !== ruleId));
+      setAlerts((items) => items.filter((item) => item.rule.id !== ruleId));
+      setStatus(`Deleted alert rule ${ruleId}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert rule delete failed");
+    } finally {
+      setBusyAlertRuleId(null);
+    }
+  };
+
   const loadEventCluster = async (cluster: EventCluster) => {
     if (selectedEventCluster?.cluster_key === cluster.cluster_key) {
       setSelectedEventCluster(null);
@@ -1340,6 +1378,7 @@ export function Dashboard() {
               alerts={alerts}
               rules={alertRules}
               busyAlertId={busyAlertId}
+              busyAlertRuleId={busyAlertRuleId}
               ruleName={alertRuleName}
               ruleCategory={alertRuleCategory}
               ruleTickers={alertRuleTickers}
@@ -1347,6 +1386,8 @@ export function Dashboard() {
               ruleImportance={alertRuleImportance}
               disabled={loadState !== "idle"}
               onDismiss={dismissAlert}
+              onRuleToggle={toggleAlertRule}
+              onRuleDelete={deleteAlertRule}
               onRuleNameChange={setAlertRuleName}
               onRuleCategoryChange={setAlertRuleCategory}
               onRuleTickersChange={setAlertRuleTickers}
@@ -1610,6 +1651,7 @@ function AlertPanel({
   alerts,
   rules,
   busyAlertId,
+  busyAlertRuleId,
   ruleName,
   ruleCategory,
   ruleTickers,
@@ -1617,6 +1659,8 @@ function AlertPanel({
   ruleImportance,
   disabled,
   onDismiss,
+  onRuleToggle,
+  onRuleDelete,
   onRuleNameChange,
   onRuleCategoryChange,
   onRuleTickersChange,
@@ -1627,6 +1671,7 @@ function AlertPanel({
   alerts: AlertItem[];
   rules: AlertRule[];
   busyAlertId: number | null;
+  busyAlertRuleId: number | null;
   ruleName: string;
   ruleCategory: string;
   ruleTickers: string;
@@ -1634,6 +1679,8 @@ function AlertPanel({
   ruleImportance: string;
   disabled: boolean;
   onDismiss: (alertId: number) => void;
+  onRuleToggle: (rule: AlertRule) => void;
+  onRuleDelete: (ruleId: number) => void;
   onRuleNameChange: (value: string) => void;
   onRuleCategoryChange: (value: string) => void;
   onRuleTickersChange: (value: string) => void;
@@ -1694,11 +1741,50 @@ function AlertPanel({
           Add
         </button>
       </div>
-      <div className="badges">
-        {rules.slice(0, 5).map((rule) => (
-          <span className={`badge ${rule.enabled ? "" : "muted-badge"}`} key={rule.id}>
-            {rule.name}
-          </span>
+      <div className="alert-rule-list">
+        {rules.slice(0, 6).map((rule) => (
+          <div className={`alert-rule-row ${rule.enabled ? "" : "muted"}`} key={rule.id}>
+            <div>
+              <div className="digest-link">{rule.name}</div>
+              <div className="small-muted">
+                {rule.category} · {rule.severity} · min{" "}
+                {Math.round(rule.min_importance_score * 100)}
+                {rule.tickers.length ? ` · ${rule.tickers.join(", ")}` : ""}
+              </div>
+            </div>
+            <div className="table-actions">
+              <button
+                className={`button icon-button ${rule.enabled ? "active-icon-button" : ""}`}
+                onClick={() => onRuleToggle(rule)}
+                disabled={disabled || busyAlertRuleId === rule.id}
+                title={rule.enabled ? "Disable alert rule" : "Enable alert rule"}
+                aria-label={rule.enabled ? "Disable alert rule" : "Enable alert rule"}
+                type="button"
+              >
+                {busyAlertRuleId === rule.id ? (
+                  <Loader2 className="spin" size={16} />
+                ) : rule.enabled ? (
+                  <BellRing size={16} />
+                ) : (
+                  <EyeOff size={16} />
+                )}
+              </button>
+              <button
+                className="button icon-button"
+                onClick={() => onRuleDelete(rule.id)}
+                disabled={disabled || busyAlertRuleId === rule.id}
+                title="Delete alert rule"
+                aria-label="Delete alert rule"
+                type="button"
+              >
+                {busyAlertRuleId === rule.id ? (
+                  <Loader2 className="spin" size={16} />
+                ) : (
+                  <Trash2 size={16} />
+                )}
+              </button>
+            </div>
+          </div>
         ))}
       </div>
       <div className="alert-list">

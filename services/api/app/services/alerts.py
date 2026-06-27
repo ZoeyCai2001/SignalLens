@@ -114,6 +114,9 @@ def update_alert_rule(db: Session, rule_id: int, payload: AlertRuleUpdate) -> Al
             value = value.strip()
         setattr(rule, field_name, value)
 
+    if updates.get("enabled") is False:
+        dismiss_active_alerts_for_rule(db=db, rule_id=rule.id)
+
     db.add(rule)
     db.commit()
     db.refresh(rule)
@@ -203,6 +206,8 @@ def generate_alerts(db: Session, limit: int = 100) -> AlertGenerationResult:
 def match_alert_rules(item: NormalizedItem, rules: list[AlertRule]) -> list[AlertMatch]:
     matches: list[AlertMatch] = []
     for rule in rules:
+        if not rule.enabled:
+            continue
         reason = alert_reason(item, rule)
         if reason is None:
             continue
@@ -245,7 +250,10 @@ def list_alerts(
         .filter(Alert.user_id == LOCAL_USER_ID)
     )
     if not include_dismissed:
-        query = query.filter(Alert.status == "active")
+        query = query.filter(
+            Alert.status == "active",
+            Alert.rule.has(AlertRule.enabled.is_(True)),
+        )
     rows = (
         query.order_by(
             Alert.status.asc(),
@@ -272,6 +280,18 @@ def dismiss_alert(db: Session, alert_id: int) -> Alert | None:
     db.commit()
     db.refresh(alert)
     return alert
+
+
+def dismiss_active_alerts_for_rule(db: Session, rule_id: int) -> int:
+    return (
+        db.query(Alert)
+        .filter(
+            Alert.user_id == LOCAL_USER_ID,
+            Alert.rule_id == rule_id,
+            Alert.status == "active",
+        )
+        .update({"status": "dismissed"})
+    )
 
 
 def count_active_alerts(db: Session) -> int:
