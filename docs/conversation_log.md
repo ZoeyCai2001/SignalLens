@@ -87,3 +87,4 @@ Implementation progress:
 - Added a registered source runner endpoint and Source Health row action so individual configured sources can be triggered directly while preserving source-run status tracking.
 - Added a natural-language search POST endpoint that returns deterministic intent filters with matching feed items, keeping search explainable and LLM-free for the MVP.
 - Connected the dashboard search box to the natural-language search endpoint and added interpreted filter chips for zero-cost explainable search.
+- Added the Phase 0 source feasibility table with API-key checklist, cost posture, and compliance risk notes for MVP and deferred sources.

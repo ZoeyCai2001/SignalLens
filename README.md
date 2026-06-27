@@ -7,6 +7,7 @@ The initial product requirements are documented in [ai_intelligence_dashboard_pr
 ## Project Documents
 
 - [Technical Design](docs/technical_design.md)
+- [Source Feasibility](docs/source_feasibility.md)
 - [Development Process](docs/development_process.md)
 - [Conversation Log](docs/conversation_log.md)
 
