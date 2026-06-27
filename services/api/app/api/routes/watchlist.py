@@ -10,6 +10,7 @@ from app.schemas.watchlist import (
     StockWatchlistItem,
     StockWatchlistItemCreate,
     StockWatchlistItemUpdate,
+    TopicBriefing,
     TopicWatchlistItem,
     TopicWatchlistItemCreate,
     TopicWatchlistItemUpdate,
@@ -23,6 +24,7 @@ from app.services.watchlist import (
     delete_topic_watchlist_item,
     get_stock_briefing,
     get_stock_signals,
+    get_topic_briefing,
     list_topic_watchlist,
     seed_initial_stock_watchlist,
     seed_initial_topic_watchlist,
@@ -147,6 +149,18 @@ async def create_topic(
 async def seed_topics(db: DbSession) -> list[TopicWatchlistItem]:
     items = seed_initial_topic_watchlist(db)
     return [TopicWatchlistItem.model_validate(item) for item in items]
+
+
+@router.get("/topics/{topic}/briefing", response_model=TopicBriefing)
+async def get_topic_watchlist_briefing(
+    topic: str,
+    db: DbSession,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> TopicBriefing:
+    result = get_topic_briefing(db=db, topic=topic, limit=limit)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Topic not found in watchlist.")
+    return result
 
 
 @router.patch("/topics/{topic}", response_model=TopicWatchlistItem)

@@ -90,3 +90,4 @@ Implementation progress:
 - Added the Phase 0 source feasibility table with API-key checklist, cost posture, and compliance risk notes for MVP and deferred sources.
 - Added safe integration setup metadata to `/api/health` and surfaced missing optional API keys/feed configuration in the System Readiness panel without exposing secrets.
 - Expanded research and product summaries with contribution/method/use-case/audience/traction fields, including deterministic detail scaffolding before any LLM call.
+- Added a topic briefing API for future Topic pages, grouping recent items by source, research papers, products, companies, and activity timeline.

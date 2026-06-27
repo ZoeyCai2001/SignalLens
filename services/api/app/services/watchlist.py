@@ -16,6 +16,9 @@ from app.schemas.watchlist import (
     StockBriefingTimelineItem,
     StockMarketSnapshot,
     StockSignalSummary,
+    TopicActivityBucket,
+    TopicBriefing,
+    TopicSourceCount,
     StockWatchlistItemCreate,
     StockWatchlistItemUpdate,
     TopicWatchlistItemCreate,
@@ -26,6 +29,9 @@ from app.schemas.watchlist import (
 )
 from app.schemas.watchlist import (
     StockWatchlistItem as StockWatchlistSchema,
+)
+from app.schemas.watchlist import (
+    TopicWatchlistItem as TopicWatchlistSchema,
 )
 from app.services.feed_actions import LOCAL_USER_ID, serialize_feed_item
 from app.services.scoring import TICKER_ALIASES
@@ -248,6 +254,119 @@ def get_topic_watchlist_item(db: Session, topic: str) -> TopicWatchlistItem | No
         )
         .one_or_none()
     )
+
+
+def get_topic_briefing(
+    db: Session,
+    topic: str,
+    limit: int = 20,
+) -> TopicBriefing | None:
+    watch_topic = get_topic_watchlist_item(db, topic)
+    if watch_topic is None:
+        normalized_topic = normalize_topic(topic)
+        watch_topic = next(
+            (item for item in initial_topic_watchlist() if item.topic == normalized_topic),
+            None,
+        )
+    if watch_topic is None:
+        return None
+
+    rows = query_topic_rows(db=db, topic=watch_topic, limit=limit)
+    items = [serialize_feed_item(item, action) for item, action in rows]
+    topic_schema = (
+        watch_topic
+        if isinstance(watch_topic, TopicWatchlistSchema)
+        else TopicWatchlistSchema.model_validate(watch_topic)
+    )
+    return build_topic_briefing(topic=topic_schema, items=items)
+
+
+def build_topic_briefing(
+    topic: TopicWatchlistSchema,
+    items: list[FeedItem],
+) -> TopicBriefing:
+    source_counts = Counter(item.source_name for item in items)
+    company_counts: Counter[str] = Counter()
+    activity_counts: Counter = Counter()
+
+    for item in items:
+        for value in [*item.companies, *item.tickers]:
+            normalized = value.strip()
+            if normalized:
+                company_counts[normalized] += 1
+        if item.published_at:
+            activity_counts[item.published_at.date()] += 1
+
+    return TopicBriefing(
+        topic=topic,
+        item_count=len(items),
+        trending_sources=[
+            TopicSourceCount(source_name=source_name, item_count=count)
+            for source_name, count in source_counts.most_common(8)
+        ],
+        related_papers=[item for item in items if item.category == "research"][:6],
+        related_products=[
+            item for item in items if item.category == "product" or item.products
+        ][:6],
+        related_companies=[
+            company for company, _count in company_counts.most_common(10)
+        ],
+        recent_timeline=items[:12],
+        activity_timeline=[
+            TopicActivityBucket(activity_date=activity_date, item_count=count)
+            for activity_date, count in sorted(activity_counts.items(), reverse=True)[:14]
+        ],
+    )
+
+def query_topic_rows(
+    db: Session,
+    topic: TopicWatchlistItem | TopicWatchlistSchema,
+    limit: int,
+) -> list[tuple[NormalizedItem, UserItemAction | None]]:
+    return topic_signal_query(db=db, topic=topic).limit(limit).all()
+
+
+def topic_signal_query(db: Session, topic: TopicWatchlistItem | TopicWatchlistSchema):
+    conditions = []
+    for term in build_topic_match_terms(topic):
+        pattern = f"%{term}%"
+        topic_pattern = f'%"{term}"%'
+        conditions.extend(
+            [
+                cast(NormalizedItem.topics, String).ilike(topic_pattern),
+                cast(NormalizedItem.products, String).ilike(pattern),
+                cast(NormalizedItem.companies, String).ilike(pattern),
+                NormalizedItem.title.ilike(pattern),
+                NormalizedItem.text.ilike(pattern),
+                NormalizedItem.summary_short.ilike(pattern),
+                NormalizedItem.summary_detailed.ilike(pattern),
+                NormalizedItem.why_it_matters.ilike(pattern),
+            ]
+        )
+
+    return (
+        db.query(NormalizedItem, UserItemAction)
+        .outerjoin(
+            UserItemAction,
+            (UserItemAction.item_id == NormalizedItem.id)
+            & (UserItemAction.user_id == LOCAL_USER_ID),
+        )
+        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+        .filter(or_(*conditions))
+        .order_by(
+            UserItemAction.is_important.desc().nullslast(),
+            NormalizedItem.importance_score.desc(),
+            NormalizedItem.relevance_score.desc(),
+            NormalizedItem.published_at.desc().nullslast(),
+            NormalizedItem.created_at.desc(),
+        )
+    )
+
+
+def build_topic_match_terms(topic: TopicWatchlistItem | TopicWatchlistSchema) -> list[str]:
+    label_words = topic.label.replace("-", " ")
+    slug_words = topic.topic.replace("-", " ")
+    return unique_normalized_terms([topic.topic, label_words, slug_words, *topic.related_terms])
 
 
 def summarize_stock_signals(

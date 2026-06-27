@@ -125,6 +125,27 @@ class TopicWatchlistItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TopicSourceCount(BaseModel):
+    source_name: str
+    item_count: int
+
+
+class TopicActivityBucket(BaseModel):
+    activity_date: date
+    item_count: int
+
+
+class TopicBriefing(BaseModel):
+    topic: TopicWatchlistItem
+    item_count: int
+    trending_sources: list[TopicSourceCount]
+    related_papers: list[FeedItem]
+    related_products: list[FeedItem]
+    related_companies: list[str]
+    recent_timeline: list[FeedItem]
+    activity_timeline: list[TopicActivityBucket]
+
+
 class TopicWatchlistItemCreate(BaseModel):
     topic: str
     label: str | None = None
