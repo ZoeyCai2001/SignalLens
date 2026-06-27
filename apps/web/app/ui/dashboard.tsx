@@ -2497,7 +2497,8 @@ function FeedCard({
     action: "save" | "unsave" | "hide" | "mark-important",
   ) => void;
 }) {
-  const displaySummary = item.summary_detailed || item.summary_short || item.why_it_matters;
+  const displaySummary = item.summary_detailed || item.summary_short;
+  const cardExplanation = buildFeedCardExplanation(item);
   return (
     <article className="feed-card">
       <div className="feed-head">
@@ -2537,6 +2538,11 @@ function FeedCard({
       </div>
 
       {displaySummary ? <div className="summary">{displaySummary}</div> : null}
+
+      <div className="why-card">
+        <div className="why-card-label">Why am I seeing this?</div>
+        <div>{cardExplanation}</div>
+      </div>
 
       <div className="feed-actions">
         <div className="small-muted">{item.author ? `by ${item.author}` : "source-linked item"}</div>
@@ -2607,6 +2613,25 @@ function FeedCard({
       {detail ? <FeedDetailPanel detail={detail} /> : null}
     </article>
   );
+}
+
+function buildFeedCardExplanation(item: FeedItem): string {
+  const relatedSignals = [...item.tickers, ...item.topics.slice(0, 3)];
+  const scoreSignals = [
+    item.relevance_score >= 0.72 ? "high AI relevance" : null,
+    item.importance_score >= 0.72 ? "high importance" : null,
+    item.novelty_score >= 0.72 ? "novel signal" : null,
+    item.stock_impact_score >= 0.45 ? "stock-watchlist impact" : null,
+  ].filter(Boolean);
+  const signalText =
+    scoreSignals.length > 0 ? scoreSignals.join(", ") : "matched the current source and category filters";
+  const relatedText = relatedSignals.length > 0 ? ` Related: ${relatedSignals.join(", ")}.` : "";
+
+  if (item.why_it_matters?.trim()) {
+    return `${item.why_it_matters.trim()} Signals: ${signalText}.${relatedText}`;
+  }
+
+  return `${formatCategoryLabel(item.category)} item selected because it has ${signalText}.${relatedText}`;
 }
 
 function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
@@ -3895,6 +3920,14 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function formatCategoryLabel(value: string): string {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function splitTerms(value: string) {
