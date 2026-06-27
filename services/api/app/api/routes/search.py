@@ -5,7 +5,12 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession
 from app.schemas.feed import FeedItem
-from app.services.search import search_feed_items
+from app.schemas.search import (
+    NaturalLanguageSearchRequest,
+    NaturalLanguageSearchResponse,
+    SearchIntentResponse,
+)
+from app.services.search import infer_search_intent, search_feed_items
 
 router = APIRouter()
 
@@ -38,4 +43,21 @@ async def search_items(
         min_importance_score=min_importance_score,
         saved_only=saved_only,
         limit=limit,
+    )
+
+
+@router.post("/natural-language", response_model=NaturalLanguageSearchResponse)
+async def search_items_with_natural_language(
+    payload: NaturalLanguageSearchRequest,
+    db: DbSession,
+) -> NaturalLanguageSearchResponse:
+    intent = infer_search_intent(payload.query)
+    items = search_feed_items(
+        db=db,
+        query=payload.query,
+        limit=payload.limit,
+    )
+    return NaturalLanguageSearchResponse(
+        intent=SearchIntentResponse.model_validate(intent),
+        items=items,
     )

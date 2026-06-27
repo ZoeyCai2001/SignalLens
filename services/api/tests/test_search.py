@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime
 
+from app.schemas.search import SearchIntentResponse
 from app.services.search import (
     infer_search_intent,
     normalize_filter_value,
@@ -78,3 +79,18 @@ def test_infer_search_intent_handles_saved_items_query() -> None:
     assert intent.topic == "agent harness"
     assert intent.query == "agent harness"
     assert intent.saved_only is True
+
+
+def test_search_intent_response_serializes_inferred_filters() -> None:
+    intent = infer_search_intent(
+        "Show me recent news about MRVL and AI data centers.",
+        today=date(2026, 6, 26),
+    )
+
+    response = SearchIntentResponse.model_validate(intent)
+
+    assert response.ticker == "MRVL"
+    assert response.category == "stock_company_event"
+    assert response.topic == "ai data center"
+    assert response.query == "AI data center"
+    assert response.date_from == date(2026, 6, 19)
