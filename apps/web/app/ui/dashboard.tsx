@@ -380,7 +380,15 @@ type UserPreferences = {
 };
 
 type LoadState = "idle" | "loading" | "running";
-type ModuleKey = "dashboard" | "trends" | "research" | "products" | "stocks" | "chinese" | "digest";
+type ModuleKey =
+  | "dashboard"
+  | "trends"
+  | "research"
+  | "products"
+  | "stocks"
+  | "chinese"
+  | "saved"
+  | "digest";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -409,6 +417,7 @@ const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[]
   { key: "products", label: "Products", icon: Bot },
   { key: "stocks", label: "AI Stocks", icon: BarChart3 },
   { key: "chinese", label: "Chinese Social", icon: Newspaper },
+  { key: "saved", label: "Saved Items", icon: Bookmark },
   { key: "digest", label: "Daily Digest", icon: CalendarDays },
 ];
 
@@ -533,7 +542,7 @@ export function Dashboard() {
       ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
-          fetchJson<FeedItem[]>("/api/feed?limit=8&saved_only=true"),
+          fetchJson<FeedItem[]>("/api/feed?limit=30&saved_only=true"),
           fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
           fetchJson<StockSignalSummary[]>("/api/watchlist/stocks/signals/summary"),
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
@@ -1340,12 +1349,12 @@ export function Dashboard() {
   };
 
   const moduleCounts = useMemo(
-    () => buildModuleCounts(feed, digest),
-    [digest, feed],
+    () => buildModuleCounts(feed, digest, savedItems),
+    [digest, feed, savedItems],
   );
   const moduleFeed = useMemo(
-    () => filterFeedByModule(feed, activeModule, digest),
-    [activeModule, digest, feed],
+    () => filterFeedByModule(feed, activeModule, digest, savedItems),
+    [activeModule, digest, feed, savedItems],
   );
   const activeModuleLabel =
     moduleNavItems.find((item) => item.key === activeModule)?.label ?? "Dashboard";
@@ -1631,7 +1640,7 @@ export function Dashboard() {
               onSave={saveDailyDigestSnapshot}
             />
             <SavedItemsPanel
-              items={savedItems}
+              items={savedItems.slice(0, 8)}
               busyItemId={busyItemId}
               onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
             />
@@ -3817,7 +3826,11 @@ function Score({ label, value }: { label: string; value: number }) {
   );
 }
 
-function buildModuleCounts(feed: FeedItem[], digest: DailyDigest | null): Record<ModuleKey, number> {
+function buildModuleCounts(
+  feed: FeedItem[],
+  digest: DailyDigest | null,
+  savedItems: FeedItem[],
+): Record<ModuleKey, number> {
   return {
     dashboard: feed.length,
     trends: feed.filter((item) => itemMatchesModule(item, "trends")).length,
@@ -3825,6 +3838,7 @@ function buildModuleCounts(feed: FeedItem[], digest: DailyDigest | null): Record
     products: feed.filter((item) => itemMatchesModule(item, "products")).length,
     stocks: feed.filter((item) => itemMatchesModule(item, "stocks")).length,
     chinese: feed.filter((item) => itemMatchesModule(item, "chinese")).length,
+    saved: savedItems.length,
     digest: collectDigestFeedItems(digest).length,
   };
 }
@@ -3833,9 +3847,13 @@ function filterFeedByModule(
   feed: FeedItem[],
   moduleKey: ModuleKey,
   digest: DailyDigest | null,
+  savedItems: FeedItem[],
 ): FeedItem[] {
   if (moduleKey === "dashboard") {
     return feed;
+  }
+  if (moduleKey === "saved") {
+    return savedItems;
   }
   if (moduleKey === "digest") {
     return collectDigestFeedItems(digest);
