@@ -207,6 +207,24 @@ type SourceRunHistoryItem = {
   finished_at: string | null;
 };
 
+type IngestionRunResponse = {
+  source_name: string;
+  status: string;
+  items_fetched: number;
+  items_stored: number;
+  error_message: string | null;
+};
+
+type ScheduledCycleResponse = {
+  started_at: string;
+  finished_at: string;
+  seeded_stock_count: number;
+  seeded_topic_count: number;
+  generated_alert_count: number;
+  saved_digest_date: string | null;
+  ingestion_results: IngestionRunResponse[];
+};
+
 type SearchIntent = {
   query: string | null;
   category: string | null;
@@ -407,6 +425,7 @@ export function Dashboard() {
   const [topicBriefing, setTopicBriefing] = useState<TopicBriefing | null>(null);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [sourceRuns, setSourceRuns] = useState<SourceRunHistoryItem[]>([]);
+  const [lastCycleResult, setLastCycleResult] = useState<ScheduledCycleResponse | null>(null);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
@@ -659,6 +678,31 @@ export function Dashboard() {
     } catch (err) {
       setError(readError(err));
       setStatus("Ingestion failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const runFullCycle = async () => {
+    setLoadState("running");
+    setError(null);
+    try {
+      const result = await fetchJson<ScheduledCycleResponse>("/api/ingestion/cycle", {
+        method: "POST",
+      });
+      setLastCycleResult(result);
+      const storedCount = result.ingestion_results.reduce(
+        (total, item) => total + item.items_stored,
+        0,
+      );
+      await refreshAll();
+      setLastCycleResult(result);
+      setStatus(
+        `Cycle completed: ${storedCount} stored, ${result.generated_alert_count} alerts, digest ${result.saved_digest_date ?? "not saved"}`,
+      );
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Full ingestion cycle failed");
     } finally {
       setLoadState("idle");
     }
@@ -1356,6 +1400,15 @@ export function Dashboard() {
           <div className="toolbar">
             <button
               className="button"
+              onClick={runFullCycle}
+              disabled={loadState !== "idle"}
+              title="Run full ingestion cycle, generate alerts, and save a digest snapshot"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <DatabaseZap size={16} />}
+              Cycle
+            </button>
+            <button
+              className="button"
               onClick={() => runIngestion("hacker-news")}
               disabled={loadState !== "idle"}
               title="Run Hacker News ingestion"
@@ -1643,6 +1696,7 @@ export function Dashboard() {
             <SourceTable
               sources={sources}
               runs={sourceRuns}
+              lastCycleResult={lastCycleResult}
               busySourceId={busySourceId}
               onRunSource={runSourceNow}
               onToggleSource={toggleSource}
@@ -3519,6 +3573,7 @@ function TopicBriefingLinks({
 function SourceTable({
   sources,
   runs,
+  lastCycleResult,
   busySourceId,
   onRunSource,
   onToggleSource,
@@ -3526,6 +3581,7 @@ function SourceTable({
 }: {
   sources: SourceHealth[];
   runs: SourceRunHistoryItem[];
+  lastCycleResult: ScheduledCycleResponse | null;
   busySourceId: number | null;
   onRunSource: (source: SourceHealth) => void;
   onToggleSource: (source: SourceHealth) => void;
@@ -3546,6 +3602,14 @@ function SourceTable({
       },
     }));
   };
+  const cycleFetched = lastCycleResult?.ingestion_results.reduce(
+    (total, item) => total + item.items_fetched,
+    0,
+  );
+  const cycleStored = lastCycleResult?.ingestion_results.reduce(
+    (total, item) => total + item.items_stored,
+    0,
+  );
 
   return (
     <section className="section">
@@ -3661,6 +3725,35 @@ function SourceTable({
           </tbody>
         </table>
       </div>
+      {lastCycleResult ? (
+        <div className="cycle-summary">
+          <div>
+            <div className="digest-section-title">Last full cycle</div>
+            <div className="small-muted">
+              {formatDate(lastCycleResult.started_at)} to {formatDate(lastCycleResult.finished_at)}
+            </div>
+          </div>
+          <div className="cycle-metrics">
+            <span className="badge">{cycleFetched ?? 0} fetched</span>
+            <span className="badge">{cycleStored ?? 0} stored</span>
+            <span className="badge">{lastCycleResult.generated_alert_count} alerts</span>
+            <span className="badge">
+              Digest {lastCycleResult.saved_digest_date ?? "not saved"}
+            </span>
+          </div>
+          <div className="cycle-source-list">
+            {lastCycleResult.ingestion_results.map((result) => (
+              <span
+                className={`badge ${result.status === "success" ? "" : "muted-badge"}`}
+                key={result.source_name}
+                title={result.error_message ?? undefined}
+              >
+                {result.source_name}: {result.status}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="source-run-list">
         {runs.length ? (
           runs.map((run) => (

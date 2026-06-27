@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession
-from app.schemas.ingestion import IngestionRunResponse
+from app.schemas.ingestion import IngestionRunResponse, ScheduledCycleResponse
 from app.services.ingestion import (
     run_alpha_vantage_news_ingestion,
     run_alpha_vantage_price_ingestion,
@@ -13,8 +13,15 @@ from app.services.ingestion import (
     run_product_hunt_ingestion,
     run_rss_ingestion,
 )
+from app.services.scheduled_jobs import run_ingestion_cycle
 
 router = APIRouter()
+
+
+@router.post("/cycle", response_model=ScheduledCycleResponse)
+async def run_scheduled_ingestion_cycle(db: DbSession) -> ScheduledCycleResponse:
+    result = await run_ingestion_cycle(db)
+    return ScheduledCycleResponse.model_validate(result)
 
 
 @router.post("/hacker-news", response_model=IngestionRunResponse)

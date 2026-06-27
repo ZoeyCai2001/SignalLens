@@ -427,6 +427,22 @@ table {
   gap: 6px;
 }
 
+.cycle-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.cycle-metrics,
+.cycle-source-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .source-run-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

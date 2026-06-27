@@ -1,12 +1,14 @@
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
+from app.api.routes import ingestion as ingestion_routes
 from app.services.ingestion import IngestionResult
 from app.services.scheduled_jobs import (
     ScheduledIngestionJob,
+    ScheduledCycleResult,
     run_ingestion_cycle,
     scheduled_cycle_to_log_dict,
 )
@@ -82,6 +84,39 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
             "error_message": None,
         }
     ]
+
+
+@pytest.mark.anyio
+async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_cycle(db) -> ScheduledCycleResult:
+        assert db == "db-session"
+        return ScheduledCycleResult(
+            started_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
+            finished_at=datetime(2026, 6, 27, 8, 1, tzinfo=UTC),
+            seeded_stock_count=2,
+            seeded_topic_count=3,
+            generated_alert_count=1,
+            saved_digest_date=date(2026, 6, 27),
+            ingestion_results=[
+                IngestionResult(
+                    source_name="rss",
+                    status="success",
+                    items_fetched=5,
+                    items_stored=4,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(ingestion_routes, "run_ingestion_cycle", fake_cycle)
+
+    response = await ingestion_routes.run_scheduled_ingestion_cycle("db-session")
+
+    assert response.seeded_stock_count == 2
+    assert response.seeded_topic_count == 3
+    assert response.generated_alert_count == 1
+    assert response.saved_digest_date == date(2026, 6, 27)
+    assert response.ingestion_results[0].source_name == "rss"
+    assert response.ingestion_results[0].items_stored == 4
 
 
 def make_job(

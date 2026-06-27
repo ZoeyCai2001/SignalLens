@@ -198,6 +198,12 @@ curl -X POST "http://127.0.0.1:8000/api/digest/daily/snapshots?date=2026-06-25&l
 curl "http://127.0.0.1:8000/api/digest/daily/snapshots?limit=5"
 ```
 
+Run one full ingestion cycle through the API:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/cycle"
+```
+
 Read deterministic event clusters:
 
 ```bash

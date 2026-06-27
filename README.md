@@ -143,6 +143,12 @@ cd services/api
 python scripts/run_scheduler.py
 ```
 
+Run one full ingestion cycle through the local API:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/cycle"
+```
+
 Run the local scheduler continuously:
 
 ```bash
