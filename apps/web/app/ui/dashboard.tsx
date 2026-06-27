@@ -3072,6 +3072,8 @@ function StockBriefingPanel({
         </div>
       </div>
 
+      <StockPriceChart market={briefing.market} />
+
       {briefing.key_themes.length ? (
         <div className="badges">
           {briefing.key_themes.map((theme) => (
@@ -3106,6 +3108,57 @@ function StockBriefingPanel({
         ) : (
           <div className="empty-state">No stock-linked signals yet.</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
+  const history = market?.history ?? [];
+  if (history.length < 2) {
+    return <div className="empty-state">No price history loaded yet.</div>;
+  }
+
+  const width = 280;
+  const height = 76;
+  const padding = 8;
+  const closes = history.map((point) => point.close_price);
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const chartPoints = history.map((point, index) => {
+    const x = padding + (index / (history.length - 1)) * (width - padding * 2);
+    const y = height - padding - ((point.close_price - min) / range) * (height - padding * 2);
+    return { x, y };
+  });
+  const points = chartPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const latestChartPoint = chartPoints[chartPoints.length - 1]!;
+  const first = history[0]!;
+  const latest = history[history.length - 1]!;
+  const trendClass = marketChangeClass(market?.change ?? null);
+
+  return (
+    <div className="price-chart" aria-label="Recent stock price chart">
+      <div className="price-chart-head">
+        <span className="digest-section-title">Price History</span>
+        <span className={`small-muted ${trendClass}`}>{formatChange(market)}</span>
+      </div>
+      <svg className="price-chart-svg" viewBox={`0 0 ${width} ${height}`} role="img">
+        <polyline className="price-chart-line" points={points} />
+        <circle
+          className="price-chart-dot"
+          cx={latestChartPoint.x}
+          cy={latestChartPoint.y}
+          r="3"
+        />
+      </svg>
+      <div className="price-chart-meta">
+        <span>
+          {first.price_date} · {formatPrice(first.close_price)}
+        </span>
+        <span>
+          {latest.price_date} · {formatPrice(latest.close_price)}
+        </span>
       </div>
     </div>
   );

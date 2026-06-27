@@ -92,3 +92,4 @@ Implementation progress:
 - Expanded research and product summaries with contribution/method/use-case/audience/traction fields, including deterministic detail scaffolding before any LLM call.
 - Added a topic briefing API for future Topic pages, grouping recent items by source, research papers, products, companies, and activity timeline.
 - Connected topic briefings to the dashboard with selectable topics, trending sources, related papers/products/companies, activity buckets, and a recent-topic timeline.
+- Added an inline stock price history chart to stock briefings using existing market snapshot history.
