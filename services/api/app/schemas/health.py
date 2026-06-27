@@ -8,6 +8,15 @@ class IntegrationStatus(BaseModel):
     chinese_rss_feeds: bool
 
 
+class SetupItem(BaseModel):
+    key: str
+    label: str
+    configured: bool
+    required_for: str
+    env_var: str
+    setup_hint: str
+
+
 class HealthResponse(BaseModel):
     status: str
     service: str
@@ -16,3 +25,4 @@ class HealthResponse(BaseModel):
     llm_model: str
     llm_configured: bool
     integrations: IntegrationStatus
+    setup_items: list[SetupItem]

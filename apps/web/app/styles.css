@@ -605,6 +605,29 @@ table {
   padding: 7px;
 }
 
+.setup-list {
+  display: grid;
+  gap: 6px;
+}
+
+.setup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  padding: 8px;
+}
+
+.setup-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
 .digest-coverage {
   display: flex;
   flex-wrap: wrap;

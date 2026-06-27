@@ -88,3 +88,4 @@ Implementation progress:
 - Added a natural-language search POST endpoint that returns deterministic intent filters with matching feed items, keeping search explainable and LLM-free for the MVP.
 - Connected the dashboard search box to the natural-language search endpoint and added interpreted filter chips for zero-cost explainable search.
 - Added the Phase 0 source feasibility table with API-key checklist, cost posture, and compliance risk notes for MVP and deferred sources.
+- Added safe integration setup metadata to `/api/health` and surfaced missing optional API keys/feed configuration in the System Readiness panel without exposing secrets.

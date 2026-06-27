@@ -209,6 +209,15 @@ type IntegrationStatus = {
   chinese_rss_feeds: boolean;
 };
 
+type SetupItem = {
+  key: string;
+  label: string;
+  configured: boolean;
+  required_for: string;
+  env_var: string;
+  setup_hint: string;
+};
+
 type SystemStatus = {
   status: string;
   service: string;
@@ -217,6 +226,7 @@ type SystemStatus = {
   llm_model: string;
   llm_configured: boolean;
   integrations: IntegrationStatus;
+  setup_items: SetupItem[];
 };
 
 type SourceUpdatePayload = {
@@ -1722,6 +1732,24 @@ function SystemStatusPanel({
                 <span className={`badge ${ready ? "" : "muted-badge"}`} key={label}>
                   {label} {ready ? "on" : "off"}
                 </span>
+              ))}
+            </div>
+            <div className="setup-list">
+              {status.setup_items.map((item) => (
+                <div className="setup-row" key={item.key}>
+                  <div>
+                    <div className="digest-section-title">{item.label}</div>
+                    <div className="small-muted">
+                      {item.env_var} · {item.required_for}
+                    </div>
+                    {!item.configured ? (
+                      <div className="setup-hint">{item.setup_hint}</div>
+                    ) : null}
+                  </div>
+                  <span className={`badge ${item.configured ? "" : "muted-badge"}`}>
+                    {item.configured ? "ready" : "missing"}
+                  </span>
+                </div>
               ))}
             </div>
           </>
