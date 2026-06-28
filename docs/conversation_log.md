@@ -193,3 +193,4 @@ Implementation progress:
 - Added deterministic English summaries, inferred product/use-case badges, and experimental markers for Chinese social and social-keyword signals.
 - Added an explicit daily digest generation endpoint and dashboard action so previews can be refreshed before copying or saving snapshots.
 - Added ranked feed topic filtering and dashboard watchlist-topic quick filters for the PRD AI trend monitoring flow.
+- Made the stock watchlist table default to attention-score ordering, with a watchlist-order mode for manual reorder controls.

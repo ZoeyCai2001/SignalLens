@@ -127,6 +127,7 @@ type StockMarketSnapshot = {
 };
 
 type StockPriceRangeKey = "5d" | "1m" | "6m" | "1y";
+type StockSortMode = "attention" | "watchlist";
 
 type StockSignalSummary = {
   stock: StockWatchlistItem;
@@ -3956,6 +3957,8 @@ function StockTable({
   onSubmit: () => void;
 }) {
   const signalMap = new Map(signalSummaries.map((summary) => [summary.stock.ticker, summary]));
+  const [sortMode, setSortMode] = useState<StockSortMode>("attention");
+  const displayStocks = orderStocksForTable(stocks, signalSummaries, sortMode);
   const disclaimer =
     signalSummaries[0]?.disclaimer ?? stockBriefing?.disclaimer ?? STOCK_DISCLAIMER;
   const selectedStock = stocks.find((stock) => stock.ticker === selectedTicker) ?? null;
@@ -3999,7 +4002,7 @@ function StockTable({
   };
 
   const reorderStock = (stock: StockWatchlistItem, direction: "up" | "down") => {
-    const peers = stocks.filter((item) => item.is_pinned === stock.is_pinned);
+    const peers = displayStocks.filter((item) => item.is_pinned === stock.is_pinned);
     const index = peers.findIndex((item) => item.ticker === stock.ticker);
     const neighbor = peers[index + (direction === "up" ? -1 : 1)];
     if (!neighbor) {
@@ -4010,7 +4013,10 @@ function StockTable({
   };
 
   const canMoveStock = (stock: StockWatchlistItem, direction: "up" | "down") => {
-    const peers = stocks.filter((item) => item.is_pinned === stock.is_pinned);
+    if (sortMode !== "watchlist") {
+      return false;
+    }
+    const peers = displayStocks.filter((item) => item.is_pinned === stock.is_pinned);
     const index = peers.findIndex((item) => item.ticker === stock.ticker);
     return direction === "up" ? index > 0 : index >= 0 && index < peers.length - 1;
   };
@@ -4019,7 +4025,25 @@ function StockTable({
     <section className="section">
       <div className="section-header">
         <h2 className="section-title">AI Stock Watchlist</h2>
-        <span className="small-muted">{stocks.length} tickers</span>
+        <div className="table-actions">
+          <div className="segmented-control" aria-label="Stock table sort">
+            <button
+              className={`segmented-button ${sortMode === "attention" ? "active" : ""}`}
+              onClick={() => setSortMode("attention")}
+              type="button"
+            >
+              Attention
+            </button>
+            <button
+              className={`segmented-button ${sortMode === "watchlist" ? "active" : ""}`}
+              onClick={() => setSortMode("watchlist")}
+              type="button"
+            >
+              Watchlist
+            </button>
+          </div>
+          <span className="small-muted">{stocks.length} tickers</span>
+        </div>
       </div>
       <div className="form-panel compact-form">
         <input
@@ -4075,7 +4099,7 @@ function StockTable({
             </tr>
           </thead>
           <tbody>
-            {stocks.map((stock) => {
+            {displayStocks.map((stock) => {
               const summary = signalMap.get(stock.ticker);
               const deleting = busyWatchlistKey === `stock:${stock.ticker}`;
               return (
@@ -4131,7 +4155,11 @@ function StockTable({
                         className="button icon-button"
                         onClick={() => reorderStock(stock, "up")}
                         disabled={disabled || deleting || !canMoveStock(stock, "up")}
-                        title={`Move ${stock.ticker} up`}
+                        title={
+                          sortMode === "watchlist"
+                            ? `Move ${stock.ticker} up`
+                            : "Switch to watchlist order to reorder"
+                        }
                         aria-label={`Move ${stock.ticker} up`}
                       >
                         {deleting ? <Loader2 className="spin" size={16} /> : <ChevronUp size={16} />}
@@ -4140,7 +4168,11 @@ function StockTable({
                         className="button icon-button"
                         onClick={() => reorderStock(stock, "down")}
                         disabled={disabled || deleting || !canMoveStock(stock, "down")}
-                        title={`Move ${stock.ticker} down`}
+                        title={
+                          sortMode === "watchlist"
+                            ? `Move ${stock.ticker} down`
+                            : "Switch to watchlist order to reorder"
+                        }
                         aria-label={`Move ${stock.ticker} down`}
                       >
                         {deleting ? (
@@ -6221,6 +6253,47 @@ function hasPortfolioDetails(stock: StockWatchlistItem | null): boolean {
     return false;
   }
   return Boolean(stock?.is_holding || stock?.shares !== null || stock?.average_cost !== null);
+}
+
+function orderStocksForTable(
+  stocks: StockWatchlistItem[],
+  signalSummaries: StockSignalSummary[],
+  sortMode: StockSortMode,
+): StockWatchlistItem[] {
+  if (sortMode === "watchlist") {
+    return stocks;
+  }
+
+  const summaryMap = new Map(
+    signalSummaries.map((summary, index) => [summary.stock.ticker, { summary, index }]),
+  );
+
+  return [...stocks].sort((left, right) => {
+    const leftSignal = summaryMap.get(left.ticker);
+    const rightSignal = summaryMap.get(right.ticker);
+    const leftAttention = leftSignal?.summary.attention_score ?? -1;
+    const rightAttention = rightSignal?.summary.attention_score ?? -1;
+
+    if (rightAttention !== leftAttention) {
+      return rightAttention - leftAttention;
+    }
+
+    const leftSignalIndex = leftSignal?.index ?? Number.MAX_SAFE_INTEGER;
+    const rightSignalIndex = rightSignal?.index ?? Number.MAX_SAFE_INTEGER;
+    if (leftSignalIndex !== rightSignalIndex) {
+      return leftSignalIndex - rightSignalIndex;
+    }
+
+    if (left.is_pinned !== right.is_pinned) {
+      return left.is_pinned ? -1 : 1;
+    }
+
+    if (left.display_order !== right.display_order) {
+      return left.display_order - right.display_order;
+    }
+
+    return left.ticker.localeCompare(right.ticker);
+  });
 }
 
 function parseOptionalNumber(value: string): number | null {
