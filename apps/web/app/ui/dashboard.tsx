@@ -68,6 +68,12 @@ type FeedItemDetail = FeedItem & {
   action_state: Record<string, boolean>;
 };
 
+type ResearchInsights = {
+  contribution?: string;
+  method?: string;
+  relevance?: string;
+};
+
 type StockWatchlistItem = {
   ticker: string;
   company_name: string;
@@ -3433,7 +3439,8 @@ function FeedCard({
     action: "save" | "unsave" | "hide" | "mark-important",
   ) => void;
 }) {
-  const displaySummary = item.summary_short || item.summary_detailed;
+  const researchInsights = parseResearchInsights(item);
+  const displaySummary = item.summary_short || (researchInsights ? null : item.summary_detailed);
   const cardExplanation = buildFeedCardExplanation(item);
   return (
     <article className="feed-card">
@@ -3476,6 +3483,7 @@ function FeedCard({
       </div>
 
       {displaySummary ? <div className="summary">{displaySummary}</div> : null}
+      {researchInsights ? <ResearchInsightsPanel insights={researchInsights} /> : null}
 
       <div className="why-card">
         <div className="why-card-label">Why am I seeing this?</div>
@@ -3577,6 +3585,7 @@ function buildFeedCardExplanation(item: FeedItem): string {
 }
 
 function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
+  const researchInsights = parseResearchInsights(detail);
   return (
     <div className="feed-detail-panel">
       <div className="section-header">
@@ -3610,6 +3619,7 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
           <strong>Why it matters:</strong> {detail.why_it_matters}
         </div>
       ) : null}
+      {researchInsights ? <ResearchInsightsPanel insights={researchInsights} /> : null}
       {detail.summary_detailed ? (
         <div className="summary">
           <strong>Detailed summary:</strong>
@@ -3622,6 +3632,59 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
       {detail.text ? <div className="detail-text">{detail.text}</div> : null}
     </div>
   );
+}
+
+function ResearchInsightsPanel({ insights }: { insights: ResearchInsights }) {
+  const rows = [
+    ["Contribution", insights.contribution],
+    ["Method", insights.method],
+    ["Relevance", insights.relevance],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
+
+  if (!rows.length) {
+    return null;
+  }
+
+  return (
+    <div className="research-insights">
+      {rows.map(([label, value]) => (
+        <div className="research-insight" key={label}>
+          <div className="research-insight-label">{label}</div>
+          <div className="research-insight-text">{value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function parseResearchInsights(item: FeedItem): ResearchInsights | null {
+  if (item.category !== "research" || !item.summary_detailed) {
+    return null;
+  }
+
+  const insights: ResearchInsights = {};
+  for (const line of item.summary_detailed.split("\n")) {
+    const trimmed = line.trim();
+    const lowered = trimmed.toLowerCase();
+    if (lowered.startsWith("research contribution:")) {
+      insights.contribution = valueAfterPrefix(trimmed);
+    } else if (lowered.startsWith("research method:")) {
+      insights.method = valueAfterPrefix(trimmed);
+    } else if (lowered.startsWith("technical relevance:")) {
+      insights.relevance = valueAfterPrefix(trimmed);
+    }
+  }
+
+  return insights.contribution || insights.method || insights.relevance ? insights : null;
+}
+
+function valueAfterPrefix(value: string): string | undefined {
+  const separatorIndex = value.indexOf(":");
+  if (separatorIndex === -1) {
+    return undefined;
+  }
+  const text = value.slice(separatorIndex + 1).trim();
+  return text || undefined;
 }
 
 function updateSelectedFeedDetail(

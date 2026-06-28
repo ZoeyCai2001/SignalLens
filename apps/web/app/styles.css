@@ -351,6 +351,33 @@ a {
   text-transform: uppercase;
 }
 
+.research-insights {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.research-insight {
+  display: grid;
+  gap: 2px;
+}
+
+.research-insight-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.research-insight-text {
+  color: #34403e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .feed-detail-panel {
   border-top: 1px solid var(--line);
   padding-top: 10px;

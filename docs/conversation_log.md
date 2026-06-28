@@ -188,3 +188,4 @@ Implementation progress:
 - Made scheduled ingestion cycles respect custom followed-source polling intervals, so user-configured frequencies such as hourly, daily, or every 6 hours throttle source runs instead of running every enabled source every cycle.
 - Added extended selected-stock price history fetching and 5D, 1M, 6M, and 1Y dashboard chart controls for the PRD stock detail page.
 - Added product discovery novelty and traction readouts to product-category briefings, including extracted traction signals and novelty/traction-weighted timeline ordering.
+- Added structured research contribution, method, and relevance readouts to research feed cards and item detail panels.
