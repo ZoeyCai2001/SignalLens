@@ -177,6 +177,17 @@ type CompanyWatchlistItem = {
   notes: string | null;
 };
 
+type CompanyBriefing = {
+  company: CompanyWatchlistItem;
+  item_count: number;
+  trending_sources: TopicSourceCount[];
+  related_topics: string[];
+  related_products: string[];
+  related_tickers: string[];
+  recent_timeline: FeedItem[];
+  activity_timeline: TopicActivityBucket[];
+};
+
 type TopicWatchlistItem = {
   topic: string;
   label: string;
@@ -515,6 +526,8 @@ export function Dashboard() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
   const [companies, setCompanies] = useState<CompanyWatchlistItem[]>([]);
+  const [selectedCompanyKey, setSelectedCompanyKey] = useState<string | null>(null);
+  const [companyBriefing, setCompanyBriefing] = useState<CompanyBriefing | null>(null);
   const [productWatchlist, setProductWatchlist] = useState<ProductWatchlistItem[]>([]);
   const [selectedProductCategory, setSelectedProductCategory] = useState<string | null>(null);
   const [productBriefing, setProductBriefing] = useState<ProductBriefing | null>(null);
@@ -546,6 +559,7 @@ export function Dashboard() {
   const [busyClusterKey, setBusyClusterKey] = useState<string | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
+  const [busyCompanyBriefing, setBusyCompanyBriefing] = useState<string | null>(null);
   const [busyProductBriefing, setBusyProductBriefing] = useState<string | null>(null);
   const [busyTopicBriefing, setBusyTopicBriefing] = useState<string | null>(null);
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
@@ -709,6 +723,12 @@ export function Dashboard() {
   }, [productWatchlist, selectedProductCategory]);
 
   useEffect(() => {
+    if (!selectedCompanyKey && companies.length) {
+      setSelectedCompanyKey(companies[0].company_key);
+    }
+  }, [companies, selectedCompanyKey]);
+
+  useEffect(() => {
     if (!selectedTopic && topics.length) {
       setSelectedTopic(topics[0].topic);
     }
@@ -775,6 +795,38 @@ export function Dashboard() {
       cancelled = true;
     };
   }, [fetchJson, selectedProductCategory]);
+
+  useEffect(() => {
+    if (!selectedCompanyKey) {
+      setCompanyBriefing(null);
+      return;
+    }
+
+    let cancelled = false;
+    setBusyCompanyBriefing(selectedCompanyKey);
+    fetchJson<CompanyBriefing>(
+      `/api/watchlist/companies/${encodeURIComponent(selectedCompanyKey)}/briefing?limit=20`,
+    )
+      .then((briefing) => {
+        if (!cancelled) {
+          setCompanyBriefing(briefing);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(readError(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBusyCompanyBriefing(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchJson, selectedCompanyKey]);
 
   useEffect(() => {
     if (!selectedTopic) {
@@ -1252,6 +1304,7 @@ export function Dashboard() {
         created,
         ...items.filter((item) => item.company_key !== created.company_key),
       ]);
+      setSelectedCompanyKey(created.company_key);
       setCompanyName("");
       setCompanyTicker("");
       setCompanyCategory("ai_company");
@@ -1284,6 +1337,9 @@ export function Dashboard() {
       setCompanies((items) =>
         items.map((item) => (item.company_key === updated.company_key ? updated : item)),
       );
+      if (companyBriefing?.company.company_key === updated.company_key) {
+        setCompanyBriefing({ ...companyBriefing, company: updated });
+      }
       setStatus(`Updated company ${updated.company_name}`);
       await refreshAll();
     } catch (err) {
@@ -1302,7 +1358,12 @@ export function Dashboard() {
       await sendRequest(`/api/watchlist/companies/${encodeURIComponent(companyKey)}`, {
         method: "DELETE",
       });
-      setCompanies((items) => items.filter((item) => item.company_key !== companyKey));
+      const remainingCompanies = companies.filter((item) => item.company_key !== companyKey);
+      setCompanies(remainingCompanies);
+      if (selectedCompanyKey === companyKey) {
+        setSelectedCompanyKey(remainingCompanies[0]?.company_key ?? null);
+        setCompanyBriefing(null);
+      }
       setStatus(`Removed company ${companyKey}`);
       await refreshAll();
     } catch (err) {
@@ -2053,6 +2114,9 @@ export function Dashboard() {
             />
             <CompanyWatchlistPanel
               companies={companies}
+              briefing={companyBriefing}
+              selectedCompanyKey={selectedCompanyKey}
+              busyCompanyBriefing={busyCompanyBriefing}
               name={companyName}
               ticker={companyTicker}
               category={companyCategory}
@@ -2063,6 +2127,7 @@ export function Dashboard() {
               onTickerChange={setCompanyTicker}
               onCategoryChange={setCompanyCategory}
               onTermsChange={setCompanyTerms}
+              onSelect={setSelectedCompanyKey}
               onUpdate={updateCompany}
               onDelete={deleteCompany}
               onSubmit={submitCompany}
@@ -3797,6 +3862,9 @@ function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
 
 function CompanyWatchlistPanel({
   companies,
+  briefing,
+  selectedCompanyKey,
+  busyCompanyBriefing,
   name,
   ticker,
   category,
@@ -3807,11 +3875,15 @@ function CompanyWatchlistPanel({
   onTickerChange,
   onCategoryChange,
   onTermsChange,
+  onSelect,
   onUpdate,
   onDelete,
   onSubmit,
 }: {
   companies: CompanyWatchlistItem[];
+  briefing: CompanyBriefing | null;
+  selectedCompanyKey: string | null;
+  busyCompanyBriefing: string | null;
   name: string;
   ticker: string;
   category: string;
@@ -3822,6 +3894,7 @@ function CompanyWatchlistPanel({
   onTickerChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
   onTermsChange: (value: string) => void;
+  onSelect: (companyKey: string) => void;
   onUpdate: (
     companyKey: string,
     payload: Partial<Pick<CompanyWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
@@ -3891,7 +3964,16 @@ function CompanyWatchlistPanel({
               return (
                 <tr key={company.company_key}>
                   <td>
-                    <div className="digest-link">{company.company_name}</div>
+                    <button
+                      className={`ticker-button ${
+                        selectedCompanyKey === company.company_key ? "active" : ""
+                      }`}
+                      onClick={() => onSelect(company.company_key)}
+                      type="button"
+                    >
+                      {company.company_name}
+                    </button>
+                    {company.is_pinned ? <Star size={13} fill="currentColor" /> : null}
                     <div className="small-muted">{company.ticker ?? company.company_key}</div>
                   </td>
                   <td>{company.category}</td>
@@ -3976,7 +4058,119 @@ function CompanyWatchlistPanel({
           </tbody>
         </table>
       </div>
+      <CompanyBriefingPanel
+        briefing={briefing}
+        loading={busyCompanyBriefing === selectedCompanyKey && selectedCompanyKey !== null}
+        selectedCompanyKey={selectedCompanyKey}
+      />
     </section>
+  );
+}
+
+function CompanyBriefingPanel({
+  briefing,
+  loading,
+  selectedCompanyKey,
+}: {
+  briefing: CompanyBriefing | null;
+  loading: boolean;
+  selectedCompanyKey: string | null;
+}) {
+  if (!selectedCompanyKey) {
+    return <div className="empty-state">Select a company to inspect related signals.</div>;
+  }
+
+  if (loading && !briefing) {
+    return (
+      <div className="topic-briefing">
+        <Loader2 className="spin" size={16} />
+        <span className="small-muted">Loading company briefing...</span>
+      </div>
+    );
+  }
+
+  if (!briefing || briefing.company.company_key !== selectedCompanyKey) {
+    return <div className="empty-state">No company briefing available for {selectedCompanyKey}.</div>;
+  }
+
+  return (
+    <div className="topic-briefing">
+      <div className="readiness-head">
+        <div>
+          <div className="digest-section-title">{briefing.company.category}</div>
+          <div className="digest-headline">{briefing.company.company_name}</div>
+          <div className="small-muted">
+            {briefing.company.notes ?? "Company watchlist signal view"}
+          </div>
+        </div>
+        <span className="badge">{briefing.item_count} items</span>
+      </div>
+
+      <div className="badges">
+        {briefing.company.ticker ? <span className="badge">{briefing.company.ticker}</span> : null}
+        {briefing.company.related_terms.map((term) => (
+          <span className="badge" key={term}>
+            {term}
+          </span>
+        ))}
+      </div>
+
+      <div className="topic-briefing-grid">
+        <TopicBriefingList
+          title="Trending Sources"
+          emptyText="No source activity yet."
+          items={briefing.trending_sources.map(
+            (source) => `${source.source_name} (${source.item_count})`,
+          )}
+        />
+        <TopicBriefingList
+          title="Related Topics"
+          emptyText="No related topics yet."
+          items={briefing.related_topics}
+        />
+        <TopicBriefingList
+          title="Related Products"
+          emptyText="No related products yet."
+          items={briefing.related_products}
+        />
+        <TopicBriefingList
+          title="Related Tickers"
+          emptyText="No related tickers yet."
+          items={briefing.related_tickers}
+        />
+      </div>
+
+      <div className="topic-activity-row">
+        {briefing.activity_timeline.length ? (
+          briefing.activity_timeline.map((bucket) => (
+            <span className="badge" key={bucket.activity_date}>
+              {bucket.activity_date}: {bucket.item_count}
+            </span>
+          ))
+        ) : (
+          <span className="small-muted">No dated activity yet.</span>
+        )}
+      </div>
+
+      <div className="stock-timeline">
+        {briefing.recent_timeline.length ? (
+          briefing.recent_timeline.map((item) => (
+            <a className="timeline-row" href={item.url} target="_blank" rel="noreferrer" key={item.id}>
+              <div>
+                <div className="timeline-title">{item.title}</div>
+                <div className="small-muted">
+                  {item.source_name}
+                  {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                </div>
+              </div>
+              <div className="timeline-score">{Math.round(item.importance_score * 100)}</div>
+            </a>
+          ))
+        ) : (
+          <div className="empty-state">No company-linked signals yet.</div>
+        )}
+      </div>
+    </div>
   );
 }
 
