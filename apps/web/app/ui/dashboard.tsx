@@ -334,6 +334,7 @@ type SetupItem = {
   key: string;
   label: string;
   configured: boolean;
+  importance: "core" | "recommended" | "optional";
   required_for: string;
   env_var: string;
   setup_hint: string;
@@ -2501,7 +2502,12 @@ function SystemStatusPanel({
               {status.setup_items.map((item) => (
                 <div className="setup-row" key={item.key}>
                   <div>
-                    <div className="digest-section-title">{item.label}</div>
+                    <div className="setup-title-row">
+                      <div className="digest-section-title">{item.label}</div>
+                      <span className={`badge ${setupImportanceClass(item.importance)}`}>
+                        {item.importance}
+                      </span>
+                    </div>
                     <div className="small-muted">
                       {item.env_var} · {item.required_for}
                     </div>
@@ -2531,6 +2537,13 @@ function ReadinessMetric({ label, value }: { label: string; value: number | stri
       <span className="score-value">{value}</span>
     </div>
   );
+}
+
+function setupImportanceClass(importance: SetupItem["importance"]): string {
+  if (importance === "core") {
+    return "";
+  }
+  return "muted-badge";
 }
 
 function AlertPanel({

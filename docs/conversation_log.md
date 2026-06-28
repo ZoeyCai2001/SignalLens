@@ -139,3 +139,4 @@ Implementation progress:
 - Kept the stock-watchlist non-financial-advice disclaimer visible with a dashboard fallback even when stock signal summaries are empty or still loading.
 - Updated the manual database seed script so first-run setup initializes stock, company, topic, and product watchlists instead of only stock and topic defaults.
 - Added action-level dashboard toolbar busy indicators so only the active ingestion, refresh, cycle, or LLM action shows a spinner.
+- Added setup checklist importance levels so the dashboard distinguishes core, recommended, and optional API configuration.

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -13,6 +15,7 @@ class SetupItem(BaseModel):
     key: str
     label: str
     configured: bool
+    importance: Literal["core", "recommended", "optional"]
     required_for: str
     env_var: str
     setup_hint: str

@@ -661,6 +661,13 @@ table {
   padding: 8px;
 }
 
+.setup-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .setup-hint {
   color: var(--muted);
   font-size: 12px;

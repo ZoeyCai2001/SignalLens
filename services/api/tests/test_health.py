@@ -51,6 +51,8 @@ async def test_health_check_reports_readiness_without_exposing_secrets(monkeypat
     assert next(
         item for item in response.setup_items if item.env_var == "PRODUCT_HUNT_API_TOKEN"
     ).configured is False
+    assert next(item for item in response.setup_items if item.key == "kimi_coding_api").importance == "core"
+    assert next(item for item in response.setup_items if item.key == "product_hunt_api").importance == "optional"
     assert "moonshot-key" not in response.model_dump_json()
     assert "github-key" not in response.model_dump_json()
 
@@ -75,6 +77,8 @@ def test_build_setup_items_reports_safe_env_hints_without_values() -> None:
         "chinese_rss_feeds",
     ]
     assert items[0].configured is True
+    assert items[0].importance == "core"
     assert items[3].configured is False
+    assert items[3].importance == "optional"
     assert "moonshot-key" not in " ".join(item.setup_hint for item in items)
     assert "github-key" not in " ".join(item.setup_hint for item in items)

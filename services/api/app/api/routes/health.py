@@ -38,6 +38,7 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             key="kimi_coding_api",
             label="Kimi Coding API",
             configured=integrations.kimi_coding_api,
+            importance="core",
             required_for="LLM summarization, classification, and digest enrichment",
             env_var="MOONSHOT_API_KEY",
             setup_hint=(
@@ -49,6 +50,7 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             key="github_api",
             label="GitHub API",
             configured=integrations.github_api,
+            importance="recommended",
             required_for="higher-rate public repository search and open-source AI signal ingestion",
             env_var="GITHUB_TOKEN",
             setup_hint=(
@@ -60,6 +62,7 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             key="alpha_vantage_api",
             label="Alpha Vantage",
             configured=integrations.alpha_vantage_api,
+            importance="recommended",
             required_for="watched-stock news and daily price snapshots",
             env_var="ALPHA_VANTAGE_API_KEY",
             setup_hint="Set ALPHA_VANTAGE_API_KEY in .env for stock news and prices.",
@@ -68,6 +71,7 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             key="product_hunt_api",
             label="Product Hunt",
             configured=integrations.product_hunt_api,
+            importance="optional",
             required_for="AI product launch ingestion",
             env_var="PRODUCT_HUNT_API_TOKEN",
             setup_hint="Set PRODUCT_HUNT_API_TOKEN in .env to collect public launch metadata.",
@@ -76,6 +80,7 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             key="chinese_rss_feeds",
             label="Chinese RSS Feeds",
             configured=integrations.chinese_rss_feeds,
+            importance="recommended",
             required_for="Chinese-language AI trend ingestion from public feeds",
             env_var="CHINESE_RSS_FEEDS",
             setup_hint=(

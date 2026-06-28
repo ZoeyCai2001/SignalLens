@@ -433,6 +433,7 @@ Recommended UI behavior:
 - Use filters and segmented controls for category views.
 - Use restrained color for severity, sentiment, and source health.
 - Keep toolbar busy indicators tied to the active ingestion, refresh, cycle, or LLM action so manual operations remain auditable during local MVP use.
+- Label setup checklist items as core, recommended, or optional so missing API keys do not look equally blocking during budget-limited local setup.
 - Keep the financial disclaimer visible on stock pages and stock summaries.
 - Render a local stock-disclaimer fallback in the dashboard so the non-financial-advice notice remains visible before stock summaries load or when no stock signals exist.
 
