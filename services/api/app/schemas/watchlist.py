@@ -193,6 +193,17 @@ class TopicActivityBucket(BaseModel):
     item_count: int
 
 
+class CompanyBriefing(BaseModel):
+    company: CompanyWatchlistItem
+    item_count: int
+    trending_sources: list[TopicSourceCount]
+    related_topics: list[str]
+    related_products: list[str]
+    related_tickers: list[str]
+    recent_timeline: list[FeedItem]
+    activity_timeline: list[TopicActivityBucket]
+
+
 class TopicBriefing(BaseModel):
     topic: TopicWatchlistItem
     item_count: int

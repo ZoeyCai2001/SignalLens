@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
 from app.schemas.watchlist import (
+    CompanyBriefing,
     CompanyWatchlistItem,
     CompanyWatchlistItemCreate,
     CompanyWatchlistItemUpdate,
@@ -40,6 +41,7 @@ from app.services.watchlist import (
     delete_topic_watchlist_item,
     get_stock_briefing,
     get_stock_signals,
+    get_company_briefing,
     get_product_briefing,
     get_topic_briefing,
     list_company_watchlist,
@@ -172,6 +174,18 @@ async def create_company(
 async def seed_companies(db: DbSession) -> list[CompanyWatchlistItem]:
     items = seed_initial_company_watchlist(db)
     return [CompanyWatchlistItem.model_validate(item) for item in items]
+
+
+@router.get("/companies/{company_key}/briefing", response_model=CompanyBriefing)
+async def get_company_watchlist_briefing(
+    company_key: str,
+    db: DbSession,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> CompanyBriefing:
+    result = get_company_briefing(db=db, company_key=company_key, limit=limit)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Company not found in watchlist.")
+    return result
 
 
 @router.patch("/companies/{company_key}", response_model=CompanyWatchlistItem)

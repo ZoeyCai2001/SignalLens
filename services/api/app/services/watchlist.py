@@ -15,6 +15,7 @@ from app.db.models import (
 )
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
+    CompanyBriefing,
     CompanyWatchlistItemCreate,
     CompanyWatchlistItemUpdate,
     ProductBriefing,
@@ -39,6 +40,7 @@ from app.schemas.watchlist import (
 )
 from app.schemas.watchlist import ProductWatchlistItem as ProductWatchlistSchema
 from app.schemas.watchlist import StockWatchlistItem as StockWatchlistSchema
+from app.schemas.watchlist import CompanyWatchlistItem as CompanyWatchlistSchema
 from app.schemas.watchlist import (
     TopicWatchlistItem as TopicWatchlistSchema,
 )
@@ -300,6 +302,123 @@ def get_company_watchlist_item(db: Session, company_key: str) -> CompanyWatchlis
             CompanyWatchlistItem.company_key == normalize_company_key(company_key),
         )
         .one_or_none()
+    )
+
+
+def get_company_briefing(
+    db: Session,
+    company_key: str,
+    limit: int = 20,
+) -> CompanyBriefing | None:
+    watch_company = get_company_watchlist_item(db, company_key)
+    if watch_company is None:
+        normalized_key = normalize_company_key(company_key)
+        watch_company = next(
+            (item for item in initial_company_watchlist() if item.company_key == normalized_key),
+            None,
+        )
+    if watch_company is None:
+        return None
+
+    rows = query_company_rows(db=db, company=watch_company, limit=limit)
+    items = [serialize_feed_item(item, action) for item, action in rows]
+    company_schema = (
+        watch_company
+        if isinstance(watch_company, CompanyWatchlistSchema)
+        else CompanyWatchlistSchema.model_validate(watch_company)
+    )
+    return build_company_briefing(company=company_schema, items=items)
+
+
+def build_company_briefing(
+    company: CompanyWatchlistSchema,
+    items: list[FeedItem],
+) -> CompanyBriefing:
+    source_counts = Counter(item.source_name for item in items)
+    topic_counts: Counter[str] = Counter()
+    product_counts: Counter[str] = Counter()
+    ticker_counts: Counter[str] = Counter()
+    activity_counts: Counter = Counter()
+
+    for item in items:
+        for value in item.topics:
+            normalized = value.strip()
+            if normalized:
+                topic_counts[normalized] += 1
+        for value in item.products:
+            normalized = value.strip()
+            if normalized:
+                product_counts[normalized] += 1
+        for value in item.tickers:
+            normalized = value.strip().upper()
+            if normalized:
+                ticker_counts[normalized] += 1
+        if item.published_at:
+            activity_counts[item.published_at.date()] += 1
+
+    return CompanyBriefing(
+        company=company,
+        item_count=len(items),
+        trending_sources=[
+            TopicSourceCount(source_name=source_name, item_count=count)
+            for source_name, count in source_counts.most_common(8)
+        ],
+        related_topics=[topic for topic, _count in topic_counts.most_common(10)],
+        related_products=[product for product, _count in product_counts.most_common(10)],
+        related_tickers=[ticker for ticker, _count in ticker_counts.most_common(10)],
+        recent_timeline=items[:12],
+        activity_timeline=[
+            TopicActivityBucket(activity_date=activity_date, item_count=count)
+            for activity_date, count in sorted(activity_counts.items(), reverse=True)[:14]
+        ],
+    )
+
+
+def query_company_rows(
+    db: Session,
+    company: CompanyWatchlistItem | CompanyWatchlistSchema,
+    limit: int,
+) -> list[tuple[NormalizedItem, UserItemAction | None]]:
+    return company_signal_query(db=db, company=company).limit(limit).all()
+
+
+def company_signal_query(db: Session, company: CompanyWatchlistItem | CompanyWatchlistSchema):
+    conditions = []
+    for term in build_company_match_terms(company):
+        pattern = f"%{term}%"
+        json_pattern = f'%"{term}"%'
+        conditions.extend(
+            [
+                cast(NormalizedItem.companies, String).ilike(json_pattern),
+                cast(NormalizedItem.companies, String).ilike(pattern),
+                cast(NormalizedItem.tickers, String).ilike(json_pattern),
+                cast(NormalizedItem.tickers, String).ilike(pattern),
+                cast(NormalizedItem.products, String).ilike(pattern),
+                cast(NormalizedItem.topics, String).ilike(pattern),
+                NormalizedItem.title.ilike(pattern),
+                NormalizedItem.text.ilike(pattern),
+                NormalizedItem.summary_short.ilike(pattern),
+                NormalizedItem.summary_detailed.ilike(pattern),
+                NormalizedItem.why_it_matters.ilike(pattern),
+            ]
+        )
+
+    return (
+        db.query(NormalizedItem, UserItemAction)
+        .outerjoin(
+            UserItemAction,
+            (UserItemAction.item_id == NormalizedItem.id)
+            & (UserItemAction.user_id == LOCAL_USER_ID),
+        )
+        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+        .filter(or_(*conditions))
+        .order_by(
+            UserItemAction.is_important.desc().nullslast(),
+            NormalizedItem.importance_score.desc(),
+            NormalizedItem.relevance_score.desc(),
+            NormalizedItem.published_at.desc().nullslast(),
+            NormalizedItem.created_at.desc(),
+        )
     )
 
 
@@ -705,7 +824,7 @@ def build_topic_match_terms(topic: TopicWatchlistItem | TopicWatchlistSchema) ->
     return unique_normalized_terms([topic.topic, label_words, slug_words, *topic.related_terms])
 
 
-def build_company_match_terms(company: CompanyWatchlistItem) -> list[str]:
+def build_company_match_terms(company: CompanyWatchlistItem | CompanyWatchlistSchema) -> list[str]:
     terms = [
         company.company_name,
         company.company_key.replace("-", " "),
