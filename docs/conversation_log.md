@@ -195,3 +195,4 @@ Implementation progress:
 - Added ranked feed topic filtering and dashboard watchlist-topic quick filters for the PRD AI trend monitoring flow.
 - Made the stock watchlist table default to attention-score ordering, with a watchlist-order mode for manual reorder controls.
 - Adjusted stock table attention ordering to keep pinned watchlist stocks above unpinned names, matching the PRD pinning rule.
+- Added LLM batch cost-control telemetry so manual classification/summarization responses and dashboard status show attempted model calls against the capped budget.

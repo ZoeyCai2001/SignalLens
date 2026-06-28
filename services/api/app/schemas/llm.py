@@ -35,5 +35,11 @@ class FeedProcessingResponse(BaseModel):
     summarized_count: int
     classified_count: int
     skipped_count: int
+    model_call_budget: int = 0
+    model_calls_attempted: int = 0
+    model_calls_succeeded: int = 0
+    model_calls_failed: int = 0
+    model_calls_skipped: int = 0
+    model_calls_unused: int = 0
     item_ids: list[int]
     errors: list[FeedProcessingError]

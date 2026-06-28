@@ -171,6 +171,12 @@ async def test_process_llm_batch_items_summarizes_unsummarized_items() -> None:
     assert result.candidates_seen == 2
     assert result.summarized_count == 1
     assert result.skipped_count == 1
+    assert result.model_call_budget == 2
+    assert result.model_calls_attempted == 1
+    assert result.model_calls_succeeded == 1
+    assert result.model_calls_failed == 0
+    assert result.model_calls_skipped == 1
+    assert result.model_calls_unused == 0
     assert result.item_ids == [1]
     assert result.errors == []
 
@@ -203,6 +209,12 @@ async def test_process_llm_batch_items_skips_high_confidence_classification() ->
     assert classified_ids == [2]
     assert result.classified_count == 1
     assert result.skipped_count == 1
+    assert result.model_call_budget == 2
+    assert result.model_calls_attempted == 1
+    assert result.model_calls_succeeded == 1
+    assert result.model_calls_failed == 0
+    assert result.model_calls_skipped == 1
+    assert result.model_calls_unused == 0
     assert result.item_ids == [2]
 
 
@@ -237,6 +249,12 @@ async def test_process_llm_batch_items_captures_classification_errors() -> None:
     assert summarized_ids == [1, 2]
     assert result.summarized_count == 2
     assert result.classified_count == 1
+    assert result.model_call_budget == 4
+    assert result.model_calls_attempted == 4
+    assert result.model_calls_succeeded == 3
+    assert result.model_calls_failed == 1
+    assert result.model_calls_skipped == 0
+    assert result.model_calls_unused == 0
     assert result.item_ids == [1, 2]
     assert len(result.errors) == 1
     assert result.errors[0].item_id == 1

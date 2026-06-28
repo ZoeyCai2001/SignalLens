@@ -113,6 +113,7 @@ async def process_llm_batch_items(
     summarized_count = 0
     classified_count = 0
     skipped_count = 0
+    model_calls_attempted = 0
     processed_item_ids: list[int] = []
     errors: list[FeedProcessingError] = []
 
@@ -124,6 +125,7 @@ async def process_llm_batch_items(
             min_classification_confidence=min_classification_confidence,
         ):
             try:
+                model_calls_attempted += 1
                 item = await classifier(db, item, settings)
                 classified_count += 1
                 touched = True
@@ -136,6 +138,7 @@ async def process_llm_batch_items(
 
         if summarize and should_summarize_item(item, skip_summarized=skip_summarized):
             try:
+                model_calls_attempted += 1
                 item = await summarizer(db, item, settings)
                 summarized_count += 1
                 touched = True
@@ -149,12 +152,24 @@ async def process_llm_batch_items(
         if touched:
             processed_item_ids.append(item.id)
 
+    enabled_operation_count = int(summarize) + int(classify)
+    model_call_budget = requested_limit * enabled_operation_count
+    model_calls_succeeded = summarized_count + classified_count
+    model_calls_failed = len(errors)
+    model_calls_unused = max(0, model_call_budget - model_calls_attempted - skipped_count)
+
     return FeedProcessingResponse(
         requested_limit=requested_limit,
         candidates_seen=len(items),
         summarized_count=summarized_count,
         classified_count=classified_count,
         skipped_count=skipped_count,
+        model_call_budget=model_call_budget,
+        model_calls_attempted=model_calls_attempted,
+        model_calls_succeeded=model_calls_succeeded,
+        model_calls_failed=model_calls_failed,
+        model_calls_skipped=skipped_count,
+        model_calls_unused=model_calls_unused,
         item_ids=processed_item_ids,
         errors=errors,
     )

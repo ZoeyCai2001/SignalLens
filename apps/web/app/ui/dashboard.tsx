@@ -339,6 +339,12 @@ type FeedProcessingResponse = {
   summarized_count: number;
   classified_count: number;
   skipped_count: number;
+  model_call_budget: number;
+  model_calls_attempted: number;
+  model_calls_succeeded: number;
+  model_calls_failed: number;
+  model_calls_skipped: number;
+  model_calls_unused: number;
   item_ids: number[];
   errors: { item_id: number; stage: string; error: string }[];
 };
@@ -1069,7 +1075,10 @@ export function Dashboard() {
           min_classification_confidence: 0.7,
         }),
       });
-      const nextStatus = `${label}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped`;
+      const callText = result.model_call_budget
+        ? `, ${result.model_calls_attempted}/${result.model_call_budget} LLM calls attempted`
+        : "";
+      const nextStatus = `${label}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped${callText}`;
       if (result.errors.length) {
         setError(`${result.errors.length} LLM item errors; see API response logs.`);
       }
