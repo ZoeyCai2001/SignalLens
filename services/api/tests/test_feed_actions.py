@@ -1,10 +1,14 @@
 from datetime import UTC, datetime, timedelta
 
-from app.db.models import NormalizedItem, UserItemAction
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db.models import Base, NormalizedItem, UserItemAction
 from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
     FeedInterestProfile,
+    build_feed_interest_profile,
     build_score_explanation,
     feed_interest_bonus,
     freshness_score,
@@ -222,6 +226,19 @@ def test_feed_interest_bonus_caps_multiple_matches() -> None:
     )
 
     assert feed_interest_bonus(item, profile) == 0.12
+
+
+def test_build_feed_interest_profile_includes_default_company_watchlist() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        profile = build_feed_interest_profile(db)
+
+    assert "NVDA" in profile.symbols
+    assert "nvidia" in profile.terms
+    assert "openai" in profile.terms
 
 
 def test_normalize_source_names_trims_empty_values() -> None:

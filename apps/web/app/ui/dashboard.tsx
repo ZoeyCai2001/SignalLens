@@ -264,6 +264,7 @@ type ScheduledCycleResponse = {
   started_at: string;
   finished_at: string;
   seeded_stock_count: number;
+  seeded_company_count: number;
   seeded_topic_count: number;
   generated_alert_count: number;
   saved_digest_date: string | null;

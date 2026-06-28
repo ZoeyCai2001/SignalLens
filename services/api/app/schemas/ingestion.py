@@ -17,6 +17,7 @@ class ScheduledCycleResponse(BaseModel):
     started_at: datetime
     finished_at: datetime
     seeded_stock_count: int
+    seeded_company_count: int
     seeded_topic_count: int
     generated_alert_count: int
     saved_digest_date: date | None = None

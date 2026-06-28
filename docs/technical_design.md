@@ -238,8 +238,10 @@ Alert generation applies the same trust posture. Single-item alerts require enou
 - `event_cluster_items`
 - `tickers`
 - `stock_watchlist_items`
+- `company_watchlist_items`
 - `topics`
 - `topic_watchlist_items`
+- `product_watchlist_items`
 - `user_preferences`
 - `saved_items`
 - `hidden_items`
@@ -332,6 +334,10 @@ For MVP privacy, `shares` and `average_cost` should remain nullable and hidden u
 - `GET /api/watchlists/topics`
 - `POST /api/watchlists/topics`
 - `DELETE /api/watchlists/topics/{topic_id}`
+- `GET /api/watchlists/companies`
+- `POST /api/watchlists/companies`
+- `PATCH /api/watchlists/companies/{company_key}`
+- `DELETE /api/watchlists/companies/{company_key}`
 - `GET /api/watchlists/stocks`
 - `POST /api/watchlists/stocks`
 - `PATCH /api/watchlists/stocks/{watchlist_item_id}`

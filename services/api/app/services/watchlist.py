@@ -1,9 +1,11 @@
 from collections import Counter
+import re
 
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    CompanyWatchlistItem,
     NormalizedItem,
     ProductWatchlistItem,
     StockPricePoint,
@@ -13,6 +15,8 @@ from app.db.models import (
 )
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
+    CompanyWatchlistItemCreate,
+    CompanyWatchlistItemUpdate,
     ProductBriefing,
     ProductWatchlistItemCreate,
     ProductWatchlistItemUpdate,
@@ -41,6 +45,7 @@ from app.schemas.watchlist import (
 from app.services.feed_actions import LOCAL_USER_ID, serialize_feed_item
 from app.services.scoring import TICKER_ALIASES
 from app.services.seed_data import (
+    initial_company_watchlist,
     initial_product_watchlist,
     initial_stock_watchlist,
     initial_topic_watchlist,
@@ -165,6 +170,20 @@ def seed_initial_stock_watchlist(db: Session) -> list[StockWatchlistItem]:
     return list_stock_watchlist(db)
 
 
+def seed_initial_company_watchlist(db: Session) -> list[CompanyWatchlistItem]:
+    existing = {item.company_key for item in db.query(CompanyWatchlistItem).all()}
+
+    for seed_item in initial_company_watchlist():
+        if seed_item.company_key in existing:
+            continue
+        item = CompanyWatchlistItem(**seed_item.model_dump(), user_id="local")
+        db.add(item)
+
+    db.commit()
+
+    return list_company_watchlist(db)
+
+
 def seed_initial_topic_watchlist(db: Session) -> list[TopicWatchlistItem]:
     existing = {item.topic for item in db.query(TopicWatchlistItem).all()}
     created: list[TopicWatchlistItem] = []
@@ -195,6 +214,93 @@ def seed_initial_product_watchlist(db: Session) -> list[ProductWatchlistItem]:
     db.commit()
 
     return list_product_watchlist(db)
+
+
+def list_company_watchlist(db: Session) -> list[CompanyWatchlistItem]:
+    return (
+        db.query(CompanyWatchlistItem)
+        .order_by(
+            CompanyWatchlistItem.is_pinned.desc(),
+            CompanyWatchlistItem.priority.asc(),
+            CompanyWatchlistItem.company_name.asc(),
+        )
+        .all()
+    )
+
+
+def create_company_watchlist_item(
+    db: Session,
+    payload: CompanyWatchlistItemCreate,
+) -> CompanyWatchlistItem:
+    company_name = payload.company_name.strip()
+    if not company_name:
+        raise ValueError("Company name is required.")
+    company_key = normalize_company_key(payload.company_key or company_name)
+    if not company_key:
+        raise ValueError("Company key is required.")
+    if get_company_watchlist_item(db, company_key):
+        raise ValueError(f"{company_key} is already in the company watchlist.")
+    item = CompanyWatchlistItem(
+        user_id=LOCAL_USER_ID,
+        company_key=company_key,
+        company_name=company_name,
+        ticker=normalize_optional_ticker(payload.ticker),
+        category=payload.category.strip() or "ai_company",
+        priority=payload.priority.strip() or "Medium",
+        is_pinned=payload.is_pinned,
+        include_in_digest=payload.include_in_digest,
+        related_terms=clean_terms(payload.related_terms),
+        notes=payload.notes.strip() if payload.notes else None,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def update_company_watchlist_item(
+    db: Session,
+    company_key: str,
+    payload: CompanyWatchlistItemUpdate,
+) -> CompanyWatchlistItem | None:
+    item = get_company_watchlist_item(db, company_key)
+    if item is None:
+        return None
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field_name, value in updates.items():
+        if field_name == "related_terms" and value is not None:
+            value = clean_terms(value)
+        elif field_name == "ticker":
+            value = normalize_optional_ticker(value)
+        elif isinstance(value, str):
+            value = value.strip()
+        setattr(item, field_name, value)
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_company_watchlist_item(db: Session, company_key: str) -> bool:
+    item = get_company_watchlist_item(db, company_key)
+    if item is None:
+        return False
+    db.delete(item)
+    db.commit()
+    return True
+
+
+def get_company_watchlist_item(db: Session, company_key: str) -> CompanyWatchlistItem | None:
+    return (
+        db.query(CompanyWatchlistItem)
+        .filter(
+            CompanyWatchlistItem.user_id == LOCAL_USER_ID,
+            CompanyWatchlistItem.company_key == normalize_company_key(company_key),
+        )
+        .one_or_none()
+    )
 
 
 def list_product_watchlist(db: Session) -> list[ProductWatchlistItem]:
@@ -597,6 +703,16 @@ def build_topic_match_terms(topic: TopicWatchlistItem | TopicWatchlistSchema) ->
     label_words = topic.label.replace("-", " ")
     slug_words = topic.topic.replace("-", " ")
     return unique_normalized_terms([topic.topic, label_words, slug_words, *topic.related_terms])
+
+
+def build_company_match_terms(company: CompanyWatchlistItem) -> list[str]:
+    terms = [
+        company.company_name,
+        company.company_key.replace("-", " "),
+        company.ticker or "",
+        *company.related_terms,
+    ]
+    return unique_normalized_terms(terms)
 
 
 def summarize_stock_signals(
@@ -1133,6 +1249,18 @@ def unique_normalized_terms(values: list[str]) -> list[str]:
 
 def normalize_ticker(value: str) -> str:
     return value.strip().upper().removeprefix("$")
+
+
+def normalize_optional_ticker(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = normalize_ticker(value)
+    return normalized or None
+
+
+def normalize_company_key(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    return normalized.strip("-")
 
 
 def normalize_topic(value: str) -> str:

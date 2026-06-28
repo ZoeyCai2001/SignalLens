@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from app.schemas.watchlist import StockWatchlistItemUpdate
 from app.services.seed_data import (
+    initial_company_watchlist,
     initial_product_watchlist,
     initial_stock_watchlist,
     initial_topic_watchlist,
@@ -12,6 +13,7 @@ from app.services.watchlist import (
     build_stock_symbol_terms,
     build_stock_text_terms,
     clean_terms,
+    normalize_company_key,
     normalize_product_category,
     normalize_ticker,
     normalize_topic,
@@ -38,6 +40,15 @@ def test_initial_product_watchlist_contains_prd_product_categories() -> None:
     assert "ai-coding-tools" in categories
     assert "ai-search-browsers" in categories
     assert "ai-productivity" in categories
+
+
+def test_initial_company_watchlist_contains_prd_related_companies_and_ai_labs() -> None:
+    companies = {item.company_key: item for item in initial_company_watchlist()}
+
+    assert companies["nvidia"].ticker == "NVDA"
+    assert companies["amd"].ticker == "AMD"
+    assert companies["broadcom"].ticker == "AVGO"
+    assert companies["openai"].ticker is None
 
 
 def test_stock_match_terms_include_ticker_company_and_related_terms() -> None:
@@ -71,6 +82,10 @@ def test_topic_watchlist_input_helpers_normalize_user_values() -> None:
 
 def test_product_watchlist_input_helpers_normalize_user_values() -> None:
     assert normalize_product_category(" AI Coding Tools ") == "ai-coding-tools"
+
+
+def test_company_watchlist_input_helpers_normalize_user_values() -> None:
+    assert normalize_company_key(" NVIDIA / Data Center ") == "nvidia-data-center"
 
 
 def test_stock_watchlist_update_rejects_negative_portfolio_values() -> None:

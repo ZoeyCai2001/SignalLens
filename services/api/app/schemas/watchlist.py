@@ -133,6 +133,43 @@ class StockWatchlistItemUpdate(BaseModel):
     notes: str | None = None
 
 
+class CompanyWatchlistItem(BaseModel):
+    company_key: str
+    company_name: str
+    ticker: str | None = None
+    category: str = "ai_company"
+    priority: str = "Medium"
+    is_pinned: bool = False
+    include_in_digest: bool = True
+    related_terms: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CompanyWatchlistItemCreate(BaseModel):
+    company_name: str
+    company_key: str | None = None
+    ticker: str | None = None
+    category: str = "ai_company"
+    priority: str = "Medium"
+    is_pinned: bool = False
+    include_in_digest: bool = True
+    related_terms: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+
+class CompanyWatchlistItemUpdate(BaseModel):
+    company_name: str | None = None
+    ticker: str | None = None
+    category: str | None = None
+    priority: str | None = None
+    is_pinned: bool | None = None
+    include_in_digest: bool | None = None
+    related_terms: list[str] | None = None
+    notes: str | None = None
+
+
 class TopicWatchlistItem(BaseModel):
     topic: str
     label: str

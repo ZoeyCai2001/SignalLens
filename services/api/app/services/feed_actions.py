@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    CompanyWatchlistItem,
     NormalizedItem,
     ProductWatchlistItem,
     StockWatchlistItem,
@@ -13,6 +14,7 @@ from app.db.models import (
 from app.schemas.feed import FeedItem, FeedItemDetail
 from app.schemas.preferences import RankingWeights
 from app.services.seed_data import (
+    initial_company_watchlist,
     initial_product_watchlist,
     initial_stock_watchlist,
     initial_topic_watchlist,
@@ -231,6 +233,25 @@ def build_feed_interest_profile(db: Session) -> FeedInterestProfile:
         terms.update(
             normalize_interest_term(value)
             for value in [product.category, product.label, *product.related_terms]
+        )
+
+    companies = (
+        db.query(CompanyWatchlistItem)
+        .filter(CompanyWatchlistItem.user_id == LOCAL_USER_ID)
+        .all()
+    )
+    company_items = companies or initial_company_watchlist()
+    for company in company_items:
+        if company.ticker:
+            symbols.add(normalize_interest_symbol(company.ticker))
+        terms.update(
+            normalize_interest_term(value)
+            for value in [
+                company.company_key,
+                company.company_name,
+                company.category,
+                *company.related_terms,
+            ]
         )
 
     return FeedInterestProfile(

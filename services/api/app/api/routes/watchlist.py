@@ -4,6 +4,9 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
 from app.schemas.watchlist import (
+    CompanyWatchlistItem,
+    CompanyWatchlistItemCreate,
+    CompanyWatchlistItemUpdate,
     ProductBriefing,
     ProductWatchlistItem,
     ProductWatchlistItemCreate,
@@ -20,15 +23,18 @@ from app.schemas.watchlist import (
     TopicWatchlistItemUpdate,
 )
 from app.services.seed_data import (
+    initial_company_watchlist,
     initial_product_watchlist,
     initial_stock_watchlist,
     initial_topic_watchlist,
 )
 from app.services.watchlist import (
     build_stock_market_snapshot,
+    create_company_watchlist_item,
     create_product_watchlist_item,
     create_stock_watchlist_item,
     create_topic_watchlist_item,
+    delete_company_watchlist_item,
     delete_product_watchlist_item,
     delete_stock_watchlist_item,
     delete_topic_watchlist_item,
@@ -36,12 +42,15 @@ from app.services.watchlist import (
     get_stock_signals,
     get_product_briefing,
     get_topic_briefing,
+    list_company_watchlist,
     list_product_watchlist,
     list_topic_watchlist,
+    seed_initial_company_watchlist,
     seed_initial_product_watchlist,
     seed_initial_stock_watchlist,
     seed_initial_topic_watchlist,
     summarize_stock_signals,
+    update_company_watchlist_item,
     update_product_watchlist_item,
     update_stock_watchlist_item,
     update_topic_watchlist_item,
@@ -137,6 +146,51 @@ async def delete_stock(ticker: str, db: DbSession) -> None:
     deleted = delete_stock_watchlist_item(db, ticker=ticker)
     if not deleted:
         raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
+
+
+@router.get("/companies", response_model=list[CompanyWatchlistItem])
+async def list_companies(db: DbSession) -> list[CompanyWatchlistItem]:
+    items = list_company_watchlist(db)
+    if not items:
+        return initial_company_watchlist()
+    return [CompanyWatchlistItem.model_validate(item) for item in items]
+
+
+@router.post("/companies", response_model=CompanyWatchlistItem, status_code=201)
+async def create_company(
+    payload: CompanyWatchlistItemCreate,
+    db: DbSession,
+) -> CompanyWatchlistItem:
+    try:
+        item = create_company_watchlist_item(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return CompanyWatchlistItem.model_validate(item)
+
+
+@router.post("/companies/seed", response_model=list[CompanyWatchlistItem])
+async def seed_companies(db: DbSession) -> list[CompanyWatchlistItem]:
+    items = seed_initial_company_watchlist(db)
+    return [CompanyWatchlistItem.model_validate(item) for item in items]
+
+
+@router.patch("/companies/{company_key}", response_model=CompanyWatchlistItem)
+async def update_company(
+    company_key: str,
+    payload: CompanyWatchlistItemUpdate,
+    db: DbSession,
+) -> CompanyWatchlistItem:
+    item = update_company_watchlist_item(db, company_key=company_key, payload=payload)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Company not found in watchlist.")
+    return CompanyWatchlistItem.model_validate(item)
+
+
+@router.delete("/companies/{company_key}", status_code=204)
+async def delete_company(company_key: str, db: DbSession) -> None:
+    deleted = delete_company_watchlist_item(db, company_key=company_key)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Company not found in watchlist.")
 
 
 @router.get("/topics", response_model=list[TopicWatchlistItem])

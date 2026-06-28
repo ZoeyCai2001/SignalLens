@@ -36,13 +36,14 @@ async def test_run_ingestion_cycle_runs_jobs_in_order() -> None:
     result = await run_ingestion_cycle(
         db,
         jobs=jobs,
-        seed_watchlists=lambda _db: (3, 4),
+        seed_watchlists=lambda _db: (3, 5, 4),
         generate_cycle_alerts_fn=lambda _db: 2,
         save_digest_snapshot_fn=lambda _db: date(2026, 6, 26),
     )
 
     assert calls == ["one:3", "two:5"]
     assert result.seeded_stock_count == 3
+    assert result.seeded_company_count == 5
     assert result.seeded_topic_count == 4
     assert result.generated_alert_count == 2
     assert result.saved_digest_date == date(2026, 6, 26)
@@ -64,7 +65,7 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
         return await run_ingestion_cycle(
             object(),
             jobs=[job],
-            seed_watchlists=lambda _db: (3, 4),
+            seed_watchlists=lambda _db: (3, 5, 4),
             generate_cycle_alerts_fn=lambda _db: 1,
             save_digest_snapshot_fn=lambda _db: date(2026, 6, 26),
         )
@@ -72,6 +73,7 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
     log_data = scheduled_cycle_to_log_dict(asyncio.run(run_cycle()))
 
     assert log_data["seeded_stock_count"] == 3
+    assert log_data["seeded_company_count"] == 5
     assert log_data["seeded_topic_count"] == 4
     assert log_data["generated_alert_count"] == 1
     assert log_data["saved_digest_date"] == "2026-06-26"
@@ -94,6 +96,7 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
             started_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
             finished_at=datetime(2026, 6, 27, 8, 1, tzinfo=UTC),
             seeded_stock_count=2,
+            seeded_company_count=5,
             seeded_topic_count=3,
             generated_alert_count=1,
             saved_digest_date=date(2026, 6, 27),
@@ -112,6 +115,7 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
     response = await ingestion_routes.run_scheduled_ingestion_cycle("db-session")
 
     assert response.seeded_stock_count == 2
+    assert response.seeded_company_count == 5
     assert response.seeded_topic_count == 3
     assert response.generated_alert_count == 1
     assert response.saved_digest_date == date(2026, 6, 27)
