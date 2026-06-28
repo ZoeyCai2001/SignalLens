@@ -112,6 +112,7 @@ def create_manual_normalized_item(raw: RawItem, source: Source) -> NormalizedIte
         topics=[],
         sentiment="neutral",
         relevance_score=0.3,
+        classification_confidence=0.5,
         importance_score=0.3,
         novelty_score=1.0,
         source_quality_score=0.6,
@@ -139,6 +140,7 @@ def enrich_manual_normalized_item(item: NormalizedItem, raw: RawItem) -> None:
     item.companies = tickers
     item.products = products
     item.topics = topics
+    item.classification_confidence = max(item.classification_confidence or 0, 0.65)
     item.relevance_score = max(item.relevance_score or 0, relevance_score(combined_text))
     item.importance_score = max(
         item.importance_score or 0,

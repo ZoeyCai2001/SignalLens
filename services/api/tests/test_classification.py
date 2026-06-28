@@ -18,6 +18,7 @@ def test_parse_classification_validates_and_clamps_scores() -> None:
           "products": ["inference chip"],
           "sentiment": "mixed",
           "relevance_score": 0.92,
+          "confidence_score": 1.4,
           "importance_score": 1.2,
           "stock_impact_score": -0.2,
           "why_it_matters": "The source links AI infrastructure demand to a chip supplier."
@@ -28,6 +29,7 @@ def test_parse_classification_validates_and_clamps_scores() -> None:
 
     assert classification.category == "stock_company_event"
     assert classification.tickers == ["AVGO"]
+    assert classification.classification_confidence == 1.0
     assert classification.importance_score == 1.0
     assert classification.stock_impact_score == 0.0
 

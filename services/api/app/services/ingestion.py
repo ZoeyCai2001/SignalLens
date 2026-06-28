@@ -669,6 +669,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         topics=topics,
         sentiment="neutral",
         relevance_score=relevance,
+        classification_confidence=0.62,
         importance_score=importance,
         novelty_score=1.0,
         source_quality_score=source_quality,

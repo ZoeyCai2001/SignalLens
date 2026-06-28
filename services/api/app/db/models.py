@@ -107,6 +107,7 @@ class NormalizedItem(Base):
     topics: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     sentiment: Mapped[str] = mapped_column(String(40), default="neutral", nullable=False)
     relevance_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    classification_confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
     importance_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
     novelty_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)
     source_quality_score: Mapped[float] = mapped_column(Float, default=0, nullable=False)

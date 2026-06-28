@@ -37,6 +37,7 @@ class ItemClassification:
     products: list[str]
     sentiment: str
     relevance_score: float
+    classification_confidence: float
     importance_score: float
     stock_impact_score: float
     why_it_matters: str
@@ -63,6 +64,7 @@ async def classify_feed_item(
     item.products = classification.products
     item.sentiment = classification.sentiment
     item.relevance_score = classification.relevance_score
+    item.classification_confidence = classification.classification_confidence
     item.importance_score = classification.importance_score
     item.stock_impact_score = classification.stock_impact_score
     item.why_it_matters = classification.why_it_matters
@@ -97,6 +99,7 @@ Required JSON shape:
   "products": ["product/model/tool names if directly relevant"],
   "sentiment": "positive, neutral, negative, or mixed",
   "relevance_score": 0.0,
+  "confidence_score": 0.0,
   "importance_score": 0.0,
   "stock_impact_score": 0.0,
   "why_it_matters": "one concise English explanation"
@@ -108,6 +111,7 @@ Rules:
 - Use stock_company_event only for company, market, earnings, chip, cloud capex,
   regulation, partnership, supply-chain, or analyst events.
 - Scores must be numbers from 0 to 1.
+- confidence_score is how certain you are about the category and extracted entities.
 - Preserve source uncertainty. Describe what the source item says, not verified fact.
 
 Item:
@@ -141,6 +145,9 @@ def parse_classification(text: str, item: NormalizedItem) -> ItemClassification:
         products=products[:12],
         sentiment=sentiment,
         relevance_score=clamp_score(data.get("relevance_score")),
+        classification_confidence=clamp_score(
+            data.get("confidence_score", data.get("classification_confidence", 0.7))
+        ),
         importance_score=clamp_score(data.get("importance_score")),
         stock_impact_score=clamp_score(data.get("stock_impact_score")),
         why_it_matters=why,

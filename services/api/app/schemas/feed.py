@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class FeedItem(BaseModel):
@@ -19,6 +19,7 @@ class FeedItem(BaseModel):
     topics: list[str]
     sentiment: str
     relevance_score: float
+    classification_confidence: float = 0.5
     importance_score: float
     novelty_score: float
     source_quality_score: float
@@ -31,6 +32,11 @@ class FeedItem(BaseModel):
     is_important: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("classification_confidence", mode="before")
+    @classmethod
+    def default_classification_confidence(cls, value: float | None) -> float:
+        return 0.5 if value is None else value
 
 
 class FeedItemDetail(FeedItem):

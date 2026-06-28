@@ -46,6 +46,7 @@ type FeedItem = {
   topics: string[];
   sentiment: string;
   relevance_score: number;
+  classification_confidence: number;
   importance_score: number;
   novelty_score: number;
   source_quality_score: number;
@@ -2532,6 +2533,7 @@ function FeedCard({
 
       <div className="score-grid">
         <Score label="Relevance" value={item.relevance_score} />
+        <Score label="Confidence" value={item.classification_confidence} />
         <Score label="Importance" value={item.importance_score} />
         <Score label="Novelty" value={item.novelty_score} />
         <Score label="Stock" value={item.stock_impact_score} />
@@ -2618,6 +2620,7 @@ function FeedCard({
 function buildFeedCardExplanation(item: FeedItem): string {
   const relatedSignals = [...item.tickers, ...item.topics.slice(0, 3)];
   const scoreSignals = [
+    item.classification_confidence >= 0.8 ? "high classifier confidence" : null,
     item.relevance_score >= 0.72 ? "high AI relevance" : null,
     item.importance_score >= 0.72 ? "high importance" : null,
     item.novelty_score >= 0.72 ? "novel signal" : null,

@@ -96,3 +96,4 @@ Implementation progress:
 - Added a full ingestion cycle API and dashboard action that runs core ingestion, alert generation, and daily digest snapshotting from the web UI.
 - Promoted Saved Items into the primary dashboard navigation so the PRD category views include a dedicated saved-item feed.
 - Added an inline "Why am I seeing this?" explanation to every feed card using stored relevance notes and deterministic score signals.
+- Added persisted classification confidence for feed items and surfaced it in the dashboard score grid and explanations.
