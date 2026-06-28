@@ -923,7 +923,7 @@ export function Dashboard() {
       await refreshAll();
       setLastCycleResult(result);
       setStatus(
-        `Cycle completed: ${storedCount} stored, ${result.generated_alert_count} alerts, digest ${result.saved_digest_date ?? "not saved"}`,
+        `Cycle completed: ${storedCount} stored, ${result.generated_alert_count} alerts, ${result.seeded_stock_count + result.seeded_company_count + result.seeded_topic_count + result.seeded_product_count} watchlist defaults, digest ${result.saved_digest_date ?? "not saved"}`,
       );
     } catch (err) {
       setError(readError(err));
@@ -5125,6 +5125,10 @@ function SourceTable({
             <span className="badge">{cycleFetched ?? 0} fetched</span>
             <span className="badge">{cycleStored ?? 0} stored</span>
             <span className="badge">{lastCycleResult.generated_alert_count} alerts</span>
+            <span className="badge">{lastCycleResult.seeded_stock_count} stocks</span>
+            <span className="badge">{lastCycleResult.seeded_company_count} companies</span>
+            <span className="badge">{lastCycleResult.seeded_topic_count} topics</span>
+            <span className="badge">{lastCycleResult.seeded_product_count} products</span>
             <span className="badge">
               Digest {lastCycleResult.saved_digest_date ?? "not saved"}
             </span>

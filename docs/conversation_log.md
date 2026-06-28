@@ -134,3 +134,4 @@ Implementation progress:
 - Split dashboard batch LLM controls into explicit classify and summarize actions so enrichment costs and PRD LLM workflows are easier to operate.
 - Added confidence-based skipping for batch LLM classification so high-confidence items do not consume classification calls by default.
 - Added product-category watchlist seeding to the scheduled ingestion cycle so AI Products defaults are initialized with stock, company, and topic defaults.
+- Surfaced scheduled-cycle watchlist seed counts in the dashboard Source Health summary after a full ingestion cycle.
