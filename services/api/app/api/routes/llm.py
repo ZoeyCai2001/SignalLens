@@ -56,4 +56,6 @@ async def process_feed_items(
         summarize=request.summarize,
         classify=request.classify,
         skip_summarized=request.skip_summarized,
+        skip_classified=request.skip_classified,
+        min_classification_confidence=request.min_classification_confidence,
     )

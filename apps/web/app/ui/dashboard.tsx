@@ -951,6 +951,8 @@ export function Dashboard() {
           summarize,
           classify,
           skip_summarized: true,
+          skip_classified: true,
+          min_classification_confidence: 0.7,
         }),
       });
       setStatus(

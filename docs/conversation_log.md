@@ -132,3 +132,4 @@ Implementation progress:
 - Extended deterministic company extraction to normalized ingestion items so RSS, finance, and community signals populate company entities before optional LLM classification.
 - Added deterministic AI product detection for ingestion and manual submissions so product modules can surface known tools before optional LLM enrichment.
 - Split dashboard batch LLM controls into explicit classify and summarize actions so enrichment costs and PRD LLM workflows are easier to operate.
+- Added confidence-based skipping for batch LLM classification so high-confidence items do not consume classification calls by default.

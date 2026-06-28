@@ -19,6 +19,8 @@ class FeedProcessingRequest(BaseModel):
     summarize: bool = True
     classify: bool = False
     skip_summarized: bool = True
+    skip_classified: bool = True
+    min_classification_confidence: float = Field(default=0.7, ge=0, le=1)
 
 
 class FeedProcessingError(BaseModel):

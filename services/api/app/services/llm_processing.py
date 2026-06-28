@@ -20,6 +20,8 @@ async def process_feed_with_llm(
     summarize: bool = True,
     classify: bool = False,
     skip_summarized: bool = True,
+    skip_classified: bool = True,
+    min_classification_confidence: float = 0.7,
 ) -> FeedProcessingResponse:
     candidates = list_llm_processing_candidates(
         db=db,
@@ -27,6 +29,8 @@ async def process_feed_with_llm(
         summarize=summarize,
         classify=classify,
         skip_summarized=skip_summarized,
+        skip_classified=skip_classified,
+        min_classification_confidence=min_classification_confidence,
     )
     return await process_llm_batch_items(
         db=db,
@@ -36,6 +40,8 @@ async def process_feed_with_llm(
         summarize=summarize,
         classify=classify,
         skip_summarized=skip_summarized,
+        skip_classified=skip_classified,
+        min_classification_confidence=min_classification_confidence,
     )
 
 
@@ -45,6 +51,8 @@ def list_llm_processing_candidates(
     summarize: bool = True,
     classify: bool = False,
     skip_summarized: bool = True,
+    skip_classified: bool = True,
+    min_classification_confidence: float = 0.7,
 ) -> list[NormalizedItem]:
     query = db.query(NormalizedItem).outerjoin(
         UserItemAction,
@@ -52,13 +60,21 @@ def list_llm_processing_candidates(
         & (UserItemAction.user_id == LOCAL_USER_ID),
     )
     query = query.filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
-    if summarize and skip_summarized and not classify:
-        query = query.filter(
+    candidate_filters = []
+    if summarize and skip_summarized:
+        candidate_filters.append(
             or_(
                 NormalizedItem.summary_detailed.is_(None),
                 NormalizedItem.summary_detailed == "",
             )
         )
+    if classify and skip_classified:
+        candidate_filters.append(
+            NormalizedItem.classification_confidence < min_classification_confidence
+        )
+
+    if candidate_filters:
+        query = query.filter(or_(*candidate_filters))
 
     rows = query.order_by(
         UserItemAction.is_important.desc().nullslast(),
@@ -79,6 +95,8 @@ async def process_llm_batch_items(
     summarize: bool = True,
     classify: bool = False,
     skip_summarized: bool = True,
+    skip_classified: bool = True,
+    min_classification_confidence: float = 0.7,
     summarizer: LlmItemProcessor = summarize_feed_item,
     classifier: LlmItemProcessor = classify_feed_item,
 ) -> FeedProcessingResponse:
@@ -90,7 +108,11 @@ async def process_llm_batch_items(
 
     for item in items:
         touched = False
-        if classify:
+        if classify and should_classify_item(
+            item,
+            skip_classified=skip_classified,
+            min_classification_confidence=min_classification_confidence,
+        ):
             try:
                 item = await classifier(db, item, settings)
                 classified_count += 1
@@ -99,6 +121,8 @@ async def process_llm_batch_items(
                 errors.append(
                     FeedProcessingError(item_id=item.id, stage="classify", error=str(exc))
                 )
+        elif classify:
+            skipped_count += 1
 
         if summarize and should_summarize_item(item, skip_summarized=skip_summarized):
             try:
@@ -128,3 +152,14 @@ async def process_llm_batch_items(
 
 def should_summarize_item(item: NormalizedItem, skip_summarized: bool) -> bool:
     return not skip_summarized or not bool(item.summary_detailed)
+
+
+def should_classify_item(
+    item: NormalizedItem,
+    skip_classified: bool,
+    min_classification_confidence: float,
+) -> bool:
+    return (
+        not skip_classified
+        or item.classification_confidence < min_classification_confidence
+    )
