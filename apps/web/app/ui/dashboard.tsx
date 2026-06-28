@@ -71,6 +71,12 @@ type FeedItemDetail = FeedItem & {
   action_state: Record<string, boolean>;
 };
 
+type ManualSubmissionResponse = {
+  item: FeedItem;
+  summary_status: "not_requested" | "succeeded" | "failed";
+  summary_error: string | null;
+};
+
 type ResearchInsights = {
   contribution?: string;
   method?: string;
@@ -707,6 +713,7 @@ export function Dashboard() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [manualSummarizeWithLlm, setManualSummarizeWithLlm] = useState(false);
   const [stockTicker, setStockTicker] = useState("");
   const [stockCompany, setStockCompany] = useState("");
   const [stockThemes, setStockThemes] = useState("");
@@ -1518,12 +1525,13 @@ export function Dashboard() {
     setLoadState("running");
     setError(null);
     try {
-      const result = await fetchJson<{ item: FeedItem }>("/api/manual-submissions", {
+      const result = await fetchJson<ManualSubmissionResponse>("/api/manual-submissions", {
         method: "POST",
         body: JSON.stringify({
           title: manualTitle.trim() || null,
           url: manualUrl.trim(),
           text: manualText.trim() || null,
+          summarize_with_llm: manualSummarizeWithLlm,
         }),
       });
       setFeed((items) => [result.item, ...items.filter((item) => item.id !== result.item.id)]);
@@ -1532,7 +1540,14 @@ export function Dashboard() {
       setManualTitle("");
       setManualUrl("");
       setManualText("");
-      await refreshAllWithStatus(`Submitted item ${result.item.id}`);
+      const statusMessage =
+        result.summary_status === "succeeded"
+          ? `Submitted and summarized item ${result.item.id}`
+          : `Submitted item ${result.item.id}`;
+      await refreshAllWithStatus(statusMessage);
+      if (result.summary_status === "failed") {
+        setError(`Manual item saved, but Kimi summary failed: ${result.summary_error}`);
+      }
     } catch (err) {
       setError(readError(err));
       setStatus("Manual submission failed");
@@ -2637,10 +2652,12 @@ export function Dashboard() {
               title={manualTitle}
               url={manualUrl}
               text={manualText}
+              summarizeWithLlm={manualSummarizeWithLlm}
               disabled={loadState !== "idle"}
               onTitleChange={setManualTitle}
               onUrlChange={setManualUrl}
               onTextChange={setManualText}
+              onSummarizeWithLlmChange={setManualSummarizeWithLlm}
               onSubmit={submitManualItem}
             />
             <StockTable
@@ -4222,19 +4239,23 @@ function ManualSubmissionPanel({
   title,
   url,
   text,
+  summarizeWithLlm,
   disabled,
   onTitleChange,
   onUrlChange,
   onTextChange,
+  onSummarizeWithLlmChange,
   onSubmit,
 }: {
   title: string;
   url: string;
   text: string;
+  summarizeWithLlm: boolean;
   disabled: boolean;
   onTitleChange: (value: string) => void;
   onUrlChange: (value: string) => void;
   onTextChange: (value: string) => void;
+  onSummarizeWithLlmChange: (value: boolean) => void;
   onSubmit: () => void;
 }) {
   return (
@@ -4274,9 +4295,24 @@ function ManualSubmissionPanel({
           onChange={(event) => onTextChange(event.target.value)}
           placeholder="Optional context for classification and summary"
         />
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={summarizeWithLlm}
+            onChange={(event) => onSummarizeWithLlmChange(event.target.checked)}
+            disabled={disabled}
+          />
+          Summarize with Kimi
+        </label>
         <button className="button primary" onClick={onSubmit} disabled={disabled}>
-          {disabled ? <Loader2 className="spin" size={16} /> : <Send size={16} />}
-          Submit
+          {disabled ? (
+            <Loader2 className="spin" size={16} />
+          ) : summarizeWithLlm ? (
+            <Bot size={16} />
+          ) : (
+            <Send size={16} />
+          )}
+          {summarizeWithLlm ? "Submit & Summarize" : "Submit"}
         </button>
       </div>
     </section>

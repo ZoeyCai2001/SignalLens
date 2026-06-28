@@ -1,8 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.api.routes import manual_submissions as manual_submission_routes
 from app.db.models import Base, NormalizedItem
 from app.db.models import RawItem, Source
+from app.schemas.feed import FeedItem
 from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.manual_submissions import (
     create_raw_manual_item,
@@ -12,6 +14,7 @@ from app.services.manual_submissions import (
     reset_manual_normalized_item,
     resolve_manual_title,
 )
+from app.services.summarization import SummarizationError
 
 
 def test_manual_fallback_normalization_keeps_user_submission() -> None:
@@ -257,6 +260,88 @@ def test_manual_resubmission_updates_existing_url_item() -> None:
         assert raw_items[0].normalized_item.text == "Updated note about OpenAI agents."
 
 
+async def test_manual_submission_route_skips_llm_summary_by_default(monkeypatch) -> None:
+    calls: list[str] = []
+
+    async def fake_summarize_feed_item(**_kwargs) -> NormalizedItem:
+        calls.append("summarize")
+        return make_normalized_manual_item()
+
+    monkeypatch.setattr(
+        manual_submission_routes,
+        "create_manual_submission",
+        lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
+    )
+    monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
+
+    response = await manual_submission_routes.submit_manual_url(
+        request=ManualSubmissionRequest(url="https://example.com/manual"),
+        db=FakeManualSubmissionDb(make_normalized_manual_item()),
+    )
+
+    assert response.item.summary_short == "Manual summary"
+    assert response.summary_status == "not_requested"
+    assert response.summary_error is None
+    assert calls == []
+
+
+async def test_manual_submission_route_can_summarize_saved_item(monkeypatch) -> None:
+    async def fake_summarize_feed_item(**kwargs) -> NormalizedItem:
+        item = kwargs["item"]
+        item.summary_short = "Kimi summary"
+        item.summary_detailed = "Kimi detailed summary"
+        item.why_it_matters = "Kimi why it matters"
+        return item
+
+    monkeypatch.setattr(
+        manual_submission_routes,
+        "create_manual_submission",
+        lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
+    )
+    monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
+    monkeypatch.setattr(manual_submission_routes, "get_settings", lambda: object())
+    monkeypatch.setattr(manual_submission_routes, "get_action", lambda *_args: None)
+
+    response = await manual_submission_routes.submit_manual_url(
+        request=ManualSubmissionRequest(
+            url="https://example.com/manual",
+            summarize_with_llm=True,
+        ),
+        db=FakeManualSubmissionDb(make_normalized_manual_item()),
+    )
+
+    assert response.item.summary_short == "Kimi summary"
+    assert response.item.summary_detailed == "Kimi detailed summary"
+    assert response.item.why_it_matters == "Kimi why it matters"
+    assert response.summary_status == "succeeded"
+    assert response.summary_error is None
+
+
+async def test_manual_submission_route_keeps_item_when_llm_summary_fails(monkeypatch) -> None:
+    async def fake_summarize_feed_item(**_kwargs) -> NormalizedItem:
+        raise SummarizationError("Kimi unavailable")
+
+    monkeypatch.setattr(
+        manual_submission_routes,
+        "create_manual_submission",
+        lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
+    )
+    monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
+    monkeypatch.setattr(manual_submission_routes, "get_settings", lambda: object())
+
+    response = await manual_submission_routes.submit_manual_url(
+        request=ManualSubmissionRequest(
+            url="https://example.com/manual",
+            summarize_with_llm=True,
+        ),
+        db=FakeManualSubmissionDb(make_normalized_manual_item()),
+    )
+
+    assert response.item.summary_short == "Manual summary"
+    assert response.summary_status == "failed"
+    assert response.summary_error == "Kimi unavailable"
+
+
 def make_source() -> Source:
     return Source(
         id=1,
@@ -278,4 +363,78 @@ def make_raw(title: str, text: str) -> RawItem:
         raw_text=text,
         raw_metadata={},
         content_hash="abc",
+    )
+
+
+class FakeManualSubmissionDb:
+    def __init__(self, item: NormalizedItem) -> None:
+        self.item = item
+
+    def get(self, model: type[NormalizedItem], item_id: int) -> NormalizedItem | None:
+        if model is NormalizedItem and item_id == self.item.id:
+            return self.item
+        return None
+
+
+def make_manual_feed_item(summary_short: str) -> FeedItem:
+    return FeedItem(
+        id=1,
+        title="Manual AI item",
+        url="https://example.com/manual",
+        source_name="Manual Submission",
+        author=None,
+        language="en",
+        published_at=None,
+        category="technical_trend",
+        subcategory="manual_ai_signal",
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=["agent"],
+        sentiment="neutral",
+        relevance_score=0.7,
+        classification_confidence=0.65,
+        importance_score=0.5,
+        novelty_score=1.0,
+        source_quality_score=0.65,
+        social_signal_score=0,
+        stock_impact_score=0,
+        summary_short=summary_short,
+        summary_detailed=None,
+        why_it_matters="This user-submitted item matched AI relevance signals.",
+        is_saved=False,
+        is_hidden=False,
+        is_important=False,
+        personal_note=None,
+        manual_tags=[],
+    )
+
+
+def make_normalized_manual_item() -> NormalizedItem:
+    return NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Manual AI item",
+        url="https://example.com/manual",
+        source_name="Manual Submission",
+        author=None,
+        language="en",
+        published_at=None,
+        text="Manual AI item",
+        category="technical_trend",
+        subcategory="manual_ai_signal",
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=["agent"],
+        sentiment="neutral",
+        relevance_score=0.7,
+        classification_confidence=0.65,
+        importance_score=0.5,
+        novelty_score=1.0,
+        source_quality_score=0.65,
+        stock_impact_score=0,
+        summary_short="Manual summary",
+        summary_detailed=None,
+        why_it_matters="This user-submitted item matched AI relevance signals.",
     )
