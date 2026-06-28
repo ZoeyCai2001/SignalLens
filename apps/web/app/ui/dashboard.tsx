@@ -1179,6 +1179,7 @@ export function Dashboard() {
         method: "POST",
       });
       setFeed((items) => items.map((item) => (item.id === itemId ? summarized : item)));
+      setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, summarized));
       setStatus(`Summarized item ${itemId}`);
     } catch (err) {
       setError(readError(err));
@@ -1196,6 +1197,7 @@ export function Dashboard() {
         method: "POST",
       });
       setFeed((items) => items.map((item) => (item.id === itemId ? classified : item)));
+      setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, classified));
       setStatus(`Classified item ${itemId}`);
     } catch (err) {
       setError(readError(err));
