@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
 from app.schemas.watchlist import (
+    ProductBriefing,
     ProductWatchlistItem,
     ProductWatchlistItemCreate,
     ProductWatchlistItemUpdate,
@@ -33,6 +34,7 @@ from app.services.watchlist import (
     delete_topic_watchlist_item,
     get_stock_briefing,
     get_stock_signals,
+    get_product_briefing,
     get_topic_briefing,
     list_product_watchlist,
     list_topic_watchlist,
@@ -218,6 +220,18 @@ async def create_product(
 async def seed_products(db: DbSession) -> list[ProductWatchlistItem]:
     items = seed_initial_product_watchlist(db)
     return [ProductWatchlistItem.model_validate(item) for item in items]
+
+
+@router.get("/products/{category}/briefing", response_model=ProductBriefing)
+async def get_product_watchlist_briefing(
+    category: str,
+    db: DbSession,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> ProductBriefing:
+    result = get_product_briefing(db=db, category=category, limit=limit)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Product category not found in watchlist.")
+    return result
 
 
 @router.patch("/products/{category}", response_model=ProductWatchlistItem)

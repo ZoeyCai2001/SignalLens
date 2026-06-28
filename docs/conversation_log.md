@@ -104,3 +104,4 @@ Implementation progress:
 - Added preferred and blocked source preferences so source credibility can influence ranking and noisy sources can be hidden from the feed.
 - Added PRD-aligned daily digest sections for GitHub/Hugging Face highlights and saved items to read later.
 - Added persisted product-category watchlists with dashboard controls and digest inclusion toggles.
+- Added product-category briefing APIs and dashboard drill-downs for matched product launches, sources, companies, activity, and recent signals.

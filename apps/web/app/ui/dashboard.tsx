@@ -186,6 +186,16 @@ type ProductWatchlistItem = {
   notes: string | null;
 };
 
+type ProductBriefing = {
+  product: ProductWatchlistItem;
+  item_count: number;
+  trending_sources: TopicSourceCount[];
+  matched_products: string[];
+  related_companies: string[];
+  recent_timeline: FeedItem[];
+  activity_timeline: TopicActivityBucket[];
+};
+
 type TopicSourceCount = {
   source_name: string;
   item_count: number;
@@ -488,6 +498,8 @@ export function Dashboard() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
   const [productWatchlist, setProductWatchlist] = useState<ProductWatchlistItem[]>([]);
+  const [selectedProductCategory, setSelectedProductCategory] = useState<string | null>(null);
+  const [productBriefing, setProductBriefing] = useState<ProductBriefing | null>(null);
   const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [topicBriefing, setTopicBriefing] = useState<TopicBriefing | null>(null);
@@ -516,6 +528,7 @@ export function Dashboard() {
   const [busyClusterKey, setBusyClusterKey] = useState<string | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
+  const [busyProductBriefing, setBusyProductBriefing] = useState<string | null>(null);
   const [busyTopicBriefing, setBusyTopicBriefing] = useState<string | null>(null);
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
   const [busyPreferences, setBusyPreferences] = useState(false);
@@ -665,6 +678,12 @@ export function Dashboard() {
   }, [selectedTicker, stocks]);
 
   useEffect(() => {
+    if (!selectedProductCategory && productWatchlist.length) {
+      setSelectedProductCategory(productWatchlist[0].category);
+    }
+  }, [productWatchlist, selectedProductCategory]);
+
+  useEffect(() => {
     if (!selectedTopic && topics.length) {
       setSelectedTopic(topics[0].topic);
     }
@@ -699,6 +718,38 @@ export function Dashboard() {
       cancelled = true;
     };
   }, [fetchJson, selectedTicker]);
+
+  useEffect(() => {
+    if (!selectedProductCategory) {
+      setProductBriefing(null);
+      return;
+    }
+
+    let cancelled = false;
+    setBusyProductBriefing(selectedProductCategory);
+    fetchJson<ProductBriefing>(
+      `/api/watchlist/products/${encodeURIComponent(selectedProductCategory)}/briefing?limit=20`,
+    )
+      .then((briefing) => {
+        if (!cancelled) {
+          setProductBriefing(briefing);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(readError(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBusyProductBriefing(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchJson, selectedProductCategory]);
 
   useEffect(() => {
     if (!selectedTopic) {
@@ -1262,6 +1313,7 @@ export function Dashboard() {
         created,
         ...items.filter((item) => item.category !== created.category),
       ]);
+      setSelectedProductCategory(created.category);
       setProductCategory("");
       setProductLabel("");
       setProductTerms("");
@@ -1293,6 +1345,9 @@ export function Dashboard() {
       setProductWatchlist((items) =>
         items.map((item) => (item.category === updated.category ? updated : item)),
       );
+      if (productBriefing?.product.category === updated.category) {
+        setProductBriefing({ ...productBriefing, product: updated });
+      }
       setStatus(`Updated product category ${updated.label}`);
       await refreshAll();
     } catch (err) {
@@ -1311,7 +1366,12 @@ export function Dashboard() {
       await sendRequest(`/api/watchlist/products/${encodeURIComponent(category)}`, {
         method: "DELETE",
       });
-      setProductWatchlist((items) => items.filter((item) => item.category !== category));
+      const remainingProducts = productWatchlist.filter((item) => item.category !== category);
+      setProductWatchlist(remainingProducts);
+      if (selectedProductCategory === category) {
+        setSelectedProductCategory(remainingProducts[0]?.category ?? null);
+        setProductBriefing(null);
+      }
       setStatus(`Removed product category ${category}`);
       await refreshAll();
     } catch (err) {
@@ -1905,6 +1965,9 @@ export function Dashboard() {
             />
             <ProductWatchlistPanel
               items={productWatchlist}
+              briefing={productBriefing}
+              selectedCategory={selectedProductCategory}
+              busyProductBriefing={busyProductBriefing}
               category={productCategory}
               label={productLabel}
               terms={productTerms}
@@ -1913,6 +1976,7 @@ export function Dashboard() {
               onCategoryChange={setProductCategory}
               onLabelChange={setProductLabel}
               onTermsChange={setProductTerms}
+              onSelect={setSelectedProductCategory}
               onUpdate={updateProductCategory}
               onDelete={deleteProductCategory}
               onSubmit={submitProductCategory}
@@ -3955,6 +4019,9 @@ function TopicBriefingLinks({
 
 function ProductWatchlistPanel({
   items,
+  briefing,
+  selectedCategory,
+  busyProductBriefing,
   category,
   label,
   terms,
@@ -3963,11 +4030,15 @@ function ProductWatchlistPanel({
   onCategoryChange,
   onLabelChange,
   onTermsChange,
+  onSelect,
   onUpdate,
   onDelete,
   onSubmit,
 }: {
   items: ProductWatchlistItem[];
+  briefing: ProductBriefing | null;
+  selectedCategory: string | null;
+  busyProductBriefing: string | null;
   category: string;
   label: string;
   terms: string;
@@ -3976,6 +4047,7 @@ function ProductWatchlistPanel({
   onCategoryChange: (value: string) => void;
   onLabelChange: (value: string) => void;
   onTermsChange: (value: string) => void;
+  onSelect: (category: string) => void;
   onUpdate: (
     category: string,
     payload: Partial<Pick<ProductWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
@@ -4032,9 +4104,15 @@ function ProductWatchlistPanel({
               return (
                 <tr key={item.category}>
                   <td>
-                    <div className="ticker-button active">
+                    <button
+                      className={`ticker-button ${
+                        selectedCategory === item.category ? "active" : ""
+                      }`}
+                      onClick={() => onSelect(item.category)}
+                      type="button"
+                    >
                       {item.label}
-                    </div>
+                    </button>
                     {item.is_pinned ? <Star size={13} fill="currentColor" /> : null}
                   </td>
                   <td>
@@ -4108,7 +4186,108 @@ function ProductWatchlistPanel({
           </tbody>
         </table>
       </div>
+      <ProductBriefingPanel
+        briefing={briefing}
+        loading={busyProductBriefing === selectedCategory && selectedCategory !== null}
+        selectedCategory={selectedCategory}
+      />
     </section>
+  );
+}
+
+function ProductBriefingPanel({
+  briefing,
+  loading,
+  selectedCategory,
+}: {
+  briefing: ProductBriefing | null;
+  loading: boolean;
+  selectedCategory: string | null;
+}) {
+  if (!selectedCategory) {
+    return <div className="empty-state">Select a product category to inspect launches.</div>;
+  }
+
+  if (loading && !briefing) {
+    return (
+      <div className="topic-briefing">
+        <Loader2 className="spin" size={16} />
+        <span className="small-muted">Loading product briefing...</span>
+      </div>
+    );
+  }
+
+  if (!briefing || briefing.product.category !== selectedCategory) {
+    return <div className="empty-state">No product briefing available for {selectedCategory}.</div>;
+  }
+
+  return (
+    <div className="topic-briefing">
+      <div className="readiness-head">
+        <div>
+          <div className="digest-section-title">{briefing.product.category}</div>
+          <div className="digest-headline">{briefing.product.label}</div>
+          <div className="small-muted">
+            {briefing.product.notes ?? "Product category signal view"}
+          </div>
+        </div>
+        <span className="badge">{briefing.item_count} items</span>
+      </div>
+
+      <div className="badges">
+        {briefing.product.related_terms.map((term) => (
+          <span className="badge" key={term}>
+            {term}
+          </span>
+        ))}
+      </div>
+
+      <div className="topic-briefing-grid">
+        <TopicBriefingList
+          title="Trending Sources"
+          emptyText="No source activity yet."
+          items={briefing.trending_sources.map(
+            (source) => `${source.source_name} (${source.item_count})`,
+          )}
+        />
+        <TopicBriefingList
+          title="Matched Products"
+          emptyText="No matched products yet."
+          items={briefing.matched_products}
+        />
+        <TopicBriefingList
+          title="Related Companies"
+          emptyText="No related companies yet."
+          items={briefing.related_companies}
+        />
+        <TopicBriefingList
+          title="Activity"
+          emptyText="No dated activity yet."
+          items={briefing.activity_timeline.map(
+            (bucket) => `${bucket.activity_date}: ${bucket.item_count}`,
+          )}
+        />
+      </div>
+
+      <div className="stock-timeline">
+        {briefing.recent_timeline.length ? (
+          briefing.recent_timeline.map((item) => (
+            <a className="timeline-row" href={item.url} target="_blank" rel="noreferrer" key={item.id}>
+              <div>
+                <div className="timeline-title">{item.title}</div>
+                <div className="small-muted">
+                  {item.source_name}
+                  {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                </div>
+              </div>
+              <div className="timeline-score">{Math.round(item.importance_score * 100)}</div>
+            </a>
+          ))
+        ) : (
+          <div className="empty-state">No product-category signals yet.</div>
+        )}
+      </div>
+    </div>
   );
 }
 

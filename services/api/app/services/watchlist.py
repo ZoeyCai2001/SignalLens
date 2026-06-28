@@ -13,6 +13,7 @@ from app.db.models import (
 )
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
+    ProductBriefing,
     ProductWatchlistItemCreate,
     ProductWatchlistItemUpdate,
     StockBriefing,
@@ -32,6 +33,7 @@ from app.schemas.watchlist import (
 from app.schemas.watchlist import (
     StockPricePoint as StockPricePointSchema,
 )
+from app.schemas.watchlist import ProductWatchlistItem as ProductWatchlistSchema
 from app.schemas.watchlist import StockWatchlistItem as StockWatchlistSchema
 from app.schemas.watchlist import (
     TopicWatchlistItem as TopicWatchlistSchema,
@@ -275,6 +277,128 @@ def get_product_watchlist_item(db: Session, category: str) -> ProductWatchlistIt
             ProductWatchlistItem.category == normalize_product_category(category),
         )
         .one_or_none()
+    )
+
+
+def get_product_briefing(
+    db: Session,
+    category: str,
+    limit: int = 20,
+) -> ProductBriefing | None:
+    watch_product = get_product_watchlist_item(db, category)
+    if watch_product is None:
+        normalized_category = normalize_product_category(category)
+        watch_product = next(
+            (item for item in initial_product_watchlist() if item.category == normalized_category),
+            None,
+        )
+    if watch_product is None:
+        return None
+
+    rows = query_product_rows(db=db, product=watch_product, limit=limit)
+    items = [serialize_feed_item(item, action) for item, action in rows]
+    product_schema = (
+        watch_product
+        if isinstance(watch_product, ProductWatchlistSchema)
+        else ProductWatchlistSchema.model_validate(watch_product)
+    )
+    return build_product_briefing(product=product_schema, items=items)
+
+
+def build_product_briefing(
+    product: ProductWatchlistSchema,
+    items: list[FeedItem],
+) -> ProductBriefing:
+    source_counts = Counter(item.source_name for item in items)
+    product_counts: Counter[str] = Counter()
+    company_counts: Counter[str] = Counter()
+    activity_counts: Counter = Counter()
+
+    for item in items:
+        for value in item.products:
+            normalized = value.strip()
+            if normalized:
+                product_counts[normalized] += 1
+        for value in [*item.companies, *item.tickers]:
+            normalized = value.strip()
+            if normalized:
+                company_counts[normalized] += 1
+        if item.published_at:
+            activity_counts[item.published_at.date()] += 1
+
+    return ProductBriefing(
+        product=product,
+        item_count=len(items),
+        trending_sources=[
+            TopicSourceCount(source_name=source_name, item_count=count)
+            for source_name, count in source_counts.most_common(8)
+        ],
+        matched_products=[
+            product_name for product_name, _count in product_counts.most_common(10)
+        ],
+        related_companies=[
+            company for company, _count in company_counts.most_common(10)
+        ],
+        recent_timeline=items[:12],
+        activity_timeline=[
+            TopicActivityBucket(activity_date=activity_date, item_count=count)
+            for activity_date, count in sorted(activity_counts.items(), reverse=True)[:14]
+        ],
+    )
+
+
+def query_product_rows(
+    db: Session,
+    product: ProductWatchlistItem | ProductWatchlistSchema,
+    limit: int,
+) -> list[tuple[NormalizedItem, UserItemAction | None]]:
+    return product_signal_query(db=db, product=product).limit(limit).all()
+
+
+def product_signal_query(db: Session, product: ProductWatchlistItem | ProductWatchlistSchema):
+    conditions = []
+    for term in build_product_match_terms(product):
+        pattern = f"%{term}%"
+        json_pattern = f'%"{term}"%'
+        conditions.extend(
+            [
+                cast(NormalizedItem.products, String).ilike(json_pattern),
+                cast(NormalizedItem.products, String).ilike(pattern),
+                cast(NormalizedItem.topics, String).ilike(pattern),
+                NormalizedItem.title.ilike(pattern),
+                NormalizedItem.text.ilike(pattern),
+                NormalizedItem.summary_short.ilike(pattern),
+                NormalizedItem.summary_detailed.ilike(pattern),
+                NormalizedItem.why_it_matters.ilike(pattern),
+            ]
+        )
+
+    return (
+        db.query(NormalizedItem, UserItemAction)
+        .outerjoin(
+            UserItemAction,
+            (UserItemAction.item_id == NormalizedItem.id)
+            & (UserItemAction.user_id == LOCAL_USER_ID),
+        )
+        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+        .filter(or_(*conditions))
+        .order_by(
+            UserItemAction.is_important.desc().nullslast(),
+            NormalizedItem.importance_score.desc(),
+            NormalizedItem.relevance_score.desc(),
+            NormalizedItem.published_at.desc().nullslast(),
+            NormalizedItem.created_at.desc(),
+        )
+    )
+
+
+def build_product_match_terms(
+    product: ProductWatchlistItem | ProductWatchlistSchema,
+) -> list[str]:
+    label_words = product.label.replace("-", " ")
+    category_words = product.category.replace("-", " ")
+    return unique_normalized_terms(
+        [product.category, label_words, category_words, *product.related_terms]
     )
 
 

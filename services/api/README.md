@@ -240,6 +240,7 @@ Read and manage product-category watchlist items:
 
 ```bash
 curl "http://127.0.0.1:8000/api/watchlist/products"
+curl "http://127.0.0.1:8000/api/watchlist/products/ai-coding-tools/briefing"
 curl -X POST "http://127.0.0.1:8000/api/watchlist/products/seed"
 curl -X POST "http://127.0.0.1:8000/api/watchlist/products" \
   -H "Content-Type: application/json" \

@@ -217,3 +217,13 @@ class ProductWatchlistItemUpdate(BaseModel):
     include_in_digest: bool | None = None
     related_terms: list[str] | None = None
     notes: str | None = None
+
+
+class ProductBriefing(BaseModel):
+    product: ProductWatchlistItem
+    item_count: int
+    trending_sources: list[TopicSourceCount]
+    matched_products: list[str]
+    related_companies: list[str]
+    recent_timeline: list[FeedItem]
+    activity_timeline: list[TopicActivityBucket]
