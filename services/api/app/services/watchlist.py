@@ -44,7 +44,7 @@ from app.schemas.watchlist import CompanyWatchlistItem as CompanyWatchlistSchema
 from app.schemas.watchlist import (
     TopicWatchlistItem as TopicWatchlistSchema,
 )
-from app.services.feed_actions import LOCAL_USER_ID, serialize_feed_item
+from app.services.feed_actions import LOCAL_USER_ID, normalize_source_names, serialize_feed_item
 from app.services.scoring import TICKER_ALIASES
 from app.services.seed_data import (
     initial_company_watchlist,
@@ -57,6 +57,13 @@ NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens links AI-related items to watched stocks for research only and does not "
     "provide investment advice."
 )
+
+
+def apply_blocked_source_filter(query, blocked_sources: list[str] | None):
+    blocked_source_names = normalize_source_names(blocked_sources)
+    if not blocked_source_names:
+        return query
+    return query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
 
 
 def list_stock_watchlist(db: Session) -> list[StockWatchlistItem]:
@@ -309,6 +316,7 @@ def get_company_briefing(
     db: Session,
     company_key: str,
     limit: int = 20,
+    blocked_sources: list[str] | None = None,
 ) -> CompanyBriefing | None:
     watch_company = get_company_watchlist_item(db, company_key)
     if watch_company is None:
@@ -320,7 +328,12 @@ def get_company_briefing(
     if watch_company is None:
         return None
 
-    rows = query_company_rows(db=db, company=watch_company, limit=limit)
+    rows = query_company_rows(
+        db=db,
+        company=watch_company,
+        limit=limit,
+        blocked_sources=blocked_sources,
+    )
     items = [serialize_feed_item(item, action) for item, action in rows]
     company_schema = (
         watch_company
@@ -378,11 +391,20 @@ def query_company_rows(
     db: Session,
     company: CompanyWatchlistItem | CompanyWatchlistSchema,
     limit: int,
+    blocked_sources: list[str] | None = None,
 ) -> list[tuple[NormalizedItem, UserItemAction | None]]:
-    return company_signal_query(db=db, company=company).limit(limit).all()
+    return (
+        company_signal_query(db=db, company=company, blocked_sources=blocked_sources)
+        .limit(limit)
+        .all()
+    )
 
 
-def company_signal_query(db: Session, company: CompanyWatchlistItem | CompanyWatchlistSchema):
+def company_signal_query(
+    db: Session,
+    company: CompanyWatchlistItem | CompanyWatchlistSchema,
+    blocked_sources: list[str] | None = None,
+):
     conditions = []
     for term in build_company_match_terms(company):
         pattern = f"%{term}%"
@@ -403,7 +425,7 @@ def company_signal_query(db: Session, company: CompanyWatchlistItem | CompanyWat
             ]
         )
 
-    return (
+    query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
             UserItemAction,
@@ -412,13 +434,13 @@ def company_signal_query(db: Session, company: CompanyWatchlistItem | CompanyWat
         )
         .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
         .filter(or_(*conditions))
-        .order_by(
-            UserItemAction.is_important.desc().nullslast(),
-            NormalizedItem.importance_score.desc(),
-            NormalizedItem.relevance_score.desc(),
-            NormalizedItem.published_at.desc().nullslast(),
-            NormalizedItem.created_at.desc(),
-        )
+    )
+    return apply_blocked_source_filter(query, blocked_sources).order_by(
+        UserItemAction.is_important.desc().nullslast(),
+        NormalizedItem.importance_score.desc(),
+        NormalizedItem.relevance_score.desc(),
+        NormalizedItem.published_at.desc().nullslast(),
+        NormalizedItem.created_at.desc(),
     )
 
 
@@ -509,6 +531,7 @@ def get_product_briefing(
     db: Session,
     category: str,
     limit: int = 20,
+    blocked_sources: list[str] | None = None,
 ) -> ProductBriefing | None:
     watch_product = get_product_watchlist_item(db, category)
     if watch_product is None:
@@ -520,7 +543,12 @@ def get_product_briefing(
     if watch_product is None:
         return None
 
-    rows = query_product_rows(db=db, product=watch_product, limit=limit)
+    rows = query_product_rows(
+        db=db,
+        product=watch_product,
+        limit=limit,
+        blocked_sources=blocked_sources,
+    )
     items = [serialize_feed_item(item, action) for item, action in rows]
     product_schema = (
         watch_product
@@ -576,11 +604,20 @@ def query_product_rows(
     db: Session,
     product: ProductWatchlistItem | ProductWatchlistSchema,
     limit: int,
+    blocked_sources: list[str] | None = None,
 ) -> list[tuple[NormalizedItem, UserItemAction | None]]:
-    return product_signal_query(db=db, product=product).limit(limit).all()
+    return (
+        product_signal_query(db=db, product=product, blocked_sources=blocked_sources)
+        .limit(limit)
+        .all()
+    )
 
 
-def product_signal_query(db: Session, product: ProductWatchlistItem | ProductWatchlistSchema):
+def product_signal_query(
+    db: Session,
+    product: ProductWatchlistItem | ProductWatchlistSchema,
+    blocked_sources: list[str] | None = None,
+):
     conditions = []
     for term in build_product_match_terms(product):
         pattern = f"%{term}%"
@@ -598,7 +635,7 @@ def product_signal_query(db: Session, product: ProductWatchlistItem | ProductWat
             ]
         )
 
-    return (
+    query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
             UserItemAction,
@@ -607,13 +644,13 @@ def product_signal_query(db: Session, product: ProductWatchlistItem | ProductWat
         )
         .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
         .filter(or_(*conditions))
-        .order_by(
-            UserItemAction.is_important.desc().nullslast(),
-            NormalizedItem.importance_score.desc(),
-            NormalizedItem.relevance_score.desc(),
-            NormalizedItem.published_at.desc().nullslast(),
-            NormalizedItem.created_at.desc(),
-        )
+    )
+    return apply_blocked_source_filter(query, blocked_sources).order_by(
+        UserItemAction.is_important.desc().nullslast(),
+        NormalizedItem.importance_score.desc(),
+        NormalizedItem.relevance_score.desc(),
+        NormalizedItem.published_at.desc().nullslast(),
+        NormalizedItem.created_at.desc(),
     )
 
 
@@ -715,6 +752,7 @@ def get_topic_briefing(
     db: Session,
     topic: str,
     limit: int = 20,
+    blocked_sources: list[str] | None = None,
 ) -> TopicBriefing | None:
     watch_topic = get_topic_watchlist_item(db, topic)
     if watch_topic is None:
@@ -726,7 +764,12 @@ def get_topic_briefing(
     if watch_topic is None:
         return None
 
-    rows = query_topic_rows(db=db, topic=watch_topic, limit=limit)
+    rows = query_topic_rows(
+        db=db,
+        topic=watch_topic,
+        limit=limit,
+        blocked_sources=blocked_sources,
+    )
     items = [serialize_feed_item(item, action) for item, action in rows]
     topic_schema = (
         watch_topic
@@ -777,11 +820,20 @@ def query_topic_rows(
     db: Session,
     topic: TopicWatchlistItem | TopicWatchlistSchema,
     limit: int,
+    blocked_sources: list[str] | None = None,
 ) -> list[tuple[NormalizedItem, UserItemAction | None]]:
-    return topic_signal_query(db=db, topic=topic).limit(limit).all()
+    return (
+        topic_signal_query(db=db, topic=topic, blocked_sources=blocked_sources)
+        .limit(limit)
+        .all()
+    )
 
 
-def topic_signal_query(db: Session, topic: TopicWatchlistItem | TopicWatchlistSchema):
+def topic_signal_query(
+    db: Session,
+    topic: TopicWatchlistItem | TopicWatchlistSchema,
+    blocked_sources: list[str] | None = None,
+):
     conditions = []
     for term in build_topic_match_terms(topic):
         pattern = f"%{term}%"
@@ -799,7 +851,7 @@ def topic_signal_query(db: Session, topic: TopicWatchlistItem | TopicWatchlistSc
             ]
         )
 
-    return (
+    query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
             UserItemAction,
@@ -808,13 +860,13 @@ def topic_signal_query(db: Session, topic: TopicWatchlistItem | TopicWatchlistSc
         )
         .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
         .filter(or_(*conditions))
-        .order_by(
-            UserItemAction.is_important.desc().nullslast(),
-            NormalizedItem.importance_score.desc(),
-            NormalizedItem.relevance_score.desc(),
-            NormalizedItem.published_at.desc().nullslast(),
-            NormalizedItem.created_at.desc(),
-        )
+    )
+    return apply_blocked_source_filter(query, blocked_sources).order_by(
+        UserItemAction.is_important.desc().nullslast(),
+        NormalizedItem.importance_score.desc(),
+        NormalizedItem.relevance_score.desc(),
+        NormalizedItem.published_at.desc().nullslast(),
+        NormalizedItem.created_at.desc(),
     )
 
 
@@ -837,16 +889,28 @@ def build_company_match_terms(company: CompanyWatchlistItem | CompanyWatchlistSc
 def summarize_stock_signals(
     db: Session,
     limit_per_stock: int = 3,
+    blocked_sources: list[str] | None = None,
 ) -> list[StockSignalSummary]:
     stocks = list_stock_watchlist(db)
     if not stocks:
         summaries = [
-            build_stock_signal_summary(db, stock, limit=limit_per_stock)
+            build_stock_signal_summary(
+                db,
+                stock,
+                limit=limit_per_stock,
+                blocked_sources=blocked_sources,
+            )
             for stock in initial_stock_watchlist()
         ]
     else:
         summaries = [
-            build_stock_signal_summary(db, stock, limit=limit_per_stock) for stock in stocks
+            build_stock_signal_summary(
+                db,
+                stock,
+                limit=limit_per_stock,
+                blocked_sources=blocked_sources,
+            )
+            for stock in stocks
         ]
     return sorted(summaries, key=lambda summary: summary.attention_score, reverse=True)
 
@@ -855,6 +919,7 @@ def get_stock_signals(
     db: Session,
     ticker: str,
     limit: int = 20,
+    blocked_sources: list[str] | None = None,
 ) -> StockSignalSummary | None:
     normalized_ticker = ticker.strip().upper()
     stock = (
@@ -872,15 +937,26 @@ def get_stock_signals(
         )
     if stock is None:
         return None
-    return build_stock_signal_summary(db, stock, limit=limit)
+    return build_stock_signal_summary(
+        db,
+        stock,
+        limit=limit,
+        blocked_sources=blocked_sources,
+    )
 
 
 def get_stock_briefing(
     db: Session,
     ticker: str,
     limit: int = 10,
+    blocked_sources: list[str] | None = None,
 ) -> StockBriefing | None:
-    summary = get_stock_signals(db, ticker=ticker, limit=limit)
+    summary = get_stock_signals(
+        db,
+        ticker=ticker,
+        limit=limit,
+        blocked_sources=blocked_sources,
+    )
     if summary is None:
         return None
     return build_stock_briefing(summary)
@@ -890,10 +966,16 @@ def build_stock_signal_summary(
     db: Session,
     stock: StockWatchlistItem | StockWatchlistSchema,
     limit: int,
+    blocked_sources: list[str] | None = None,
 ) -> StockSignalSummary:
-    rows = query_stock_signal_rows(db, stock=stock, limit=limit)
+    rows = query_stock_signal_rows(
+        db,
+        stock=stock,
+        limit=limit,
+        blocked_sources=blocked_sources,
+    )
     top_signals = [serialize_feed_item(item, action) for item, action in rows]
-    signal_count = count_stock_signal_rows(db, stock=stock)
+    signal_count = count_stock_signal_rows(db, stock=stock, blocked_sources=blocked_sources)
     latest_signal = top_signals[0] if top_signals else None
     stock_schema = stock if isinstance(stock, StockWatchlistSchema) else (
         StockWatchlistSchema.model_validate(stock)
@@ -901,7 +983,11 @@ def build_stock_signal_summary(
     return StockSignalSummary(
         stock=stock_schema,
         signal_count=signal_count,
-        high_impact_count=count_high_impact_stock_signal_rows(db, stock=stock),
+        high_impact_count=count_high_impact_stock_signal_rows(
+            db,
+            stock=stock,
+            blocked_sources=blocked_sources,
+        ),
         attention_score=compute_stock_attention_score(
             stock=stock_schema,
             top_signals=top_signals,
@@ -1254,23 +1340,30 @@ def query_stock_signal_rows(
     db: Session,
     stock: StockWatchlistItem | StockWatchlistSchema,
     limit: int,
+    blocked_sources: list[str] | None = None,
 ) -> list[tuple[NormalizedItem, UserItemAction | None]]:
-    return stock_signal_query(db, stock=stock).limit(limit).all()
+    return (
+        stock_signal_query(db, stock=stock, blocked_sources=blocked_sources)
+        .limit(limit)
+        .all()
+    )
 
 
 def count_stock_signal_rows(
     db: Session,
     stock: StockWatchlistItem | StockWatchlistSchema,
+    blocked_sources: list[str] | None = None,
 ) -> int:
-    return stock_signal_query(db, stock=stock).count()
+    return stock_signal_query(db, stock=stock, blocked_sources=blocked_sources).count()
 
 
 def count_high_impact_stock_signal_rows(
     db: Session,
     stock: StockWatchlistItem | StockWatchlistSchema,
+    blocked_sources: list[str] | None = None,
 ) -> int:
     return (
-        stock_signal_query(db, stock=stock)
+        stock_signal_query(db, stock=stock, blocked_sources=blocked_sources)
         .filter(
             or_(
                 NormalizedItem.stock_impact_score >= 0.75,
@@ -1285,7 +1378,11 @@ def build_sentiment_counts(items: list[FeedItem]) -> dict[str, int]:
     return dict(Counter(item.sentiment or "neutral" for item in items))
 
 
-def stock_signal_query(db: Session, stock: StockWatchlistItem | StockWatchlistSchema):
+def stock_signal_query(
+    db: Session,
+    stock: StockWatchlistItem | StockWatchlistSchema,
+    blocked_sources: list[str] | None = None,
+):
     conditions = []
     for symbol in build_stock_symbol_terms(stock):
         pattern = f'%"{symbol}"%'
@@ -1310,7 +1407,7 @@ def stock_signal_query(db: Session, stock: StockWatchlistItem | StockWatchlistSc
             ]
         )
 
-    return (
+    query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
             UserItemAction,
@@ -1319,14 +1416,14 @@ def stock_signal_query(db: Session, stock: StockWatchlistItem | StockWatchlistSc
         )
         .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
         .filter(or_(*conditions))
-        .order_by(
-            UserItemAction.is_important.desc().nullslast(),
-            NormalizedItem.stock_impact_score.desc(),
-            NormalizedItem.importance_score.desc(),
-            NormalizedItem.relevance_score.desc(),
-            NormalizedItem.published_at.desc().nullslast(),
-            NormalizedItem.created_at.desc(),
-        )
+    )
+    return apply_blocked_source_filter(query, blocked_sources).order_by(
+        UserItemAction.is_important.desc().nullslast(),
+        NormalizedItem.stock_impact_score.desc(),
+        NormalizedItem.importance_score.desc(),
+        NormalizedItem.relevance_score.desc(),
+        NormalizedItem.published_at.desc().nullslast(),
+        NormalizedItem.created_at.desc(),
     )
 
 

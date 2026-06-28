@@ -153,3 +153,4 @@ Implementation progress:
 - Applied local visibility and blocked-source preferences to alert generation and alert listing so hidden or blocked signals no longer surface as dashboard alerts.
 - Applied blocked-source preferences to daily digest generation, latest digest date selection, source coverage, markdown export, and saved snapshots.
 - Applied blocked-source preferences to batch LLM candidate selection so blocked sources do not consume summarization or classification budget.
+- Applied blocked-source preferences to stock, company, topic, and product watchlist summaries and drill-down briefings.

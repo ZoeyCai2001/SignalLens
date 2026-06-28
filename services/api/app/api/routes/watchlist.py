@@ -51,6 +51,7 @@ from app.services.watchlist import (
     update_stock_watchlist_item,
     update_topic_watchlist_item,
 )
+from app.services.preferences import get_user_preferences
 from app.services.watchlist import (
     list_stock_watchlist as list_stock_watchlist_items,
 )
@@ -89,7 +90,12 @@ async def list_stock_signal_summary(
     db: DbSession,
     limit_per_stock: Annotated[int, Query(ge=0, le=10)] = 3,
 ) -> list[StockSignalSummary]:
-    return summarize_stock_signals(db, limit_per_stock=limit_per_stock)
+    preferences = get_user_preferences(db)
+    return summarize_stock_signals(
+        db,
+        limit_per_stock=limit_per_stock,
+        blocked_sources=preferences.blocked_sources,
+    )
 
 
 @router.get("/stocks/{ticker}/signals", response_model=StockSignalSummary)
@@ -98,7 +104,13 @@ async def list_stock_signals(
     db: DbSession,
     limit: Annotated[int, Query(ge=0, le=100)] = 20,
 ) -> StockSignalSummary:
-    result = get_stock_signals(db, ticker=ticker, limit=limit)
+    preferences = get_user_preferences(db)
+    result = get_stock_signals(
+        db,
+        ticker=ticker,
+        limit=limit,
+        blocked_sources=preferences.blocked_sources,
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
     return result
@@ -110,7 +122,13 @@ async def get_stock_watchlist_briefing(
     db: DbSession,
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> StockBriefing:
-    result = get_stock_briefing(db, ticker=ticker, limit=limit)
+    preferences = get_user_preferences(db)
+    result = get_stock_briefing(
+        db,
+        ticker=ticker,
+        limit=limit,
+        blocked_sources=preferences.blocked_sources,
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
     return result
@@ -176,7 +194,13 @@ async def get_company_watchlist_briefing(
     db: DbSession,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> CompanyBriefing:
-    result = get_company_briefing(db=db, company_key=company_key, limit=limit)
+    preferences = get_user_preferences(db)
+    result = get_company_briefing(
+        db=db,
+        company_key=company_key,
+        limit=limit,
+        blocked_sources=preferences.blocked_sources,
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="Company not found in watchlist.")
     return result
@@ -233,7 +257,13 @@ async def get_topic_watchlist_briefing(
     db: DbSession,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> TopicBriefing:
-    result = get_topic_briefing(db=db, topic=topic, limit=limit)
+    preferences = get_user_preferences(db)
+    result = get_topic_briefing(
+        db=db,
+        topic=topic,
+        limit=limit,
+        blocked_sources=preferences.blocked_sources,
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="Topic not found in watchlist.")
     return result
@@ -290,7 +320,13 @@ async def get_product_watchlist_briefing(
     db: DbSession,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ProductBriefing:
-    result = get_product_briefing(db=db, category=category, limit=limit)
+    preferences = get_user_preferences(db)
+    result = get_product_briefing(
+        db=db,
+        category=category,
+        limit=limit,
+        blocked_sources=preferences.blocked_sources,
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="Product category not found in watchlist.")
     return result
