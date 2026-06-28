@@ -331,17 +331,23 @@ For MVP privacy, `shares` and `average_cost` should remain nullable and hidden u
 
 ### Watchlists
 
-- `GET /api/watchlists/topics`
-- `POST /api/watchlists/topics`
-- `DELETE /api/watchlists/topics/{topic_id}`
-- `GET /api/watchlists/companies`
-- `POST /api/watchlists/companies`
-- `PATCH /api/watchlists/companies/{company_key}`
-- `DELETE /api/watchlists/companies/{company_key}`
-- `GET /api/watchlists/stocks`
-- `POST /api/watchlists/stocks`
-- `PATCH /api/watchlists/stocks/{watchlist_item_id}`
-- `DELETE /api/watchlists/stocks/{watchlist_item_id}`
+- `GET /api/watchlist/topics`
+- `POST /api/watchlist/topics`
+- `DELETE /api/watchlist/topics/{topic}`
+- `GET /api/watchlist/companies`
+- `POST /api/watchlist/companies`
+- `PATCH /api/watchlist/companies/{company_key}`
+- `DELETE /api/watchlist/companies/{company_key}`
+- `GET /api/watchlist/stocks`
+- `POST /api/watchlist/stocks`
+- `PATCH /api/watchlist/stocks/{ticker}`
+- `DELETE /api/watchlist/stocks/{ticker}`
+- `GET /api/watchlist/products`
+- `POST /api/watchlist/products`
+- `PATCH /api/watchlist/products/{category}`
+- `DELETE /api/watchlist/products/{category}`
+
+The dashboard surfaces stock, company, topic, and product-category watchlists as editable operational panels. Company watchlists support public tickers and private AI labs, and their terms feed into ranking personalization.
 
 ### Stocks
 

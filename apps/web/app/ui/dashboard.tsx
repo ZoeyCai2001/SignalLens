@@ -165,6 +165,18 @@ type StockBriefing = {
   disclaimer: string;
 };
 
+type CompanyWatchlistItem = {
+  company_key: string;
+  company_name: string;
+  ticker: string | null;
+  category: string;
+  priority: string;
+  is_pinned: boolean;
+  include_in_digest: boolean;
+  related_terms: string[];
+  notes: string | null;
+};
+
 type TopicWatchlistItem = {
   topic: string;
   label: string;
@@ -502,6 +514,7 @@ export function Dashboard() {
   const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
+  const [companies, setCompanies] = useState<CompanyWatchlistItem[]>([]);
   const [productWatchlist, setProductWatchlist] = useState<ProductWatchlistItem[]>([]);
   const [selectedProductCategory, setSelectedProductCategory] = useState<string | null>(null);
   const [productBriefing, setProductBriefing] = useState<ProductBriefing | null>(null);
@@ -546,6 +559,10 @@ export function Dashboard() {
   const [stockCompany, setStockCompany] = useState("");
   const [stockThemes, setStockThemes] = useState("");
   const [stockKeywords, setStockKeywords] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companyTicker, setCompanyTicker] = useState("");
+  const [companyCategory, setCompanyCategory] = useState("ai_company");
+  const [companyTerms, setCompanyTerms] = useState("");
   const [topicName, setTopicName] = useState("");
   const [topicLabel, setTopicLabel] = useState("");
   const [topicCategory, setTopicCategory] = useState("technical_trend");
@@ -616,6 +633,7 @@ export function Dashboard() {
         nextSavedItems,
         nextStocks,
         nextStockSignals,
+        nextCompanies,
         nextProductWatchlist,
         nextTopics,
         nextSources,
@@ -633,6 +651,7 @@ export function Dashboard() {
           fetchJson<FeedItem[]>("/api/feed?limit=30&saved_only=true"),
           fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
           fetchJson<StockSignalSummary[]>("/api/watchlist/stocks/signals/summary"),
+          fetchJson<CompanyWatchlistItem[]>("/api/watchlist/companies"),
           fetchJson<ProductWatchlistItem[]>("/api/watchlist/products"),
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
           fetchJson<SourceHealth[]>("/api/sources/health"),
@@ -649,6 +668,7 @@ export function Dashboard() {
       setSavedItems(nextSavedItems);
       setStocks(nextStocks);
       setStockSignals(nextStockSignals);
+      setCompanies(nextCompanies);
       setProductWatchlist(nextProductWatchlist);
       setTopics(nextTopics);
       setSources(nextSources);
@@ -1205,6 +1225,89 @@ export function Dashboard() {
     } catch (err) {
       setError(readError(err));
       setStatus("Stock update failed");
+    } finally {
+      setBusyWatchlistKey(null);
+    }
+  };
+
+  const submitCompany = async () => {
+    if (!companyName.trim()) {
+      setError("Company watchlist entries need a company name.");
+      return;
+    }
+
+    setLoadState("running");
+    setError(null);
+    try {
+      const created = await fetchJson<CompanyWatchlistItem>("/api/watchlist/companies", {
+        method: "POST",
+        body: JSON.stringify({
+          company_name: companyName.trim(),
+          ticker: companyTicker.trim() || null,
+          category: companyCategory,
+          related_terms: splitTerms(companyTerms),
+        }),
+      });
+      setCompanies((items) => [
+        created,
+        ...items.filter((item) => item.company_key !== created.company_key),
+      ]);
+      setCompanyName("");
+      setCompanyTicker("");
+      setCompanyCategory("ai_company");
+      setCompanyTerms("");
+      setStatus(`Added company ${created.company_name}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Company add failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const updateCompany = async (
+    companyKey: string,
+    payload: Partial<Pick<CompanyWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+  ) => {
+    const key = `company:${companyKey}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      const updated = await fetchJson<CompanyWatchlistItem>(
+        `/api/watchlist/companies/${encodeURIComponent(companyKey)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        },
+      );
+      setCompanies((items) =>
+        items.map((item) => (item.company_key === updated.company_key ? updated : item)),
+      );
+      setStatus(`Updated company ${updated.company_name}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Company update failed");
+    } finally {
+      setBusyWatchlistKey(null);
+    }
+  };
+
+  const deleteCompany = async (companyKey: string) => {
+    const key = `company:${companyKey}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      await sendRequest(`/api/watchlist/companies/${encodeURIComponent(companyKey)}`, {
+        method: "DELETE",
+      });
+      setCompanies((items) => items.filter((item) => item.company_key !== companyKey));
+      setStatus(`Removed company ${companyKey}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Company remove failed");
     } finally {
       setBusyWatchlistKey(null);
     }
@@ -1861,7 +1964,7 @@ export function Dashboard() {
               sourceCount={sources.length}
               enabledSourceCount={sources.filter((source) => source.enabled).length}
               alertCount={alerts.length}
-              watchlistCount={stocks.length + topics.length + productWatchlist.length}
+              watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
             />
             <RankingPreferencesPanel
               preferences={preferences}
@@ -1947,6 +2050,22 @@ export function Dashboard() {
               onUpdateStock={updateStock}
               onDeleteStock={deleteStock}
               onSubmit={submitStock}
+            />
+            <CompanyWatchlistPanel
+              companies={companies}
+              name={companyName}
+              ticker={companyTicker}
+              category={companyCategory}
+              terms={companyTerms}
+              disabled={loadState !== "idle"}
+              busyWatchlistKey={busyWatchlistKey}
+              onNameChange={setCompanyName}
+              onTickerChange={setCompanyTicker}
+              onCategoryChange={setCompanyCategory}
+              onTermsChange={setCompanyTerms}
+              onUpdate={updateCompany}
+              onDelete={deleteCompany}
+              onSubmit={submitCompany}
             />
             <TopicTable
               topics={topics}
@@ -3673,6 +3792,191 @@ function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
         </span>
       </div>
     </div>
+  );
+}
+
+function CompanyWatchlistPanel({
+  companies,
+  name,
+  ticker,
+  category,
+  terms,
+  disabled,
+  busyWatchlistKey,
+  onNameChange,
+  onTickerChange,
+  onCategoryChange,
+  onTermsChange,
+  onUpdate,
+  onDelete,
+  onSubmit,
+}: {
+  companies: CompanyWatchlistItem[];
+  name: string;
+  ticker: string;
+  category: string;
+  terms: string;
+  disabled: boolean;
+  busyWatchlistKey: string | null;
+  onNameChange: (value: string) => void;
+  onTickerChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onTermsChange: (value: string) => void;
+  onUpdate: (
+    companyKey: string,
+    payload: Partial<Pick<CompanyWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+  ) => void;
+  onDelete: (companyKey: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Company Watchlist</h2>
+        <span className="small-muted">{companies.length} companies</span>
+      </div>
+      <div className="form-panel compact-form">
+        <input
+          className="field"
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          placeholder="Company"
+          aria-label="Company name"
+        />
+        <input
+          className="field"
+          value={ticker}
+          onChange={(event) => onTickerChange(event.target.value)}
+          placeholder="Ticker"
+          aria-label="Company ticker"
+        />
+        <select
+          className="field"
+          value={category}
+          onChange={(event) => onCategoryChange(event.target.value)}
+          aria-label="Company category"
+        >
+          <option value="ai_company">AI company</option>
+          <option value="semiconductor">Semiconductor</option>
+          <option value="cloud_ai">Cloud AI</option>
+          <option value="ai_platform">AI platform</option>
+          <option value="ai_lab">AI lab</option>
+        </select>
+        <input
+          className="field"
+          value={terms}
+          onChange={(event) => onTermsChange(event.target.value)}
+          placeholder="Terms"
+          aria-label="Company related terms"
+        />
+        <button className="button primary" onClick={onSubmit} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+          Add
+        </button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Category</th>
+              <th>Priority</th>
+              <th>Terms</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {companies.map((company) => {
+              const busy = busyWatchlistKey === `company:${company.company_key}`;
+              return (
+                <tr key={company.company_key}>
+                  <td>
+                    <div className="digest-link">{company.company_name}</div>
+                    <div className="small-muted">{company.ticker ?? company.company_key}</div>
+                  </td>
+                  <td>{company.category}</td>
+                  <td>
+                    <select
+                      className={`field table-field priority-${company.priority.toLowerCase()}`}
+                      value={company.priority}
+                      onChange={(event) =>
+                        onUpdate(company.company_key, { priority: event.target.value })
+                      }
+                      disabled={disabled || busy}
+                      aria-label={`Priority for ${company.company_name}`}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </td>
+                  <td>{company.related_terms.slice(0, 3).join(", ")}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="button icon-button"
+                        onClick={() =>
+                          onUpdate(company.company_key, { is_pinned: !company.is_pinned })
+                        }
+                        disabled={disabled || busy}
+                        title={
+                          company.is_pinned
+                            ? `Unpin ${company.company_name}`
+                            : `Pin ${company.company_name}`
+                        }
+                        aria-label={
+                          company.is_pinned
+                            ? `Unpin ${company.company_name}`
+                            : `Pin ${company.company_name}`
+                        }
+                      >
+                        {busy ? (
+                          <Loader2 className="spin" size={16} />
+                        ) : (
+                          <Star size={16} fill={company.is_pinned ? "currentColor" : "none"} />
+                        )}
+                      </button>
+                      <button
+                        className={`button icon-button ${
+                          company.include_in_digest ? "active-icon-button" : ""
+                        }`}
+                        onClick={() =>
+                          onUpdate(company.company_key, {
+                            include_in_digest: !company.include_in_digest,
+                          })
+                        }
+                        disabled={disabled || busy}
+                        title={
+                          company.include_in_digest
+                            ? `Exclude ${company.company_name} from digest`
+                            : `Include ${company.company_name} in digest`
+                        }
+                        aria-label={
+                          company.include_in_digest
+                            ? `Exclude ${company.company_name} from digest`
+                            : `Include ${company.company_name} in digest`
+                        }
+                      >
+                        {busy ? <Loader2 className="spin" size={16} /> : <CalendarDays size={16} />}
+                      </button>
+                      <button
+                        className="button icon-button"
+                        onClick={() => onDelete(company.company_key)}
+                        disabled={disabled || busy}
+                        title={`Remove ${company.company_name}`}
+                        aria-label={`Remove ${company.company_name}`}
+                      >
+                        {busy ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
