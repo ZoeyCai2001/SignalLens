@@ -4,10 +4,14 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy.orm import Session
 
+from app.db.models import Source
 from app.services.alerts import generate_alerts
 from app.services.daily_digest import save_daily_digest_snapshot
 from app.services.ingestion import (
+    REGISTERED_SOURCE_RUNNERS_BY_NAME,
     IngestionResult,
+    SourceRunnerNotFoundError,
+    record_skipped_run,
     run_alpha_vantage_news_ingestion,
     run_alpha_vantage_price_ingestion,
     run_arxiv_ingestion,
@@ -17,6 +21,7 @@ from app.services.ingestion import (
     run_hugging_face_ingestion,
     run_product_hunt_ingestion,
     run_rss_ingestion,
+    run_source_ingestion_by_id,
 )
 from app.services.watchlist import (
     seed_initial_company_watchlist,
@@ -29,6 +34,8 @@ IngestionJob = Callable[[Session, int], Awaitable[IngestionResult]]
 WatchlistSeeder = Callable[[Session], tuple[int, int, int, int]]
 AlertGenerator = Callable[[Session], int]
 DigestSnapshotSaver = Callable[[Session], date]
+CustomSourceLister = Callable[[Session], list[Source]]
+CustomSourceRunner = Callable[[Session, int], Awaitable[IngestionResult]]
 
 
 @dataclass(frozen=True)
@@ -88,12 +95,24 @@ def save_cycle_digest_snapshot(db: Session) -> date:
     return save_daily_digest_snapshot(db).digest_date
 
 
+def list_enabled_custom_sources(db: Session) -> list[Source]:
+    registered_names = set(REGISTERED_SOURCE_RUNNERS_BY_NAME)
+    return (
+        db.query(Source)
+        .filter(Source.enabled.is_(True), ~Source.name.in_(registered_names))
+        .order_by(Source.priority.asc(), Source.name.asc())
+        .all()
+    )
+
+
 async def run_ingestion_cycle(
     db: Session,
     jobs: list[ScheduledIngestionJob] | None = None,
     seed_watchlists: WatchlistSeeder = seed_default_watchlists,
     generate_cycle_alerts_fn: AlertGenerator = generate_cycle_alerts,
     save_digest_snapshot_fn: DigestSnapshotSaver = save_cycle_digest_snapshot,
+    list_custom_sources_fn: CustomSourceLister = list_enabled_custom_sources,
+    run_custom_source_fn: CustomSourceRunner = run_source_ingestion_by_id,
 ) -> ScheduledCycleResult:
     started_at = datetime.now(UTC)
     (
@@ -104,8 +123,14 @@ async def run_ingestion_cycle(
     ) = seed_watchlists(db)
     ingestion_results: list[IngestionResult] = []
 
-    for job in jobs or DEFAULT_INGESTION_JOBS:
+    for job in DEFAULT_INGESTION_JOBS if jobs is None else jobs:
         result = await job.runner(db, job.limit)
+        ingestion_results.append(result)
+    for source in list_custom_sources_fn(db):
+        try:
+            result = await run_custom_source_fn(db, source.id)
+        except SourceRunnerNotFoundError as exc:
+            result = record_skipped_run(db=db, source=source, message=str(exc))
         ingestion_results.append(result)
     generated_alert_count = generate_cycle_alerts_fn(db)
     saved_digest_date = save_digest_snapshot_fn(db)
