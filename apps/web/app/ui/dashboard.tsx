@@ -535,7 +535,9 @@ type ModuleKey =
   | "stocks"
   | "chinese"
   | "saved"
-  | "digest";
+  | "digest"
+  | "sources"
+  | "settings";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 const STOCK_DISCLAIMER =
@@ -568,6 +570,8 @@ const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[]
   { key: "chinese", label: "Chinese Social", icon: Newspaper },
   { key: "saved", label: "Saved Items", icon: Bookmark },
   { key: "digest", label: "Daily Digest", icon: CalendarDays },
+  { key: "sources", label: "Source Health", icon: DatabaseZap },
+  { key: "settings", label: "Settings", icon: SlidersHorizontal },
 ];
 
 export function Dashboard() {
@@ -1861,8 +1865,8 @@ export function Dashboard() {
   };
 
   const moduleCounts = useMemo(
-    () => buildModuleCounts(feed, digest, savedItems),
-    [digest, feed, savedItems],
+    () => buildModuleCounts(feed, digest, savedItems, sources, preferences),
+    [digest, feed, preferences, savedItems, sources],
   );
   const moduleFeed = useMemo(
     () => filterFeedByModule(feed, activeModule, digest, savedItems),
@@ -1882,6 +1886,58 @@ export function Dashboard() {
       { label: "Summaries", value: summarized },
     ];
   }, [alerts.length, feed.length, moduleFeed]);
+
+  const systemStatusPanel = (
+    <SystemStatusPanel
+      status={systemStatus}
+      itemCount={feed.length}
+      sourceCount={sources.length}
+      enabledSourceCount={sources.filter((source) => source.enabled).length}
+      alertCount={alerts.length}
+      watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
+    />
+  );
+  const rankingPreferencesPanel = (
+    <RankingPreferencesPanel
+      preferences={preferences}
+      draft={rankingDraft}
+      preferredSources={preferredSourcesDraft}
+      blockedSources={blockedSourcesDraft}
+      languagePreferences={languagePreferencesDraft}
+      disabled={loadState !== "idle"}
+      busy={busyPreferences}
+      onDraftChange={updateRankingDraft}
+      onPreferredSourcesChange={setPreferredSourcesDraft}
+      onBlockedSourcesChange={setBlockedSourcesDraft}
+      onLanguagePreferencesChange={setLanguagePreferencesDraft}
+      onReset={() => setRankingDraft(DEFAULT_RANKING_WEIGHTS)}
+      onSave={saveRankingPreferences}
+    />
+  );
+  const sourceHealthPanel = (
+    <SourceTable
+      sources={sources}
+      runs={sourceRuns}
+      lastCycleResult={lastCycleResult}
+      name={sourceName}
+      type={sourceType}
+      accessMethod={sourceAccessMethod}
+      baseUrl={sourceBaseUrl}
+      termsNotes={sourceTermsNotes}
+      disabled={loadState !== "idle"}
+      busySourceId={busySourceId}
+      onNameChange={setSourceName}
+      onTypeChange={setSourceType}
+      onAccessMethodChange={setSourceAccessMethod}
+      onBaseUrlChange={setSourceBaseUrl}
+      onTermsNotesChange={setSourceTermsNotes}
+      onSubmit={submitSource}
+      onRunSource={runSourceNow}
+      onToggleSource={toggleSource}
+      onUpdateSource={updateSource}
+      onDeleteSource={deleteSource}
+    />
+  );
 
   return (
     <div className="app-shell">
@@ -2117,86 +2173,74 @@ export function Dashboard() {
         </section>
 
         <div className="content-grid">
-          <section className="section">
-            <div className="section-header">
-              <h2 className="section-title">
-                {activeModule === "dashboard" ? "Ranked Feed" : `${activeModuleLabel} Feed`}
-              </h2>
-              <span className="small-muted">{moduleFeed.length} items</span>
-            </div>
-            <SearchPanel
-              query={searchQuery}
-              source={searchSource}
-              category={searchCategory}
-              ticker={searchTicker}
-              company={searchCompany}
-              topic={searchTopic}
-              language={searchLanguage}
-              dateFrom={searchDateFrom}
-              dateTo={searchDateTo}
-              minImportance={searchMinImportance}
-              intent={searchIntent}
-              savedOnly={savedOnly}
-              disabled={loadState !== "idle"}
-              onQueryChange={(value) => updateSearchField(setSearchQuery, value)}
-              onSourceChange={(value) => updateSearchField(setSearchSource, value)}
-              onCategoryChange={(value) => updateSearchField(setSearchCategory, value)}
-              onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
-              onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
-              onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
-              onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
-              onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
-              onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
-              onMinImportanceChange={(value) => updateSearchField(setSearchMinImportance, value)}
-              onSavedOnlyChange={updateSavedOnlySearchFilter}
-              onSearch={runSearch}
-              onClear={clearSearch}
-            />
-            <div className="feed-list">
-              {moduleFeed.length ? (
-                moduleFeed.map((item) => (
-                  <FeedCard
-                    item={item}
-                    key={item.id}
-                    busy={busyItemId === item.id}
-                    detail={selectedFeedDetail?.id === item.id ? selectedFeedDetail : null}
-                    busyDetail={busyDetailItemId === item.id}
-                    onSummarize={summarizeItem}
-                    onClassify={classifyItem}
-                    onDetail={loadFeedDetail}
-                    onAction={updateFeedAction}
-                  />
-                ))
-              ) : (
-                <div className="empty-state">No items for this module.</div>
-              )}
-            </div>
-          </section>
+          {activeModule === "sources" ? (
+            sourceHealthPanel
+          ) : activeModule === "settings" ? (
+            <section className="module-stack">
+              {systemStatusPanel}
+              {rankingPreferencesPanel}
+            </section>
+          ) : (
+            <section className="section">
+              <div className="section-header">
+                <h2 className="section-title">
+                  {activeModule === "dashboard" ? "Ranked Feed" : `${activeModuleLabel} Feed`}
+                </h2>
+                <span className="small-muted">{moduleFeed.length} items</span>
+              </div>
+              <SearchPanel
+                query={searchQuery}
+                source={searchSource}
+                category={searchCategory}
+                ticker={searchTicker}
+                company={searchCompany}
+                topic={searchTopic}
+                language={searchLanguage}
+                dateFrom={searchDateFrom}
+                dateTo={searchDateTo}
+                minImportance={searchMinImportance}
+                intent={searchIntent}
+                savedOnly={savedOnly}
+                disabled={loadState !== "idle"}
+                onQueryChange={(value) => updateSearchField(setSearchQuery, value)}
+                onSourceChange={(value) => updateSearchField(setSearchSource, value)}
+                onCategoryChange={(value) => updateSearchField(setSearchCategory, value)}
+                onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
+                onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
+                onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
+                onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
+                onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
+                onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
+                onMinImportanceChange={(value) => updateSearchField(setSearchMinImportance, value)}
+                onSavedOnlyChange={updateSavedOnlySearchFilter}
+                onSearch={runSearch}
+                onClear={clearSearch}
+              />
+              <div className="feed-list">
+                {moduleFeed.length ? (
+                  moduleFeed.map((item) => (
+                    <FeedCard
+                      item={item}
+                      key={item.id}
+                      busy={busyItemId === item.id}
+                      detail={selectedFeedDetail?.id === item.id ? selectedFeedDetail : null}
+                      busyDetail={busyDetailItemId === item.id}
+                      onSummarize={summarizeItem}
+                      onClassify={classifyItem}
+                      onDetail={loadFeedDetail}
+                      onAction={updateFeedAction}
+                    />
+                  ))
+                ) : (
+                  <div className="empty-state">No items for this module.</div>
+                )}
+              </div>
+            </section>
+          )}
 
           <aside className="stack">
-            <SystemStatusPanel
-              status={systemStatus}
-              itemCount={feed.length}
-              sourceCount={sources.length}
-              enabledSourceCount={sources.filter((source) => source.enabled).length}
-              alertCount={alerts.length}
-              watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
-            />
-            <RankingPreferencesPanel
-              preferences={preferences}
-              draft={rankingDraft}
-              preferredSources={preferredSourcesDraft}
-              blockedSources={blockedSourcesDraft}
-              languagePreferences={languagePreferencesDraft}
-              disabled={loadState !== "idle"}
-              busy={busyPreferences}
-              onDraftChange={updateRankingDraft}
-              onPreferredSourcesChange={setPreferredSourcesDraft}
-              onBlockedSourcesChange={setBlockedSourcesDraft}
-              onLanguagePreferencesChange={setLanguagePreferencesDraft}
-              onReset={() => setRankingDraft(DEFAULT_RANKING_WEIGHTS)}
-              onSave={saveRankingPreferences}
-            />
+            {activeModule === "settings" ? null : systemStatusPanel}
+            {activeModule === "settings" ? null : rankingPreferencesPanel}
             <AlertPanel
               alerts={alerts}
               rules={alertRules}
@@ -2328,28 +2372,7 @@ export function Dashboard() {
               onDelete={deleteProductCategory}
               onSubmit={submitProductCategory}
             />
-            <SourceTable
-              sources={sources}
-              runs={sourceRuns}
-              lastCycleResult={lastCycleResult}
-              name={sourceName}
-              type={sourceType}
-              accessMethod={sourceAccessMethod}
-              baseUrl={sourceBaseUrl}
-              termsNotes={sourceTermsNotes}
-              disabled={loadState !== "idle"}
-              busySourceId={busySourceId}
-              onNameChange={setSourceName}
-              onTypeChange={setSourceType}
-              onAccessMethodChange={setSourceAccessMethod}
-              onBaseUrlChange={setSourceBaseUrl}
-              onTermsNotesChange={setSourceTermsNotes}
-              onSubmit={submitSource}
-              onRunSource={runSourceNow}
-              onToggleSource={toggleSource}
-              onUpdateSource={updateSource}
-              onDeleteSource={deleteSource}
-            />
+            {activeModule === "sources" ? null : sourceHealthPanel}
           </aside>
         </div>
       </main>
@@ -5631,7 +5654,16 @@ function buildModuleCounts(
   feed: FeedItem[],
   digest: DailyDigest | null,
   savedItems: FeedItem[],
+  sources: SourceHealth[],
+  preferences: UserPreferences | null,
 ): Record<ModuleKey, number> {
+  const settingsCount =
+    Object.values(preferences?.ranking_weights ?? DEFAULT_RANKING_WEIGHTS).filter(
+      (value) => value > 0,
+    ).length +
+    (preferences?.preferred_sources.length ?? 0) +
+    (preferences?.blocked_sources.length ?? 0) +
+    (preferences?.language_preferences.length ?? 0);
   return {
     dashboard: feed.length,
     trends: feed.filter((item) => itemMatchesModule(item, "trends")).length,
@@ -5641,6 +5673,8 @@ function buildModuleCounts(
     chinese: feed.filter((item) => itemMatchesModule(item, "chinese")).length,
     saved: savedItems.length,
     digest: collectDigestFeedItems(digest).length,
+    sources: sources.filter((source) => source.needs_attention).length,
+    settings: settingsCount,
   };
 }
 
@@ -5658,6 +5692,9 @@ function filterFeedByModule(
   }
   if (moduleKey === "digest") {
     return collectDigestFeedItems(digest);
+  }
+  if (moduleKey === "sources" || moduleKey === "settings") {
+    return [];
   }
   return feed.filter((item) => itemMatchesModule(item, moduleKey));
 }

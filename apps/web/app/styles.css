@@ -199,6 +199,12 @@ a {
   align-content: start;
 }
 
+.module-stack {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
 .section {
   display: grid;
   gap: 10px;
