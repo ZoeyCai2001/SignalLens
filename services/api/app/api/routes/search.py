@@ -49,6 +49,7 @@ async def search_items(
         ranking_weights=preferences.ranking_weights,
         preferred_sources=preferences.preferred_sources,
         blocked_sources=preferences.blocked_sources,
+        language_preferences=preferences.language_preferences,
         limit=limit,
     )
 
@@ -66,6 +67,7 @@ async def search_items_with_natural_language(
         ranking_weights=preferences.ranking_weights,
         preferred_sources=preferences.preferred_sources,
         blocked_sources=preferences.blocked_sources,
+        language_preferences=preferences.language_preferences,
         limit=payload.limit,
     )
     return NaturalLanguageSearchResponse(

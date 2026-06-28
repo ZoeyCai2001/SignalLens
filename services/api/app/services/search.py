@@ -11,6 +11,7 @@ from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
     LOCAL_USER_ID,
     build_feed_interest_profile,
+    normalize_language_codes,
     normalize_source_names,
     rank_feed_items,
     serialize_feed_item,
@@ -47,6 +48,7 @@ def search_feed_items(
     ranking_weights: RankingWeights | dict | None = None,
     preferred_sources: list[str] | None = None,
     blocked_sources: list[str] | None = None,
+    language_preferences: list[str] | None = None,
     limit: int = 30,
 ) -> list[FeedItem]:
     intent = infer_search_intent(query)
@@ -125,6 +127,10 @@ def search_feed_items(
     normalized_language = normalize_filter_value(effective_language)
     if normalized_language:
         statement = statement.filter(NormalizedItem.language == normalized_language.lower())
+    else:
+        preferred_languages = normalize_language_codes(language_preferences)
+        if preferred_languages:
+            statement = statement.filter(NormalizedItem.language.in_(preferred_languages))
 
     if effective_date_from:
         statement = statement.filter(

@@ -31,6 +31,7 @@ async def list_feed_items(
         ranking_weights=preferences.ranking_weights,
         preferred_sources=preferences.preferred_sources,
         blocked_sources=preferences.blocked_sources,
+        language_preferences=preferences.language_preferences,
         saved_only=saved_only,
     )
 

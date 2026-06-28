@@ -224,7 +224,7 @@ Source quality is deterministic in the MVP. Structured research and official API
 
 Daily digest ordering uses a deterministic blended score across importance, relevance, source quality, classifier confidence, stock impact, and novelty. This keeps the morning briefing biased toward useful and trustworthy items while preserving high-priority user-marked items at the top. Digest generation also applies local visibility rules, so hidden items and blocked sources are excluded from date selection, section contents, source coverage, markdown export, and saved snapshots.
 
-Search and event cluster APIs use the same local ranking preferences as the main feed, including configurable weights, preferred sources, and blocked sources. This keeps cross-source event discovery and ad hoc retrieval aligned with the user's personal source trust settings instead of exposing separate global views.
+Search and event cluster APIs use the same local ranking preferences as the main feed, including configurable weights, preferred sources, and blocked sources. The main feed, default search, and digest generation also honor language preferences when no explicit search language is supplied, keeping English/Chinese views aligned with the user's current reading focus instead of exposing separate global views.
 
 Alert generation applies the same trust posture and local visibility rules. Single-item alerts require enough classification confidence and source quality before a rule can fire, hidden feed items and blocked sources are excluded, and cross-source alerts require enough cluster confidence before a repeated signal is promoted as confirmed. Alert reasons include the trust signals used for the decision so the user can audit why something was surfaced.
 

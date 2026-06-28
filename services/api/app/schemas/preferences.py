@@ -15,10 +15,11 @@ class UserPreferences(BaseModel):
     ranking_weights: RankingWeights
     preferred_sources: list[str] = Field(default_factory=list)
     blocked_sources: list[str] = Field(default_factory=list)
+    language_preferences: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("preferred_sources", "blocked_sources", mode="before")
+    @field_validator("preferred_sources", "blocked_sources", "language_preferences", mode="before")
     @classmethod
     def normalize_source_lists(cls, value: list[str] | None) -> list[str]:
         if not value:
@@ -30,8 +31,9 @@ class UserPreferencesUpdate(BaseModel):
     ranking_weights: RankingWeights | None = None
     preferred_sources: list[str] | None = None
     blocked_sources: list[str] | None = None
+    language_preferences: list[str] | None = None
 
-    @field_validator("preferred_sources", "blocked_sources", mode="before")
+    @field_validator("preferred_sources", "blocked_sources", "language_preferences", mode="before")
     @classmethod
     def normalize_update_source_lists(cls, value: list[str] | None) -> list[str] | None:
         if value is None:

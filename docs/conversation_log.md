@@ -160,3 +160,4 @@ Implementation progress:
 - Added feedback-aware main-feed ranking: hidden items stay filtered, important items stay first, and saved items now receive a lightweight ranking boost with score explanations.
 - Added conservative stock-briefing price-reaction labels so each stock-linked timeline item can show whether the latest daily price move appears aligned, opposite, muted, or unavailable.
 - Added followed GitHub repository source runs so a custom `github_repository` source with a GitHub URL is fetched through the official GitHub REST API and stored as a first-class signal.
+- Added language preferences to local user settings so the main feed, default search, and daily digest can be filtered to languages such as English or Chinese unless a search explicitly chooses a language.

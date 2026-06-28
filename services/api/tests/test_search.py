@@ -201,6 +201,7 @@ async def test_search_route_passes_user_preferences(monkeypatch) -> None:
         assert kwargs["ranking_weights"] == preferences.ranking_weights
         assert kwargs["preferred_sources"] == preferences.preferred_sources
         assert kwargs["blocked_sources"] == preferences.blocked_sources
+        assert kwargs["language_preferences"] == preferences.language_preferences
         return []
 
     monkeypatch.setattr(search_routes, "search_feed_items", fake_search_feed_items)
@@ -222,6 +223,7 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
         assert kwargs["ranking_weights"] == preferences.ranking_weights
         assert kwargs["preferred_sources"] == preferences.preferred_sources
         assert kwargs["blocked_sources"] == preferences.blocked_sources
+        assert kwargs["language_preferences"] == preferences.language_preferences
         return []
 
     monkeypatch.setattr(search_routes, "search_feed_items", fake_search_feed_items)
@@ -267,6 +269,49 @@ def test_search_feed_items_excludes_blocked_sources() -> None:
         results = search_feed_items(db, query="agent", blocked_sources=["Noisy Blog"])
 
     assert [item.source_name for item in results] == ["Trusted Blog"]
+
+
+def test_search_feed_items_filters_by_language_preferences() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(1, "English agent signal", "Agent launch.", ["agent"], language="en"),
+                make_search_item(2, "Chinese agent signal", "Agent launch.", ["agent"], language="zh"),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="agent", language_preferences=["zh"])
+
+    assert [item.title for item in results] == ["Chinese agent signal"]
+
+
+def test_search_feed_items_explicit_language_overrides_preferences() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(1, "English agent signal", "Agent launch.", ["agent"], language="en"),
+                make_search_item(2, "Chinese agent signal", "Agent launch.", ["agent"], language="zh"),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(
+            db,
+            query="agent",
+            language="en",
+            language_preferences=["zh"],
+        )
+
+    assert [item.title for item in results] == ["English agent signal"]
 
 
 def test_search_feed_items_ranks_preferred_sources_first() -> None:
@@ -317,6 +362,7 @@ def make_preferences() -> SimpleNamespace:
         ranking_weights={"relevance": 1},
         preferred_sources=["Trusted Blog"],
         blocked_sources=["Noisy Blog"],
+        language_preferences=["en"],
     )
 
 
@@ -327,6 +373,7 @@ def make_search_item(
     topics: list[str],
     companies: list[str] | None = None,
     source_name: str = "Test Source",
+    language: str = "en",
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
@@ -335,7 +382,7 @@ def make_search_item(
         url=f"https://example.com/{item_id}",
         source_name=source_name,
         author=None,
-        language="en",
+        language=language,
         published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
         text=text,
         category="technical_trend",

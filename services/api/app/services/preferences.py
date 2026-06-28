@@ -17,6 +17,9 @@ def get_user_preferences(db: Session) -> UserPreference:
         preferences.ranking_weights = normalize_ranking_weights(preferences.ranking_weights)
         preferences.preferred_sources = normalize_source_preferences(preferences.preferred_sources)
         preferences.blocked_sources = normalize_source_preferences(preferences.blocked_sources)
+        preferences.language_preferences = normalize_language_preferences(
+            getattr(preferences, "language_preferences", [])
+        )
         return preferences
 
     preferences = UserPreference(
@@ -24,6 +27,7 @@ def get_user_preferences(db: Session) -> UserPreference:
         ranking_weights=DEFAULT_RANKING_WEIGHTS.model_dump(),
         preferred_sources=[],
         blocked_sources=[],
+        language_preferences=[],
     )
     db.add(preferences)
     db.commit()
@@ -44,6 +48,10 @@ def update_user_preferences(
         preferences.preferred_sources = normalize_source_preferences(payload.preferred_sources)
     if payload.blocked_sources is not None:
         preferences.blocked_sources = normalize_source_preferences(payload.blocked_sources)
+    if payload.language_preferences is not None:
+        preferences.language_preferences = normalize_language_preferences(
+            payload.language_preferences
+        )
 
     db.add(preferences)
     db.commit()
@@ -69,3 +77,20 @@ def normalize_source_preferences(value: list[str] | None) -> list[str]:
             normalized_sources.append(normalized)
             seen.add(key)
     return normalized_sources
+
+
+def normalize_language_preferences(value: list[str] | None) -> list[str]:
+    if not value:
+        return []
+    seen = set()
+    normalized_languages = []
+    for language in value:
+        normalized = str(language).strip().lower()
+        if normalized in {"english", "en-us", "en_us"}:
+            normalized = "en"
+        elif normalized in {"chinese", "zh-cn", "zh_cn", "cn"}:
+            normalized = "zh"
+        if normalized and normalized not in seen:
+            normalized_languages.append(normalized)
+            seen.add(normalized)
+    return normalized_languages

@@ -22,7 +22,12 @@ from app.schemas.digest import (
     DigestSourceCoverage,
 )
 from app.schemas.feed import FeedItem
-from app.services.feed_actions import LOCAL_USER_ID, normalize_source_names, serialize_feed_item
+from app.services.feed_actions import (
+    LOCAL_USER_ID,
+    normalize_language_codes,
+    normalize_source_names,
+    serialize_feed_item,
+)
 from app.services.preferences import get_user_preferences
 
 NON_FINANCIAL_ADVICE_DISCLAIMER = (
@@ -35,18 +40,28 @@ def generate_daily_digest(
     digest_date: date | None = None,
     limit_per_section: int = 5,
     blocked_sources: list[str] | None = None,
+    language_preferences: list[str] | None = None,
 ) -> DailyDigest:
-    if blocked_sources is None:
-        blocked_sources = get_user_preferences(db).blocked_sources
+    if blocked_sources is None or language_preferences is None:
+        preferences = get_user_preferences(db)
+        if blocked_sources is None:
+            blocked_sources = preferences.blocked_sources
+        if language_preferences is None:
+            language_preferences = preferences.language_preferences
     selected_date = (
         digest_date
-        or select_latest_digest_date(db, blocked_sources=blocked_sources)
+        or select_latest_digest_date(
+            db,
+            blocked_sources=blocked_sources,
+            language_preferences=language_preferences,
+        )
         or datetime.now(UTC).date()
     )
     items = list_visible_items_for_digest_date(
         db=db,
         digest_date=selected_date,
         blocked_sources=blocked_sources,
+        language_preferences=language_preferences,
     )
     feed_items = [serialize_feed_item(item, action) for item, action in items]
     feed_items = filter_items_by_excluded_topics(
@@ -121,12 +136,14 @@ def save_daily_digest_snapshot(
     digest_date: date | None = None,
     limit_per_section: int = 5,
     blocked_sources: list[str] | None = None,
+    language_preferences: list[str] | None = None,
 ) -> DailyDigestSnapshotModel:
     digest = generate_daily_digest(
         db=db,
         digest_date=digest_date,
         limit_per_section=limit_per_section,
         blocked_sources=blocked_sources,
+        language_preferences=language_preferences,
     )
     payload = digest.model_dump(mode="json")
     markdown = render_digest_markdown(digest)
@@ -191,8 +208,10 @@ def serialize_daily_digest_snapshot(snapshot: DailyDigestSnapshotModel) -> Daily
 def select_latest_digest_date(
     db: Session,
     blocked_sources: list[str] | None = None,
+    language_preferences: list[str] | None = None,
 ) -> date | None:
     blocked_source_names = normalize_source_names(blocked_sources)
+    preferred_languages = normalize_language_codes(language_preferences)
     query = (
         db.query(NormalizedItem)
         .outerjoin(
@@ -204,6 +223,8 @@ def select_latest_digest_date(
     )
     if blocked_source_names:
         query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+    if preferred_languages:
+        query = query.filter(NormalizedItem.language.in_(preferred_languages))
 
     row = (
         query
@@ -224,10 +245,12 @@ def list_visible_items_for_digest_date(
     db: Session,
     digest_date: date,
     blocked_sources: list[str] | None = None,
+    language_preferences: list[str] | None = None,
 ) -> list[tuple[NormalizedItem, UserItemAction | None]]:
     start = datetime.combine(digest_date, time.min, tzinfo=UTC)
     end = start + timedelta(days=1)
     blocked_source_names = normalize_source_names(blocked_sources)
+    preferred_languages = normalize_language_codes(language_preferences)
 
     query = (
         db.query(NormalizedItem, UserItemAction)
@@ -240,6 +263,8 @@ def list_visible_items_for_digest_date(
     )
     if blocked_source_names:
         query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+    if preferred_languages:
+        query = query.filter(NormalizedItem.language.in_(preferred_languages))
 
     return (
         query

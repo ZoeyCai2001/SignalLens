@@ -310,6 +310,38 @@ def test_generate_daily_digest_excludes_blocked_sources_from_preferences() -> No
     assert [item.title for item in digest.sections[0].items] == ["Visible signal"]
 
 
+def test_generate_daily_digest_filters_language_preferences() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            UserPreference(
+                user_id="local",
+                ranking_weights={},
+                preferred_sources=[],
+                blocked_sources=[],
+                language_preferences=["zh"],
+            )
+        )
+        db.add_all(
+            [
+                make_normalized_item(1, "English signal", source_name="Trusted Blog", language="en"),
+                make_normalized_item(2, "Chinese signal", source_name="Trusted Blog", language="zh"),
+            ]
+        )
+        db.commit()
+
+        digest = generate_daily_digest(
+            db,
+            digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        )
+
+    assert digest.total_items == 1
+    assert [item.title for item in digest.sections[0].items] == ["Chinese signal"]
+
+
 def test_select_latest_digest_date_skips_blocked_sources() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -335,6 +367,37 @@ def test_select_latest_digest_date_skips_blocked_sources() -> None:
         db.commit()
 
         selected_date = select_latest_digest_date(db, blocked_sources=["Noisy Blog"])
+
+    assert selected_date == datetime(2026, 6, 24, tzinfo=UTC).date()
+
+
+def test_select_latest_digest_date_uses_language_preferences() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Older Chinese signal",
+                    source_name="Trusted Blog",
+                    language="zh",
+                    published_at=datetime(2026, 6, 24, 12, 0, tzinfo=UTC),
+                ),
+                make_normalized_item(
+                    2,
+                    "Newer English signal",
+                    source_name="Trusted Blog",
+                    language="en",
+                    published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        selected_date = select_latest_digest_date(db, language_preferences=["zh"])
 
     assert selected_date == datetime(2026, 6, 24, tzinfo=UTC).date()
 
@@ -409,6 +472,7 @@ def make_normalized_item(
     title: str,
     source_name: str,
     published_at: datetime | None = None,
+    language: str = "en",
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
@@ -417,7 +481,7 @@ def make_normalized_item(
         url=f"https://example.com/{item_id}",
         source_name=source_name,
         author=None,
-        language="en",
+        language=language,
         published_at=published_at or datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
         text=title,
         category="technical_trend",

@@ -12,6 +12,8 @@ from app.services.feed_actions import (
     build_score_explanation,
     feed_interest_bonus,
     freshness_score,
+    list_visible_feed_items,
+    normalize_language_codes,
     normalize_source_names,
     rank_feed_items,
     serialize_feed_item,
@@ -290,6 +292,29 @@ def test_normalize_source_names_trims_empty_values() -> None:
     assert normalize_source_names([" GitHub ", "", "RSS"]) == {"GitHub", "RSS"}
 
 
+def test_normalize_language_codes_maps_aliases() -> None:
+    assert normalize_language_codes([" English ", "zh-cn", "", "CN"]) == {"en", "zh"}
+
+
+def test_list_visible_feed_items_filters_language_preferences() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(1, "English signal", language="en"),
+                make_normalized_item(2, "Chinese signal", language="zh"),
+            ]
+        )
+        db.commit()
+
+        items = list_visible_feed_items(db, limit=10, language_preferences=["zh"])
+
+    assert [item.title for item in items] == ["Chinese signal"]
+
+
 def test_freshness_score_decays_over_three_days() -> None:
     now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
     fresh = make_feed_item(1, "Fresh", published_at=now)
@@ -329,4 +354,31 @@ def make_feed_item(
         summary_short=None,
         summary_detailed=None,
         why_it_matters=None,
+    )
+
+
+def make_normalized_item(item_id: int, title: str, language: str) -> NormalizedItem:
+    return NormalizedItem(
+        id=item_id,
+        raw_item_id=item_id,
+        title=title,
+        url=f"https://example.com/{item_id}",
+        source_name="Test",
+        author=None,
+        language=language,
+        published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+        text=title,
+        category="technical_trend",
+        subcategory=None,
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=["agent"],
+        sentiment="neutral",
+        relevance_score=0.8,
+        classification_confidence=0.8,
+        importance_score=0.7,
+        novelty_score=0.5,
+        source_quality_score=0.7,
+        stock_impact_score=0,
     )

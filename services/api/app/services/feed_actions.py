@@ -93,9 +93,11 @@ def list_visible_feed_items(
     ranking_weights: RankingWeights | dict | None = None,
     preferred_sources: list[str] | None = None,
     blocked_sources: list[str] | None = None,
+    language_preferences: list[str] | None = None,
     saved_only: bool = False,
 ) -> list[FeedItem]:
     blocked_source_names = normalize_source_names(blocked_sources)
+    preferred_languages = normalize_language_codes(language_preferences)
     query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
@@ -107,6 +109,8 @@ def list_visible_feed_items(
     )
     if blocked_source_names:
         query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+    if preferred_languages:
+        query = query.filter(NormalizedItem.language.in_(preferred_languages))
     if saved_only:
         query = query.filter(UserItemAction.is_saved.is_(True))
 
@@ -208,6 +212,19 @@ def freshness_score(item: FeedItem, now: datetime | None = None) -> float:
 
 def normalize_source_names(values: list[str] | None) -> set[str]:
     return {str(value).strip() for value in values or [] if str(value).strip()}
+
+
+def normalize_language_codes(values: list[str] | None) -> set[str]:
+    normalized_values = set()
+    for value in values or []:
+        normalized = str(value).strip().lower()
+        if normalized in {"english", "en-us", "en_us"}:
+            normalized = "en"
+        elif normalized in {"chinese", "zh-cn", "zh_cn", "cn"}:
+            normalized = "zh"
+        if normalized:
+            normalized_values.add(normalized)
+    return normalized_values
 
 
 def build_feed_interest_profile(db: Session) -> FeedInterestProfile:

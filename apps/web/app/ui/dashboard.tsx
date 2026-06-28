@@ -488,6 +488,7 @@ type UserPreferences = {
   ranking_weights: RankingWeights;
   preferred_sources: string[];
   blocked_sources: string[];
+  language_preferences: string[];
 };
 
 type IngestionSource =
@@ -582,6 +583,7 @@ export function Dashboard() {
   const [rankingDraft, setRankingDraft] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
   const [preferredSourcesDraft, setPreferredSourcesDraft] = useState("");
   const [blockedSourcesDraft, setBlockedSourcesDraft] = useState("");
+  const [languagePreferencesDraft, setLanguagePreferencesDraft] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [activeOperation, setActiveOperation] = useState<DashboardOperation | null>(null);
   const [status, setStatus] = useState("Ready");
@@ -737,6 +739,7 @@ export function Dashboard() {
       setRankingDraft(nextPreferences.ranking_weights);
       setPreferredSourcesDraft(nextPreferences.preferred_sources.join(", "));
       setBlockedSourcesDraft(nextPreferences.blocked_sources.join(", "));
+      setLanguagePreferencesDraft(nextPreferences.language_preferences.join(", "));
       setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, nextFeed));
       setSelectedEventCluster((cluster) =>
         reconcileEventClusterAfterRefresh(cluster, nextEventClusters),
@@ -1021,12 +1024,14 @@ export function Dashboard() {
           ranking_weights: rankingDraft,
           preferred_sources: splitTerms(preferredSourcesDraft),
           blocked_sources: splitTerms(blockedSourcesDraft),
+          language_preferences: splitTerms(languagePreferencesDraft),
         }),
       });
       setPreferences(updated);
       setRankingDraft(updated.ranking_weights);
       setPreferredSourcesDraft(updated.preferred_sources.join(", "));
       setBlockedSourcesDraft(updated.blocked_sources.join(", "));
+      setLanguagePreferencesDraft(updated.language_preferences.join(", "));
       await refreshAllWithStatus("Updated ranking preferences");
     } catch (err) {
       setError(readError(err));
@@ -2149,11 +2154,13 @@ export function Dashboard() {
               draft={rankingDraft}
               preferredSources={preferredSourcesDraft}
               blockedSources={blockedSourcesDraft}
+              languagePreferences={languagePreferencesDraft}
               disabled={loadState !== "idle"}
               busy={busyPreferences}
               onDraftChange={updateRankingDraft}
               onPreferredSourcesChange={setPreferredSourcesDraft}
               onBlockedSourcesChange={setBlockedSourcesDraft}
+              onLanguagePreferencesChange={setLanguagePreferencesDraft}
               onReset={() => setRankingDraft(DEFAULT_RANKING_WEIGHTS)}
               onSave={saveRankingPreferences}
             />
@@ -2320,11 +2327,13 @@ function RankingPreferencesPanel({
   draft,
   preferredSources,
   blockedSources,
+  languagePreferences,
   disabled,
   busy,
   onDraftChange,
   onPreferredSourcesChange,
   onBlockedSourcesChange,
+  onLanguagePreferencesChange,
   onReset,
   onSave,
 }: {
@@ -2332,11 +2341,13 @@ function RankingPreferencesPanel({
   draft: RankingWeights;
   preferredSources: string;
   blockedSources: string;
+  languagePreferences: string;
   disabled: boolean;
   busy: boolean;
   onDraftChange: (key: keyof RankingWeights, value: number) => void;
   onPreferredSourcesChange: (value: string) => void;
   onBlockedSourcesChange: (value: string) => void;
+  onLanguagePreferencesChange: (value: string) => void;
   onReset: () => void;
   onSave: () => void;
 }) {
@@ -2387,6 +2398,16 @@ function RankingPreferencesPanel({
               value={blockedSources}
               onChange={(event) => onBlockedSourcesChange(event.target.value)}
               placeholder="Noisy Feed"
+              disabled={disabled || busy}
+            />
+          </label>
+          <label className="weight-field">
+            <span className="field-label">Languages</span>
+            <input
+              className="field"
+              value={languagePreferences}
+              onChange={(event) => onLanguagePreferencesChange(event.target.value)}
+              placeholder="en, zh"
               disabled={disabled || busy}
             />
           </label>
