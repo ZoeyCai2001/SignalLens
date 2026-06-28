@@ -171,3 +171,4 @@ Implementation progress:
 - Added high-impact counts and average importance scores to topic, company, and product-category briefings, with dashboard metric rows for faster drill-down triage.
 - Added related-ticker market snapshots to event clusters and surfaced the existing price chart inside expanded cluster evidence when ticker price data is available.
 - Added durable stock watchlist display ordering with dashboard up/down controls so watched stocks can be manually reordered within pinned and unpinned sections.
+- Added related event clusters to the selected stock detail view so stock briefings show cluster evidence alongside price, themes, market-impact buckets, and news timelines.

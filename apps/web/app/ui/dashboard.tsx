@@ -2251,6 +2251,7 @@ export function Dashboard() {
               stocks={stocks}
               signalSummaries={stockSignals}
               stockBriefing={stockBriefing}
+              eventClusters={eventClusters}
               selectedTicker={selectedTicker}
               busyStockTicker={busyStockTicker}
               busyWatchlistKey={busyWatchlistKey}
@@ -3559,6 +3560,7 @@ function StockTable({
   stocks,
   signalSummaries,
   stockBriefing,
+  eventClusters,
   selectedTicker,
   busyStockTicker,
   busyWatchlistKey,
@@ -3579,6 +3581,7 @@ function StockTable({
   stocks: StockWatchlistItem[];
   signalSummaries: StockSignalSummary[];
   stockBriefing: StockBriefing | null;
+  eventClusters: EventCluster[];
   selectedTicker: string | null;
   busyStockTicker: string | null;
   busyWatchlistKey: string | null;
@@ -3833,6 +3836,7 @@ function StockTable({
       />
       <StockBriefingPanel
         briefing={stockBriefing}
+        eventClusters={eventClusters}
         loading={busyStockTicker === selectedTicker && selectedTicker !== null}
         selectedTicker={selectedTicker}
       />
@@ -3977,10 +3981,12 @@ function StockDetailEditor({
 
 function StockBriefingPanel({
   briefing,
+  eventClusters,
   loading,
   selectedTicker,
 }: {
   briefing: StockBriefing | null;
+  eventClusters: EventCluster[];
   loading: boolean;
   selectedTicker: string | null;
 }) {
@@ -4002,6 +4008,10 @@ function StockBriefingPanel({
   if (!briefing || briefing.stock.ticker !== selectedTicker) {
     return <div className="empty-state">No briefing available for {selectedTicker}.</div>;
   }
+
+  const relatedClusters = eventClusters
+    .filter((cluster) => cluster.tickers.includes(briefing.stock.ticker))
+    .slice(0, 4);
 
   return (
     <div className="stock-briefing">
@@ -4110,6 +4120,35 @@ function StockBriefingPanel({
           </div>
         ) : (
           <div className="empty-state">No market-impact buckets yet.</div>
+        )}
+      </div>
+
+      <div className="digest-section">
+        <div className="digest-section-title">Related Event Clusters</div>
+        {relatedClusters.length ? (
+          <div className="impact-event-list">
+            {relatedClusters.map((cluster) => (
+              <a
+                className="impact-event-row"
+                href={cluster.representative_item.url}
+                target="_blank"
+                rel="noreferrer"
+                key={cluster.cluster_key}
+              >
+                <div>
+                  <div className="digest-link">{cluster.title}</div>
+                  <div className="small-muted">
+                    {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"} ·{" "}
+                    {cluster.sources.slice(0, 3).join(", ")} · confidence{" "}
+                    {Math.round(cluster.confidence * 100)}
+                  </div>
+                  <div className="timeline-reason">{cluster.main_summary}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">No stock-related event clusters yet.</div>
         )}
       </div>
 
