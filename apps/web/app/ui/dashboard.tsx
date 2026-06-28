@@ -2330,6 +2330,10 @@ export function Dashboard() {
     try {
       await sendRequest(`/api/sources/${source.id}`, { method: "DELETE" });
       setSources((items) => items.filter((item) => item.id !== source.id));
+      setSourceRuns((items) => items.filter((item) => item.source_id !== source.id));
+      if (sourceRunSourceFilter?.id === source.id) {
+        setSourceRunSourceFilter(null);
+      }
       setStatus(`Removed source ${source.name}`);
     } catch (err) {
       setError(readError(err));
