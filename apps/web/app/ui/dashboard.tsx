@@ -488,7 +488,24 @@ type UserPreferences = {
   blocked_sources: string[];
 };
 
+type IngestionSource =
+  | "hacker-news"
+  | "alpha-vantage-news"
+  | "alpha-vantage-prices"
+  | "arxiv"
+  | "chinese-rss"
+  | "github"
+  | "hugging-face"
+  | "product-hunt"
+  | "rss";
+
 type LoadState = "idle" | "loading" | "running";
+type DashboardOperation =
+  | "refresh"
+  | "cycle"
+  | "llm:classify"
+  | "llm:summarize"
+  | `ingest:${IngestionSource}`;
 type ModuleKey =
   | "dashboard"
   | "trends"
@@ -564,6 +581,7 @@ export function Dashboard() {
   const [preferredSourcesDraft, setPreferredSourcesDraft] = useState("");
   const [blockedSourcesDraft, setBlockedSourcesDraft] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [activeOperation, setActiveOperation] = useState<DashboardOperation | null>(null);
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<ModuleKey>("dashboard");
@@ -654,7 +672,10 @@ export function Dashboard() {
     }
   }, []);
 
-  const refreshAll = useCallback(async () => {
+  const refreshAll = useCallback(async (operation?: DashboardOperation) => {
+    if (operation) {
+      setActiveOperation(operation);
+    }
     setLoadState("loading");
     setError(null);
     try {
@@ -719,6 +740,9 @@ export function Dashboard() {
       setStatus("Backend unavailable");
     } finally {
       setLoadState("idle");
+      if (operation) {
+        setActiveOperation(null);
+      }
     }
   }, [fetchJson]);
 
@@ -876,18 +900,8 @@ export function Dashboard() {
     };
   }, [fetchJson, selectedTopic]);
 
-  const runIngestion = async (
-    source:
-      | "hacker-news"
-      | "alpha-vantage-news"
-      | "alpha-vantage-prices"
-      | "arxiv"
-      | "chinese-rss"
-      | "github"
-      | "hugging-face"
-      | "product-hunt"
-      | "rss",
-  ) => {
+  const runIngestion = async (source: IngestionSource) => {
+    setActiveOperation(`ingest:${source}`);
     setLoadState("running");
     setError(null);
     try {
@@ -907,10 +921,12 @@ export function Dashboard() {
       setStatus("Ingestion failed");
     } finally {
       setLoadState("idle");
+      setActiveOperation(null);
     }
   };
 
   const runFullCycle = async () => {
+    setActiveOperation("cycle");
     setLoadState("running");
     setError(null);
     try {
@@ -932,6 +948,7 @@ export function Dashboard() {
       setStatus("Full ingestion cycle failed");
     } finally {
       setLoadState("idle");
+      setActiveOperation(null);
     }
   };
 
@@ -939,11 +956,14 @@ export function Dashboard() {
     summarize,
     classify,
     label,
+    operation,
   }: {
     summarize: boolean;
     classify: boolean;
     label: string;
+    operation: DashboardOperation;
   }) => {
+    setActiveOperation(operation);
     setLoadState("running");
     setError(null);
     try {
@@ -970,6 +990,7 @@ export function Dashboard() {
       setStatus("LLM batch failed");
     } finally {
       setLoadState("idle");
+      setActiveOperation(null);
     }
   };
 
@@ -1863,7 +1884,11 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run full ingestion cycle, generate alerts, and save a digest snapshot"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <DatabaseZap size={16} />}
+              {activeOperation === "cycle" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <DatabaseZap size={16} />
+              )}
               Cycle
             </button>
             <button
@@ -1872,7 +1897,11 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run Hacker News ingestion"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Newspaper size={16} />}
+              {activeOperation === "ingest:hacker-news" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Newspaper size={16} />
+              )}
               HN
             </button>
             <button
@@ -1881,7 +1910,11 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run Alpha Vantage stock news ingestion"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <BarChart3 size={16} />}
+              {activeOperation === "ingest:alpha-vantage-news" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <BarChart3 size={16} />
+              )}
               Stocks
             </button>
             <button
@@ -1890,7 +1923,11 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run Alpha Vantage daily price ingestion"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <TrendingUp size={16} />}
+              {activeOperation === "ingest:alpha-vantage-prices" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <TrendingUp size={16} />
+              )}
               Prices
             </button>
             <button
@@ -1899,7 +1936,7 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run arXiv ingestion"
             >
-              {loadState === "running" ? (
+              {activeOperation === "ingest:arxiv" ? (
                 <Loader2 className="spin" size={16} />
               ) : (
                 <FlaskConical size={16} />
@@ -1912,7 +1949,11 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run configured Chinese RSS ingestion"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Newspaper size={16} />}
+              {activeOperation === "ingest:chinese-rss" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Newspaper size={16} />
+              )}
               CN
             </button>
             <button
@@ -1921,7 +1962,11 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run GitHub repository ingestion"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Github size={16} />}
+              {activeOperation === "ingest:github" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Github size={16} />
+              )}
               GitHub
             </button>
             <button
@@ -1930,7 +1975,11 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run Hugging Face model ingestion"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
+              {activeOperation === "ingest:hugging-face" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Bot size={16} />
+              )}
               HF
             </button>
             <button
@@ -1939,7 +1988,11 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run Product Hunt launch ingestion"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Rocket size={16} />}
+              {activeOperation === "ingest:product-hunt" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Rocket size={16} />
+              )}
               PH
             </button>
             <button
@@ -1948,17 +2001,21 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               title="Run selected RSS feed ingestion"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Newspaper size={16} />}
+              {activeOperation === "ingest:rss" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Newspaper size={16} />
+              )}
               RSS
             </button>
             <button
               className="button icon-button"
-              onClick={refreshAll}
+              onClick={() => refreshAll("refresh")}
               disabled={loadState !== "idle"}
               title="Refresh dashboard"
               aria-label="Refresh dashboard"
             >
-              {loadState === "loading" ? (
+              {activeOperation === "refresh" ? (
                 <Loader2 className="spin" size={16} />
               ) : (
                 <RefreshCw size={16} />
@@ -1971,12 +2028,17 @@ export function Dashboard() {
                   summarize: false,
                   classify: true,
                   label: "LLM classify",
+                  operation: "llm:classify",
                 })
               }
               disabled={loadState !== "idle"}
               title="Classify top feed items with Kimi"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
+              {activeOperation === "llm:classify" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Bot size={16} />
+              )}
               Classify
             </button>
             <button
@@ -1986,12 +2048,17 @@ export function Dashboard() {
                   summarize: true,
                   classify: false,
                   label: "LLM summarize",
+                  operation: "llm:summarize",
                 })
               }
               disabled={loadState !== "idle"}
               title="Summarize top feed items with Kimi"
             >
-              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
+              {activeOperation === "llm:summarize" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Bot size={16} />
+              )}
               Summarize
             </button>
           </div>
