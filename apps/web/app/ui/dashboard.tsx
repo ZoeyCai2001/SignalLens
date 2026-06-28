@@ -17,6 +17,7 @@ import {
   Flag,
   FlaskConical,
   Github,
+  History,
   Loader2,
   Newspaper,
   Plus,
@@ -685,6 +686,7 @@ export function Dashboard() {
   >({});
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
+  const [alertIncludeDismissed, setAlertIncludeDismissed] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [rankingDraft, setRankingDraft] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
@@ -834,7 +836,9 @@ export function Dashboard() {
           fetchJson<DailyDigest>("/api/digest/daily"),
           fetchJson<DailyDigestSnapshot[]>("/api/digest/daily/snapshots?limit=5"),
           fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
-          fetchJson<AlertItem[]>("/api/alerts?limit=8"),
+          fetchJson<AlertItem[]>(
+            `/api/alerts?limit=8${alertIncludeDismissed ? "&include_dismissed=true" : ""}`,
+          ),
           fetchJson<AlertRule[]>("/api/alerts/rules"),
           fetchJson<UserPreferences>("/api/preferences"),
           fetchJson<SystemStatus>("/api/health"),
@@ -875,7 +879,7 @@ export function Dashboard() {
         setActiveOperation(null);
       }
     }
-  }, [fetchJson]);
+  }, [alertIncludeDismissed, fetchJson]);
 
   useEffect(() => {
     void refreshAll();
@@ -2283,6 +2287,10 @@ export function Dashboard() {
     () => filterFeedByModule(feed, activeModule, digest, savedItems),
     [activeModule, digest, feed, savedItems],
   );
+  const activeAlerts = useMemo(
+    () => alerts.filter((alert) => alert.status === "active"),
+    [alerts],
+  );
   const activeModuleLabel =
     moduleNavItems.find((item) => item.key === activeModule)?.label ?? "Dashboard";
 
@@ -2293,10 +2301,10 @@ export function Dashboard() {
       { label: "Feed", value: feed.length },
       { label: "View", value: moduleFeed.length },
       { label: "High", value: highImportance },
-      { label: "Alerts", value: alerts.length },
+      { label: "Alerts", value: activeAlerts.length },
       { label: "Summaries", value: summarized },
     ];
-  }, [alerts.length, feed.length, moduleFeed]);
+  }, [activeAlerts.length, feed.length, moduleFeed]);
 
   const systemStatusPanel = (
     <SystemStatusPanel
@@ -2304,7 +2312,7 @@ export function Dashboard() {
       itemCount={feed.length}
       sourceCount={sources.length}
       enabledSourceCount={sources.filter((source) => source.enabled).length}
-      alertCount={alerts.length}
+      alertCount={activeAlerts.length}
       watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
       busyCopy={busySetupCopy}
       onCopyMissingEnv={copyMissingEnvTemplate}
@@ -2667,6 +2675,7 @@ export function Dashboard() {
             <AlertPanel
               alerts={alerts}
               rules={alertRules}
+              includeDismissed={alertIncludeDismissed}
               busyAlertId={busyAlertId}
               busyAlertRuleId={busyAlertRuleId}
               busyGenerate={busyAlertGenerate}
@@ -2678,6 +2687,7 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               onDismiss={dismissAlert}
               onGenerate={generateDashboardAlerts}
+              onIncludeDismissedChange={setAlertIncludeDismissed}
               onRuleToggle={toggleAlertRule}
               onRuleSnooze={snoozeAlertRule}
               onRuleDelete={deleteAlertRule}
@@ -3101,6 +3111,7 @@ function setupImportanceClass(importance: SetupItem["importance"]): string {
 function AlertPanel({
   alerts,
   rules,
+  includeDismissed,
   busyAlertId,
   busyAlertRuleId,
   busyGenerate,
@@ -3112,6 +3123,7 @@ function AlertPanel({
   disabled,
   onDismiss,
   onGenerate,
+  onIncludeDismissedChange,
   onRuleToggle,
   onRuleSnooze,
   onRuleDelete,
@@ -3124,6 +3136,7 @@ function AlertPanel({
 }: {
   alerts: AlertItem[];
   rules: AlertRule[];
+  includeDismissed: boolean;
   busyAlertId: number | null;
   busyAlertRuleId: number | null;
   busyGenerate: boolean;
@@ -3135,6 +3148,7 @@ function AlertPanel({
   disabled: boolean;
   onDismiss: (alertId: number) => void;
   onGenerate: () => void;
+  onIncludeDismissedChange: (value: boolean) => void;
   onRuleToggle: (rule: AlertRule) => void;
   onRuleSnooze: (rule: AlertRule) => void;
   onRuleDelete: (ruleId: number) => void;
@@ -3150,6 +3164,16 @@ function AlertPanel({
       <div className="section-header">
         <h2 className="section-title">Alerts</h2>
         <div className="table-actions">
+          <button
+            className={`button icon-button ${includeDismissed ? "active-icon-button" : ""}`}
+            onClick={() => onIncludeDismissedChange(!includeDismissed)}
+            disabled={disabled}
+            title={includeDismissed ? "Show active alerts only" : "Show dismissed alert history"}
+            aria-label={includeDismissed ? "Show active alerts only" : "Show dismissed alert history"}
+            type="button"
+          >
+            <History size={16} />
+          </button>
           <button
             className="button icon-button"
             onClick={onGenerate}
@@ -3295,18 +3319,26 @@ function AlertPanel({
                 <div>
                   <div className="alert-title">{alert.title}</div>
                   <div className="small-muted">
-                    {alert.severity} · {formatDate(alert.created_at)}
+                    {alert.severity} · {alert.status} · {formatDate(alert.created_at)}
                   </div>
                 </div>
-                <button
-                  className="button icon-button"
-                  onClick={() => onDismiss(alert.id)}
-                  disabled={busyAlertId === alert.id}
-                  title="Dismiss alert"
-                  aria-label="Dismiss alert"
-                >
-                  {busyAlertId === alert.id ? <Loader2 className="spin" size={16} /> : <X size={16} />}
-                </button>
+                {alert.status === "active" ? (
+                  <button
+                    className="button icon-button"
+                    onClick={() => onDismiss(alert.id)}
+                    disabled={busyAlertId === alert.id}
+                    title="Dismiss alert"
+                    aria-label="Dismiss alert"
+                  >
+                    {busyAlertId === alert.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <X size={16} />
+                    )}
+                  </button>
+                ) : (
+                  <span className="badge muted-badge">dismissed</span>
+                )}
               </div>
               <div className="summary">{alert.reason}</div>
               <div className="badges">
@@ -3324,7 +3356,9 @@ function AlertPanel({
             </article>
           ))
         ) : (
-          <div className="empty-state">No active alerts.</div>
+          <div className="empty-state">
+            {includeDismissed ? "No alert history." : "No active alerts."}
+          </div>
         )}
       </div>
     </section>

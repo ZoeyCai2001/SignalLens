@@ -585,6 +585,41 @@ def test_list_alerts_excludes_blocked_and_hidden_items() -> None:
     assert [alert.title for alert in visible_alerts] == ["Visible source signal"]
 
 
+def test_list_alerts_can_include_dismissed_history() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        rule = make_rule(category="all", min_importance_score=0.7)
+        db.add(rule)
+        db.add_all(
+            [
+                make_item(item_id=1, title="Active signal"),
+                make_item(item_id=2, title="Dismissed signal"),
+            ]
+        )
+        db.flush()
+        dismissed = make_alert(item_id=2, rule_id=rule.id, title="Dismissed signal")
+        dismissed.status = "dismissed"
+        db.add_all(
+            [
+                make_alert(item_id=1, rule_id=rule.id, title="Active signal"),
+                dismissed,
+            ]
+        )
+        db.commit()
+
+        active_alerts = list_alerts(db, include_dismissed=False)
+        alert_history = list_alerts(db, include_dismissed=True)
+
+    assert [alert.title for alert in active_alerts] == ["Active signal"]
+    assert {alert.title: alert.status for alert in alert_history} == {
+        "Active signal": "active",
+        "Dismissed signal": "dismissed",
+    }
+
+
 def make_item(
     item_id: int = 1,
     title: str = "OpenAI and Broadcom inference chip signal",
