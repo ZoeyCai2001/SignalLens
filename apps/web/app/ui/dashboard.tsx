@@ -129,6 +129,7 @@ type StockMarketSnapshot = {
 
 type StockPriceRangeKey = "5d" | "1m" | "6m" | "1y";
 type StockSortMode = "attention" | "watchlist";
+type StockDetailTabKey = "overview" | "signals" | "clusters" | "summary";
 
 type StockSignalSummary = {
   stock: StockWatchlistItem;
@@ -4435,6 +4436,12 @@ function StockBriefingPanel({
   selectedTicker: string | null;
   onExplainStock: (ticker: string) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<StockDetailTabKey>("overview");
+
+  useEffect(() => {
+    setActiveTab("overview");
+  }, [selectedTicker]);
+
   if (!selectedTicker) {
     return <div className="empty-state">No stock selected.</div>;
   }
@@ -4482,195 +4489,232 @@ function StockBriefingPanel({
         </div>
       </div>
 
-      <div className="score-grid">
-        <div className="score-cell">
-          <span className="score-label">Price</span>
-          <span className="score-value">{formatPrice(briefing.market?.latest?.close_price)}</span>
-        </div>
-        <div className="score-cell">
-          <span className="score-label">Change</span>
-          <span className={`score-value ${marketChangeClass(briefing.market?.change ?? null)}`}>
-            {formatChange(briefing.market)}
-          </span>
-        </div>
-        <div className="score-cell">
-          <span className="score-label">Volume</span>
-          <span
-            className={`score-value ${marketChangeClass(
-              briefing.market?.volume_change_percent ?? null,
-            )}`}
+      <div className="stock-detail-tabs" role="tablist" aria-label="Stock detail sections">
+        {STOCK_DETAIL_TABS.map((tab) => (
+          <button
+            className={`stock-detail-tab ${activeTab === tab.key ? "active" : ""}`}
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            type="button"
           >
-            {formatPercentChange(briefing.market?.volume_change_percent)}
-          </span>
-        </div>
-        <div className="score-cell">
-          <span className="score-label">Signals</span>
-          <span className="score-value">{briefing.signal_count}</span>
-        </div>
-        <div className="score-cell">
-          <span className="score-label">Attention</span>
-          <span className="score-value">{Math.round(briefing.attention_score * 100)}</span>
-        </div>
-        <div className="score-cell">
-          <span className="score-label">Positive</span>
-          <span className="score-value">{briefing.sentiment_counts.positive ?? 0}</span>
-        </div>
-        <div className="score-cell">
-          <span className="score-label">Mixed</span>
-          <span className="score-value">{briefing.sentiment_counts.mixed ?? 0}</span>
-        </div>
-        <div className="score-cell">
-          <span className="score-label">Negative</span>
-          <span className="score-value">{briefing.sentiment_counts.negative ?? 0}</span>
-        </div>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <StockPriceChart market={priceSnapshot ?? briefing.market} />
+      {activeTab === "overview" ? (
+        <div className="stock-detail-tab-panel">
+          <div className="score-grid">
+            <div className="score-cell">
+              <span className="score-label">Price</span>
+              <span className="score-value">
+                {formatPrice(briefing.market?.latest?.close_price)}
+              </span>
+            </div>
+            <div className="score-cell">
+              <span className="score-label">Change</span>
+              <span className={`score-value ${marketChangeClass(briefing.market?.change ?? null)}`}>
+                {formatChange(briefing.market)}
+              </span>
+            </div>
+            <div className="score-cell">
+              <span className="score-label">Volume</span>
+              <span
+                className={`score-value ${marketChangeClass(
+                  briefing.market?.volume_change_percent ?? null,
+                )}`}
+              >
+                {formatPercentChange(briefing.market?.volume_change_percent)}
+              </span>
+            </div>
+            <div className="score-cell">
+              <span className="score-label">Signals</span>
+              <span className="score-value">{briefing.signal_count}</span>
+            </div>
+            <div className="score-cell">
+              <span className="score-label">Attention</span>
+              <span className="score-value">{Math.round(briefing.attention_score * 100)}</span>
+            </div>
+            <div className="score-cell">
+              <span className="score-label">Positive</span>
+              <span className="score-value">{briefing.sentiment_counts.positive ?? 0}</span>
+            </div>
+            <div className="score-cell">
+              <span className="score-label">Mixed</span>
+              <span className="score-value">{briefing.sentiment_counts.mixed ?? 0}</span>
+            </div>
+            <div className="score-cell">
+              <span className="score-label">Negative</span>
+              <span className="score-value">{briefing.sentiment_counts.negative ?? 0}</span>
+            </div>
+          </div>
 
-      {llmSummary ? (
-        <div className="digest-section">
-          <div className="digest-section-title">LLM Summary</div>
-          <div className="llm-explanation">{llmSummary.summary}</div>
-          <div className="small-muted">
-            {llmSummary.model} · {llmSummary.total_tokens} tokens
+          <StockPriceChart market={priceSnapshot ?? briefing.market} />
+
+          <div className="stock-detail-grid-view">
+            <div className="digest-section">
+              <div className="digest-section-title">Company Overview</div>
+              <div className="summary">
+                {briefing.stock.exchange} · {briefing.stock.sector} · {briefing.stock.industry}
+              </div>
+              <div className="summary">{briefing.ai_relevance_summary}</div>
+              {briefing.stock.notes ? (
+                <div className="small-muted">Notes: {briefing.stock.notes}</div>
+              ) : null}
+            </div>
+            <div className="digest-section">
+              <div className="digest-section-title">Theme Breakdown</div>
+              {briefing.theme_breakdown.length ? (
+                <div className="theme-breakdown-list">
+                  {briefing.theme_breakdown.map((theme) => (
+                    <span className="badge" key={theme.theme}>
+                      {theme.theme} · {theme.item_count}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">No recurring themes yet.</div>
+              )}
+            </div>
           </div>
         </div>
       ) : null}
 
-      <div className="stock-detail-grid-view">
-        <div className="digest-section">
-          <div className="digest-section-title">Company Overview</div>
-          <div className="summary">
-            {briefing.stock.exchange} · {briefing.stock.sector} · {briefing.stock.industry}
+      {activeTab === "signals" ? (
+        <div className="stock-detail-tab-panel">
+          <div className="digest-section">
+            <div className="digest-section-title">Market-Impact Events</div>
+            {briefing.market_impact_events.length ? (
+              <div className="impact-event-list">
+                {briefing.market_impact_events.map((event) => (
+                  <div className="impact-event-row" key={event.event_type}>
+                    <div>
+                      <div className="digest-link">{formatCategoryLabel(event.event_type)}</div>
+                      <div className="small-muted">
+                        {event.item_count} item{event.item_count === 1 ? "" : "s"}
+                        {event.latest_at ? ` · latest ${formatDate(event.latest_at)}` : ""}
+                      </div>
+                      {event.latest_title ? (
+                        <div className="timeline-reason">{event.latest_title}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">No market-impact buckets yet.</div>
+            )}
           </div>
-          <div className="summary">{briefing.ai_relevance_summary}</div>
-          {briefing.stock.notes ? (
-            <div className="small-muted">Notes: {briefing.stock.notes}</div>
-          ) : null}
-        </div>
-        <div className="digest-section">
-          <div className="digest-section-title">Theme Breakdown</div>
-          {briefing.theme_breakdown.length ? (
-            <div className="theme-breakdown-list">
-              {briefing.theme_breakdown.map((theme) => (
-                <span className="badge" key={theme.theme}>
-                  {theme.theme} · {theme.item_count}
+
+          {briefing.key_themes.length ? (
+            <div className="badges">
+              {briefing.key_themes.map((theme) => (
+                <span className="badge" key={theme}>
+                  {theme}
                 </span>
               ))}
             </div>
-          ) : (
-            <div className="empty-state">No recurring themes yet.</div>
-          )}
-        </div>
-      </div>
+          ) : null}
 
-      <div className="digest-section">
-        <div className="digest-section-title">Market-Impact Events</div>
-        {briefing.market_impact_events.length ? (
-          <div className="impact-event-list">
-            {briefing.market_impact_events.map((event) => (
-              <div className="impact-event-row" key={event.event_type}>
-                <div>
-                  <div className="digest-link">{formatCategoryLabel(event.event_type)}</div>
-                  <div className="small-muted">
-                    {event.item_count} item{event.item_count === 1 ? "" : "s"}
-                    {event.latest_at ? ` · latest ${formatDate(event.latest_at)}` : ""}
+          <div className="stock-timeline">
+            {briefing.recent_timeline.length ? (
+              briefing.recent_timeline.map((entry) => (
+                <a
+                  className="timeline-row"
+                  href={entry.item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  key={entry.item.id}
+                >
+                  <div>
+                    <div className="timeline-title">{entry.item.title}</div>
+                    <div className="small-muted">
+                      {entry.item.source_name}
+                      {entry.item.published_at ? ` · ${formatDate(entry.item.published_at)}` : ""}
+                    </div>
+                    <div className="timeline-reason">{entry.reason}</div>
+                    <div className="timeline-event-classification">
+                      <span className="badge">{formatCategoryLabel(entry.event_type)}</span>
+                      <span
+                        className={`badge ${
+                          entry.possible_market_impact === "positive" ? "success-badge" : ""
+                        }`}
+                      >
+                        Impact: {entry.possible_market_impact}
+                      </span>
+                      <span className="badge">
+                        Price: {formatCategoryLabel(entry.price_reaction)}
+                      </span>
+                      <span className="badge">Confidence {Math.round(entry.confidence * 100)}</span>
+                      <span className="badge">Time: {entry.time_sensitivity}</span>
+                    </div>
+                    <div className="timeline-reason">{entry.event_summary}</div>
+                    {entry.uncertainties.length ? (
+                      <div className="small-muted">
+                        Uncertainty: {entry.uncertainties.slice(0, 2).join(" ")}
+                      </div>
+                    ) : null}
                   </div>
-                  {event.latest_title ? (
-                    <div className="timeline-reason">{event.latest_title}</div>
-                  ) : null}
-                </div>
-              </div>
-            ))}
+                  <div className="timeline-score">{Math.round(entry.signal_score * 100)}</div>
+                </a>
+              ))
+            ) : (
+              <div className="empty-state">No stock-linked signals yet.</div>
+            )}
           </div>
-        ) : (
-          <div className="empty-state">No market-impact buckets yet.</div>
-        )}
-      </div>
-
-      <div className="digest-section">
-        <div className="digest-section-title">Related Event Clusters</div>
-        {relatedClusters.length ? (
-          <div className="impact-event-list">
-            {relatedClusters.map((cluster) => (
-              <a
-                className="impact-event-row"
-                href={cluster.representative_item.url}
-                target="_blank"
-                rel="noreferrer"
-                key={cluster.cluster_key}
-              >
-                <div>
-                  <div className="digest-link">{cluster.title}</div>
-                  <div className="small-muted">
-                    {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"} ·{" "}
-                    {cluster.sources.slice(0, 3).join(", ")} · confidence{" "}
-                    {Math.round(cluster.confidence * 100)}
-                  </div>
-                  <div className="timeline-reason">{cluster.main_summary}</div>
-                </div>
-              </a>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">No stock-related event clusters yet.</div>
-        )}
-      </div>
-
-      {briefing.key_themes.length ? (
-        <div className="badges">
-          {briefing.key_themes.map((theme) => (
-            <span className="badge" key={theme}>
-              {theme}
-            </span>
-          ))}
         </div>
       ) : null}
 
-      <div className="stock-timeline">
-        {briefing.recent_timeline.length ? (
-          briefing.recent_timeline.map((entry) => (
-            <a
-              className="timeline-row"
-              href={entry.item.url}
-              target="_blank"
-              rel="noreferrer"
-              key={entry.item.id}
-            >
-              <div>
-                <div className="timeline-title">{entry.item.title}</div>
-                <div className="small-muted">
-                  {entry.item.source_name}
-                  {entry.item.published_at ? ` · ${formatDate(entry.item.published_at)}` : ""}
-                </div>
-                <div className="timeline-reason">{entry.reason}</div>
-                <div className="timeline-event-classification">
-                  <span className="badge">{formatCategoryLabel(entry.event_type)}</span>
-                  <span
-                    className={`badge ${
-                      entry.possible_market_impact === "positive" ? "success-badge" : ""
-                    }`}
+      {activeTab === "clusters" ? (
+        <div className="stock-detail-tab-panel">
+          <div className="digest-section">
+            <div className="digest-section-title">Related Event Clusters</div>
+            {relatedClusters.length ? (
+              <div className="impact-event-list">
+                {relatedClusters.map((cluster) => (
+                  <a
+                    className="impact-event-row"
+                    href={cluster.representative_item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    key={cluster.cluster_key}
                   >
-                    Impact: {entry.possible_market_impact}
-                  </span>
-                  <span className="badge">Price: {formatCategoryLabel(entry.price_reaction)}</span>
-                  <span className="badge">Confidence {Math.round(entry.confidence * 100)}</span>
-                  <span className="badge">Time: {entry.time_sensitivity}</span>
-                </div>
-                <div className="timeline-reason">{entry.event_summary}</div>
-                {entry.uncertainties.length ? (
-                  <div className="small-muted">
-                    Uncertainty: {entry.uncertainties.slice(0, 2).join(" ")}
-                  </div>
-                ) : null}
+                    <div>
+                      <div className="digest-link">{cluster.title}</div>
+                      <div className="small-muted">
+                        {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"} ·{" "}
+                        {cluster.sources.slice(0, 3).join(", ")} · confidence{" "}
+                        {Math.round(cluster.confidence * 100)}
+                      </div>
+                      <div className="timeline-reason">{cluster.main_summary}</div>
+                    </div>
+                  </a>
+                ))}
               </div>
-              <div className="timeline-score">{Math.round(entry.signal_score * 100)}</div>
-            </a>
-          ))
-        ) : (
-          <div className="empty-state">No stock-linked signals yet.</div>
-        )}
-      </div>
+            ) : (
+              <div className="empty-state">No stock-related event clusters yet.</div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "summary" ? (
+        <div className="stock-detail-tab-panel">
+          {llmSummary ? (
+            <div className="digest-section">
+              <div className="digest-section-title">LLM Summary</div>
+              <div className="llm-explanation">{llmSummary.summary}</div>
+              <div className="small-muted">
+                {llmSummary.model} · {llmSummary.total_tokens} tokens
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">No LLM stock summary generated yet.</div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -4680,6 +4724,13 @@ const STOCK_PRICE_RANGES: { key: StockPriceRangeKey; label: string; days: number
   { key: "1m", label: "1M", days: 31 },
   { key: "6m", label: "6M", days: 183 },
   { key: "1y", label: "1Y", days: 366 },
+];
+
+const STOCK_DETAIL_TABS: { key: StockDetailTabKey; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "signals", label: "Signals" },
+  { key: "clusters", label: "Clusters" },
+  { key: "summary", label: "Summary" },
 ];
 
 function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {

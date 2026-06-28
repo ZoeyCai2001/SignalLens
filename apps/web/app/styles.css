@@ -1154,6 +1154,35 @@ tr:last-child td {
   gap: 10px;
 }
 
+.stock-detail-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.stock-detail-tab {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 760;
+  min-height: 30px;
+  padding: 0 8px;
+}
+
+.stock-detail-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.stock-detail-tab-panel {
+  display: grid;
+  gap: 10px;
+}
+
 .stock-detail-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
