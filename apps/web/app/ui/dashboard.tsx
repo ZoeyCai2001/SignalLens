@@ -677,6 +677,7 @@ export function Dashboard() {
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [sourceRuns, setSourceRuns] = useState<SourceRunHistoryItem[]>([]);
   const [sourceRunStatusFilter, setSourceRunStatusFilter] = useState<"all" | "failed">("all");
+  const [sourceRunSourceFilter, setSourceRunSourceFilter] = useState<SourceHealth | null>(null);
   const [lastCycleResult, setLastCycleResult] = useState<ScheduledCycleResponse | null>(null);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
@@ -809,8 +810,7 @@ export function Dashboard() {
     setError(null);
     try {
       const digestDateQuery = buildDigestDateQuery(digestDateDraftRef.current);
-      const sourceRunQuery =
-        sourceRunStatusFilter === "failed" ? "?limit=8&status=failed" : "?limit=8";
+      const sourceRunQuery = buildSourceRunQuery(sourceRunStatusFilter, sourceRunSourceFilter?.id);
       const [
         nextFeed,
         nextSavedItems,
@@ -887,7 +887,7 @@ export function Dashboard() {
         setActiveOperation(null);
       }
     }
-  }, [alertIncludeDismissed, fetchJson, sourceRunStatusFilter]);
+  }, [alertIncludeDismissed, fetchJson, sourceRunSourceFilter, sourceRunStatusFilter]);
 
   useEffect(() => {
     void refreshAll();
@@ -2381,6 +2381,7 @@ export function Dashboard() {
       sources={sources}
       runs={sourceRuns}
       runStatusFilter={sourceRunStatusFilter}
+      runSourceFilter={sourceRunSourceFilter}
       lastCycleResult={lastCycleResult}
       blockedSources={preferences?.blocked_sources ?? []}
       name={sourceName}
@@ -2396,6 +2397,7 @@ export function Dashboard() {
       onBaseUrlChange={setSourceBaseUrl}
       onTermsNotesChange={setSourceTermsNotes}
       onRunStatusFilterChange={setSourceRunStatusFilter}
+      onRunSourceFilterChange={setSourceRunSourceFilter}
       onSubmit={submitSource}
       onRunSource={runSourceNow}
       onToggleSource={toggleSource}
@@ -6529,6 +6531,7 @@ function SourceTable({
   sources,
   runs,
   runStatusFilter,
+  runSourceFilter,
   lastCycleResult,
   blockedSources,
   name,
@@ -6544,6 +6547,7 @@ function SourceTable({
   onBaseUrlChange,
   onTermsNotesChange,
   onRunStatusFilterChange,
+  onRunSourceFilterChange,
   onSubmit,
   onRunSource,
   onToggleSource,
@@ -6554,6 +6558,7 @@ function SourceTable({
   sources: SourceHealth[];
   runs: SourceRunHistoryItem[];
   runStatusFilter: "all" | "failed";
+  runSourceFilter: SourceHealth | null;
   lastCycleResult: ScheduledCycleResponse | null;
   blockedSources: string[];
   name: string;
@@ -6569,6 +6574,7 @@ function SourceTable({
   onBaseUrlChange: (value: string) => void;
   onTermsNotesChange: (value: string) => void;
   onRunStatusFilterChange: (value: "all" | "failed") => void;
+  onRunSourceFilterChange: (source: SourceHealth | null) => void;
   onSubmit: () => void;
   onRunSource: (source: SourceHealth) => void;
   onToggleSource: (source: SourceHealth) => void;
@@ -6796,6 +6802,17 @@ function SourceTable({
                         {saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
                       </button>
                       <button
+                        className={`button icon-button ${
+                          runSourceFilter?.id === source.id ? "active-icon-button" : ""
+                        }`}
+                        onClick={() => onRunSourceFilterChange(source)}
+                        disabled={disabled || saving}
+                        title="Show this source run history"
+                        type="button"
+                      >
+                        {saving ? <Loader2 className="spin" size={16} /> : <History size={16} />}
+                      </button>
+                      <button
                         className={`button icon-button ${blocked ? "active-icon-button" : ""}`}
                         onClick={() => onToggleSourceBlock(source)}
                         disabled={disabled || saving}
@@ -6880,6 +6897,15 @@ function SourceTable({
         >
           Failed Runs
         </button>
+        {runSourceFilter ? (
+          <button
+            className="button primary"
+            onClick={() => onRunSourceFilterChange(null)}
+            type="button"
+          >
+            {runSourceFilter.name}
+          </button>
+        ) : null}
       </div>
       <div className="source-run-list">
         {runs.length ? (
@@ -6900,9 +6926,7 @@ function SourceTable({
           ))
         ) : (
           <div className="empty-state">
-            {runStatusFilter === "failed"
-              ? "No failed source runs recorded yet."
-              : "No source runs recorded yet."}
+            {sourceRunHistoryEmptyText(runStatusFilter, runSourceFilter)}
           </div>
         )}
       </div>
@@ -6964,6 +6988,21 @@ function sourceMatchesHealthFilter(
   if (filter === "disabled") return !source.enabled;
   if (filter === "blocked") return sourceNameInList(source.name, blockedSources);
   return true;
+}
+
+function sourceRunHistoryEmptyText(
+  statusFilter: "all" | "failed",
+  sourceFilter: SourceHealth | null,
+): string {
+  if (sourceFilter && statusFilter === "failed") {
+    return `No failed source runs recorded for ${sourceFilter.name}.`;
+  }
+  if (sourceFilter) {
+    return `No source runs recorded for ${sourceFilter.name}.`;
+  }
+  return statusFilter === "failed"
+    ? "No failed source runs recorded yet."
+    : "No source runs recorded yet.";
 }
 
 function sourceNameInList(sourceName: string, sourceNames: string[]): boolean {
@@ -7067,6 +7106,17 @@ function formatDate(value: string) {
 function buildDigestDateQuery(value: string): string {
   const normalized = value.trim();
   return normalized ? `?date=${encodeURIComponent(normalized)}` : "";
+}
+
+function buildSourceRunQuery(statusFilter: "all" | "failed", sourceId?: number): string {
+  const params = new URLSearchParams({ limit: "8" });
+  if (statusFilter === "failed") {
+    params.set("status", "failed");
+  }
+  if (sourceId) {
+    params.set("source_id", String(sourceId));
+  }
+  return `?${params.toString()}`;
 }
 
 function isAlertRuleSnoozed(rule: AlertRule): boolean {

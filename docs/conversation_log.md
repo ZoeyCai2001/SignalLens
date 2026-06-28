@@ -219,3 +219,4 @@ Implementation progress:
 - Added failed-run filtering for Source Health history through the API and dashboard.
 - Added manual submission source-name attribution to the dashboard form.
 - Preserved exact saved digest snapshot markdown when copying an opened snapshot.
+- Added source-specific Source Health run history filtering through the API and dashboard.

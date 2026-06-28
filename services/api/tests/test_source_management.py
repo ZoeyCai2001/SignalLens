@@ -409,7 +409,8 @@ def test_list_source_run_history_filters_by_status() -> None:
 
     with session_factory() as db:
         source = Source(name="arXiv", type="research", access_method="api", enabled=True)
-        db.add(source)
+        other_source = Source(name="Hacker News", type="community", access_method="api", enabled=True)
+        db.add_all([source, other_source])
         db.flush()
         db.add_all(
             [
@@ -428,15 +429,29 @@ def test_list_source_run_history_filters_by_status() -> None:
                     error_message="rate limited",
                     started_at=datetime(2026, 6, 27, 9, 0, tzinfo=UTC),
                 ),
+                SourceRun(
+                    source_id=other_source.id,
+                    status="failed",
+                    items_fetched=0,
+                    items_stored=0,
+                    error_message="timeout",
+                    started_at=datetime(2026, 6, 27, 10, 0, tzinfo=UTC),
+                ),
             ]
         )
         db.commit()
 
         failed_runs = list_source_run_history(db=db, status="failed")
+        source_failed_runs = list_source_run_history(
+            db=db,
+            status="failed",
+            source_id=source.id,
+        )
 
-    assert [run.status for run in failed_runs] == ["failed"]
-    assert failed_runs[0].source_name == "arXiv"
-    assert failed_runs[0].error_message == "rate limited"
+    assert [run.source_name for run in failed_runs] == ["Hacker News", "arXiv"]
+    assert [run.status for run in source_failed_runs] == ["failed"]
+    assert source_failed_runs[0].source_name == "arXiv"
+    assert source_failed_runs[0].error_message == "rate limited"
 
 
 @pytest.mark.anyio

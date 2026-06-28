@@ -148,6 +148,7 @@ def list_source_run_history(
     db: Session,
     limit: int = 20,
     status: str | None = None,
+    source_id: int | None = None,
 ) -> list[SourceRunHistoryItem]:
     query = (
         db.query(SourceRun, Source)
@@ -157,6 +158,8 @@ def list_source_run_history(
     normalized_status = normalize_optional_text(status)
     if normalized_status:
         query = query.filter(SourceRun.status == normalized_status)
+    if source_id is not None:
+        query = query.filter(SourceRun.source_id == source_id)
     rows = query.limit(limit).all()
     return [serialize_source_run_history_item(run=run, source=source) for run, source in rows]
 
