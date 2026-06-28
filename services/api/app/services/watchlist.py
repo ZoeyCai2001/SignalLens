@@ -1051,11 +1051,17 @@ def build_stock_market_snapshot(
         if previous and previous.close_price
         else None
     )
+    volume_change_percent = (
+        round(((latest.volume - previous.volume) / previous.volume) * 100, 2)
+        if previous and latest.volume is not None and previous.volume
+        else None
+    )
     return StockMarketSnapshot(
         latest=latest,
         previous_close=previous.close_price if previous else None,
         change=round(change, 4) if change is not None else None,
         change_percent=change_percent,
+        volume_change_percent=volume_change_percent,
         history=history,
     )
 

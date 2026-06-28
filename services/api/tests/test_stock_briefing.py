@@ -1,5 +1,9 @@
 from datetime import UTC, datetime
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db.models import Base, StockPricePoint as StockPricePointModel
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
     StockMarketSnapshot,
@@ -8,6 +12,7 @@ from app.schemas.watchlist import (
     StockWatchlistItem,
 )
 from app.services.watchlist import (
+    build_stock_market_snapshot,
     build_stock_briefing,
     compute_stock_attention_score,
     infer_stock_price_reaction,
@@ -133,6 +138,32 @@ def test_compute_stock_attention_score_combines_signal_volume_and_preferences() 
     assert score == 0.74
 
 
+def test_build_stock_market_snapshot_includes_volume_change() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_price_point("MU", "2026-06-24", close_price=100, volume=1_000),
+                make_price_point("MU", "2026-06-25", close_price=110, volume=1_250),
+            ]
+        )
+        db.commit()
+
+        snapshot = build_stock_market_snapshot(db=db, ticker="MU")
+
+    assert snapshot is not None
+    assert snapshot.change == 10
+    assert snapshot.change_percent == 10
+    assert snapshot.volume_change_percent == 25
+    assert [point.price_date.isoformat() for point in snapshot.history] == [
+        "2026-06-24",
+        "2026-06-25",
+    ]
+
+
 def test_infer_stock_price_reaction_labels_market_alignment() -> None:
     market = StockMarketSnapshot(
         latest=None,
@@ -207,4 +238,22 @@ def make_feed_item(
         summary_short=None,
         summary_detailed=None,
         why_it_matters=why_it_matters,
+    )
+
+
+def make_price_point(
+    ticker: str,
+    price_date: str,
+    close_price: float,
+    volume: int,
+) -> StockPricePointModel:
+    return StockPricePointModel(
+        ticker=ticker,
+        price_date=datetime.fromisoformat(price_date).date(),
+        open_price=close_price,
+        high_price=close_price,
+        low_price=close_price,
+        close_price=close_price,
+        adjusted_close=close_price,
+        volume=volume,
     )

@@ -110,6 +110,7 @@ type StockMarketSnapshot = {
   previous_close: number | null;
   change: number | null;
   change_percent: number | null;
+  volume_change_percent: number | null;
   history: StockPricePoint[];
 };
 
@@ -3964,6 +3965,16 @@ function StockBriefingPanel({
           </span>
         </div>
         <div className="score-cell">
+          <span className="score-label">Volume</span>
+          <span
+            className={`score-value ${marketChangeClass(
+              briefing.market?.volume_change_percent ?? null,
+            )}`}
+          >
+            {formatPercentChange(briefing.market?.volume_change_percent)}
+          </span>
+        </div>
+        <div className="score-cell">
           <span className="score-label">Signals</span>
           <span className="score-value">{briefing.signal_count}</span>
         </div>
@@ -5590,6 +5601,14 @@ function formatChange(market: StockMarketSnapshot | null | undefined): string {
   }
   const sign = market.change > 0 ? "+" : "";
   return `${sign}${market.change.toFixed(2)} (${sign}${market.change_percent.toFixed(2)}%)`;
+}
+
+function formatPercentChange(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
 }
 
 function formatDominantSentiment(counts: Record<string, number> | null | undefined): string {

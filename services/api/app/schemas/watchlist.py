@@ -42,6 +42,7 @@ class StockMarketSnapshot(BaseModel):
     previous_close: float | None = None
     change: float | None = None
     change_percent: float | None = None
+    volume_change_percent: float | None = None
     history: list[StockPricePoint] = Field(default_factory=list)
 
 
