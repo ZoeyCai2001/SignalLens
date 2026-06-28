@@ -241,6 +241,38 @@ def test_serialize_daily_digest_snapshot_round_trips_payload() -> None:
     assert serialized.markdown == "# Snapshot\n"
 
 
+def test_serialize_daily_digest_snapshot_handles_legacy_payload_without_companies() -> None:
+    timestamp = datetime(2026, 6, 25, 13, 5, tzinfo=UTC)
+    legacy_payload = {
+        "digest_date": "2026-06-25",
+        "generated_at": "2026-06-25T13:00:00Z",
+        "headline": "Legacy snapshot",
+        "total_items": 0,
+        "sections": [],
+        "source_coverage": [],
+        "watchlist_tickers": ["MU"],
+        "disclaimer": "Informational only.",
+    }
+    snapshot = DailyDigestSnapshotModel(
+        id=8,
+        user_id="local",
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+        headline="Legacy snapshot",
+        total_items=0,
+        limit_per_section=5,
+        payload=legacy_payload,
+        markdown="# Legacy\n",
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+
+    serialized = serialize_daily_digest_snapshot(snapshot)
+
+    assert serialized.digest.watchlist_tickers == ["MU"]
+    assert serialized.digest.watchlist_companies == []
+
+
 def make_item(
     item_id: int,
     title: str,

@@ -124,3 +124,4 @@ Implementation progress:
 - Added company briefing APIs that group matched company signals by source, topic, product, ticker, recent timeline, and activity date.
 - Connected company briefings to the dashboard so selected companies show source, topic, product, ticker, activity, and recent-signal summaries.
 - Added company watchlist context to daily digest responses, markdown, and dashboard digest badges.
+- Made daily digest snapshot parsing backward-compatible with older payloads that do not include company watchlist context.

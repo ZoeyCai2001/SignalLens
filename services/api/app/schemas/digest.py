@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.feed import FeedItem
 
@@ -24,8 +24,8 @@ class DailyDigest(BaseModel):
     total_items: int
     sections: list[DigestSection]
     source_coverage: list[DigestSourceCoverage]
-    watchlist_tickers: list[str]
-    watchlist_companies: list[str]
+    watchlist_tickers: list[str] = Field(default_factory=list)
+    watchlist_companies: list[str] = Field(default_factory=list)
     disclaimer: str
 
 

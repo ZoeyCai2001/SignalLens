@@ -352,6 +352,8 @@ The dashboard surfaces stock, company, topic, and product-category watchlists as
 
 Daily digest responses include both ticker and company watchlist context so the user can see which personal focus areas shaped the briefing. Digest inclusion toggles are enforced for topic, product-category, and company watchlists. Company exclusions match company keys, company names, tickers, categories, and related terms so a hidden company does not continue leaking into digest sections through ticker-linked items.
 
+Digest payload fields that were added after earlier snapshots, such as company watchlist context, use schema defaults so saved historical snapshots remain readable after backend upgrades.
+
 Company briefings aggregate matched items by source, topic, product, ticker, recent timeline, and daily activity so followed AI companies can be inspected independently from the stock watchlist. The dashboard surfaces these briefings inside the company watchlist panel with source, topic, product, ticker, activity, and recent-signal views.
 
 ### Stocks
