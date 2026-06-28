@@ -192,3 +192,4 @@ Implementation progress:
 - Ranked topic-briefing related papers by topic match and potential impact signals instead of raw query order.
 - Added deterministic English summaries, inferred product/use-case badges, and experimental markers for Chinese social and social-keyword signals.
 - Added an explicit daily digest generation endpoint and dashboard action so previews can be refreshed before copying or saving snapshots.
+- Added ranked feed topic filtering and dashboard watchlist-topic quick filters for the PRD AI trend monitoring flow.

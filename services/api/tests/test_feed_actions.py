@@ -9,11 +9,13 @@ from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
     FeedInterestProfile,
     build_feed_interest_profile,
+    build_feed_topic_filter_terms,
     build_feed_uncertainty_notes,
     build_score_explanation,
     feed_interest_bonus,
     freshness_score,
     list_visible_feed_items,
+    normalize_feed_topic_filter,
     normalize_language_codes,
     normalize_source_names,
     rank_feed_items,
@@ -321,6 +323,21 @@ def test_normalize_language_codes_maps_aliases() -> None:
     assert normalize_language_codes([" English ", "zh-cn", "", "CN"]) == {"en", "zh"}
 
 
+def test_normalize_feed_topic_filter_matches_slug_and_spacing() -> None:
+    assert normalize_feed_topic_filter(" ai-coding-agents ") == "ai coding agents"
+    assert normalize_feed_topic_filter("") is None
+
+
+def test_build_feed_topic_filter_terms_adds_conservative_variants() -> None:
+    assert build_feed_topic_filter_terms("ai-coding-agents") == {
+        "ai coding agents",
+        "ai coding agent",
+        "ai-coding-agents",
+        "coding agents",
+        "coding agent",
+    }
+
+
 def test_list_visible_feed_items_filters_language_preferences() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -338,6 +355,45 @@ def test_list_visible_feed_items_filters_language_preferences() -> None:
         items = list_visible_feed_items(db, limit=10, language_preferences=["zh"])
 
     assert [item.title for item in items] == ["Chinese signal"]
+
+
+def test_list_visible_feed_items_filters_by_topic() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Agent coding launch",
+                    language="en",
+                    topics=["ai coding agents"],
+                ),
+                make_normalized_item(
+                    2,
+                    "Semiconductor capacity",
+                    language="en",
+                    topics=["semiconductor"],
+                ),
+                make_normalized_item(
+                    3,
+                    "Agent product summary",
+                    language="en",
+                    topics=[],
+                    summary_short="New coding agent workflow.",
+                ),
+            ]
+        )
+        db.commit()
+
+        items = list_visible_feed_items(db, limit=10, topic="ai-coding-agents")
+
+    assert [item.title for item in items] == [
+        "Agent coding launch",
+        "Agent product summary",
+    ]
 
 
 def test_freshness_score_decays_over_three_days() -> None:
@@ -382,7 +438,13 @@ def make_feed_item(
     )
 
 
-def make_normalized_item(item_id: int, title: str, language: str) -> NormalizedItem:
+def make_normalized_item(
+    item_id: int,
+    title: str,
+    language: str,
+    topics: list[str] | None = None,
+    summary_short: str | None = None,
+) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
         raw_item_id=item_id,
@@ -398,7 +460,7 @@ def make_normalized_item(item_id: int, title: str, language: str) -> NormalizedI
         tickers=[],
         companies=[],
         products=[],
-        topics=["agent"],
+        topics=topics if topics is not None else ["agent"],
         sentiment="neutral",
         relevance_score=0.8,
         classification_confidence=0.8,
@@ -406,4 +468,5 @@ def make_normalized_item(item_id: int, title: str, language: str) -> NormalizedI
         novelty_score=0.5,
         source_quality_score=0.7,
         stock_impact_score=0,
+        summary_short=summary_short,
     )

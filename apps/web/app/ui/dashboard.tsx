@@ -1200,6 +1200,38 @@ export function Dashboard() {
     setSearchIntent(null);
   };
 
+  const applyTopicFeedFilter = async (topic: TopicWatchlistItem) => {
+    setLoadState("loading");
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "30");
+      params.set("topic", topic.topic);
+      const results = await fetchJson<FeedItem[]>(`/api/feed?${params.toString()}`);
+      setFeed(results);
+      setActiveModule("dashboard");
+      setSearchQuery("");
+      setSearchSource("");
+      setSearchCategory("");
+      setSearchTicker("");
+      setSearchCompany("");
+      setSearchTopic(topic.topic);
+      setSearchLanguage("");
+      setSearchDateFrom("");
+      setSearchDateTo("");
+      setSearchMinImportance("");
+      setSavedOnly(false);
+      setSearchIntent(null);
+      setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
+      setStatus(`Filtered feed by topic ${topic.label}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Topic filter failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
   const generateDailyDigest = async () => {
     setBusyDigestGenerate(true);
     setError(null);
@@ -2307,6 +2339,7 @@ export function Dashboard() {
                 ticker={searchTicker}
                 company={searchCompany}
                 topic={searchTopic}
+                topicOptions={topics}
                 language={searchLanguage}
                 dateFrom={searchDateFrom}
                 dateTo={searchDateTo}
@@ -2320,6 +2353,7 @@ export function Dashboard() {
                 onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
                 onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
                 onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
+                onTopicFilter={applyTopicFeedFilter}
                 onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
                 onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
                 onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
@@ -3291,6 +3325,7 @@ function SearchPanel({
   ticker,
   company,
   topic,
+  topicOptions,
   language,
   dateFrom,
   dateTo,
@@ -3304,6 +3339,7 @@ function SearchPanel({
   onTickerChange,
   onCompanyChange,
   onTopicChange,
+  onTopicFilter,
   onLanguageChange,
   onDateFromChange,
   onDateToChange,
@@ -3318,6 +3354,7 @@ function SearchPanel({
   ticker: string;
   company: string;
   topic: string;
+  topicOptions: TopicWatchlistItem[];
   language: string;
   dateFrom: string;
   dateTo: string;
@@ -3331,6 +3368,7 @@ function SearchPanel({
   onTickerChange: (value: string) => void;
   onCompanyChange: (value: string) => void;
   onTopicChange: (value: string) => void;
+  onTopicFilter: (topic: TopicWatchlistItem) => void;
   onLanguageChange: (value: string) => void;
   onDateFromChange: (value: string) => void;
   onDateToChange: (value: string) => void;
@@ -3361,6 +3399,21 @@ function SearchPanel({
           Clear
         </button>
       </div>
+      {topicOptions.length ? (
+        <div className="topic-filter-row" aria-label="Watchlist topic filters">
+          {topicOptions.slice(0, 8).map((topicOption) => (
+            <button
+              className={`badge-button ${topic === topicOption.topic ? "active" : ""}`}
+              key={topicOption.topic}
+              onClick={() => onTopicFilter(topicOption)}
+              disabled={disabled}
+              type="button"
+            >
+              {topicOption.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="filter-row">
         <input
           className="field"

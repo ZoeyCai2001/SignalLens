@@ -23,6 +23,7 @@ async def list_feed_items(
     db: DbSession,
     limit: int = Query(default=25, ge=1, le=100),
     saved_only: bool = Query(default=False),
+    topic: str | None = Query(default=None, max_length=120),
 ) -> list[FeedItem]:
     preferences = get_user_preferences(db)
     return list_visible_feed_items(
@@ -33,6 +34,7 @@ async def list_feed_items(
         blocked_sources=preferences.blocked_sources,
         language_preferences=preferences.language_preferences,
         saved_only=saved_only,
+        topic=topic,
     )
 
 

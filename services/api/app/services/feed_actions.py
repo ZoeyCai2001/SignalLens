@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -113,9 +114,11 @@ def list_visible_feed_items(
     blocked_sources: list[str] | None = None,
     language_preferences: list[str] | None = None,
     saved_only: bool = False,
+    topic: str | None = None,
 ) -> list[FeedItem]:
     blocked_source_names = normalize_source_names(blocked_sources)
     preferred_languages = normalize_language_codes(language_preferences)
+    topic_terms = build_feed_topic_filter_terms(topic)
     query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
@@ -131,6 +134,24 @@ def list_visible_feed_items(
         query = query.filter(NormalizedItem.language.in_(preferred_languages))
     if saved_only:
         query = query.filter(UserItemAction.is_saved.is_(True))
+    if topic_terms:
+        topic_conditions = []
+        for topic_term in topic_terms:
+            pattern = f"%{topic_term}%"
+            json_pattern = f'%"{topic_term}"%'
+            topic_conditions.extend(
+                [
+                    cast(NormalizedItem.topics, String).ilike(json_pattern),
+                    cast(NormalizedItem.topics, String).ilike(pattern),
+                    cast(NormalizedItem.products, String).ilike(pattern),
+                    cast(NormalizedItem.companies, String).ilike(pattern),
+                    NormalizedItem.title.ilike(pattern),
+                    NormalizedItem.summary_short.ilike(pattern),
+                    NormalizedItem.summary_detailed.ilike(pattern),
+                    NormalizedItem.why_it_matters.ilike(pattern),
+                ]
+            )
+        query = query.filter(or_(*topic_conditions))
 
     rows = (
         query
@@ -243,6 +264,24 @@ def normalize_language_codes(values: list[str] | None) -> set[str]:
         if normalized:
             normalized_values.add(normalized)
     return normalized_values
+
+
+def normalize_feed_topic_filter(value: str | None) -> str | None:
+    normalized = " ".join(str(value or "").strip().replace("-", " ").split())
+    return normalized.lower() or None
+
+
+def build_feed_topic_filter_terms(value: str | None) -> set[str]:
+    normalized = normalize_feed_topic_filter(value)
+    raw = str(value or "").strip().lower()
+    terms = {term for term in [normalized, raw] if term}
+    if normalized and normalized.startswith("ai "):
+        terms.add(normalized.removeprefix("ai ").strip())
+    for term in list(terms):
+        words = term.split()
+        if len(words) > 1 and words[-1].endswith("s") and len(words[-1]) > 3:
+            terms.add(" ".join([*words[:-1], words[-1][:-1]]))
+    return {term for term in terms if term}
 
 
 def build_feed_interest_profile(db: Session) -> FeedInterestProfile:

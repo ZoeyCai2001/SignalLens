@@ -334,7 +334,7 @@ For MVP privacy, `shares` and `average_cost` remain nullable and hidden in the d
 - `GET /api/search`
 - `POST /api/search/natural-language`
 
-Natural-language search infers category, ticker, company, topic, language, date, importance, and saved-item filters, then applies those inferred filters to the database query so dashboard search chips reflect the actual result set. Manual search filters include company entities, and free-text search matches stored entity arrays such as tickers, companies, products, and topics.
+Natural-language search infers category, ticker, company, topic, language, date, importance, and saved-item filters, then applies those inferred filters to the database query so dashboard search chips reflect the actual result set. Manual search filters include company entities, and free-text search matches stored entity arrays such as tickers, companies, products, and topics. The ranked feed API also accepts a topic filter, including slug and singular/plural variants, so the dashboard can offer watchlist-topic quick filters without leaving the main feed.
 
 ### Watchlists
 
@@ -452,6 +452,7 @@ Recommended UI behavior:
 - Prefer short card summaries in feed cards and reserve detailed LLM summaries for expanded item details.
 - Use tabs for stock detail sections.
 - Use filters and segmented controls for category views.
+- Provide quick topic filters from the watchlist directly in the main ranked feed.
 - Use restrained color for severity, sentiment, and source health.
 - Keep toolbar busy indicators tied to the active ingestion, refresh, cycle, or LLM action so manual operations remain auditable during local MVP use.
 - Label setup checklist items as core, recommended, or optional so missing API keys do not look equally blocking during budget-limited local setup.

@@ -562,6 +562,35 @@ table {
   align-items: center;
 }
 
+.topic-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge-button {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  color: #33413e;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 3px 8px;
+}
+
+.badge-button:hover,
+.badge-button.active {
+  border-color: #b7d8d4;
+  background: #e7f3f0;
+  color: var(--accent-strong);
+}
+
+.badge-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .advanced-filter-row {
   grid-template-columns: 150px 150px 150px auto;
 }
