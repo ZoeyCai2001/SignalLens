@@ -423,6 +423,8 @@ type RankingWeights = {
 type UserPreferences = {
   user_id: string;
   ranking_weights: RankingWeights;
+  preferred_sources: string[];
+  blocked_sources: string[];
 };
 
 type LoadState = "idle" | "loading" | "running";
@@ -490,6 +492,8 @@ export function Dashboard() {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [rankingDraft, setRankingDraft] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
+  const [preferredSourcesDraft, setPreferredSourcesDraft] = useState("");
+  const [blockedSourcesDraft, setBlockedSourcesDraft] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
@@ -622,6 +626,8 @@ export function Dashboard() {
       setPreferences(nextPreferences);
       setSystemStatus(nextSystemStatus);
       setRankingDraft(nextPreferences.ranking_weights);
+      setPreferredSourcesDraft(nextPreferences.preferred_sources.join(", "));
+      setBlockedSourcesDraft(nextPreferences.blocked_sources.join(", "));
       setStatus(`Loaded ${nextFeed.length} feed items`);
     } catch (err) {
       setError(readError(err));
@@ -814,11 +820,17 @@ export function Dashboard() {
     try {
       const updated = await fetchJson<UserPreferences>("/api/preferences", {
         method: "PATCH",
-        body: JSON.stringify({ ranking_weights: rankingDraft }),
+        body: JSON.stringify({
+          ranking_weights: rankingDraft,
+          preferred_sources: splitTerms(preferredSourcesDraft),
+          blocked_sources: splitTerms(blockedSourcesDraft),
+        }),
       });
       setPreferences(updated);
       setRankingDraft(updated.ranking_weights);
-      setStatus("Updated ranking weights");
+      setPreferredSourcesDraft(updated.preferred_sources.join(", "));
+      setBlockedSourcesDraft(updated.blocked_sources.join(", "));
+      setStatus("Updated ranking preferences");
       await refreshAll();
     } catch (err) {
       setError(readError(err));
@@ -1691,9 +1703,13 @@ export function Dashboard() {
             <RankingPreferencesPanel
               preferences={preferences}
               draft={rankingDraft}
+              preferredSources={preferredSourcesDraft}
+              blockedSources={blockedSourcesDraft}
               disabled={loadState !== "idle"}
               busy={busyPreferences}
               onDraftChange={updateRankingDraft}
+              onPreferredSourcesChange={setPreferredSourcesDraft}
+              onBlockedSourcesChange={setBlockedSourcesDraft}
               onReset={() => setRankingDraft(DEFAULT_RANKING_WEIGHTS)}
               onSave={saveRankingPreferences}
             />
@@ -1820,17 +1836,25 @@ export function Dashboard() {
 function RankingPreferencesPanel({
   preferences,
   draft,
+  preferredSources,
+  blockedSources,
   disabled,
   busy,
   onDraftChange,
+  onPreferredSourcesChange,
+  onBlockedSourcesChange,
   onReset,
   onSave,
 }: {
   preferences: UserPreferences | null;
   draft: RankingWeights;
+  preferredSources: string;
+  blockedSources: string;
   disabled: boolean;
   busy: boolean;
   onDraftChange: (key: keyof RankingWeights, value: number) => void;
+  onPreferredSourcesChange: (value: string) => void;
+  onBlockedSourcesChange: (value: string) => void;
   onReset: () => void;
   onSave: () => void;
 }) {
@@ -1862,6 +1886,28 @@ function RankingPreferencesPanel({
               />
             </label>
           ))}
+        </div>
+        <div className="weights-grid">
+          <label className="weight-field">
+            <span className="field-label">Preferred Sources</span>
+            <input
+              className="field"
+              value={preferredSources}
+              onChange={(event) => onPreferredSourcesChange(event.target.value)}
+              placeholder="GitHub, arXiv"
+              disabled={disabled || busy}
+            />
+          </label>
+          <label className="weight-field">
+            <span className="field-label">Blocked Sources</span>
+            <input
+              className="field"
+              value={blockedSources}
+              onChange={(event) => onBlockedSourcesChange(event.target.value)}
+              placeholder="Noisy Feed"
+              disabled={disabled || busy}
+            />
+          </label>
         </div>
         <div className="toolbar">
           <button className="button" onClick={onReset} disabled={disabled || busy}>

@@ -144,6 +144,8 @@ class UserPreference(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[str] = mapped_column(String(120), unique=True, default="local", nullable=False)
     ranking_weights: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    preferred_sources: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    blocked_sources: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
 
 class DailyDigestSnapshot(Base, TimestampMixin):

@@ -164,7 +164,7 @@ Read or update local ranking preferences:
 curl "http://127.0.0.1:8000/api/preferences"
 curl -X PATCH "http://127.0.0.1:8000/api/preferences" \
   -H "Content-Type: application/json" \
-  -d '{"ranking_weights":{"relevance":0.35,"importance":0.25,"novelty":0.1,"source_quality":0.1,"stock_impact":0.15,"freshness":0.05}}'
+  -d '{"ranking_weights":{"relevance":0.35,"importance":0.25,"novelty":0.1,"source_quality":0.1,"stock_impact":0.15,"freshness":0.05},"preferred_sources":["GitHub","arXiv"],"blocked_sources":["Noisy Feed"]}'
 ```
 
 Generate, read, and dismiss dashboard alerts:

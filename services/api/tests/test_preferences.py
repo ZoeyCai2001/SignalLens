@@ -1,4 +1,8 @@
-from app.services.preferences import DEFAULT_RANKING_WEIGHTS, normalize_ranking_weights
+from app.services.preferences import (
+    DEFAULT_RANKING_WEIGHTS,
+    normalize_ranking_weights,
+    normalize_source_preferences,
+)
 
 
 def test_normalize_ranking_weights_merges_partial_values_with_defaults() -> None:
@@ -6,3 +10,7 @@ def test_normalize_ranking_weights_merges_partial_values_with_defaults() -> None
 
     assert weights["importance"] == 0.8
     assert weights["relevance"] == DEFAULT_RANKING_WEIGHTS.relevance
+
+
+def test_normalize_source_preferences_trims_and_deduplicates_names() -> None:
+    assert normalize_source_preferences([" RSS ", "rss", "", "GitHub"]) == ["RSS", "GitHub"]

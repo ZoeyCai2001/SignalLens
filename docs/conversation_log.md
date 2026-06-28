@@ -101,3 +101,4 @@ Implementation progress:
 - Added structured stock-event classification details to each stock timeline item, including event type, possible market impact, confidence, time sensitivity, summary, and uncertainties.
 - Enriched event clusters with main summaries, confidence, importance, earliest/latest source timing, and compact timelines in the dashboard.
 - Added source-watchlist registration so followed blogs, repositories, companies, and RSS feeds can be tracked from Source Health, with custom RSS feeds runnable through the existing connector.
+- Added preferred and blocked source preferences so source credibility can influence ranking and noisy sources can be hidden from the feed.

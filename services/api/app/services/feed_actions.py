@@ -59,8 +59,11 @@ def list_visible_feed_items(
     db: Session,
     limit: int,
     ranking_weights: RankingWeights | dict | None = None,
+    preferred_sources: list[str] | None = None,
+    blocked_sources: list[str] | None = None,
     saved_only: bool = False,
 ) -> list[FeedItem]:
+    blocked_source_names = normalize_source_names(blocked_sources)
     query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
@@ -70,6 +73,8 @@ def list_visible_feed_items(
         )
         .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
     )
+    if blocked_source_names:
+        query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
     if saved_only:
         query = query.filter(UserItemAction.is_saved.is_(True))
 
@@ -86,21 +91,32 @@ def list_visible_feed_items(
         .all()
     )
     items = [serialize_feed_item(item, action) for item, action in rows]
-    return rank_feed_items(items, ranking_weights=ranking_weights)[:limit]
+    return rank_feed_items(
+        items,
+        ranking_weights=ranking_weights,
+        preferred_sources=preferred_sources,
+    )[:limit]
 
 
 def rank_feed_items(
     items: list[FeedItem],
     ranking_weights: RankingWeights | dict | None = None,
+    preferred_sources: list[str] | None = None,
     now: datetime | None = None,
 ) -> list[FeedItem]:
     weights = resolve_ranking_weights(ranking_weights)
     reference_time = now or datetime.now(UTC)
+    preferred_source_names = normalize_source_names(preferred_sources)
     return sorted(
         items,
         key=lambda item: (
             item.is_important,
-            weighted_feed_score(item, weights, now=reference_time),
+            weighted_feed_score(
+                item,
+                weights,
+                now=reference_time,
+                preferred_sources=preferred_source_names,
+            ),
             item.published_at or datetime.min.replace(tzinfo=UTC),
         ),
         reverse=True,
@@ -111,15 +127,18 @@ def weighted_feed_score(
     item: FeedItem,
     weights: RankingWeights,
     now: datetime | None = None,
+    preferred_sources: set[str] | None = None,
 ) -> float:
     reference_time = now or datetime.now(UTC)
+    source_bonus = 0.08 if preferred_sources and item.source_name in preferred_sources else 0
     return round(
         weights.relevance * item.relevance_score
         + weights.importance * item.importance_score
         + weights.novelty * item.novelty_score
         + weights.source_quality * item.source_quality_score
         + weights.stock_impact * item.stock_impact_score
-        + weights.freshness * freshness_score(item, now=reference_time),
+        + weights.freshness * freshness_score(item, now=reference_time)
+        + source_bonus,
         4,
     )
 
@@ -138,6 +157,10 @@ def freshness_score(item: FeedItem, now: datetime | None = None) -> float:
     reference_time = now or datetime.now(UTC)
     age_hours = max(0, (reference_time - item.published_at).total_seconds() / 3600)
     return round(max(0, 1 - age_hours / 72), 4)
+
+
+def normalize_source_names(values: list[str] | None) -> set[str]:
+    return {str(value).strip() for value in values or [] if str(value).strip()}
 
 
 def get_action(db: Session, item_id: int) -> UserItemAction | None:

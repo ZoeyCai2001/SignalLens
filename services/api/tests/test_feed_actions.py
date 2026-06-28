@@ -6,9 +6,11 @@ from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
     build_score_explanation,
     freshness_score,
+    normalize_source_names,
     rank_feed_items,
     serialize_feed_item,
     serialize_feed_item_detail,
+    weighted_feed_score,
 )
 
 
@@ -127,6 +129,26 @@ def test_rank_feed_items_uses_configurable_weights() -> None:
     )
 
     assert [item.title for item in ranked] == ["Relevant", "Important"]
+
+
+def test_weighted_feed_score_boosts_preferred_sources() -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+    item = make_feed_item(1, "Preferred")
+    item.source_name = "GitHub"
+
+    score = weighted_feed_score(
+        item,
+        RankingWeights(),
+        now=now,
+        preferred_sources={"GitHub"},
+    )
+    baseline = weighted_feed_score(item, RankingWeights(), now=now)
+
+    assert score == baseline + 0.08
+
+
+def test_normalize_source_names_trims_empty_values() -> None:
+    assert normalize_source_names([" GitHub ", "", "RSS"]) == {"GitHub", "RSS"}
 
 
 def test_freshness_score_decays_over_three_days() -> None:

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RankingWeights(BaseModel):
@@ -13,9 +13,27 @@ class RankingWeights(BaseModel):
 class UserPreferences(BaseModel):
     user_id: str
     ranking_weights: RankingWeights
+    preferred_sources: list[str] = Field(default_factory=list)
+    blocked_sources: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("preferred_sources", "blocked_sources", mode="before")
+    @classmethod
+    def normalize_source_lists(cls, value: list[str] | None) -> list[str]:
+        if not value:
+            return []
+        return [str(item).strip() for item in value if str(item).strip()]
 
 
 class UserPreferencesUpdate(BaseModel):
     ranking_weights: RankingWeights | None = None
+    preferred_sources: list[str] | None = None
+    blocked_sources: list[str] | None = None
+
+    @field_validator("preferred_sources", "blocked_sources", mode="before")
+    @classmethod
+    def normalize_update_source_lists(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return [str(item).strip() for item in value if str(item).strip()]
