@@ -913,29 +913,40 @@ table {
 
 .snapshot-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+  width: 100%;
+}
+
+.snapshot-open-button {
+  display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 8px;
-  border-top: 1px solid var(--line);
+  min-width: 0;
   border-right: 0;
   border-bottom: 0;
   border-left: 0;
+  border-top: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
   font: inherit;
-  padding-top: 6px;
+  padding: 4px;
   text-align: left;
   width: 100%;
 }
 
-.snapshot-row:hover,
-.snapshot-row:focus-visible {
+.snapshot-open-button:hover,
+.snapshot-open-button:focus-visible {
   background: #f7fbfa;
   outline: none;
 }
 
-.snapshot-row.active-snapshot-row {
+.snapshot-row.active-snapshot-row .snapshot-open-button {
   background: #eef8f6;
 }
 

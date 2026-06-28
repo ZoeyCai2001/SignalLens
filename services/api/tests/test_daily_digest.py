@@ -14,6 +14,7 @@ from app.services.daily_digest import (
     build_headline,
     build_source_coverage,
     digest_rank_score,
+    delete_daily_digest_snapshot,
     filter_items_by_excluded_topics,
     generate_daily_digest,
     list_excluded_digest_company_terms,
@@ -340,6 +341,66 @@ def test_serialize_daily_digest_snapshot_handles_legacy_payload_without_companie
 
     assert serialized.digest.watchlist_tickers == ["MU"]
     assert serialized.digest.watchlist_companies == []
+
+
+def test_delete_daily_digest_snapshot_removes_local_snapshot() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    digest = DailyDigest(
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+        headline="Snapshot headline",
+        total_items=0,
+        sections=[],
+        source_coverage=[],
+        watchlist_tickers=[],
+        watchlist_companies=[],
+        disclaimer="Informational only.",
+    )
+
+    with session_factory() as db:
+        db.add(
+            DailyDigestSnapshotModel(
+                user_id="local",
+                digest_date=digest.digest_date,
+                generated_at=digest.generated_at,
+                headline=digest.headline,
+                total_items=digest.total_items,
+                limit_per_section=5,
+                payload=digest.model_dump(mode="json"),
+                markdown="# Snapshot\n",
+            )
+        )
+        db.add(
+            DailyDigestSnapshotModel(
+                user_id="other",
+                digest_date=digest.digest_date,
+                generated_at=digest.generated_at,
+                headline="Other user snapshot",
+                total_items=0,
+                limit_per_section=5,
+                payload=digest.model_dump(mode="json"),
+                markdown="# Other\n",
+            )
+        )
+        db.commit()
+        local_snapshot = (
+            db.query(DailyDigestSnapshotModel)
+            .filter(DailyDigestSnapshotModel.user_id == "local")
+            .one()
+        )
+        other_snapshot = (
+            db.query(DailyDigestSnapshotModel)
+            .filter(DailyDigestSnapshotModel.user_id == "other")
+            .one()
+        )
+
+        assert delete_daily_digest_snapshot(db, local_snapshot.id)
+        assert not delete_daily_digest_snapshot(db, local_snapshot.id)
+        assert not delete_daily_digest_snapshot(db, other_snapshot.id)
+        remaining = db.query(DailyDigestSnapshotModel).one()
+        assert remaining.user_id == "other"
 
 
 def test_generate_daily_digest_excludes_blocked_sources_from_preferences() -> None:

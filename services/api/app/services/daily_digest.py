@@ -189,6 +189,23 @@ def list_daily_digest_snapshots(
     )
 
 
+def delete_daily_digest_snapshot(db: Session, snapshot_id: int) -> bool:
+    snapshot = (
+        db.query(DailyDigestSnapshotModel)
+        .filter(
+            DailyDigestSnapshotModel.user_id == LOCAL_USER_ID,
+            DailyDigestSnapshotModel.id == snapshot_id,
+        )
+        .one_or_none()
+    )
+    if snapshot is None:
+        return False
+
+    db.delete(snapshot)
+    db.commit()
+    return True
+
+
 def serialize_daily_digest_snapshot(snapshot: DailyDigestSnapshotModel) -> DailyDigestSnapshot:
     digest = DailyDigest.model_validate(snapshot.payload)
     return DailyDigestSnapshot(

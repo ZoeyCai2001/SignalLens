@@ -220,3 +220,4 @@ Implementation progress:
 - Added manual submission source-name attribution to the dashboard form.
 - Preserved exact saved digest snapshot markdown when copying an opened snapshot.
 - Added source-specific Source Health run history filtering through the API and dashboard.
+- Added deletion for saved daily digest snapshots so stale saved briefings can be removed from the archive without affecting generated previews.

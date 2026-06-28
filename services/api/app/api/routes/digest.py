@@ -1,11 +1,12 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
 from app.schemas.digest import DailyDigest, DailyDigestMarkdown, DailyDigestSnapshot
 from app.services.daily_digest import (
+    delete_daily_digest_snapshot,
     generate_daily_digest,
     list_daily_digest_snapshots,
     render_digest_markdown,
@@ -83,3 +84,10 @@ async def get_daily_digest_snapshots(
         serialize_daily_digest_snapshot(snapshot)
         for snapshot in list_daily_digest_snapshots(db=db, limit=limit)
     ]
+
+
+@router.delete("/daily/snapshots/{snapshot_id}", status_code=204)
+async def delete_saved_daily_digest_snapshot(snapshot_id: int, db: DbSession) -> None:
+    deleted = delete_daily_digest_snapshot(db=db, snapshot_id=snapshot_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Digest snapshot not found.")

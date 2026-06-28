@@ -721,6 +721,7 @@ export function Dashboard() {
   const [busyDigestGenerate, setBusyDigestGenerate] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
   const [busyDigestSave, setBusyDigestSave] = useState(false);
+  const [busyDigestSnapshotId, setBusyDigestSnapshotId] = useState<number | null>(null);
   const [digestDateDraft, setDigestDateDraft] = useState("");
   const digestDateDraftRef = useRef("");
   const [busySetupCopy, setBusySetupCopy] = useState(false);
@@ -1484,6 +1485,24 @@ export function Dashboard() {
     setDigestDateDraft(snapshot.digest_date);
     setActiveDigestSnapshot(snapshot);
     setStatus(`Loaded digest snapshot ${snapshot.digest_date}`);
+  };
+
+  const deleteDailyDigestSnapshot = async (snapshot: DailyDigestSnapshot) => {
+    setBusyDigestSnapshotId(snapshot.id);
+    setError(null);
+    try {
+      await sendRequest(`/api/digest/daily/snapshots/${snapshot.id}`, { method: "DELETE" });
+      setDigestSnapshots((items) => items.filter((item) => item.id !== snapshot.id));
+      if (activeDigestSnapshot?.id === snapshot.id) {
+        setActiveDigestSnapshot(null);
+      }
+      setStatus(`Deleted digest snapshot ${snapshot.digest_date}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Digest snapshot delete failed");
+    } finally {
+      setBusyDigestSnapshotId(null);
+    }
   };
 
   const loadFeedDetail = async (itemId: number) => {
@@ -2748,6 +2767,7 @@ export function Dashboard() {
               snapshots={digestSnapshots}
               digestDate={digestDateDraft}
               activeSnapshotId={activeDigestSnapshot?.id ?? null}
+              busySnapshotId={busyDigestSnapshotId}
               busyGenerate={busyDigestGenerate}
               busyCopy={busyDigestCopy}
               busySave={busyDigestSave}
@@ -2756,6 +2776,7 @@ export function Dashboard() {
               onCopy={copyDailyDigest}
               onSave={saveDailyDigestSnapshot}
               onSnapshotOpen={loadDigestSnapshot}
+              onSnapshotDelete={deleteDailyDigestSnapshot}
             />
             <SavedItemsPanel
               items={savedItems.slice(0, 8)}
@@ -3424,6 +3445,7 @@ function DailyDigestPanel({
   snapshots,
   digestDate,
   activeSnapshotId,
+  busySnapshotId,
   busyGenerate,
   busyCopy,
   busySave,
@@ -3432,11 +3454,13 @@ function DailyDigestPanel({
   onCopy,
   onSave,
   onSnapshotOpen,
+  onSnapshotDelete,
 }: {
   digest: DailyDigest | null;
   snapshots: DailyDigestSnapshot[];
   digestDate: string;
   activeSnapshotId: number | null;
+  busySnapshotId: number | null;
   busyGenerate: boolean;
   busyCopy: boolean;
   busySave: boolean;
@@ -3445,6 +3469,7 @@ function DailyDigestPanel({
   onCopy: () => void;
   onSave: () => void;
   onSnapshotOpen: (snapshot: DailyDigestSnapshot) => void;
+  onSnapshotDelete: (snapshot: DailyDigestSnapshot) => void;
 }) {
   const sectionsWithItems = digest?.sections.filter((section) => section.items.length) ?? [];
   return (
@@ -3541,24 +3566,42 @@ function DailyDigestPanel({
             {snapshots.length ? (
               <div className="digest-list">
                 {snapshots.slice(0, 5).map((snapshot) => (
-                  <button
+                  <div
                     className={`snapshot-row ${
                       activeSnapshotId === snapshot.id ? "active-snapshot-row" : ""
                     }`}
                     key={snapshot.id}
-                    onClick={() => onSnapshotOpen(snapshot)}
-                    type="button"
-                    aria-label={`Open digest snapshot ${snapshot.digest_date}`}
                   >
-                    <div>
-                      <div className="timeline-title">{snapshot.digest_date}</div>
-                      <div className="small-muted">{snapshot.headline}</div>
-                    </div>
-                    <span className="small-muted">
-                      {snapshot.total_items} items · {countMarkdownLines(snapshot.markdown)} lines
-                      {activeSnapshotId === snapshot.id ? " · open" : ""}
-                    </span>
-                  </button>
+                    <button
+                      className="snapshot-open-button"
+                      onClick={() => onSnapshotOpen(snapshot)}
+                      type="button"
+                      aria-label={`Open digest snapshot ${snapshot.digest_date}`}
+                    >
+                      <div>
+                        <div className="timeline-title">{snapshot.digest_date}</div>
+                        <div className="small-muted">{snapshot.headline}</div>
+                      </div>
+                      <span className="small-muted">
+                        {snapshot.total_items} items · {countMarkdownLines(snapshot.markdown)} lines
+                        {activeSnapshotId === snapshot.id ? " · open" : ""}
+                      </span>
+                    </button>
+                    <button
+                      className="button icon-button"
+                      onClick={() => onSnapshotDelete(snapshot)}
+                      disabled={busySnapshotId === snapshot.id}
+                      title="Delete digest snapshot"
+                      aria-label={`Delete digest snapshot ${snapshot.digest_date}`}
+                      type="button"
+                    >
+                      {busySnapshotId === snapshot.id ? (
+                        <Loader2 className="spin" size={16} />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                    </button>
+                  </div>
                 ))}
               </div>
             ) : (
