@@ -12,9 +12,15 @@ class GitHubConnector(SourceConnector):
     source_name = "GitHub"
     source_type = "developer"
 
-    def __init__(self, limit: int = 25, reference_time: datetime | None = None) -> None:
+    def __init__(
+        self,
+        limit: int = 25,
+        reference_time: datetime | None = None,
+        api_token: str | None = None,
+    ) -> None:
         self.limit = limit
         self.reference_time = reference_time
+        self.api_token = api_token.strip() if api_token else None
         self.base_url = "https://api.github.com"
         self.queries = [
             "llm in:name,description,readme stars:>50",
@@ -25,10 +31,7 @@ class GitHubConnector(SourceConnector):
         ]
 
     async def fetch(self, cursor: FetchCursor) -> FetchResult:
-        headers = {
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "SignalLens/0.1",
-        }
+        headers = self.request_headers()
         per_query = min(20, max(5, ceil(self.limit / len(self.queries))))
         repos: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -64,6 +67,15 @@ class GitHubConnector(SourceConnector):
             items=items,
             next_cursor=FetchCursor(metadata={"last_limit": self.limit}),
         )
+
+    def request_headers(self) -> dict[str, str]:
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "SignalLens/0.1",
+        }
+        if self.api_token:
+            headers["Authorization"] = f"Bearer {self.api_token}"
+        return headers
 
     def _repo_to_raw_item(self, repo: dict[str, Any]) -> RawItemInput | None:
         full_name = repo.get("full_name")

@@ -113,3 +113,4 @@ Implementation progress:
 - Added GitHub stars-per-day traction metadata so fast-growing open-source AI repositories stand out without extra API calls.
 - Expanded Hugging Face ingestion from model-only updates to a bounded mixed feed of models, datasets, and Spaces.
 - Added deterministic source credibility scoring so ranking and importance now reflect source quality instead of a flat default.
+- Added optional GitHub token support and readiness reporting so repository ingestion can use higher public API limits when configured.

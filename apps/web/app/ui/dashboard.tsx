@@ -288,6 +288,7 @@ type NaturalLanguageSearchResponse = {
 
 type IntegrationStatus = {
   kimi_coding_api: boolean;
+  github_api: boolean;
   product_hunt_api: boolean;
   alpha_vantage_api: boolean;
   chinese_rss_feeds: boolean;
@@ -2157,6 +2158,7 @@ function SystemStatusPanel({
   const integrationRows: Array<[string, boolean]> = status
     ? [
         ["Kimi", status.integrations.kimi_coding_api],
+        ["GitHub", status.integrations.github_api],
         ["Alpha Vantage", status.integrations.alpha_vantage_api],
         ["Product Hunt", status.integrations.product_hunt_api],
         ["Chinese RSS", status.integrations.chinese_rss_feeds],

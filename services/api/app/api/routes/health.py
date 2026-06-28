@@ -11,6 +11,7 @@ async def health_check() -> HealthResponse:
     settings = get_settings()
     integrations = IntegrationStatus(
         kimi_coding_api=has_config_value(settings.moonshot_api_key),
+        github_api=has_config_value(settings.github_token),
         product_hunt_api=has_config_value(settings.product_hunt_api_token),
         alpha_vantage_api=has_config_value(settings.alpha_vantage_api_key),
         chinese_rss_feeds=has_config_value(settings.chinese_rss_feeds),
@@ -42,6 +43,17 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             setup_hint=(
                 f"Set MOONSHOT_API_KEY in .env; current provider is "
                 f"{settings.llm_provider} using {settings.moonshot_model}."
+            ),
+        ),
+        SetupItem(
+            key="github_api",
+            label="GitHub API",
+            configured=integrations.github_api,
+            required_for="higher-rate public repository search and open-source AI signal ingestion",
+            env_var="GITHUB_TOKEN",
+            setup_hint=(
+                "Set GITHUB_TOKEN in .env to raise GitHub public API limits; "
+                "unauthenticated search still works at a lower limit."
             ),
         ),
         SetupItem(

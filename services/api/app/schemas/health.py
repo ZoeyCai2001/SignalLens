@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class IntegrationStatus(BaseModel):
     kimi_coding_api: bool
+    github_api: bool
     product_hunt_api: bool
     alpha_vantage_api: bool
     chinese_rss_feeds: bool

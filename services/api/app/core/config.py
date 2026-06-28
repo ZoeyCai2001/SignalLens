@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     )
     moonshot_model: str = Field(default="kimi-for-coding", alias="MOONSHOT_MODEL")
     kimi_api_format: str = Field(default="anthropic_messages", alias="KIMI_API_FORMAT")
+    github_token: str | None = Field(default=None, alias="GITHUB_TOKEN")
     product_hunt_api_token: str | None = Field(default=None, alias="PRODUCT_HUNT_API_TOKEN")
     alpha_vantage_api_key: str | None = Field(default=None, alias="ALPHA_VANTAGE_API_KEY")
     chinese_rss_feeds: str | None = Field(default=None, alias="CHINESE_RSS_FEEDS")

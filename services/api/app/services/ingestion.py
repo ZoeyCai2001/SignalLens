@@ -130,7 +130,8 @@ async def run_arxiv_ingestion(db: Session, limit: int = 25) -> IngestionResult:
 
 
 async def run_github_ingestion(db: Session, limit: int = 25) -> IngestionResult:
-    connector = GitHubConnector(limit=limit)
+    settings = get_settings()
+    connector = GitHubConnector(limit=limit, api_token=settings.github_token)
     source = get_or_create_source(
         db,
         name="GitHub",
@@ -138,7 +139,10 @@ async def run_github_ingestion(db: Session, limit: int = 25) -> IngestionResult:
         access_method="official_api",
         base_url="https://api.github.com/search/repositories",
         auth_required=False,
-        rate_limit="Unauthenticated public API; keep polling conservative.",
+        rate_limit=(
+            "Authenticated public API when GITHUB_TOKEN is configured; "
+            "otherwise unauthenticated low-rate search."
+        ),
         polling_interval="6 hours",
         enabled=True,
         priority=15,

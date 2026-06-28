@@ -45,6 +45,13 @@ def test_github_connector_skips_repo_without_required_fields() -> None:
     assert connector._repo_to_raw_item({"full_name": "missing/url"}) is None
 
 
+def test_github_connector_adds_optional_auth_header() -> None:
+    connector = GitHubConnector(api_token="  ghp_test  ")
+
+    assert connector.request_headers()["Authorization"] == "Bearer ghp_test"
+    assert "Authorization" not in GitHubConnector().request_headers()
+
+
 def test_compute_repo_growth_labels_repo_traction() -> None:
     signal = compute_repo_growth(
         stars=100,
