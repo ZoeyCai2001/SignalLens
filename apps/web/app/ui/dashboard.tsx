@@ -1227,6 +1227,8 @@ export function Dashboard() {
         }),
       });
       setFeed((items) => [result.item, ...items.filter((item) => item.id !== result.item.id)]);
+      setSavedItems((items) => syncSavedFeedItem(items, result.item));
+      setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, result.item));
       setManualTitle("");
       setManualUrl("");
       setManualText("");
