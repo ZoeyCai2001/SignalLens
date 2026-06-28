@@ -6269,6 +6269,10 @@ function orderStocksForTable(
   );
 
   return [...stocks].sort((left, right) => {
+    if (left.is_pinned !== right.is_pinned) {
+      return left.is_pinned ? -1 : 1;
+    }
+
     const leftSignal = summaryMap.get(left.ticker);
     const rightSignal = summaryMap.get(right.ticker);
     const leftAttention = leftSignal?.summary.attention_score ?? -1;
@@ -6282,10 +6286,6 @@ function orderStocksForTable(
     const rightSignalIndex = rightSignal?.index ?? Number.MAX_SAFE_INTEGER;
     if (leftSignalIndex !== rightSignalIndex) {
       return leftSignalIndex - rightSignalIndex;
-    }
-
-    if (left.is_pinned !== right.is_pinned) {
-      return left.is_pinned ? -1 : 1;
     }
 
     if (left.display_order !== right.display_order) {
