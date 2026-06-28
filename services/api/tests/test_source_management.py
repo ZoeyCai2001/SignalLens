@@ -10,6 +10,7 @@ from app.services.ingestion import (
     RegisteredSourceRunner,
     run_connector_ingestion,
     run_source_ingestion_by_id,
+    source_quality_score_for_source,
 )
 from app.services.source_health import (
     create_source,
@@ -84,6 +85,38 @@ def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
 def test_source_attention_uses_recent_failure_count_threshold() -> None:
     assert source_needs_attention("success", 1) is False
     assert source_needs_attention("success", 2) is True
+
+
+def test_source_quality_falls_back_to_access_method_then_type() -> None:
+    official_source = Source(
+        id=10,
+        name="New Official Source",
+        type="community",
+        access_method="official_api",
+    )
+    rss_source = Source(
+        id=11,
+        name="Custom Blog",
+        type="blog",
+        access_method="rss",
+    )
+    type_only_source = Source(
+        id=12,
+        name="Typed Custom Source",
+        type="blog",
+        access_method="unknown",
+    )
+    unknown_source = Source(
+        id=13,
+        name="Unknown",
+        type="unknown",
+        access_method="unknown",
+    )
+
+    assert source_quality_score_for_source(official_source) == 0.76
+    assert source_quality_score_for_source(rss_source) == 0.65
+    assert source_quality_score_for_source(type_only_source) == 0.66
+    assert source_quality_score_for_source(unknown_source) == 0.65
 
 
 def test_update_source_trims_editable_settings_and_clears_empty_notes() -> None:

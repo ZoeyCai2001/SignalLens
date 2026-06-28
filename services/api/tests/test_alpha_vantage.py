@@ -66,6 +66,7 @@ def test_alpha_vantage_normalized_item_is_stock_company_event() -> None:
     assert item.subcategory == "finance_news"
     assert item.tickers == ["MU"]
     assert item.companies == ["MU"]
+    assert item.source_quality_score == 0.82
     assert item.stock_impact_score == 0.55
 
 

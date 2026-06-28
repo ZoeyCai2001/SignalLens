@@ -35,6 +35,7 @@ def test_chinese_rss_normalizes_to_social_trend() -> None:
     assert item.category == "social_trend"
     assert item.subcategory == "chinese_rss"
     assert item.language == "zh"
+    assert item.source_quality_score == 0.62
 
 
 def test_detect_language_marks_cjk_text_as_chinese() -> None:

@@ -42,6 +42,7 @@ def test_arxiv_normalized_item_has_research_detail_scaffold() -> None:
 
     assert item is not None
     assert item.category == "research"
+    assert item.source_quality_score == 0.9
     assert item.summary_detailed is not None
     assert "Research contribution: We evaluate AI agents" in item.summary_detailed
     assert "Research method:" in item.summary_detailed

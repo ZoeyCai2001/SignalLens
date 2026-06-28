@@ -94,6 +94,7 @@ def test_hugging_face_space_normalizes_as_product_demo() -> None:
     assert item is not None
     assert item.category == "product"
     assert item.subcategory == "hf_space_demo"
+    assert item.source_quality_score == 0.78
     assert item.summary_short == "Hugging Face Space: demo-org/video-agent: Hugging Face Space update"
 
 
@@ -115,6 +116,7 @@ def test_hugging_face_dataset_normalizes_as_research_release() -> None:
     assert item is not None
     assert item.category == "research"
     assert item.subcategory == "dataset_release"
+    assert item.source_quality_score == 0.78
     assert item.summary_short == "Hugging Face dataset: openai/gsm8k: Hugging Face dataset update"
 
 

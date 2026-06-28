@@ -216,6 +216,8 @@ stock_attention_score =
 
 The MVP can compute these as deterministic functions over stored fields. Later versions can learn from save, hide, and mark-important feedback.
 
+Source quality is deterministic in the MVP. Structured research and official APIs receive the highest baseline credibility; community, RSS, manual, and experimental sources receive lower baseline scores. The stored `source_quality_score` is then used by ranking, importance, and digest selection without requiring an LLM call.
+
 ## 8. Data Model
 
 ### 8.1 Main Tables

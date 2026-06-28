@@ -60,6 +60,39 @@ class SourceRunnerNotFoundError(ValueError):
     pass
 
 
+SOURCE_QUALITY_BY_NAME = {
+    "arxiv": 0.9,
+    "alpha vantage news": 0.82,
+    "github": 0.8,
+    "hugging face": 0.78,
+    "product hunt": 0.74,
+    "selected rss feeds": 0.72,
+    "hacker news": 0.7,
+    "chinese rss feeds": 0.62,
+    "manual submission": 0.55,
+}
+
+SOURCE_QUALITY_BY_ACCESS_METHOD = {
+    "official api": 0.76,
+    "official graphql api": 0.76,
+    "rss": 0.65,
+    "manual": 0.55,
+    "manual watch": 0.55,
+}
+
+SOURCE_QUALITY_BY_TYPE = {
+    "research": 0.78,
+    "finance news": 0.76,
+    "developer": 0.74,
+    "model hub": 0.74,
+    "community": 0.68,
+    "product launch": 0.68,
+    "blog": 0.66,
+    "chinese social": 0.6,
+    "manual": 0.55,
+}
+
+
 async def run_hacker_news_ingestion(db: Session, limit: int = 30) -> IngestionResult:
     connector = HackerNewsConnector(limit=limit)
     source = get_or_create_source(
@@ -595,7 +628,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
                 ],
             }
         )
-    source_quality = 0.75
+    source_quality = source_quality_score_for_source(source)
     relevance = relevance_score(combined_text)
     importance = importance_score(source_quality_score=source_quality, text=combined_text)
 
@@ -750,6 +783,26 @@ def build_product_traction_signal(metadata: dict) -> str | None:
     if comments is not None:
         signals.append(f"{comments} comments")
     return ", ".join(signals) if signals else None
+
+
+def source_quality_score_for_source(source: Source) -> float:
+    source_name = normalize_quality_key(source.name)
+    if source_name in SOURCE_QUALITY_BY_NAME:
+        return SOURCE_QUALITY_BY_NAME[source_name]
+
+    access_method = normalize_quality_key(source.access_method)
+    if access_method in SOURCE_QUALITY_BY_ACCESS_METHOD:
+        return SOURCE_QUALITY_BY_ACCESS_METHOD[access_method]
+
+    source_type = normalize_quality_key(source.type)
+    if source_type in SOURCE_QUALITY_BY_TYPE:
+        return SOURCE_QUALITY_BY_TYPE[source_type]
+
+    return 0.65
+
+
+def normalize_quality_key(value: str | None) -> str:
+    return " ".join(str(value or "").strip().lower().replace("_", " ").split())
 
 
 def infer_product_audience(text: str) -> str:

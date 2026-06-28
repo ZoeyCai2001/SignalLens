@@ -61,6 +61,7 @@ def test_product_hunt_normalized_item_is_product_launch() -> None:
     assert item is not None
     assert item.category == "product"
     assert item.subcategory == "product_launch"
+    assert item.source_quality_score == 0.74
     assert item.products == ["AgentDesk"]
     assert item.summary_short == "Product Hunt launch: AgentDesk: AI agents for product teams"
     assert item.summary_detailed is not None
