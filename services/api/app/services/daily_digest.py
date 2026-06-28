@@ -22,7 +22,8 @@ from app.schemas.digest import (
     DigestSourceCoverage,
 )
 from app.schemas.feed import FeedItem
-from app.services.feed_actions import LOCAL_USER_ID, serialize_feed_item
+from app.services.feed_actions import LOCAL_USER_ID, normalize_source_names, serialize_feed_item
+from app.services.preferences import get_user_preferences
 
 NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens is informational only and does not provide investment advice."
@@ -33,9 +34,20 @@ def generate_daily_digest(
     db: Session,
     digest_date: date | None = None,
     limit_per_section: int = 5,
+    blocked_sources: list[str] | None = None,
 ) -> DailyDigest:
-    selected_date = digest_date or select_latest_digest_date(db) or datetime.now(UTC).date()
-    items = list_visible_items_for_digest_date(db=db, digest_date=selected_date)
+    if blocked_sources is None:
+        blocked_sources = get_user_preferences(db).blocked_sources
+    selected_date = (
+        digest_date
+        or select_latest_digest_date(db, blocked_sources=blocked_sources)
+        or datetime.now(UTC).date()
+    )
+    items = list_visible_items_for_digest_date(
+        db=db,
+        digest_date=selected_date,
+        blocked_sources=blocked_sources,
+    )
     feed_items = [serialize_feed_item(item, action) for item, action in items]
     feed_items = filter_items_by_excluded_topics(
         feed_items,
@@ -108,11 +120,13 @@ def save_daily_digest_snapshot(
     db: Session,
     digest_date: date | None = None,
     limit_per_section: int = 5,
+    blocked_sources: list[str] | None = None,
 ) -> DailyDigestSnapshotModel:
     digest = generate_daily_digest(
         db=db,
         digest_date=digest_date,
         limit_per_section=limit_per_section,
+        blocked_sources=blocked_sources,
     )
     payload = digest.model_dump(mode="json")
     markdown = render_digest_markdown(digest)
@@ -174,8 +188,12 @@ def serialize_daily_digest_snapshot(snapshot: DailyDigestSnapshotModel) -> Daily
     )
 
 
-def select_latest_digest_date(db: Session) -> date | None:
-    row = (
+def select_latest_digest_date(
+    db: Session,
+    blocked_sources: list[str] | None = None,
+) -> date | None:
+    blocked_source_names = normalize_source_names(blocked_sources)
+    query = (
         db.query(NormalizedItem)
         .outerjoin(
             UserItemAction,
@@ -183,6 +201,12 @@ def select_latest_digest_date(db: Session) -> date | None:
             & (UserItemAction.user_id == LOCAL_USER_ID),
         )
         .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+    )
+    if blocked_source_names:
+        query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+
+    row = (
+        query
         .order_by(
             NormalizedItem.published_at.desc().nullslast(),
             NormalizedItem.created_at.desc(),
@@ -199,11 +223,13 @@ def select_latest_digest_date(db: Session) -> date | None:
 def list_visible_items_for_digest_date(
     db: Session,
     digest_date: date,
+    blocked_sources: list[str] | None = None,
 ) -> list[tuple[NormalizedItem, UserItemAction | None]]:
     start = datetime.combine(digest_date, time.min, tzinfo=UTC)
     end = start + timedelta(days=1)
+    blocked_source_names = normalize_source_names(blocked_sources)
 
-    return (
+    query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
             UserItemAction,
@@ -211,6 +237,12 @@ def list_visible_items_for_digest_date(
             & (UserItemAction.user_id == LOCAL_USER_ID),
         )
         .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+    )
+    if blocked_source_names:
+        query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+
+    return (
+        query
         .filter(
             or_(
                 and_(NormalizedItem.published_at >= start, NormalizedItem.published_at < end),

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Base, CompanyWatchlistItem
+from app.db.models import Base, CompanyWatchlistItem, NormalizedItem, UserPreference
 from app.db.models import DailyDigestSnapshot as DailyDigestSnapshotModel
 from app.schemas.digest import DailyDigest
 from app.schemas.feed import FeedItem
@@ -13,9 +13,12 @@ from app.services.daily_digest import (
     build_source_coverage,
     digest_rank_score,
     filter_items_by_excluded_topics,
+    generate_daily_digest,
     list_excluded_digest_company_terms,
+    list_visible_items_for_digest_date,
     list_watchlist_companies,
     render_digest_markdown,
+    select_latest_digest_date,
     serialize_daily_digest_snapshot,
     sort_for_digest,
 )
@@ -275,6 +278,90 @@ def test_serialize_daily_digest_snapshot_handles_legacy_payload_without_companie
     assert serialized.digest.watchlist_companies == []
 
 
+def test_generate_daily_digest_excludes_blocked_sources_from_preferences() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            UserPreference(
+                user_id="local",
+                ranking_weights={},
+                preferred_sources=[],
+                blocked_sources=["Noisy Blog"],
+            )
+        )
+        db.add_all(
+            [
+                make_normalized_item(1, "Blocked signal", source_name="Noisy Blog"),
+                make_normalized_item(2, "Visible signal", source_name="Trusted Blog"),
+            ]
+        )
+        db.commit()
+
+        digest = generate_daily_digest(
+            db,
+            digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        )
+
+    assert digest.total_items == 1
+    assert [item.source_name for item in digest.source_coverage] == ["Trusted Blog"]
+    assert [item.title for item in digest.sections[0].items] == ["Visible signal"]
+
+
+def test_select_latest_digest_date_skips_blocked_sources() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Older visible signal",
+                    source_name="Trusted Blog",
+                    published_at=datetime(2026, 6, 24, 12, 0, tzinfo=UTC),
+                ),
+                make_normalized_item(
+                    2,
+                    "Newer blocked signal",
+                    source_name="Noisy Blog",
+                    published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        selected_date = select_latest_digest_date(db, blocked_sources=["Noisy Blog"])
+
+    assert selected_date == datetime(2026, 6, 24, tzinfo=UTC).date()
+
+
+def test_list_visible_items_for_digest_date_excludes_blocked_sources() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(1, "Blocked signal", source_name="Noisy Blog"),
+                make_normalized_item(2, "Visible signal", source_name="Trusted Blog"),
+            ]
+        )
+        db.commit()
+
+        rows = list_visible_items_for_digest_date(
+            db,
+            digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+            blocked_sources=["Noisy Blog"],
+        )
+
+    assert [item.title for item, _action in rows] == ["Visible signal"]
+
+
 def make_item(
     item_id: int,
     title: str,
@@ -314,4 +401,36 @@ def make_item(
         summary_detailed=None,
         why_it_matters=None,
         is_saved=is_saved,
+    )
+
+
+def make_normalized_item(
+    item_id: int,
+    title: str,
+    source_name: str,
+    published_at: datetime | None = None,
+) -> NormalizedItem:
+    return NormalizedItem(
+        id=item_id,
+        raw_item_id=item_id,
+        title=title,
+        url=f"https://example.com/{item_id}",
+        source_name=source_name,
+        author=None,
+        language="en",
+        published_at=published_at or datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+        text=title,
+        category="technical_trend",
+        subcategory=None,
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=["agent"],
+        sentiment="neutral",
+        relevance_score=0.8,
+        classification_confidence=0.8,
+        importance_score=0.7,
+        novelty_score=0.6,
+        source_quality_score=0.7,
+        stock_impact_score=0,
     )

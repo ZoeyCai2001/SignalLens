@@ -151,3 +151,4 @@ Implementation progress:
 - Routed event cluster APIs through local ranking and source preferences so preferred and blocked sources affect cross-source event discovery consistently with the main feed.
 - Routed keyword and natural-language search through local ranking and source preferences so blocked sources stay hidden and preferred sources rank higher in search results.
 - Applied local visibility and blocked-source preferences to alert generation and alert listing so hidden or blocked signals no longer surface as dashboard alerts.
+- Applied blocked-source preferences to daily digest generation, latest digest date selection, source coverage, markdown export, and saved snapshots.

@@ -222,7 +222,7 @@ The MVP can compute these as deterministic functions over stored fields. Later v
 
 Source quality is deterministic in the MVP. Structured research and official APIs receive the highest baseline credibility; community, RSS, manual, and experimental sources receive lower baseline scores. The stored `source_quality_score` is then used by ranking, importance, and digest selection without requiring an LLM call.
 
-Daily digest ordering uses a deterministic blended score across importance, relevance, source quality, classifier confidence, stock impact, and novelty. This keeps the morning briefing biased toward useful and trustworthy items while preserving high-priority user-marked items at the top.
+Daily digest ordering uses a deterministic blended score across importance, relevance, source quality, classifier confidence, stock impact, and novelty. This keeps the morning briefing biased toward useful and trustworthy items while preserving high-priority user-marked items at the top. Digest generation also applies local visibility rules, so hidden items and blocked sources are excluded from date selection, section contents, source coverage, markdown export, and saved snapshots.
 
 Search and event cluster APIs use the same local ranking preferences as the main feed, including configurable weights, preferred sources, and blocked sources. This keeps cross-source event discovery and ad hoc retrieval aligned with the user's personal source trust settings instead of exposing separate global views.
 
