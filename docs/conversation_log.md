@@ -110,3 +110,4 @@ Implementation progress:
 - Added source reliability attention signals so repeated connector failures are visible in Source Health.
 - Added last-success timestamps to Source Health so a recent failure no longer hides when a source last worked.
 - Added bounded Hacker News top-comment previews so developer discussion can inform classification and summaries without broad comment crawling.
+- Added GitHub stars-per-day traction metadata so fast-growing open-source AI repositories stand out without extra API calls.
