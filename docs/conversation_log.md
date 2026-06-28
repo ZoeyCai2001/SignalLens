@@ -126,3 +126,4 @@ Implementation progress:
 - Added company watchlist context to daily digest responses, markdown, and dashboard digest badges.
 - Made daily digest snapshot parsing backward-compatible with older payloads that do not include company watchlist context.
 - Added an AI Company Watchlist section to daily digest grouping so company-linked signals without stock tickers remain visible in the briefing.
+- Fixed natural-language search so inferred topic filters are applied to database results, keeping dashboard search intent chips aligned with returned items.

@@ -41,7 +41,7 @@ def search_feed_items(
     effective_query = intent.query if query and intent.query is not None else query
     effective_category = category or intent.category
     effective_ticker = ticker or intent.ticker
-    effective_topic = topic
+    effective_topic = topic or intent.topic
     effective_language = language or intent.language
     effective_date_from = date_from or intent.date_from
     effective_min_importance = (

@@ -1,10 +1,15 @@
 from datetime import UTC, date, datetime
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db.models import Base, NormalizedItem
 from app.schemas.search import SearchIntentResponse
 from app.services.search import (
     infer_search_intent,
     normalize_filter_value,
     normalize_score,
+    search_feed_items,
     start_of_day,
 )
 
@@ -94,3 +99,64 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     assert response.topic == "ai data center"
     assert response.query == "AI data center"
     assert response.date_from == date(2026, 6, 19)
+
+
+def test_search_feed_items_applies_inferred_topic_filter() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "Agent harness implementation notes",
+                    "Agent harness discussion for coding agents.",
+                    topics=["agent harness"],
+                ),
+                make_search_item(
+                    2,
+                    "Agent harness adjacent routing notes",
+                    "Agent harness discussion that is really about routing.",
+                    topics=["model routing"],
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="Find agent harness discussion")
+
+    assert [item.title for item in results] == ["Agent harness implementation notes"]
+
+
+def make_search_item(
+    item_id: int,
+    title: str,
+    text: str,
+    topics: list[str],
+) -> NormalizedItem:
+    return NormalizedItem(
+        id=item_id,
+        raw_item_id=item_id,
+        title=title,
+        url=f"https://example.com/{item_id}",
+        source_name="Test Source",
+        author=None,
+        language="en",
+        published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+        text=text,
+        category="technical_trend",
+        subcategory=None,
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=topics,
+        sentiment="neutral",
+        relevance_score=0.8,
+        classification_confidence=0.8,
+        importance_score=0.7,
+        novelty_score=0.6,
+        source_quality_score=0.7,
+        stock_impact_score=0,
+    )
