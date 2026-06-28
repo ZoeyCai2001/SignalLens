@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,6 +12,7 @@ from app.db.models import (
     StockWatchlistItem,
     UserItemAction,
 )
+from app.schemas.alerts import AlertRuleUpdate
 from app.schemas.feed import FeedItem
 from app.services.alerts import (
     CROSS_SOURCE_CLUSTER_CATEGORY,
@@ -24,6 +25,7 @@ from app.services.alerts import (
     cross_source_alert_reason,
     format_signed_percent,
     generate_alerts,
+    is_alert_rule_snoozed,
     latest_price_change_percent,
     list_alerts,
     match_alert_rules,
@@ -31,6 +33,7 @@ from app.services.alerts import (
     price_move_alert_reason,
     stock_event_alert_reason,
     theme_breakout_alert_reason,
+    update_alert_rule,
 )
 from app.services.event_clustering import build_event_cluster
 
@@ -101,6 +104,29 @@ def test_match_alert_rules_skips_disabled_rules() -> None:
     matches = match_alert_rules(item, rules)
 
     assert [match.rule.name for match in matches] == ["Enabled"]
+
+
+def test_match_alert_rules_skips_snoozed_rules() -> None:
+    item = make_item(topics=["inference"])
+    now = datetime.now(UTC)
+    rules = [
+        make_rule(
+            name="Snoozed",
+            topics=["inference"],
+            snoozed_until=now + timedelta(hours=2),
+        ),
+        make_rule(
+            name="Awake",
+            topics=["inference"],
+            snoozed_until=now - timedelta(minutes=5),
+        ),
+    ]
+
+    matches = match_alert_rules(item, rules)
+
+    assert is_alert_rule_snoozed(rules[0], now=now) is True
+    assert is_alert_rule_snoozed(rules[1], now=now) is False
+    assert [match.rule.name for match in matches] == ["Awake"]
 
 
 def test_match_alert_rules_skips_cross_source_rules_for_single_items() -> None:
@@ -478,6 +504,56 @@ def test_generate_alerts_excludes_blocked_and_hidden_items() -> None:
         assert {alert.title for alert in alerts} == {"Visible source signal"}
 
 
+def test_generate_alerts_skips_snoozed_rules() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            make_rule(
+                category="all",
+                min_importance_score=0.65,
+                snoozed_until=datetime.now(UTC) + timedelta(days=1),
+            )
+        )
+        db.add(make_item(importance_score=0.75, stock_impact_score=0))
+        db.commit()
+
+        result = generate_alerts(db, blocked_sources=[])
+
+        alerts = db.query(Alert).all()
+        assert result.alerts_created == 0
+        assert result.active_alerts == 0
+        assert alerts == []
+
+
+def test_update_alert_rule_snooze_dismisses_active_rule_alerts() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        rule = make_rule(category="all", min_importance_score=0.65)
+        item = make_item(importance_score=0.75)
+        db.add_all([rule, item])
+        db.flush()
+        alert = make_alert(item_id=item.id, rule_id=rule.id, title=item.title)
+        db.add(alert)
+        db.commit()
+
+        updated = update_alert_rule(
+            db,
+            rule_id=rule.id,
+            payload=AlertRuleUpdate(snoozed_until=datetime.now(UTC) + timedelta(days=1)),
+        )
+
+        db.refresh(alert)
+        assert updated is not None
+        assert updated.snoozed_until is not None
+        assert alert.status == "dismissed"
+
+
 def test_list_alerts_excludes_blocked_and_hidden_items() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -589,6 +665,7 @@ def make_rule(
     tickers: list[str] | None = None,
     topics: list[str] | None = None,
     enabled: bool = True,
+    snoozed_until: datetime | None = None,
 ) -> AlertRule:
     return AlertRule(
         id=rule_id,
@@ -601,6 +678,7 @@ def make_rule(
         tickers=tickers or [],
         topics=topics or [],
         enabled=enabled,
+        snoozed_until=snoozed_until,
     )
 
 

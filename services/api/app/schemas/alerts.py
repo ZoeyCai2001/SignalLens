@@ -16,6 +16,7 @@ class AlertRule(BaseModel):
     tickers: list[str] = Field(default_factory=list)
     topics: list[str] = Field(default_factory=list)
     enabled: bool
+    snoozed_until: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,6 +31,7 @@ class AlertRuleCreate(BaseModel):
     tickers: list[str] = Field(default_factory=list)
     topics: list[str] = Field(default_factory=list)
     enabled: bool = True
+    snoozed_until: datetime | None = None
 
 
 class AlertRuleUpdate(BaseModel):
@@ -42,6 +44,7 @@ class AlertRuleUpdate(BaseModel):
     tickers: list[str] | None = None
     topics: list[str] | None = None
     enabled: bool | None = None
+    snoozed_until: datetime | None = None
 
 
 class AlertItem(BaseModel):

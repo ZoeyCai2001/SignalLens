@@ -554,6 +554,7 @@ type AlertRule = {
   tickers: string[];
   topics: string[];
   enabled: boolean;
+  snoozed_until: string | null;
 };
 
 type RankingWeights = {
@@ -2042,6 +2043,31 @@ export function Dashboard() {
     }
   };
 
+  const snoozeAlertRule = async (rule: AlertRule) => {
+    setBusyAlertRuleId(rule.id);
+    setError(null);
+    const snoozedUntil = isAlertRuleSnoozed(rule)
+      ? null
+      : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const updated = await fetchJson<AlertRule>(`/api/alerts/rules/${rule.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ snoozed_until: snoozedUntil }),
+      });
+      setAlertRules((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      await refreshAllWithStatus(
+        snoozedUntil
+          ? `Snoozed alert rule ${updated.name} until ${formatDate(snoozedUntil)}`
+          : `Resumed alert rule ${updated.name}`,
+      );
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert rule snooze failed");
+    } finally {
+      setBusyAlertRuleId(null);
+    }
+  };
+
   const deleteAlertRule = async (ruleId: number) => {
     setBusyAlertRuleId(ruleId);
     setError(null);
@@ -2653,6 +2679,7 @@ export function Dashboard() {
               onDismiss={dismissAlert}
               onGenerate={generateDashboardAlerts}
               onRuleToggle={toggleAlertRule}
+              onRuleSnooze={snoozeAlertRule}
               onRuleDelete={deleteAlertRule}
               onRuleNameChange={setAlertRuleName}
               onRuleCategoryChange={setAlertRuleCategory}
@@ -3086,6 +3113,7 @@ function AlertPanel({
   onDismiss,
   onGenerate,
   onRuleToggle,
+  onRuleSnooze,
   onRuleDelete,
   onRuleNameChange,
   onRuleCategoryChange,
@@ -3108,6 +3136,7 @@ function AlertPanel({
   onDismiss: (alertId: number) => void;
   onGenerate: () => void;
   onRuleToggle: (rule: AlertRule) => void;
+  onRuleSnooze: (rule: AlertRule) => void;
   onRuleDelete: (ruleId: number) => void;
   onRuleNameChange: (value: string) => void;
   onRuleCategoryChange: (value: string) => void;
@@ -3188,50 +3217,75 @@ function AlertPanel({
         </button>
       </div>
       <div className="alert-rule-list">
-        {rules.slice(0, 6).map((rule) => (
-          <div className={`alert-rule-row ${rule.enabled ? "" : "muted"}`} key={rule.id}>
-            <div>
-              <div className="digest-link">{rule.name}</div>
-              <div className="small-muted">
-                {rule.category} · {rule.severity} · min{" "}
-                {Math.round(rule.min_importance_score * 100)}
-                {rule.tickers.length ? ` · ${rule.tickers.join(", ")}` : ""}
+        {rules.slice(0, 6).map((rule) => {
+          const snoozed = isAlertRuleSnoozed(rule);
+          return (
+            <div
+              className={`alert-rule-row ${rule.enabled && !snoozed ? "" : "muted"}`}
+              key={rule.id}
+            >
+              <div>
+                <div className="digest-link">{rule.name}</div>
+                <div className="small-muted">
+                  {rule.category} · {rule.severity} · min{" "}
+                  {Math.round(rule.min_importance_score * 100)}
+                  {rule.tickers.length ? ` · ${rule.tickers.join(", ")}` : ""}
+                  {snoozed && rule.snoozed_until
+                    ? ` · snoozed until ${formatDate(rule.snoozed_until)}`
+                    : ""}
+                </div>
+              </div>
+              <div className="table-actions">
+                <button
+                  className={`button icon-button ${
+                    rule.enabled && !snoozed ? "active-icon-button" : ""
+                  }`}
+                  onClick={() => onRuleToggle(rule)}
+                  disabled={disabled || busyAlertRuleId === rule.id}
+                  title={rule.enabled ? "Disable alert rule" : "Enable alert rule"}
+                  aria-label={rule.enabled ? "Disable alert rule" : "Enable alert rule"}
+                  type="button"
+                >
+                  {busyAlertRuleId === rule.id ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : rule.enabled ? (
+                    <BellRing size={16} />
+                  ) : (
+                    <EyeOff size={16} />
+                  )}
+                </button>
+                <button
+                  className={`button icon-button ${snoozed ? "active-icon-button" : ""}`}
+                  onClick={() => onRuleSnooze(rule)}
+                  disabled={disabled || busyAlertRuleId === rule.id || !rule.enabled}
+                  title={snoozed ? "Resume alert rule" : "Snooze alert rule for 24 hours"}
+                  aria-label={snoozed ? "Resume alert rule" : "Snooze alert rule for 24 hours"}
+                  type="button"
+                >
+                  {busyAlertRuleId === rule.id ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : (
+                    <CalendarDays size={16} />
+                  )}
+                </button>
+                <button
+                  className="button icon-button"
+                  onClick={() => onRuleDelete(rule.id)}
+                  disabled={disabled || busyAlertRuleId === rule.id}
+                  title="Delete alert rule"
+                  aria-label="Delete alert rule"
+                  type="button"
+                >
+                  {busyAlertRuleId === rule.id ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : (
+                    <Trash2 size={16} />
+                  )}
+                </button>
               </div>
             </div>
-            <div className="table-actions">
-              <button
-                className={`button icon-button ${rule.enabled ? "active-icon-button" : ""}`}
-                onClick={() => onRuleToggle(rule)}
-                disabled={disabled || busyAlertRuleId === rule.id}
-                title={rule.enabled ? "Disable alert rule" : "Enable alert rule"}
-                aria-label={rule.enabled ? "Disable alert rule" : "Enable alert rule"}
-                type="button"
-              >
-                {busyAlertRuleId === rule.id ? (
-                  <Loader2 className="spin" size={16} />
-                ) : rule.enabled ? (
-                  <BellRing size={16} />
-                ) : (
-                  <EyeOff size={16} />
-                )}
-              </button>
-              <button
-                className="button icon-button"
-                onClick={() => onRuleDelete(rule.id)}
-                disabled={disabled || busyAlertRuleId === rule.id}
-                title="Delete alert rule"
-                aria-label="Delete alert rule"
-                type="button"
-              >
-                {busyAlertRuleId === rule.id ? (
-                  <Loader2 className="spin" size={16} />
-                ) : (
-                  <Trash2 size={16} />
-                )}
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="alert-list">
         {alerts.length ? (
@@ -6828,6 +6882,10 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function isAlertRuleSnoozed(rule: AlertRule): boolean {
+  return rule.snoozed_until ? new Date(rule.snoozed_until).getTime() > Date.now() : false;
 }
 
 function formatCategoryLabel(value: string): string {

@@ -285,6 +285,7 @@ class AlertRule(Base, TimestampMixin):
     tickers: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     topics: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     alerts: Mapped[list["Alert"]] = relationship(back_populates="rule")
 

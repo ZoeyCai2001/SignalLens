@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -213,6 +214,7 @@ def create_alert_rule(db: Session, payload: AlertRuleCreate) -> AlertRule:
         tickers=normalize_tickers(payload.tickers),
         topics=clean_terms(payload.topics),
         enabled=payload.enabled,
+        snoozed_until=payload.snoozed_until,
     )
     db.add(rule)
     db.commit()
@@ -244,7 +246,9 @@ def update_alert_rule(db: Session, rule_id: int, payload: AlertRuleUpdate) -> Al
             value = value.strip()
         setattr(rule, field_name, value)
 
-    if updates.get("enabled") is False:
+    if updates.get("enabled") is False or (
+        "snoozed_until" in updates and is_alert_rule_snoozed(rule)
+    ):
         dismiss_active_alerts_for_rule(db=db, rule_id=rule.id)
 
     db.add(rule)
@@ -294,6 +298,7 @@ def generate_alerts(
         .order_by(AlertRule.severity.desc(), AlertRule.id.asc())
         .all()
     )
+    rules = [rule for rule in rules if not is_alert_rule_snoozed(rule)]
     query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
@@ -363,7 +368,7 @@ def generate_alerts(
 def match_alert_rules(item: NormalizedItem, rules: list[AlertRule]) -> list[AlertMatch]:
     matches: list[AlertMatch] = []
     for rule in rules:
-        if not rule.enabled:
+        if not rule.enabled or is_alert_rule_snoozed(rule):
             continue
         if rule.category in {
             CROSS_SOURCE_CLUSTER_CATEGORY,
@@ -379,6 +384,16 @@ def match_alert_rules(item: NormalizedItem, rules: list[AlertRule]) -> list[Aler
             continue
         matches.append(AlertMatch(rule=rule, severity=rule.severity, reason=reason))
     return matches
+
+
+def is_alert_rule_snoozed(rule: AlertRule, now: datetime | None = None) -> bool:
+    if rule.snoozed_until is None:
+        return False
+    now = now or datetime.now(UTC)
+    snoozed_until = rule.snoozed_until
+    if snoozed_until.tzinfo is None:
+        snoozed_until = snoozed_until.replace(tzinfo=UTC)
+    return snoozed_until > now
 
 
 def generate_cross_source_alerts(
