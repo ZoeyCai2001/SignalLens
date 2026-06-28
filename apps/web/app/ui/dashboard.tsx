@@ -3411,7 +3411,7 @@ function FeedCard({
     action: "save" | "unsave" | "hide" | "mark-important",
   ) => void;
 }) {
-  const displaySummary = item.summary_detailed || item.summary_short;
+  const displaySummary = item.summary_short || item.summary_detailed;
   const cardExplanation = buildFeedCardExplanation(item);
   return (
     <article className="feed-card">
@@ -3586,6 +3586,12 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
       {detail.why_it_matters ? (
         <div className="summary">
           <strong>Why it matters:</strong> {detail.why_it_matters}
+        </div>
+      ) : null}
+      {detail.summary_detailed ? (
+        <div className="summary">
+          <strong>Detailed summary:</strong>
+          {`\n${detail.summary_detailed}`}
         </div>
       ) : null}
       <div className="summary">

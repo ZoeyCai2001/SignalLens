@@ -183,3 +183,4 @@ Implementation progress:
 - Added enabled custom followed sources to the full ingestion cycle so scheduled runs collect user-followed RSS, GitHub, Product Hunt topic, and social keyword sources after built-in sources.
 - Added on-demand Kimi summaries for selected stock briefings so stock detail pages can generate PRD-style what-happened, why-it-matters, market-relevance, and uncertainty sections from existing evidence without automatic model spend.
 - Added dashboard editing for stock relevance profiles, including related AI themes, keywords, and related companies, so watched-stock matching can be tuned after a ticker is created.
+- Adjusted feed summary presentation so cards prefer short LLM summaries while expanded item details retain the detailed summary, matching the PRD's scan-first dashboard behavior.

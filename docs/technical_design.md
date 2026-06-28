@@ -447,6 +447,7 @@ Recommended UI behavior:
 
 - Use compact tables for stock watchlist and source health.
 - Use feed cards for intelligence items.
+- Prefer short card summaries in feed cards and reserve detailed LLM summaries for expanded item details.
 - Use tabs for stock detail sections.
 - Use filters and segmented controls for category views.
 - Use restrained color for severity, sentiment, and source health.
