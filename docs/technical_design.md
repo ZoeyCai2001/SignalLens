@@ -363,7 +363,7 @@ Daily digest responses include both ticker and company watchlist context so the 
 
 Digest sections include a company-focused watchlist block so private AI labs and other company-linked signals remain visible even when no public stock ticker is available.
 
-Digest payload fields that were added after earlier snapshots, such as company watchlist context, use schema defaults so saved historical snapshots remain readable after backend upgrades.
+Digest payload fields that were added after earlier snapshots, such as company watchlist context, use schema defaults so saved historical snapshots remain readable after backend upgrades. The dashboard Daily Digest panel shows the latest saved snapshots with dates, headlines, item counts, and markdown size so saved briefings are inspectable instead of only counted.
 
 Company briefings aggregate matched items by source, topic, product, ticker, recent timeline, and daily activity so followed AI companies can be inspected independently from the stock watchlist. Topic briefings include a deterministic topic definition, preferring user notes when available and otherwise deriving the definition from the label, category, and related terms. Topic, company, and product-category briefings also expose high-impact item counts and average importance scores using the same `0.75` high-impact threshold as alerts and stock summaries, giving each drill-down a compact prioritization readout before the user opens individual links. The dashboard surfaces these briefings inside the company, topic, and product watchlist panels with source, entity, activity, impact, and recent-signal views.
 

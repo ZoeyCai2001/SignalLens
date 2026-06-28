@@ -754,6 +754,15 @@ table {
   gap: 5px;
 }
 
+.snapshot-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+
 .digest-link {
   color: #243230;
   font-size: 13px;

@@ -2220,7 +2220,7 @@ export function Dashboard() {
             />
             <DailyDigestPanel
               digest={digest}
-              snapshotCount={digestSnapshots.length}
+              snapshots={digestSnapshots}
               busyCopy={busyDigestCopy}
               busySave={busyDigestSave}
               onCopy={copyDailyDigest}
@@ -2792,14 +2792,14 @@ function AlertPanel({
 
 function DailyDigestPanel({
   digest,
-  snapshotCount,
+  snapshots,
   busyCopy,
   busySave,
   onCopy,
   onSave,
 }: {
   digest: DailyDigest | null;
-  snapshotCount: number;
+  snapshots: DailyDigestSnapshot[];
   busyCopy: boolean;
   busySave: boolean;
   onCopy: () => void;
@@ -2836,7 +2836,7 @@ function DailyDigestPanel({
           <div className="digest-meta">
             <span>{digest.digest_date}</span>
             <span>
-              {digest.total_items} items · {snapshotCount} saved
+              {digest.total_items} items · {snapshots.length} saved
             </span>
           </div>
           <div className="digest-headline">{digest.headline}</div>
@@ -2877,6 +2877,26 @@ function DailyDigestPanel({
               <div className="empty-state">No collected items for this digest date.</div>
             )}
           </div>
+          <div className="digest-section">
+            <div className="digest-section-title">Saved Snapshots</div>
+            {snapshots.length ? (
+              <div className="digest-list">
+                {snapshots.slice(0, 5).map((snapshot) => (
+                  <div className="snapshot-row" key={snapshot.id}>
+                    <div>
+                      <div className="timeline-title">{snapshot.digest_date}</div>
+                      <div className="small-muted">{snapshot.headline}</div>
+                    </div>
+                    <span className="small-muted">
+                      {snapshot.total_items} items · {countMarkdownLines(snapshot.markdown)} lines
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">No saved digest snapshots yet.</div>
+            )}
+          </div>
           <div className="small-muted">{digest.disclaimer}</div>
         </div>
       ) : (
@@ -2884,6 +2904,10 @@ function DailyDigestPanel({
       )}
     </section>
   );
+}
+
+function countMarkdownLines(markdown: string): number {
+  return markdown.split(/\r?\n/).filter((line) => line.trim()).length;
 }
 
 function SavedItemsPanel({
