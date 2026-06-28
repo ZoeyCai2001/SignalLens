@@ -204,3 +204,4 @@ Implementation progress:
 - Surfaced saved-item notes and manual tags directly in the Saved Items panel, including one-click saved-only tag filtering and a corrected advanced search grid.
 - Added a safe missing `.env` template to System Readiness and a dashboard copy action that uses placeholders only, never stored secret values.
 - Added Source Health triage summary filters for all, attention-needed, failed, never-run, and disabled sources.
+- Added a Source Health quick block action that adds a noisy source to blocked-source preferences and refreshes personal views.

@@ -1155,6 +1155,37 @@ export function Dashboard() {
     }
   };
 
+  const blockSourceFromHealth = async (source: SourceHealth) => {
+    setBusySourceId(source.id);
+    setError(null);
+    try {
+      const currentBlockedSources = preferences?.blocked_sources ?? splitTerms(blockedSourcesDraft);
+      const alreadyBlocked = currentBlockedSources.some(
+        (name) => name.toLowerCase() === source.name.toLowerCase(),
+      );
+      const nextBlockedSources = alreadyBlocked
+        ? currentBlockedSources
+        : [...currentBlockedSources, source.name];
+      const updated = await fetchJson<UserPreferences>("/api/preferences", {
+        method: "PATCH",
+        body: JSON.stringify({ blocked_sources: nextBlockedSources }),
+      });
+      setPreferences(updated);
+      setRankingDraft(updated.ranking_weights);
+      setPreferredSourcesDraft(updated.preferred_sources.join(", "));
+      setBlockedSourcesDraft(updated.blocked_sources.join(", "));
+      setLanguagePreferencesDraft(updated.language_preferences.join(", "));
+      await refreshAllWithStatus(
+        alreadyBlocked ? `${source.name} is already blocked` : `Blocked source ${source.name}`,
+      );
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Source block failed");
+    } finally {
+      setBusySourceId(null);
+    }
+  };
+
   const runSearch = async () => {
     setLoadState("loading");
     setError(null);
@@ -2210,6 +2241,7 @@ export function Dashboard() {
       sources={sources}
       runs={sourceRuns}
       lastCycleResult={lastCycleResult}
+      blockedSources={preferences?.blocked_sources ?? []}
       name={sourceName}
       type={sourceType}
       accessMethod={sourceAccessMethod}
@@ -2226,6 +2258,7 @@ export function Dashboard() {
       onRunSource={runSourceNow}
       onToggleSource={toggleSource}
       onUpdateSource={updateSource}
+      onBlockSource={blockSourceFromHealth}
       onDeleteSource={deleteSource}
     />
   );
@@ -6089,6 +6122,7 @@ function SourceTable({
   sources,
   runs,
   lastCycleResult,
+  blockedSources,
   name,
   type,
   accessMethod,
@@ -6105,11 +6139,13 @@ function SourceTable({
   onRunSource,
   onToggleSource,
   onUpdateSource,
+  onBlockSource,
   onDeleteSource,
 }: {
   sources: SourceHealth[];
   runs: SourceRunHistoryItem[];
   lastCycleResult: ScheduledCycleResponse | null;
+  blockedSources: string[];
   name: string;
   type: string;
   accessMethod: string;
@@ -6126,6 +6162,7 @@ function SourceTable({
   onRunSource: (source: SourceHealth) => void;
   onToggleSource: (source: SourceHealth) => void;
   onUpdateSource: (source: SourceHealth, payload: SourceUpdatePayload) => void;
+  onBlockSource: (source: SourceHealth) => void;
   onDeleteSource: (source: SourceHealth) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<number, SourceDraft>>({});
@@ -6250,6 +6287,9 @@ function SourceTable({
               const failureCopy = `${source.failure_count} recent ${
                 source.failure_count === 1 ? "failure" : "failures"
               }`;
+              const blocked = blockedSources.some(
+                (name) => name.toLowerCase() === source.name.toLowerCase(),
+              );
               return (
                 <tr key={source.id}>
                   <td>
@@ -6343,6 +6383,15 @@ function SourceTable({
                         type="button"
                       >
                         {saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+                      </button>
+                      <button
+                        className={`button icon-button ${blocked ? "active-icon-button" : ""}`}
+                        onClick={() => onBlockSource(source)}
+                        disabled={disabled || saving || blocked}
+                        title={blocked ? "Source already blocked" : "Block source from personal views"}
+                        type="button"
+                      >
+                        {saving ? <Loader2 className="spin" size={16} /> : <EyeOff size={16} />}
                       </button>
                       <button
                         className="button icon-button"
