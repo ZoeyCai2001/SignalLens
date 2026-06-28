@@ -27,6 +27,37 @@ def test_build_topic_briefing_groups_sources_entities_and_activity() -> None:
             companies=["OpenAI"],
             published_at=datetime(2026, 6, 27, 10, 0, tzinfo=UTC),
             importance_score=0.8,
+            summary_detailed=(
+                "Research contribution: Improves agentic coding workflows.\n"
+                "Research method: Evaluates coding agent repair tasks.\n"
+                "Technical relevance: Matched coding agent and agentic coding."
+            ),
+        ),
+        make_item(
+            item_id=4,
+            title="General benchmark paper",
+            category="research",
+            source_name="arXiv",
+            companies=["Benchmark Lab"],
+            published_at=datetime(2026, 6, 27, 12, 0, tzinfo=UTC),
+            importance_score=0.95,
+            relevance_score=0.75,
+            source_quality_score=0.9,
+            summary_detailed="Research contribution: Broad LLM evaluation benchmark.",
+        ),
+        make_item(
+            item_id=5,
+            title="Coding agent evaluation",
+            category="research",
+            source_name="arXiv",
+            companies=["Eval Lab"],
+            published_at=datetime(2026, 6, 26, 14, 0, tzinfo=UTC),
+            importance_score=0.65,
+            relevance_score=0.9,
+            summary_detailed=(
+                "Research contribution: Measures coding agent reliability.\n"
+                "Research method: Tests agentic coding workflows."
+            ),
         ),
         make_item(
             item_id=2,
@@ -56,17 +87,29 @@ def test_build_topic_briefing_groups_sources_entities_and_activity() -> None:
         "AI coding agents is a technical trend watch topic focused on "
         "coding agent, agentic coding."
     )
-    assert briefing.item_count == 3
-    assert briefing.high_impact_count == 2
-    assert briefing.average_importance_score == (0.8 + 0.7 + 0.4) / 3
+    assert briefing.item_count == 5
+    assert briefing.high_impact_count == 3
+    assert briefing.average_importance_score == (0.8 + 0.95 + 0.65 + 0.7 + 0.4) / 5
     assert briefing.trending_sources[0].source_name == "arXiv"
-    assert briefing.trending_sources[0].item_count == 2
-    assert [item.title for item in briefing.related_papers] == ["Agent paper"]
+    assert briefing.trending_sources[0].item_count == 4
+    assert [item.title for item in briefing.related_papers] == [
+        "Agent paper",
+        "Coding agent evaluation",
+        "General benchmark paper",
+    ]
     assert [item.title for item in briefing.related_products] == ["Agent product"]
-    assert briefing.related_companies[:3] == ["OpenAI", "MSFT", "Anthropic"]
-    assert [bucket.item_count for bucket in briefing.activity_timeline] == [2, 1]
+    assert briefing.related_companies[:5] == [
+        "OpenAI",
+        "Benchmark Lab",
+        "Eval Lab",
+        "MSFT",
+        "Anthropic",
+    ]
+    assert [bucket.item_count for bucket in briefing.activity_timeline] == [3, 2]
     assert [item.title for item in briefing.recent_timeline] == [
         "Agent paper",
+        "General benchmark paper",
+        "Coding agent evaluation",
         "Agent product",
         "Developer discussion",
     ]
@@ -103,7 +146,11 @@ def make_item(
     tickers: list[str] | None = None,
     published_at: datetime | None = None,
     importance_score: float = 0.7,
+    relevance_score: float = 0.8,
+    novelty_score: float = 0.7,
+    source_quality_score: float = 0.7,
     stock_impact_score: float = 0.1,
+    summary_detailed: str | None = None,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -120,12 +167,12 @@ def make_item(
         products=products or [],
         topics=["ai coding agents"],
         sentiment="neutral",
-        relevance_score=0.8,
+        relevance_score=relevance_score,
         importance_score=importance_score,
-        novelty_score=0.7,
-        source_quality_score=0.7,
+        novelty_score=novelty_score,
+        source_quality_score=source_quality_score,
         stock_impact_score=stock_impact_score,
         summary_short=None,
-        summary_detailed=None,
+        summary_detailed=summary_detailed,
         why_it_matters=None,
     )

@@ -1092,7 +1092,7 @@ def build_topic_briefing(
             TopicSourceCount(source_name=source_name, item_count=count)
             for source_name, count in source_counts.most_common(8)
         ],
-        related_papers=[item for item in items if item.category == "research"][:6],
+        related_papers=rank_topic_research_items(topic, items)[:6],
         related_products=[
             item for item in items if item.category == "product" or item.products
         ][:6],
@@ -1116,6 +1116,56 @@ def build_topic_definition(topic: TopicWatchlistSchema) -> str:
         focus = ", ".join(topic.related_terms[:4])
         return f"{topic.label} is a {category} watch topic focused on {focus}."
     return f"{topic.label} is a {category} watch topic."
+
+
+def rank_topic_research_items(
+    topic: TopicWatchlistItem | TopicWatchlistSchema,
+    items: list[FeedItem],
+) -> list[FeedItem]:
+    return sorted(
+        [item for item in items if item.category == "research"],
+        key=lambda item: (
+            topic_research_score(topic, item),
+            item.published_at or datetime.min.replace(tzinfo=UTC),
+            item.id,
+        ),
+        reverse=True,
+    )
+
+
+def topic_research_score(
+    topic: TopicWatchlistItem | TopicWatchlistSchema,
+    item: FeedItem,
+) -> float:
+    topic_match = topic_research_match_score(topic, item)
+    potential_impact = (
+        0.45 * item.importance_score
+        + 0.30 * item.relevance_score
+        + 0.15 * item.source_quality_score
+        + 0.10 * item.novelty_score
+    )
+    return round(0.55 * topic_match + 0.45 * potential_impact, 3)
+
+
+def topic_research_match_score(
+    topic: TopicWatchlistItem | TopicWatchlistSchema,
+    item: FeedItem,
+) -> float:
+    terms = build_topic_match_terms(topic)
+    if not terms:
+        return 0
+
+    text = " ".join(
+        [
+            item.title,
+            " ".join(item.topics),
+            item.summary_short or "",
+            item.summary_detailed or "",
+            item.why_it_matters or "",
+        ]
+    ).lower()
+    matches = sum(1 for term in terms if term.lower() in text)
+    return min(matches / min(len(terms), 4), 1.0)
 
 
 def query_topic_rows(

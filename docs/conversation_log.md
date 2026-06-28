@@ -189,3 +189,4 @@ Implementation progress:
 - Added extended selected-stock price history fetching and 5D, 1M, 6M, and 1Y dashboard chart controls for the PRD stock detail page.
 - Added product discovery novelty and traction readouts to product-category briefings, including extracted traction signals and novelty/traction-weighted timeline ordering.
 - Added structured research contribution, method, and relevance readouts to research feed cards and item detail panels.
+- Ranked topic-briefing related papers by topic match and potential impact signals instead of raw query order.
