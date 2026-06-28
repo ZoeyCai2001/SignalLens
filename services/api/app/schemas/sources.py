@@ -35,6 +35,19 @@ class SourceRunHistoryItem(BaseModel):
     finished_at: datetime | None
 
 
+class SourceCreate(BaseModel):
+    name: str
+    type: str = "rss"
+    access_method: str = "rss"
+    base_url: str | None = None
+    auth_required: bool = False
+    rate_limit: str | None = None
+    polling_interval: str | None = None
+    enabled: bool = True
+    priority: int = 100
+    terms_notes: str | None = None
+
+
 class SourceUpdate(BaseModel):
     enabled: bool | None = None
     priority: int | None = None

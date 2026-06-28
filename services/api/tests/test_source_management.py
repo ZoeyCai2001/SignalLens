@@ -3,7 +3,8 @@ from datetime import UTC, datetime
 import pytest
 
 from app.db.models import Source, SourceRun
-from app.schemas.sources import SourceUpdate
+from app.schemas.sources import SourceCreate, SourceUpdate
+from app.services import ingestion as ingestion_service
 from app.services.ingestion import (
     IngestionResult,
     RegisteredSourceRunner,
@@ -11,6 +12,7 @@ from app.services.ingestion import (
     run_source_ingestion_by_id,
 )
 from app.services.source_health import (
+    create_source,
     serialize_source_health,
     serialize_source_run_history_item,
     update_source,
@@ -82,6 +84,39 @@ def test_update_source_trims_editable_settings_and_clears_empty_notes() -> None:
     assert source.rate_limit == "75/day"
     assert source.terms_notes is None
     assert db.commits == 1
+
+
+def test_create_source_registers_followed_rss_source() -> None:
+    db = FakeCreateSourceDb()
+
+    source = create_source(
+        db,
+        SourceCreate(
+            name="  Latent Space RSS ",
+            type="blog",
+            access_method="rss",
+            base_url=" https://example.com/rss.xml ",
+            priority=45,
+            terms_notes=" Public RSS feed only. ",
+        ),
+    )
+
+    assert source.name == "Latent Space RSS"
+    assert source.type == "blog"
+    assert source.access_method == "rss"
+    assert source.base_url == "https://example.com/rss.xml"
+    assert source.priority == 45
+    assert source.terms_notes == "Public RSS feed only."
+    assert db.added == [source]
+    assert db.commits == 1
+
+
+def test_create_source_rejects_duplicate_name() -> None:
+    existing = Source(id=1, name="Existing", type="blog", access_method="rss")
+    db = FakeCreateSourceDb(existing=existing)
+
+    with pytest.raises(ValueError):
+        create_source(db, SourceCreate(name="Existing"))
 
 
 def test_serialize_source_run_history_item_includes_source_name_and_counts() -> None:
@@ -165,6 +200,47 @@ async def test_run_source_ingestion_by_id_uses_registered_runner_default_limit()
     assert result.items_stored == 29
 
 
+@pytest.mark.anyio
+async def test_run_source_ingestion_by_id_runs_custom_rss_source(monkeypatch) -> None:
+    source = Source(
+        id=5,
+        name="Custom Blog",
+        type="blog",
+        access_method="rss",
+        base_url="https://example.com/feed.xml",
+        enabled=True,
+    )
+    db = FakeSourceDb(source)
+    calls = []
+
+    async def fake_run_connector_ingestion(db, connector, source):
+        calls.append((db, connector, source))
+        return IngestionResult(
+            source_name=source.name,
+            status="success",
+            items_fetched=3,
+            items_stored=2,
+        )
+
+    monkeypatch.setattr(
+        ingestion_service,
+        "run_connector_ingestion",
+        fake_run_connector_ingestion,
+    )
+
+    result = await ingestion_service.run_source_ingestion_by_id(
+        db=db,
+        source_id=5,
+        limit=3,
+        runners_by_name={},
+    )
+
+    assert result.source_name == "Custom Blog"
+    assert result.items_fetched == 3
+    assert calls[0][1].source_name == "Custom Blog"
+    assert calls[0][1].feeds[0].url == "https://example.com/feed.xml"
+
+
 class FakeDb:
     def __init__(self) -> None:
         self.commits = 0
@@ -186,6 +262,24 @@ class FakeSourceDb(FakeDb):
         if model is Source and source_id == self.source.id:
             return self.source
         return None
+
+    def refresh(self, value) -> None:
+        return None
+
+
+class FakeCreateSourceDb(FakeDb):
+    def __init__(self, existing: Source | None = None) -> None:
+        super().__init__()
+        self.existing = existing
+
+    def query(self, _model):
+        return self
+
+    def filter(self, *_args):
+        return self
+
+    def one_or_none(self):
+        return self.existing
 
     def refresh(self, value) -> None:
         return None

@@ -100,3 +100,4 @@ Implementation progress:
 - Expanded stock briefings into a fuller stock-detail view with AI relevance summary, theme breakdown, market-impact event buckets, notes, timeline, and price context.
 - Added structured stock-event classification details to each stock timeline item, including event type, possible market impact, confidence, time sensitivity, summary, and uncertainties.
 - Enriched event clusters with main summaries, confidence, importance, earliest/latest source timing, and compact timelines in the dashboard.
+- Added source-watchlist registration so followed blogs, repositories, companies, and RSS feeds can be tracked from Source Health, with custom RSS feeds runnable through the existing connector.

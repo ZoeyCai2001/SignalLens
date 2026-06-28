@@ -214,6 +214,9 @@ Read source health and enable or disable a source:
 
 ```bash
 curl "http://127.0.0.1:8000/api/sources/health"
+curl -X POST "http://127.0.0.1:8000/api/sources" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Latent Space RSS","type":"blog","access_method":"rss","base_url":"https://example.com/rss.xml","terms_notes":"Public RSS feed only."}'
 curl -X PATCH "http://127.0.0.1:8000/api/sources/1" \
   -H "Content-Type: application/json" \
   -d '{"enabled":false}'

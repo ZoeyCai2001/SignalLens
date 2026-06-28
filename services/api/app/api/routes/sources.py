@@ -4,13 +4,14 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
 from app.schemas.ingestion import IngestionRunResponse
-from app.schemas.sources import SourceHealth, SourceRunHistoryItem, SourceUpdate
+from app.schemas.sources import SourceCreate, SourceHealth, SourceRunHistoryItem, SourceUpdate
 from app.services.ingestion import (
     SourceNotFoundError,
     SourceRunnerNotFoundError,
     run_source_ingestion_by_id,
 )
 from app.services.source_health import (
+    create_source,
     get_latest_source_run,
     list_source_run_history,
     serialize_source_health,
@@ -34,6 +35,18 @@ async def list_source_runs(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> list[SourceRunHistoryItem]:
     return list_source_run_history(db=db, limit=limit)
+
+
+@router.post("", response_model=SourceHealth, status_code=201)
+async def create_followed_source(
+    payload: SourceCreate,
+    db: DbSession,
+) -> SourceHealth:
+    try:
+        source = create_source(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return serialize_source_health(source, None)
 
 
 @router.post("/{source_id}/run", response_model=IngestionRunResponse)

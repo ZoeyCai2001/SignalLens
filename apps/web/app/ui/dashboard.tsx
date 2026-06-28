@@ -298,6 +298,16 @@ type SourceUpdatePayload = {
   terms_notes?: string | null;
 };
 
+type SourceCreatePayload = {
+  name: string;
+  type: string;
+  access_method: string;
+  base_url: string | null;
+  enabled: boolean;
+  priority: number;
+  terms_notes: string | null;
+};
+
 type SourceDraft = {
   priority: string;
   polling_interval: string;
@@ -507,6 +517,11 @@ export function Dashboard() {
   const [topicLabel, setTopicLabel] = useState("");
   const [topicCategory, setTopicCategory] = useState("technical_trend");
   const [topicTerms, setTopicTerms] = useState("");
+  const [sourceName, setSourceName] = useState("");
+  const [sourceType, setSourceType] = useState("blog");
+  const [sourceAccessMethod, setSourceAccessMethod] = useState("rss");
+  const [sourceBaseUrl, setSourceBaseUrl] = useState("");
+  const [sourceTermsNotes, setSourceTermsNotes] = useState("");
   const [alertRuleName, setAlertRuleName] = useState("");
   const [alertRuleCategory, setAlertRuleCategory] = useState("all");
   const [alertRuleTickers, setAlertRuleTickers] = useState("");
@@ -1362,6 +1377,42 @@ export function Dashboard() {
     }
   };
 
+  const submitSource = async () => {
+    if (!sourceName.trim()) {
+      setError("Source entries need a name.");
+      return;
+    }
+    setLoadState("running");
+    setError(null);
+    try {
+      const created = await fetchJson<SourceHealth>("/api/sources", {
+        method: "POST",
+        body: JSON.stringify({
+          name: sourceName.trim(),
+          type: sourceType,
+          access_method: sourceAccessMethod,
+          base_url: sourceBaseUrl.trim() || null,
+          enabled: true,
+          priority: 90,
+          terms_notes: sourceTermsNotes.trim() || null,
+        } satisfies SourceCreatePayload),
+      });
+      setSourceName("");
+      setSourceType("blog");
+      setSourceAccessMethod("rss");
+      setSourceBaseUrl("");
+      setSourceTermsNotes("");
+      setSources((items) => [...items, created].sort((a, b) => a.priority - b.priority));
+      setStatus(`Following source ${created.name}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Source add failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
   const runSourceNow = async (source: SourceHealth) => {
     setBusySourceId(source.id);
     setError(null);
@@ -1742,7 +1793,19 @@ export function Dashboard() {
               sources={sources}
               runs={sourceRuns}
               lastCycleResult={lastCycleResult}
+              name={sourceName}
+              type={sourceType}
+              accessMethod={sourceAccessMethod}
+              baseUrl={sourceBaseUrl}
+              termsNotes={sourceTermsNotes}
+              disabled={loadState !== "idle"}
               busySourceId={busySourceId}
+              onNameChange={setSourceName}
+              onTypeChange={setSourceType}
+              onAccessMethodChange={setSourceAccessMethod}
+              onBaseUrlChange={setSourceBaseUrl}
+              onTermsNotesChange={setSourceTermsNotes}
+              onSubmit={submitSource}
               onRunSource={runSourceNow}
               onToggleSource={toggleSource}
               onUpdateSource={updateSource}
@@ -3736,7 +3799,19 @@ function SourceTable({
   sources,
   runs,
   lastCycleResult,
+  name,
+  type,
+  accessMethod,
+  baseUrl,
+  termsNotes,
+  disabled,
   busySourceId,
+  onNameChange,
+  onTypeChange,
+  onAccessMethodChange,
+  onBaseUrlChange,
+  onTermsNotesChange,
+  onSubmit,
   onRunSource,
   onToggleSource,
   onUpdateSource,
@@ -3744,7 +3819,19 @@ function SourceTable({
   sources: SourceHealth[];
   runs: SourceRunHistoryItem[];
   lastCycleResult: ScheduledCycleResponse | null;
+  name: string;
+  type: string;
+  accessMethod: string;
+  baseUrl: string;
+  termsNotes: string;
+  disabled: boolean;
   busySourceId: number | null;
+  onNameChange: (value: string) => void;
+  onTypeChange: (value: string) => void;
+  onAccessMethodChange: (value: string) => void;
+  onBaseUrlChange: (value: string) => void;
+  onTermsNotesChange: (value: string) => void;
+  onSubmit: () => void;
   onRunSource: (source: SourceHealth) => void;
   onToggleSource: (source: SourceHealth) => void;
   onUpdateSource: (source: SourceHealth, payload: SourceUpdatePayload) => void;
@@ -3778,6 +3865,58 @@ function SourceTable({
       <div className="section-header">
         <h2 className="section-title">Source Health</h2>
         <DatabaseZap size={16} aria-hidden="true" />
+      </div>
+      <div className="form-panel compact-form">
+        <input
+          className="field"
+          placeholder="Source name"
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          disabled={disabled}
+        />
+        <select
+          className="field"
+          value={type}
+          onChange={(event) => onTypeChange(event.target.value)}
+          disabled={disabled}
+          aria-label="Source type"
+        >
+          <option value="blog">Blog</option>
+          <option value="company">Company</option>
+          <option value="github_repository">GitHub repository</option>
+          <option value="product_topic">Product topic</option>
+          <option value="social_keyword">Social keyword</option>
+          <option value="rss">RSS</option>
+        </select>
+        <select
+          className="field"
+          value={accessMethod}
+          onChange={(event) => onAccessMethodChange(event.target.value)}
+          disabled={disabled}
+          aria-label="Access method"
+        >
+          <option value="rss">RSS</option>
+          <option value="official_api">Official API</option>
+          <option value="manual_watch">Manual watch</option>
+        </select>
+        <input
+          className="field"
+          placeholder="URL or feed"
+          value={baseUrl}
+          onChange={(event) => onBaseUrlChange(event.target.value)}
+          disabled={disabled}
+        />
+        <input
+          className="field"
+          placeholder="Terms or scope notes"
+          value={termsNotes}
+          onChange={(event) => onTermsNotesChange(event.target.value)}
+          disabled={disabled}
+        />
+        <button className="button primary" onClick={onSubmit} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+          Follow
+        </button>
       </div>
       <div className="table-wrap">
         <table className="source-table">
@@ -3855,7 +3994,7 @@ function SourceTable({
                       <button
                         className="button icon-button"
                         onClick={() => onRunSource(source)}
-                        disabled={saving}
+                        disabled={disabled || saving}
                         title="Run source now"
                         type="button"
                       >
@@ -3864,7 +4003,7 @@ function SourceTable({
                       <button
                         className="button icon-button"
                         onClick={() => onToggleSource(source)}
-                        disabled={saving}
+                        disabled={disabled || saving}
                         title={source.enabled ? "Disable source" : "Enable source"}
                         type="button"
                       >
@@ -3873,7 +4012,7 @@ function SourceTable({
                       <button
                         className="button icon-button"
                         onClick={() => onUpdateSource(source, buildSourcePayload(draft))}
-                        disabled={saving || !changed}
+                        disabled={disabled || saving || !changed}
                         title="Save source settings"
                         type="button"
                       >

@@ -2,7 +2,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.models import Source, SourceRun
-from app.schemas.sources import SourceHealth, SourceRunHistoryItem, SourceUpdate
+from app.schemas.sources import SourceCreate, SourceHealth, SourceRunHistoryItem, SourceUpdate
 
 
 def list_source_health(db: Session) -> list[SourceHealth]:
@@ -30,6 +30,30 @@ def list_source_health(db: Session) -> list[SourceHealth]:
     return [serialize_source_health(source, run) for source, run in rows]
 
 
+def create_source(db: Session, payload: SourceCreate) -> Source:
+    name = normalize_required_text(payload.name, "Source name")
+    existing = db.query(Source).filter(Source.name == name).one_or_none()
+    if existing is not None:
+        raise ValueError(f"{name} is already registered.")
+
+    source = Source(
+        name=name,
+        type=normalize_optional_text(payload.type) or "rss",
+        access_method=normalize_optional_text(payload.access_method) or "rss",
+        base_url=normalize_optional_text(payload.base_url),
+        auth_required=payload.auth_required,
+        rate_limit=normalize_optional_text(payload.rate_limit),
+        polling_interval=normalize_optional_text(payload.polling_interval),
+        enabled=payload.enabled,
+        priority=payload.priority,
+        terms_notes=normalize_optional_text(payload.terms_notes),
+    )
+    db.add(source)
+    db.commit()
+    db.refresh(source)
+    return source
+
+
 def update_source(db: Session, source_id: int, payload: SourceUpdate) -> Source | None:
     source = db.get(Source, source_id)
     if source is None:
@@ -45,6 +69,19 @@ def update_source(db: Session, source_id: int, payload: SourceUpdate) -> Source 
     db.commit()
     db.refresh(source)
     return source
+
+
+def normalize_required_text(value: str, label: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{label} is required.")
+    return normalized
+
+
+def normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value.strip() or None
 
 
 def list_source_run_history(db: Session, limit: int = 20) -> list[SourceRunHistoryItem]:

@@ -364,6 +364,14 @@ async def run_source_ingestion_by_id(
 
     registered = runners_by_name.get(source.name)
     if registered is None:
+        if source.access_method == "rss" and source.base_url:
+            connector = RssConnector(
+                limit=limit or 25,
+                feeds=[RssFeedSpec(name=source.name, url=source.base_url)],
+                source_name=source.name,
+                source_type=source.type,
+            )
+            return await run_connector_ingestion(db=db, connector=connector, source=source)
         raise SourceRunnerNotFoundError(
             f"No runnable connector is registered for source {source.name}."
         )
