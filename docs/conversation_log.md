@@ -169,3 +169,4 @@ Implementation progress:
 - Added stock-summary last-updated timestamps and a dedicated stock table column based on the newest signal or market price date.
 - Added stock-summary AI-news-today counts and changed the stock table count column to show current-day AI activity.
 - Added high-impact counts and average importance scores to topic, company, and product-category briefings, with dashboard metric rows for faster drill-down triage.
+- Added related-ticker market snapshots to event clusters and surfaced the existing price chart inside expanded cluster evidence when ticker price data is available.

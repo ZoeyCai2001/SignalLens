@@ -6,6 +6,8 @@ from fastapi import HTTPException
 
 from app.api.routes import events
 from app.schemas.feed import FeedItem
+from app.schemas.watchlist import StockMarketSnapshot
+from app.services import event_clustering
 from app.services.event_clustering import (
     build_cluster_key,
     build_event_cluster,
@@ -85,6 +87,32 @@ def test_event_clusters_can_be_retrieved_by_cluster_key() -> None:
     assert clusters[0].cluster_key == "strong|technical_trend|avgo"
     assert cluster.item_count == 2
     assert [item.id for item in cluster.items] == [2, 1]
+
+
+def test_list_event_clusters_attaches_related_market_context(monkeypatch) -> None:
+    items = [
+        make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
+        make_item(2, "Broadcom chip discussion", tickers=["AVGO"]),
+    ]
+    snapshot = StockMarketSnapshot()
+    seen: dict[str, object] = {}
+
+    monkeypatch.setattr(event_clustering, "list_visible_feed_items", lambda **_kwargs: items)
+
+    def fake_market_snapshot(db, ticker: str, limit: int = 30):
+        seen["db"] = db
+        seen["ticker"] = ticker
+        seen["limit"] = limit
+        return snapshot
+
+    monkeypatch.setattr(event_clustering, "build_stock_market_snapshot", fake_market_snapshot)
+
+    db = object()
+    clusters = event_clustering.list_event_clusters(db=db, min_items=2)
+
+    assert clusters[0].related_market_ticker == "AVGO"
+    assert clusters[0].related_market is snapshot
+    assert seen == {"db": db, "ticker": "AVGO", "limit": 30}
 
 
 @pytest.mark.anyio

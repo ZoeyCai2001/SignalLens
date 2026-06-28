@@ -9,6 +9,7 @@ from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import list_visible_feed_items
 from app.services.scoring import detect_tickers
+from app.services.watchlist import build_stock_market_snapshot
 
 STOP_WORDS = {
     "about",
@@ -43,7 +44,8 @@ def list_event_clusters(
         preferred_sources=preferred_sources,
         blocked_sources=blocked_sources,
     )
-    return build_event_clusters_from_items(items=items, limit=limit, min_items=min_items)
+    clusters = build_event_clusters_from_items(items=items, limit=limit, min_items=min_items)
+    return [attach_market_context(db=db, cluster=cluster) for cluster in clusters]
 
 
 def get_event_cluster(
@@ -66,7 +68,10 @@ def get_event_cluster(
     cluster_items = grouped.get(cluster_key, [])
     if len(cluster_items) < min_items:
         return None
-    return build_event_cluster(cluster_key=cluster_key, items=cluster_items)
+    return attach_market_context(
+        db=db,
+        cluster=build_event_cluster(cluster_key=cluster_key, items=cluster_items),
+    )
 
 
 def build_event_clusters_from_items(
@@ -154,6 +159,16 @@ def build_event_cluster(cluster_key: str, items: list[FeedItem]) -> EventCluster
         representative_item=representative,
         items=ranked_items[:5],
     )
+
+
+def attach_market_context(db: Session, cluster: EventCluster) -> EventCluster:
+    if not cluster.tickers:
+        return cluster
+
+    ticker = cluster.tickers[0].upper()
+    cluster.related_market_ticker = ticker
+    cluster.related_market = build_stock_market_snapshot(db=db, ticker=ticker)
+    return cluster
 
 
 def build_cluster_key(item: FeedItem) -> str:

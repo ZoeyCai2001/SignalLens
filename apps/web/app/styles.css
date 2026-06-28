@@ -716,6 +716,11 @@ table {
   padding-top: 8px;
 }
 
+.cluster-market-context {
+  display: grid;
+  gap: 6px;
+}
+
 .cluster-timeline {
   display: grid;
   gap: 4px;

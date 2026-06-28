@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.schemas.feed import FeedItem
+from app.schemas.watchlist import StockMarketSnapshot
 
 
 class EventClusterTimelineItem(BaseModel):
@@ -31,6 +32,8 @@ class EventCluster(BaseModel):
     first_seen_at: datetime | None
     last_seen_at: datetime | None
     latest_update_at: datetime | None
+    related_market_ticker: str | None = None
+    related_market: StockMarketSnapshot | None = None
     timeline: list[EventClusterTimelineItem]
     representative_item: FeedItem
     items: list[FeedItem]

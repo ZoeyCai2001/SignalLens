@@ -448,6 +448,8 @@ type EventCluster = {
   first_seen_at: string | null;
   last_seen_at: string | null;
   latest_update_at: string | null;
+  related_market_ticker: string | null;
+  related_market: StockMarketSnapshot | null;
   timeline: EventClusterTimelineItem[];
   representative_item: FeedItem;
   items: FeedItem[];
@@ -3013,6 +3015,14 @@ function EventClusterPanel({
                         {note}
                       </div>
                     ))}
+                    {detail.related_market_ticker ? (
+                      <div className="cluster-market-context">
+                        <div className="digest-section-title">
+                          {detail.related_market_ticker} Price Context
+                        </div>
+                        <StockPriceChart market={detail.related_market} />
+                      </div>
+                    ) : null}
                     {detail.items.map((item) => (
                       <a
                         className="cluster-evidence-row"
