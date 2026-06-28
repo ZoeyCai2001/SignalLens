@@ -150,3 +150,4 @@ Implementation progress:
 - Reset normalized manual-submission metadata before re-enriching resubmitted URLs so corrected notes do not retain stale AI categories, entities, scores, or summaries.
 - Routed event cluster APIs through local ranking and source preferences so preferred and blocked sources affect cross-source event discovery consistently with the main feed.
 - Routed keyword and natural-language search through local ranking and source preferences so blocked sources stay hidden and preferred sources rank higher in search results.
+- Applied local visibility and blocked-source preferences to alert generation and alert listing so hidden or blocked signals no longer surface as dashboard alerts.

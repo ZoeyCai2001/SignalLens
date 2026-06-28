@@ -20,6 +20,7 @@ from app.services.alerts import (
     serialize_alert,
     update_alert_rule,
 )
+from app.services.preferences import get_user_preferences
 
 router = APIRouter()
 
@@ -30,13 +31,20 @@ async def get_alerts(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     include_dismissed: bool = False,
 ) -> list[AlertItem]:
-    generate_alerts(db)
-    return list_alerts(db=db, limit=limit, include_dismissed=include_dismissed)
+    preferences = get_user_preferences(db)
+    generate_alerts(db, blocked_sources=preferences.blocked_sources)
+    return list_alerts(
+        db=db,
+        limit=limit,
+        include_dismissed=include_dismissed,
+        blocked_sources=preferences.blocked_sources,
+    )
 
 
 @router.post("/generate", response_model=AlertGenerationResult)
 async def generate_dashboard_alerts(db: DbSession) -> AlertGenerationResult:
-    return generate_alerts(db)
+    preferences = get_user_preferences(db)
+    return generate_alerts(db, blocked_sources=preferences.blocked_sources)
 
 
 @router.get("/rules", response_model=list[AlertRule])

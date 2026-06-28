@@ -2,12 +2,18 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Alert, AlertRule, NormalizedItem
+from app.db.models import Alert, AlertRule, NormalizedItem, UserItemAction
 from app.schemas.alerts import AlertGenerationResult, AlertItem, AlertRuleCreate, AlertRuleUpdate
 from app.schemas.events import EventCluster
 from app.schemas.feed import FeedItem
 from app.services.event_clustering import build_event_clusters_from_items
-from app.services.feed_actions import LOCAL_USER_ID, get_action, serialize_feed_item
+from app.services.feed_actions import (
+    LOCAL_USER_ID,
+    get_action,
+    normalize_source_names,
+    serialize_feed_item,
+)
+from app.services.preferences import get_user_preferences
 from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER
 
 CROSS_SOURCE_CLUSTER_CATEGORY = "cross_source_cluster"
@@ -167,16 +173,35 @@ def get_alert_rule_by_name(db: Session, name: str) -> AlertRule | None:
     )
 
 
-def generate_alerts(db: Session, limit: int = 100) -> AlertGenerationResult:
+def generate_alerts(
+    db: Session,
+    limit: int = 100,
+    blocked_sources: list[str] | None = None,
+) -> AlertGenerationResult:
     rules_seeded = seed_default_alert_rules(db)
+    if blocked_sources is None:
+        blocked_sources = get_user_preferences(db).blocked_sources
+    blocked_source_names = normalize_source_names(blocked_sources)
     rules = (
         db.query(AlertRule)
         .filter(AlertRule.user_id == LOCAL_USER_ID, AlertRule.enabled.is_(True))
         .order_by(AlertRule.severity.desc(), AlertRule.id.asc())
         .all()
     )
-    items = (
-        db.query(NormalizedItem)
+    query = (
+        db.query(NormalizedItem, UserItemAction)
+        .outerjoin(
+            UserItemAction,
+            (UserItemAction.item_id == NormalizedItem.id)
+            & (UserItemAction.user_id == LOCAL_USER_ID),
+        )
+        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+    )
+    if blocked_source_names:
+        query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+
+    rows = (
+        query
         .order_by(
             NormalizedItem.importance_score.desc(),
             NormalizedItem.stock_impact_score.desc(),
@@ -186,6 +211,7 @@ def generate_alerts(db: Session, limit: int = 100) -> AlertGenerationResult:
         .limit(limit)
         .all()
     )
+    items = [item for item, _action in rows]
     created = 0
     for item in items:
         for match in match_alert_rules(item, rules):
@@ -222,7 +248,7 @@ def generate_alerts(db: Session, limit: int = 100) -> AlertGenerationResult:
     return AlertGenerationResult(
         rules_seeded=rules_seeded,
         alerts_created=created,
-        active_alerts=count_active_alerts(db),
+        active_alerts=count_active_alerts(db, blocked_sources=blocked_sources),
     )
 
 
@@ -351,12 +377,25 @@ def list_alerts(
     db: Session,
     limit: int = 20,
     include_dismissed: bool = False,
+    blocked_sources: list[str] | None = None,
 ) -> list[AlertItem]:
+    if blocked_sources is None:
+        blocked_sources = get_user_preferences(db).blocked_sources
+    blocked_source_names = normalize_source_names(blocked_sources)
     query = (
         db.query(Alert)
+        .join(Alert.item)
+        .outerjoin(
+            UserItemAction,
+            (UserItemAction.item_id == Alert.item_id)
+            & (UserItemAction.user_id == LOCAL_USER_ID),
+        )
         .options(joinedload(Alert.item), joinedload(Alert.rule))
         .filter(Alert.user_id == LOCAL_USER_ID)
+        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
     )
+    if blocked_source_names:
+        query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
     if not include_dismissed:
         query = query.filter(
             Alert.status == "active",
@@ -402,12 +441,22 @@ def dismiss_active_alerts_for_rule(db: Session, rule_id: int) -> int:
     )
 
 
-def count_active_alerts(db: Session) -> int:
-    return (
+def count_active_alerts(db: Session, blocked_sources: list[str] | None = None) -> int:
+    blocked_source_names = normalize_source_names(blocked_sources)
+    query = (
         db.query(Alert)
+        .join(Alert.item)
+        .outerjoin(
+            UserItemAction,
+            (UserItemAction.item_id == Alert.item_id)
+            & (UserItemAction.user_id == LOCAL_USER_ID),
+        )
         .filter(Alert.user_id == LOCAL_USER_ID, Alert.status == "active")
-        .count()
+        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
     )
+    if blocked_source_names:
+        query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+    return query.count()
 
 
 def serialize_alert(db: Session, alert: Alert) -> AlertItem:

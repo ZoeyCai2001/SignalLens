@@ -1,11 +1,16 @@
 from datetime import UTC, datetime
 
-from app.db.models import AlertRule, NormalizedItem
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db.models import Alert, AlertRule, Base, NormalizedItem, UserItemAction
 from app.schemas.feed import FeedItem
 from app.services.alerts import (
     CROSS_SOURCE_CLUSTER_CATEGORY,
     alert_reason,
     clean_terms,
+    generate_alerts,
+    list_alerts,
     cross_source_alert_reason,
     match_alert_rules,
     normalize_tickers,
@@ -159,7 +164,72 @@ def test_alert_rule_input_helpers_clean_terms_and_tickers() -> None:
     assert normalize_tickers([" mu ", "$avgo"]) == ["MU", "AVGO"]
 
 
+def test_generate_alerts_excludes_blocked_and_hidden_items() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(make_rule(category="all", min_importance_score=0.7))
+        db.add_all(
+            [
+                make_item(item_id=1, title="Blocked source signal", source_name="Noisy Blog"),
+                make_item(item_id=2, title="Hidden source signal", source_name="Trusted Blog"),
+                make_item(item_id=3, title="Visible source signal", source_name="Trusted Blog"),
+            ]
+        )
+        db.add(
+            UserItemAction(
+                user_id="local",
+                item_id=2,
+                is_hidden=True,
+            )
+        )
+        db.commit()
+
+        result = generate_alerts(db, blocked_sources=["Noisy Blog"])
+
+        alerts = db.query(Alert).all()
+        assert result.alerts_created == 2
+        assert result.active_alerts == 2
+        assert {alert.title for alert in alerts} == {"Visible source signal"}
+
+
+def test_list_alerts_excludes_blocked_and_hidden_items() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        rule = make_rule(category="all", min_importance_score=0.7)
+        db.add(rule)
+        db.add_all(
+            [
+                make_item(item_id=1, title="Blocked source signal", source_name="Noisy Blog"),
+                make_item(item_id=2, title="Hidden source signal", source_name="Trusted Blog"),
+                make_item(item_id=3, title="Visible source signal", source_name="Trusted Blog"),
+            ]
+        )
+        db.flush()
+        db.add_all(
+            [
+                make_alert(item_id=1, rule_id=rule.id, title="Blocked source signal"),
+                make_alert(item_id=2, rule_id=rule.id, title="Hidden source signal"),
+                make_alert(item_id=3, rule_id=rule.id, title="Visible source signal"),
+                UserItemAction(user_id="local", item_id=2, is_hidden=True),
+            ]
+        )
+        db.commit()
+
+        visible_alerts = list_alerts(db, include_dismissed=True, blocked_sources=["Noisy Blog"])
+
+    assert [alert.title for alert in visible_alerts] == ["Visible source signal"]
+
+
 def make_item(
+    item_id: int = 1,
+    title: str = "OpenAI and Broadcom inference chip signal",
+    source_name: str = "Test Source",
     category: str = "technical_trend",
     importance_score: float = 0.9,
     stock_impact_score: float = 0,
@@ -169,11 +239,11 @@ def make_item(
     topics: list[str] | None = None,
 ) -> NormalizedItem:
     return NormalizedItem(
-        id=1,
-        raw_item_id=1,
-        title="OpenAI and Broadcom inference chip signal",
-        url="https://example.com",
-        source_name="Test Source",
+        id=item_id,
+        raw_item_id=item_id,
+        title=title,
+        url=f"https://example.com/{item_id}",
+        source_name=source_name,
         language="en",
         category=category,
         tickers=tickers or [],
@@ -187,6 +257,18 @@ def make_item(
         novelty_score=0.7,
         source_quality_score=source_quality_score,
         stock_impact_score=stock_impact_score,
+    )
+
+
+def make_alert(item_id: int, rule_id: int, title: str) -> Alert:
+    return Alert(
+        user_id="local",
+        item_id=item_id,
+        rule_id=rule_id,
+        title=title,
+        reason="Test reason",
+        severity="high",
+        status="active",
     )
 
 

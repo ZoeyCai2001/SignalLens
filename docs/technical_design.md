@@ -226,7 +226,7 @@ Daily digest ordering uses a deterministic blended score across importance, rele
 
 Search and event cluster APIs use the same local ranking preferences as the main feed, including configurable weights, preferred sources, and blocked sources. This keeps cross-source event discovery and ad hoc retrieval aligned with the user's personal source trust settings instead of exposing separate global views.
 
-Alert generation applies the same trust posture. Single-item alerts require enough classification confidence and source quality before a rule can fire, and cross-source alerts require enough cluster confidence before a repeated signal is promoted as confirmed. Alert reasons include the trust signals used for the decision so the user can audit why something was surfaced.
+Alert generation applies the same trust posture and local visibility rules. Single-item alerts require enough classification confidence and source quality before a rule can fire, hidden feed items and blocked sources are excluded, and cross-source alerts require enough cluster confidence before a repeated signal is promoted as confirmed. Alert reasons include the trust signals used for the decision so the user can audit why something was surfaced.
 
 ## 8. Data Model
 
