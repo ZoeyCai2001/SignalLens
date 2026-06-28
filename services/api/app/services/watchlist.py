@@ -766,6 +766,7 @@ def build_product_briefing(
         item_count=len(items),
         high_impact_count=count_high_impact_feed_items(items),
         average_importance_score=average_importance_score(items),
+        average_novelty_score=average_novelty_score(items),
         trending_sources=[
             TopicSourceCount(source_name=source_name, item_count=count)
             for source_name, count in source_counts.most_common(8)
@@ -776,7 +777,8 @@ def build_product_briefing(
         related_companies=[
             company for company, _count in company_counts.most_common(10)
         ],
-        recent_timeline=items[:12],
+        traction_signals=build_product_traction_signals(items),
+        recent_timeline=rank_product_discovery_items(items)[:12],
         activity_timeline=[
             TopicActivityBucket(activity_date=activity_date, item_count=count)
             for activity_date, count in sorted(activity_counts.items(), reverse=True)[:14]
@@ -831,6 +833,7 @@ def product_signal_query(
     )
     return apply_blocked_source_filter(query, blocked_sources).order_by(
         UserItemAction.is_important.desc().nullslast(),
+        NormalizedItem.novelty_score.desc(),
         NormalizedItem.importance_score.desc(),
         NormalizedItem.relevance_score.desc(),
         NormalizedItem.published_at.desc().nullslast(),
@@ -845,6 +848,106 @@ def build_product_match_terms(
     category_words = product.category.replace("-", " ")
     return unique_normalized_terms(
         [product.category, label_words, category_words, *product.related_terms]
+    )
+
+
+def rank_product_discovery_items(items: list[FeedItem]) -> list[FeedItem]:
+    return sorted(
+        items,
+        key=lambda item: (
+            product_discovery_score(item),
+            item.published_at or datetime.min.replace(tzinfo=UTC),
+            item.id,
+        ),
+        reverse=True,
+    )
+
+
+def product_discovery_score(item: FeedItem) -> float:
+    return round(
+        0.40 * item.novelty_score
+        + 0.25 * item.importance_score
+        + 0.20 * item.relevance_score
+        + 0.15 * product_traction_score(item),
+        3,
+    )
+
+
+def product_traction_score(item: FeedItem) -> float:
+    total = 0.0
+    text = product_signal_text(item)
+    for match in re.finditer(
+        r"(\d+(?:\.\d+)?)([kKmM]?)\s*"
+        r"(?:[A-Za-z][A-Za-z-]*\s+){0,3}"
+        r"(stars/day|stars|votes|upvotes|comments|forks|downloads|users)",
+        text,
+    ):
+        value = float(match.group(1))
+        suffix = match.group(2).lower()
+        unit = match.group(3).lower()
+        if suffix == "k":
+            value *= 1_000
+        elif suffix == "m":
+            value *= 1_000_000
+        weight = {
+            "stars/day": 4.0,
+            "stars": 1.0,
+            "votes": 0.8,
+            "upvotes": 0.8,
+            "comments": 0.5,
+            "forks": 0.7,
+            "downloads": 0.6,
+            "users": 0.7,
+        }.get(unit, 0.0)
+        total += value * weight
+    return min(total / 1_200, 1.0)
+
+
+def average_novelty_score(items: list[FeedItem]) -> float:
+    if not items:
+        return 0
+    return sum(item.novelty_score for item in items) / len(items)
+
+
+def build_product_traction_signals(items: list[FeedItem], limit: int = 6) -> list[str]:
+    signals: list[str] = []
+    seen: set[str] = set()
+    for item in rank_product_discovery_items(items):
+        signal = extract_product_traction_signal(item)
+        if signal is None:
+            continue
+        dedupe_key = signal.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        signals.append(signal)
+        if len(signals) >= limit:
+            break
+    return signals
+
+
+def extract_product_traction_signal(item: FeedItem) -> str | None:
+    text = product_signal_text(item)
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("traction signal:"):
+            signal = stripped.split(":", 1)[1].strip()
+            if signal:
+                return f"{item.title}: {signal}"
+    if item.source_name.lower() == "github" and "stars" in text.lower():
+        return f"{item.title}: GitHub repository traction mentioned by the source"
+    return None
+
+
+def product_signal_text(item: FeedItem) -> str:
+    return "\n".join(
+        part
+        for part in [
+            item.summary_detailed or "",
+            item.summary_short or "",
+            item.why_it_matters or "",
+        ]
+        if part
     )
 
 

@@ -238,9 +238,11 @@ type ProductBriefing = {
   item_count: number;
   high_impact_count: number;
   average_importance_score: number;
+  average_novelty_score: number;
   trending_sources: TopicSourceCount[];
   matched_products: string[];
   related_companies: string[];
+  traction_signals: string[];
   recent_timeline: FeedItem[];
   activity_timeline: TopicActivityBucket[];
 };
@@ -5190,10 +5192,12 @@ function BriefingImpactMetrics({
   itemCount,
   highImpactCount,
   averageImportanceScore,
+  averageNoveltyScore,
 }: {
   itemCount: number;
   highImpactCount: number;
   averageImportanceScore: number;
+  averageNoveltyScore?: number;
 }) {
   return (
     <div className="score-grid">
@@ -5209,6 +5213,12 @@ function BriefingImpactMetrics({
         <span className="score-label">Avg Importance</span>
         <span className="score-value">{Math.round(averageImportanceScore * 100)}</span>
       </div>
+      {averageNoveltyScore !== undefined ? (
+        <div className="score-cell">
+          <span className="score-label">Avg Novelty</span>
+          <span className="score-value">{Math.round(averageNoveltyScore * 100)}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -5496,6 +5506,7 @@ function ProductBriefingPanel({
         itemCount={briefing.item_count}
         highImpactCount={briefing.high_impact_count}
         averageImportanceScore={briefing.average_importance_score}
+        averageNoveltyScore={briefing.average_novelty_score}
       />
 
       <div className="topic-briefing-grid">
@@ -5515,6 +5526,11 @@ function ProductBriefingPanel({
           title="Related Companies"
           emptyText="No related companies yet."
           items={briefing.related_companies}
+        />
+        <TopicBriefingList
+          title="Traction Signals"
+          emptyText="No traction signals yet."
+          items={briefing.traction_signals}
         />
         <TopicBriefingList
           title="Activity"

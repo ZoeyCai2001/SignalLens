@@ -1,11 +1,13 @@
 from datetime import UTC, datetime
 
+import pytest
+
+from app.schemas.feed import FeedItem
 from app.schemas.watchlist import ProductWatchlistItem
 from app.services.watchlist import build_product_briefing, build_product_match_terms
-from app.schemas.feed import FeedItem
 
 
-def test_build_product_briefing_groups_sources_products_and_activity() -> None:
+def test_build_product_briefing_groups_sources_products_traction_and_activity() -> None:
     product = ProductWatchlistItem(
         category="ai-coding-tools",
         label="AI coding tools",
@@ -21,6 +23,8 @@ def test_build_product_briefing_groups_sources_products_and_activity() -> None:
             companies=["AgentDesk"],
             published_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
             importance_score=0.8,
+            novelty_score=0.85,
+            summary_detailed="Traction signal: 240 Product Hunt votes, 18 comments",
         ),
         make_item(
             2,
@@ -30,6 +34,8 @@ def test_build_product_briefing_groups_sources_products_and_activity() -> None:
             companies=["CodePilot"],
             published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
             importance_score=0.6,
+            novelty_score=0.95,
+            summary_detailed="Traction signal: 1200 GitHub stars, 80 stars/day",
         ),
         make_item(
             3,
@@ -39,6 +45,7 @@ def test_build_product_briefing_groups_sources_products_and_activity() -> None:
             companies=["AgentDesk"],
             published_at=datetime(2026, 6, 24, 12, 0, tzinfo=UTC),
             importance_score=0.9,
+            novelty_score=0.4,
         ),
     ]
 
@@ -48,14 +55,19 @@ def test_build_product_briefing_groups_sources_products_and_activity() -> None:
     assert briefing.item_count == 3
     assert briefing.high_impact_count == 2
     assert briefing.average_importance_score == (0.8 + 0.6 + 0.9) / 3
+    assert briefing.average_novelty_score == pytest.approx((0.85 + 0.95 + 0.4) / 3)
     assert briefing.trending_sources[0].source_name == "Product Hunt"
     assert briefing.trending_sources[0].item_count == 2
     assert briefing.matched_products[:2] == ["AgentDesk", "CodePilot"]
     assert briefing.related_companies[:2] == ["AgentDesk", "CodePilot"]
+    assert briefing.traction_signals == [
+        "IDE agent ships: 1200 GitHub stars, 80 stars/day",
+        "AgentDesk launches: 240 Product Hunt votes, 18 comments",
+    ]
     assert [bucket.item_count for bucket in briefing.activity_timeline] == [2, 1]
     assert [item.title for item in briefing.recent_timeline] == [
-        "AgentDesk launches",
         "IDE agent ships",
+        "AgentDesk launches",
         "AgentDesk update",
     ]
 
@@ -83,6 +95,8 @@ def make_item(
     companies: list[str],
     published_at: datetime,
     importance_score: float = 0.7,
+    novelty_score: float = 0.7,
+    summary_detailed: str | None = None,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -101,10 +115,10 @@ def make_item(
         sentiment="neutral",
         relevance_score=0.8,
         importance_score=importance_score,
-        novelty_score=0.7,
+        novelty_score=novelty_score,
         source_quality_score=0.7,
         stock_impact_score=0.0,
         summary_short=None,
-        summary_detailed=None,
+        summary_detailed=summary_detailed,
         why_it_matters=None,
     )

@@ -293,8 +293,10 @@ class ProductBriefing(BaseModel):
     item_count: int
     high_impact_count: int = 0
     average_importance_score: float = 0
+    average_novelty_score: float = 0
     trending_sources: list[TopicSourceCount]
     matched_products: list[str]
     related_companies: list[str]
+    traction_signals: list[str] = Field(default_factory=list)
     recent_timeline: list[FeedItem]
     activity_timeline: list[TopicActivityBucket]
