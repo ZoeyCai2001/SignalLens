@@ -189,6 +189,15 @@ def test_weighted_feed_score_boosts_watchlist_interest_matches() -> None:
     assert score == baseline + 0.08
 
 
+def test_freshness_score_treats_naive_datetimes_as_utc() -> None:
+    item = make_feed_item(1, "Naive timestamp")
+    item.published_at = datetime(2026, 6, 25, 6, 0)
+
+    score = freshness_score(item, now=datetime(2026, 6, 25, 12, 0, tzinfo=UTC))
+
+    assert score == 0.9167
+
+
 def test_rank_feed_items_uses_watchlist_interest_profile() -> None:
     now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
     generic = make_feed_item(1, "Generic item", relevance_score=0.5, importance_score=0.5)

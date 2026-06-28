@@ -7,7 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.db.models import NormalizedItem, UserItemAction
 from app.schemas.feed import FeedItem
-from app.services.feed_actions import LOCAL_USER_ID, serialize_feed_item
+from app.schemas.preferences import RankingWeights
+from app.services.feed_actions import (
+    LOCAL_USER_ID,
+    build_feed_interest_profile,
+    normalize_source_names,
+    rank_feed_items,
+    serialize_feed_item,
+)
 from app.services.scoring import detect_tickers
 
 
@@ -37,6 +44,9 @@ def search_feed_items(
     date_to: date | None = None,
     min_importance_score: float | None = None,
     saved_only: bool = False,
+    ranking_weights: RankingWeights | dict | None = None,
+    preferred_sources: list[str] | None = None,
+    blocked_sources: list[str] | None = None,
     limit: int = 30,
 ) -> list[FeedItem]:
     intent = infer_search_intent(query)
@@ -63,6 +73,10 @@ def search_feed_items(
     statement = statement.filter(
         (UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None))
     )
+
+    blocked_source_names = normalize_source_names(blocked_sources)
+    if blocked_source_names:
+        statement = statement.filter(~NormalizedItem.source_name.in_(blocked_source_names))
 
     normalized_query = normalize_filter_value(effective_query)
     if normalized_query:
@@ -150,11 +164,17 @@ def search_feed_items(
             NormalizedItem.published_at.desc().nullslast(),
             NormalizedItem.created_at.desc(),
         )
-        .limit(limit)
+        .limit(max(limit, 100))
         .all()
     )
 
-    return [serialize_feed_item(item, action) for item, action in rows]
+    items = [serialize_feed_item(item, action) for item, action in rows]
+    return rank_feed_items(
+        items,
+        ranking_weights=ranking_weights,
+        preferred_sources=preferred_sources,
+        interest_profile=build_feed_interest_profile(db),
+    )[:limit]
 
 
 def infer_search_intent(query: str | None, today: date | None = None) -> SearchIntent:

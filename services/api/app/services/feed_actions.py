@@ -187,7 +187,10 @@ def freshness_score(item: FeedItem, now: datetime | None = None) -> float:
     if item.published_at is None:
         return 0
     reference_time = now or datetime.now(UTC)
-    age_hours = max(0, (reference_time - item.published_at).total_seconds() / 3600)
+    published_at = item.published_at
+    if published_at.tzinfo is None:
+        published_at = published_at.replace(tzinfo=UTC)
+    age_hours = max(0, (reference_time - published_at).total_seconds() / 3600)
     return round(max(0, 1 - age_hours / 72), 4)
 
 

@@ -1,9 +1,13 @@
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.api.routes import search as search_routes
 from app.db.models import Base, NormalizedItem
+from app.schemas.preferences import RankingWeights
 from app.schemas.search import SearchIntentResponse
 from app.services.search import (
     infer_search_intent,
@@ -185,19 +189,151 @@ def test_search_feed_items_matches_company_entities_in_query() -> None:
     assert [item.title for item in results] == ["Frontier model launch"]
 
 
+@pytest.mark.anyio
+async def test_search_route_passes_user_preferences(monkeypatch) -> None:
+    preferences = make_preferences()
+
+    monkeypatch.setattr(search_routes, "get_user_preferences", lambda db: preferences)
+
+    def fake_search_feed_items(**kwargs):
+        assert kwargs["query"] == "agent"
+        assert kwargs["limit"] == 5
+        assert kwargs["ranking_weights"] == preferences.ranking_weights
+        assert kwargs["preferred_sources"] == preferences.preferred_sources
+        assert kwargs["blocked_sources"] == preferences.blocked_sources
+        return []
+
+    monkeypatch.setattr(search_routes, "search_feed_items", fake_search_feed_items)
+
+    result = await search_routes.search_items(db=object(), q="agent", limit=5)
+
+    assert result == []
+
+
+@pytest.mark.anyio
+async def test_natural_language_search_route_passes_user_preferences(monkeypatch) -> None:
+    preferences = make_preferences()
+
+    monkeypatch.setattr(search_routes, "get_user_preferences", lambda db: preferences)
+
+    def fake_search_feed_items(**kwargs):
+        assert kwargs["query"] == "latest AI coding products"
+        assert kwargs["limit"] == 8
+        assert kwargs["ranking_weights"] == preferences.ranking_weights
+        assert kwargs["preferred_sources"] == preferences.preferred_sources
+        assert kwargs["blocked_sources"] == preferences.blocked_sources
+        return []
+
+    monkeypatch.setattr(search_routes, "search_feed_items", fake_search_feed_items)
+
+    result = await search_routes.search_items_with_natural_language(
+        payload=search_routes.NaturalLanguageSearchRequest(
+            query="latest AI coding products",
+            limit=8,
+        ),
+        db=object(),
+    )
+
+    assert result.items == []
+    assert result.intent.category == "product"
+
+
+def test_search_feed_items_excludes_blocked_sources() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "Agent launch from blocked source",
+                    "Agent launch details.",
+                    topics=["agent"],
+                    source_name="Noisy Blog",
+                ),
+                make_search_item(
+                    2,
+                    "Agent launch from trusted source",
+                    "Agent launch details.",
+                    topics=["agent"],
+                    source_name="Trusted Blog",
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="agent", blocked_sources=["Noisy Blog"])
+
+    assert [item.source_name for item in results] == ["Trusted Blog"]
+
+
+def test_search_feed_items_ranks_preferred_sources_first() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "Agent launch from regular source",
+                    "Agent launch details.",
+                    topics=["agent"],
+                    source_name="Regular Blog",
+                ),
+                make_search_item(
+                    2,
+                    "Agent launch from preferred source",
+                    "Agent launch details.",
+                    topics=["agent"],
+                    source_name="Trusted Blog",
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(
+            db,
+            query="agent",
+            ranking_weights=RankingWeights(
+                relevance=1,
+                importance=0,
+                novelty=0,
+                source_quality=0,
+                stock_impact=0,
+                freshness=0,
+            ),
+            preferred_sources=["Trusted Blog"],
+        )
+
+    assert [item.source_name for item in results] == ["Trusted Blog", "Regular Blog"]
+
+
+def make_preferences() -> SimpleNamespace:
+    return SimpleNamespace(
+        ranking_weights={"relevance": 1},
+        preferred_sources=["Trusted Blog"],
+        blocked_sources=["Noisy Blog"],
+    )
+
+
 def make_search_item(
     item_id: int,
     title: str,
     text: str,
     topics: list[str],
     companies: list[str] | None = None,
+    source_name: str = "Test Source",
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
         raw_item_id=item_id,
         title=title,
         url=f"https://example.com/{item_id}",
-        source_name="Test Source",
+        source_name=source_name,
         author=None,
         language="en",
         published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),

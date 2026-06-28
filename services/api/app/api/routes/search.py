@@ -10,6 +10,7 @@ from app.schemas.search import (
     NaturalLanguageSearchResponse,
     SearchIntentResponse,
 )
+from app.services.preferences import get_user_preferences
 from app.services.search import infer_search_intent, search_feed_items
 
 router = APIRouter()
@@ -31,6 +32,7 @@ async def search_items(
     saved_only: bool = Query(default=False),
     limit: int = Query(default=30, ge=1, le=100),
 ) -> list[FeedItem]:
+    preferences = get_user_preferences(db)
     return search_feed_items(
         db=db,
         query=q,
@@ -44,6 +46,9 @@ async def search_items(
         date_to=date_to,
         min_importance_score=min_importance_score,
         saved_only=saved_only,
+        ranking_weights=preferences.ranking_weights,
+        preferred_sources=preferences.preferred_sources,
+        blocked_sources=preferences.blocked_sources,
         limit=limit,
     )
 
@@ -53,10 +58,14 @@ async def search_items_with_natural_language(
     payload: NaturalLanguageSearchRequest,
     db: DbSession,
 ) -> NaturalLanguageSearchResponse:
+    preferences = get_user_preferences(db)
     intent = infer_search_intent(payload.query)
     items = search_feed_items(
         db=db,
         query=payload.query,
+        ranking_weights=preferences.ranking_weights,
+        preferred_sources=preferences.preferred_sources,
+        blocked_sources=preferences.blocked_sources,
         limit=payload.limit,
     )
     return NaturalLanguageSearchResponse(
