@@ -349,6 +349,8 @@ For MVP privacy, `shares` and `average_cost` should remain nullable and hidden u
 
 The dashboard surfaces stock, company, topic, and product-category watchlists as editable operational panels. Company watchlists support public tickers and private AI labs, and their terms feed into ranking personalization.
 
+Digest inclusion toggles are enforced for topic, product-category, and company watchlists. Company exclusions match company keys, company names, tickers, categories, and related terms so a hidden company does not continue leaking into digest sections through ticker-linked items.
+
 ### Stocks
 
 - `GET /api/stocks/watchlist-dashboard`

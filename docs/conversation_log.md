@@ -120,3 +120,4 @@ Implementation progress:
 - Moved summarize-only LLM batch filtering into the candidate query so already summarized items do not consume the requested processing limit.
 - Added backend company watchlists with seed data for PRD-related AI and semiconductor companies, CRUD APIs, migration support, scheduled seeding, and feed-ranking interest boosts.
 - Connected company watchlists to the dashboard with loading, add, priority, pin, digest-toggle, and delete controls.
+- Enforced company watchlist digest toggles in daily digest filtering, including company-name, company-key, ticker, category, and related-term matches.

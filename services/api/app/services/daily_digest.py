@@ -8,6 +8,7 @@ from app.db.models import (
     DailyDigestSnapshot as DailyDigestSnapshotModel,
 )
 from app.db.models import (
+    CompanyWatchlistItem,
     NormalizedItem,
     ProductWatchlistItem,
     StockWatchlistItem,
@@ -305,7 +306,7 @@ def filter_items_by_excluded_topics(
 def matches_excluded_topic(item: FeedItem, excluded_terms: set[str]) -> bool:
     item_terms = {
         term.strip().lower()
-        for term in [*item.topics, *item.products, *item.companies]
+        for term in [*item.topics, *item.products, *item.companies, *item.tickers]
         if term.strip()
     }
     return bool(item_terms & excluded_terms)
@@ -363,7 +364,11 @@ def list_watchlist_tickers(db: Session) -> list[str]:
 
 
 def list_excluded_digest_terms(db: Session) -> set[str]:
-    return list_excluded_digest_topic_terms(db) | list_excluded_digest_product_terms(db)
+    return (
+        list_excluded_digest_topic_terms(db)
+        | list_excluded_digest_product_terms(db)
+        | list_excluded_digest_company_terms(db)
+    )
 
 
 def list_excluded_digest_topic_terms(db: Session) -> set[str]:
@@ -399,6 +404,31 @@ def list_excluded_digest_product_terms(db: Session) -> set[str]:
         terms.update(
             term.strip().lower()
             for term in [row.category, row.label, *row.related_terms]
+            if term.strip()
+        )
+    return terms
+
+
+def list_excluded_digest_company_terms(db: Session) -> set[str]:
+    rows = (
+        db.query(CompanyWatchlistItem)
+        .filter(
+            CompanyWatchlistItem.user_id == LOCAL_USER_ID,
+            CompanyWatchlistItem.include_in_digest.is_(False),
+        )
+        .all()
+    )
+    terms: set[str] = set()
+    for row in rows:
+        terms.update(
+            term.strip().lower()
+            for term in [
+                row.company_key,
+                row.company_name,
+                row.ticker or "",
+                row.category,
+                *row.related_terms,
+            ]
             if term.strip()
         )
     return terms

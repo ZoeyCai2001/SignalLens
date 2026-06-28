@@ -1,5 +1,9 @@
 from datetime import UTC, datetime
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db.models import Base, CompanyWatchlistItem
 from app.db.models import DailyDigestSnapshot as DailyDigestSnapshotModel
 from app.schemas.digest import DailyDigest
 from app.schemas.feed import FeedItem
@@ -9,6 +13,7 @@ from app.services.daily_digest import (
     build_source_coverage,
     digest_rank_score,
     filter_items_by_excluded_topics,
+    list_excluded_digest_company_terms,
     render_digest_markdown,
     serialize_daily_digest_snapshot,
     sort_for_digest,
@@ -91,6 +96,53 @@ def test_filter_items_by_excluded_topics_removes_digest_excluded_terms() -> None
     assert [item.title for item in filtered] == ["Keep"]
 
 
+def test_filter_items_by_excluded_topics_checks_companies_and_tickers() -> None:
+    items = [
+        make_item(1, "OpenAI", "technical_trend", 0.8, companies=["OpenAI"]),
+        make_item(2, "NVIDIA", "stock_company_event", 0.9, tickers=["NVDA"]),
+        make_item(3, "Keep", "research", 0.7, companies=["Anthropic"]),
+    ]
+
+    filtered = filter_items_by_excluded_topics(items, {"openai", "nvda"})
+
+    assert [item.title for item in filtered] == ["Keep"]
+
+
+def test_list_excluded_digest_company_terms_uses_company_watchlist_toggles() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                CompanyWatchlistItem(
+                    user_id="local",
+                    company_key="nvidia",
+                    company_name="NVIDIA",
+                    ticker="NVDA",
+                    category="semiconductor",
+                    include_in_digest=False,
+                    related_terms=["GPU", "AI accelerator"],
+                ),
+                CompanyWatchlistItem(
+                    user_id="local",
+                    company_key="openai",
+                    company_name="OpenAI",
+                    category="ai_lab",
+                    include_in_digest=True,
+                    related_terms=["ChatGPT"],
+                ),
+            ]
+        )
+        db.commit()
+
+        terms = list_excluded_digest_company_terms(db)
+
+    assert {"nvidia", "nvda", "semiconductor", "gpu", "ai accelerator"}.issubset(terms)
+    assert "openai" not in terms
+
+
 def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None:
     items = [
         make_item(1, "Research", "research", 0.9, topics=["llm"]),
@@ -159,6 +211,7 @@ def make_item(
     topics: list[str] | None = None,
     products: list[str] | None = None,
     tickers: list[str] | None = None,
+    companies: list[str] | None = None,
     is_saved: bool = False,
     source_quality_score: float = 0.7,
     classification_confidence: float = 0.5,
@@ -174,7 +227,7 @@ def make_item(
         category=category,
         subcategory=None,
         tickers=tickers or [],
-        companies=[],
+        companies=companies or [],
         products=products or [],
         topics=topics or [],
         sentiment="neutral",
