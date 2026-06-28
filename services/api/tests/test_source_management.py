@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -197,6 +198,42 @@ def test_create_source_uses_official_api_for_github_repository() -> None:
     assert source.type == "github_repository"
     assert source.access_method == "official_api"
     assert source.base_url == "https://github.com/langchain-ai/langchain"
+
+
+def test_create_source_uses_product_hunt_api_for_product_topic() -> None:
+    db = FakeCreateSourceDb()
+
+    source = create_source(
+        db,
+        SourceCreate(
+            name="Product Hunt AI Coding",
+            type="product_topic",
+            access_method="manual_watch",
+            base_url="https://www.producthunt.com/topics/artificial-intelligence",
+            terms_notes="Developer Tools, AI Coding",
+        ),
+    )
+
+    assert source.type == "product_topic"
+    assert source.access_method == "official_graphql_api"
+    assert source.auth_required is True
+    assert source.rate_limit == "Product Hunt API token required; keep topic polling conservative."
+    assert source.polling_interval == "6 hours"
+    assert source.terms_notes == "Developer Tools, AI Coding"
+
+
+def test_product_hunt_topic_terms_strip_common_source_prefix() -> None:
+    source = Source(
+        id=3,
+        name="Product Hunt AI Coding",
+        type="product_topic",
+        access_method="official_graphql_api",
+    )
+
+    assert ingestion_service.product_hunt_topic_terms_for_source(source) == [
+        "AI Coding",
+        "Product Hunt AI Coding",
+    ]
 
 
 def test_create_source_rejects_duplicate_name() -> None:
@@ -465,6 +502,91 @@ async def test_run_source_ingestion_by_id_runs_custom_github_repository(monkeypa
     assert result.items_fetched == 1
     assert calls[0][1].source_name == "LangChain Repo"
     assert calls[0][1].repositories == ["langchain-ai/langchain"]
+
+
+@pytest.mark.anyio
+async def test_run_source_ingestion_by_id_runs_custom_product_hunt_topic(monkeypatch) -> None:
+    source = Source(
+        id=7,
+        name="Product Hunt AI Coding",
+        type="product_topic",
+        access_method="official_graphql_api",
+        base_url="https://www.producthunt.com/topics/artificial-intelligence",
+        terms_notes="Developer Tools, AI Coding",
+        enabled=True,
+    )
+    db = FakeSourceDb(source)
+    calls = []
+
+    async def fake_run_connector_ingestion(db, connector, source):
+        calls.append((db, connector, source))
+        return IngestionResult(
+            source_name=source.name,
+            status="success",
+            items_fetched=2,
+            items_stored=2,
+        )
+
+    monkeypatch.setattr(
+        ingestion_service,
+        "get_settings",
+        lambda: SimpleNamespace(product_hunt_api_token="ph-token"),
+    )
+    monkeypatch.setattr(
+        ingestion_service,
+        "run_connector_ingestion",
+        fake_run_connector_ingestion,
+    )
+
+    result = await ingestion_service.run_source_ingestion_by_id(
+        db=db,
+        source_id=7,
+        limit=9,
+        runners_by_name={},
+    )
+
+    assert result.source_name == "Product Hunt AI Coding"
+    assert result.items_fetched == 2
+    connector = calls[0][1]
+    assert connector.source_name == "Product Hunt AI Coding"
+    assert connector.limit == 9
+    assert connector.api_token == "ph-token"
+    assert connector.topic_terms == [
+        "Developer Tools",
+        "AI Coding",
+        "artificial intelligence",
+        "Product Hunt AI Coding",
+    ]
+
+
+@pytest.mark.anyio
+async def test_run_source_ingestion_by_id_skips_product_topic_without_token(monkeypatch) -> None:
+    source = Source(
+        id=8,
+        name="Product Hunt AI Coding",
+        type="product_topic",
+        access_method="official_graphql_api",
+        terms_notes="AI Coding",
+        enabled=True,
+    )
+    db = FakeSourceDb(source)
+
+    monkeypatch.setattr(
+        ingestion_service,
+        "get_settings",
+        lambda: SimpleNamespace(product_hunt_api_token=None),
+    )
+
+    result = await ingestion_service.run_source_ingestion_by_id(
+        db=db,
+        source_id=8,
+        runners_by_name={},
+    )
+
+    assert result.status == "skipped"
+    assert result.error_message == "PRODUCT_HUNT_API_TOKEN is not configured."
+    assert db.commits == 1
+    assert db.added[0].status == "skipped"
 
 
 class FakeDb:

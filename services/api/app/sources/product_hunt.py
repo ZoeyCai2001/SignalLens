@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -10,9 +11,17 @@ class ProductHuntConnector(SourceConnector):
     source_name = "Product Hunt"
     source_type = "product_launch"
 
-    def __init__(self, api_token: str, limit: int = 25) -> None:
+    def __init__(
+        self,
+        api_token: str,
+        limit: int = 25,
+        source_name: str | None = None,
+        topic_terms: list[str] | None = None,
+    ) -> None:
         self.api_token = api_token
         self.limit = limit
+        self.source_name = source_name or "Product Hunt"
+        self.topic_terms = [term for term in (topic_terms or []) if term.strip()]
         self.base_url = "https://api.producthunt.com/v2/api/graphql"
 
     async def fetch(self, cursor: FetchCursor) -> FetchResult:
@@ -66,6 +75,7 @@ class ProductHuntConnector(SourceConnector):
         items = [
             raw_item
             for edge in edges[: self.limit]
+            if self._matches_topic_terms(edge.get("node") or {})
             if (raw_item := self._post_to_raw_item(edge.get("node") or {}))
         ]
         return FetchResult(
@@ -132,6 +142,31 @@ class ProductHuntConnector(SourceConnector):
             if name:
                 names.append(name)
         return names
+
+    def _matches_topic_terms(self, post: dict[str, Any]) -> bool:
+        if not self.topic_terms:
+            return True
+
+        topics = self._topic_names(post.get("topics") or {})
+        search_text = " ".join(
+            str(part)
+            for part in [
+                post.get("name"),
+                post.get("tagline"),
+                post.get("description"),
+                *topics,
+            ]
+            if part
+        )
+        normalized_text = self._normalize_search_text(search_text)
+        return any(
+            self._normalize_search_text(term) in normalized_text
+            for term in self.topic_terms
+            if self._normalize_search_text(term)
+        )
+
+    def _normalize_search_text(self, value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
 
     def _parse_datetime(self, value: str | None) -> datetime | None:
         if not value:

@@ -405,6 +405,21 @@ async def run_source_ingestion_by_id(
 
     registered = runners_by_name.get(source.name)
     if registered is None:
+        if source.type == "product_topic":
+            settings = get_settings()
+            if not settings.product_hunt_api_token:
+                return record_skipped_run(
+                    db=db,
+                    source=source,
+                    message="PRODUCT_HUNT_API_TOKEN is not configured.",
+                )
+            connector = ProductHuntConnector(
+                api_token=settings.product_hunt_api_token,
+                limit=limit or 25,
+                source_name=source.name,
+                topic_terms=product_hunt_topic_terms_for_source(source),
+            )
+            return await run_connector_ingestion(db=db, connector=connector, source=source)
         if source.type == "github_repository" and source.base_url:
             repository = parse_github_repository(source.base_url)
             if repository is None:
@@ -431,6 +446,47 @@ async def run_source_ingestion_by_id(
         )
 
     return await registered.runner(db, limit or registered.default_limit)
+
+
+def product_hunt_topic_terms_for_source(source: Source) -> list[str]:
+    values = [
+        source.terms_notes,
+        product_hunt_topic_from_url(source.base_url),
+        cleaned_product_hunt_source_name(source.name),
+        source.name,
+    ]
+    terms: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for term in split_product_hunt_terms(value):
+            normalized = normalize_topic_term(term)
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                terms.append(term.strip())
+    return terms
+
+
+def product_hunt_topic_from_url(value: str | None) -> str | None:
+    if not value:
+        return None
+    match = re.search(r"/topics/([^/?#]+)", value)
+    if not match:
+        return None
+    return match.group(1).replace("-", " ")
+
+
+def cleaned_product_hunt_source_name(value: str) -> str:
+    return re.sub(r"^product\s+hunt\s*", "", value.strip(), flags=re.IGNORECASE).strip()
+
+
+def split_product_hunt_terms(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [part.strip() for part in re.split(r"[,;\n|]+", value) if part.strip()]
+
+
+def normalize_topic_term(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
 
 
 async def run_connector_ingestion(

@@ -54,15 +54,23 @@ def create_source(db: Session, payload: SourceCreate) -> Source:
     access_method = normalize_optional_text(payload.access_method) or "rss"
     if source_type == "github_repository":
         access_method = "official_api"
+    if source_type == "product_topic":
+        access_method = "official_graphql_api"
 
     source = Source(
         name=name,
         type=source_type,
         access_method=access_method,
         base_url=normalize_optional_text(payload.base_url),
-        auth_required=payload.auth_required,
-        rate_limit=normalize_optional_text(payload.rate_limit),
-        polling_interval=normalize_optional_text(payload.polling_interval),
+        auth_required=payload.auth_required or source_type == "product_topic",
+        rate_limit=normalize_optional_text(payload.rate_limit)
+        or (
+            "Product Hunt API token required; keep topic polling conservative."
+            if source_type == "product_topic"
+            else None
+        ),
+        polling_interval=normalize_optional_text(payload.polling_interval)
+        or ("6 hours" if source_type == "product_topic" else None),
         enabled=payload.enabled,
         priority=payload.priority,
         terms_notes=normalize_optional_text(payload.terms_notes),
@@ -103,7 +111,8 @@ def delete_source(db: Session, source_id: int) -> bool:
     )
     if has_run_history or has_collected_items:
         raise ValueError(
-            "Sources with run history or collected items cannot be deleted; disable the source instead."
+            "Sources with run history or collected items cannot be deleted; "
+            "disable the source instead."
         )
 
     db.delete(source)
@@ -182,7 +191,10 @@ def unwrap_status(row) -> str:
 
 
 def source_needs_attention(latest_status: str, failure_count: int) -> bool:
-    return latest_status in SOURCE_FAILURE_STATUSES or failure_count >= SOURCE_ATTENTION_FAILURE_THRESHOLD
+    return (
+        latest_status in SOURCE_FAILURE_STATUSES
+        or failure_count >= SOURCE_ATTENTION_FAILURE_THRESHOLD
+    )
 
 
 def serialize_source_health(

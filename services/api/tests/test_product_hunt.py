@@ -37,6 +37,40 @@ def test_product_hunt_connector_converts_post_to_raw_item() -> None:
     assert item.published_at is not None
 
 
+def test_product_hunt_connector_filters_topic_terms_and_custom_source_name() -> None:
+    connector = ProductHuntConnector(
+        api_token="test-token",
+        limit=3,
+        source_name="Product Hunt AI Tools",
+        topic_terms=["Developer Tools", "AI Coding"],
+    )
+    matching_post = {
+        "id": "launch-1",
+        "name": "AgentDesk",
+        "tagline": "AI coding workflows for product teams",
+        "description": "Coordinate LLM workflows.",
+        "url": "https://www.producthunt.com/posts/agentdesk",
+        "website": "https://example.com/agentdesk",
+        "topics": {"edges": [{"node": {"name": "Developer Tools"}}]},
+    }
+    unrelated_post = {
+        "id": "launch-2",
+        "name": "LunchMap",
+        "tagline": "Find nearby restaurants",
+        "description": "Maps for food discovery.",
+        "url": "https://www.producthunt.com/posts/lunchmap",
+        "website": "https://example.com/lunchmap",
+        "topics": {"edges": [{"node": {"name": "Travel"}}]},
+    }
+
+    assert connector._matches_topic_terms(matching_post) is True
+    assert connector._matches_topic_terms(unrelated_post) is False
+    item = connector._post_to_raw_item(matching_post)
+
+    assert item is not None
+    assert item.source_name == "Product Hunt AI Tools"
+
+
 def test_product_hunt_normalized_item_is_product_launch() -> None:
     source = Source(
         id=1,
