@@ -64,6 +64,18 @@ class StockBriefingTimelineItem(BaseModel):
     reason: str
 
 
+class StockThemeBreakdown(BaseModel):
+    theme: str
+    item_count: int
+
+
+class StockMarketImpactEvent(BaseModel):
+    event_type: str
+    item_count: int
+    latest_title: str | None = None
+    latest_at: datetime | None = None
+
+
 class StockBriefing(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
@@ -73,6 +85,9 @@ class StockBriefing(BaseModel):
     latest_signal_at: datetime | None
     sentiment_counts: dict[str, int]
     key_themes: list[str]
+    ai_relevance_summary: str
+    theme_breakdown: list[StockThemeBreakdown]
+    market_impact_events: list[StockMarketImpactEvent]
     recent_timeline: list[StockBriefingTimelineItem]
     disclaimer: str
 

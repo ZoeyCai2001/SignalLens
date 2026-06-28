@@ -883,6 +883,25 @@ tr:last-child td {
   fill: var(--accent-strong);
 }
 
+.stock-detail-grid-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 10px;
+}
+
+.theme-breakdown-list,
+.impact-event-list {
+  display: grid;
+  gap: 6px;
+}
+
+.impact-event-row {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  padding: 8px;
+}
+
 .urgency {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1014,7 +1033,8 @@ tr:last-child td {
   .search-row,
   .filter-row,
   .compact-form,
-  .stock-detail-grid {
+  .stock-detail-grid,
+  .stock-detail-grid-view {
     grid-template-columns: 1fr;
   }
 }

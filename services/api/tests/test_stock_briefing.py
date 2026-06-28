@@ -82,6 +82,9 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
     assert briefing.latest_signal_at == datetime(2026, 6, 25, 10, 0, tzinfo=UTC)
     assert briefing.sentiment_counts == {"positive": 1, "mixed": 1}
     assert briefing.key_themes[:2] == ["HBM", "Micron"]
+    assert "Micron (MU) is watched for memory" in briefing.ai_relevance_summary
+    assert briefing.theme_breakdown[0].theme == "HBM"
+    assert briefing.market_impact_events[0].event_type == "demand_signal"
     assert briefing.recent_timeline[0].signal_score == 0.84
     assert (
         briefing.recent_timeline[0].reason

@@ -15,7 +15,9 @@ from app.schemas.watchlist import (
     StockBriefing,
     StockBriefingTimelineItem,
     StockMarketSnapshot,
+    StockMarketImpactEvent,
     StockSignalSummary,
+    StockThemeBreakdown,
     TopicActivityBucket,
     TopicBriefing,
     TopicSourceCount,
@@ -465,6 +467,9 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
         latest_signal_at=latest_signal_at,
         sentiment_counts=summary.sentiment_counts,
         key_themes=build_stock_briefing_themes(summary.top_signals),
+        ai_relevance_summary=build_stock_ai_relevance_summary(summary),
+        theme_breakdown=build_stock_theme_breakdown(summary),
+        market_impact_events=build_stock_market_impact_events(summary.top_signals),
         recent_timeline=[
             StockBriefingTimelineItem(
                 item=item,
@@ -580,6 +585,132 @@ def build_stock_briefing_themes(items: list[FeedItem], limit: int = 8) -> list[s
 
     ranked_terms = sorted(counts.items(), key=lambda row: (-row[1], row[0]))
     return [display_terms[key] for key, _count in ranked_terms[:limit]]
+
+
+def build_stock_ai_relevance_summary(summary: StockSignalSummary) -> str:
+    stock = summary.stock
+    themes = stock.related_ai_themes[:4] or build_stock_briefing_themes(summary.top_signals, limit=4)
+    theme_text = ", ".join(themes) if themes else "AI-related company and technology signals"
+    signal_text = (
+        f"{summary.signal_count} recent AI-linked item"
+        f"{'' if summary.signal_count == 1 else 's'}"
+    )
+    high_impact_text = (
+        f"{summary.high_impact_count} high-impact signal"
+        f"{'' if summary.high_impact_count == 1 else 's'}"
+    )
+    latest_text = (
+        f" Latest event: {summary.latest_event_title}."
+        if summary.latest_event_title
+        else " No recent event headline is available yet."
+    )
+    return (
+        f"{stock.company_name} ({stock.ticker}) is watched for {theme_text}. "
+        f"SignalLens found {signal_text}, including {high_impact_text}.{latest_text} "
+        "Review the linked sources and uncertainties before drawing conclusions."
+    )
+
+
+def build_stock_theme_breakdown(
+    summary: StockSignalSummary,
+    limit: int = 8,
+) -> list[StockThemeBreakdown]:
+    counts: Counter[str] = Counter()
+    display_terms: dict[str, str] = {}
+
+    for theme in summary.stock.related_ai_themes:
+        normalized = theme.strip().lower()
+        if normalized:
+            counts[normalized] += 0
+            display_terms.setdefault(normalized, theme.strip())
+
+    for item in summary.top_signals:
+        for term in [*item.topics, *item.products, *item.companies]:
+            normalized = term.strip().lower()
+            if not normalized:
+                continue
+            counts[normalized] += 1
+            display_terms.setdefault(normalized, term.strip())
+
+    ranked_terms = sorted(counts.items(), key=lambda row: (-row[1], row[0]))
+    return [
+        StockThemeBreakdown(theme=display_terms[key], item_count=count)
+        for key, count in ranked_terms[:limit]
+        if count > 0
+    ]
+
+
+def build_stock_market_impact_events(
+    items: list[FeedItem],
+    limit: int = 8,
+) -> list[StockMarketImpactEvent]:
+    counts: Counter[str] = Counter()
+    latest_by_type: dict[str, FeedItem] = {}
+
+    for item in items:
+        event_type = infer_stock_event_type(item)
+        counts[event_type] += 1
+        current_latest = latest_by_type.get(event_type)
+        if current_latest is None or compare_feed_item_recency(item, current_latest) > 0:
+            latest_by_type[event_type] = item
+
+    ranked_events = sorted(counts.items(), key=lambda row: (-row[1], row[0]))
+    return [
+        StockMarketImpactEvent(
+            event_type=event_type,
+            item_count=count,
+            latest_title=latest_by_type[event_type].title,
+            latest_at=latest_by_type[event_type].published_at,
+        )
+        for event_type, count in ranked_events[:limit]
+    ]
+
+
+def infer_stock_event_type(item: FeedItem) -> str:
+    text = " ".join(
+        part
+        for part in [
+            item.title,
+            item.summary_short or "",
+            item.why_it_matters or "",
+            " ".join(item.topics),
+        ]
+        if part
+    ).lower()
+    if any(term in text for term in ["earnings", "guidance", "revenue", "margin"]):
+        return "earnings_guidance"
+    if any(term in text for term in ["analyst", "rating", "upgrade", "downgrade", "price target"]):
+        return "analyst_action"
+    if any(term in text for term in ["partnership", "customer win", "customer", "contract"]):
+        return "partnership_customer"
+    if any(term in text for term in ["supply chain", "supplier", "export", "regulation"]):
+        return "supply_chain_regulation"
+    if any(term in text for term in ["launch", "product", "release"]):
+        return "product_launch"
+    if any(
+        term in text
+        for term in [
+            "demand",
+            "capex",
+            "data center",
+            "hbm",
+            "custom silicon",
+            "storage",
+            "nand",
+        ]
+    ):
+        return "demand_signal"
+    return "stock_signal"
+
+
+def compare_feed_item_recency(left: FeedItem, right: FeedItem) -> int:
+    if left.published_at and right.published_at:
+        return (left.published_at > right.published_at) - (left.published_at < right.published_at)
+    if left.published_at and not right.published_at:
+        return 1
+    if right.published_at and not left.published_at:
+        return -1
+    return left.id - right.id
 
 
 def build_stock_signal_reason(item: FeedItem) -> str:

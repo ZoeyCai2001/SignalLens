@@ -131,6 +131,18 @@ type StockBriefingTimelineItem = {
   reason: string;
 };
 
+type StockThemeBreakdown = {
+  theme: string;
+  item_count: number;
+};
+
+type StockMarketImpactEvent = {
+  event_type: string;
+  item_count: number;
+  latest_title: string | null;
+  latest_at: string | null;
+};
+
 type StockBriefing = {
   stock: StockWatchlistItem;
   signal_count: number;
@@ -140,6 +152,9 @@ type StockBriefing = {
   latest_signal_at: string | null;
   sentiment_counts: Record<string, number>;
   key_themes: string[];
+  ai_relevance_summary: string;
+  theme_breakdown: StockThemeBreakdown[];
+  market_impact_events: StockMarketImpactEvent[];
   recent_timeline: StockBriefingTimelineItem[];
   disclaimer: string;
 };
@@ -3164,6 +3179,57 @@ function StockBriefingPanel({
       </div>
 
       <StockPriceChart market={briefing.market} />
+
+      <div className="stock-detail-grid-view">
+        <div className="digest-section">
+          <div className="digest-section-title">Company Overview</div>
+          <div className="summary">
+            {briefing.stock.exchange} · {briefing.stock.sector} · {briefing.stock.industry}
+          </div>
+          <div className="summary">{briefing.ai_relevance_summary}</div>
+          {briefing.stock.notes ? (
+            <div className="small-muted">Notes: {briefing.stock.notes}</div>
+          ) : null}
+        </div>
+        <div className="digest-section">
+          <div className="digest-section-title">Theme Breakdown</div>
+          {briefing.theme_breakdown.length ? (
+            <div className="theme-breakdown-list">
+              {briefing.theme_breakdown.map((theme) => (
+                <span className="badge" key={theme.theme}>
+                  {theme.theme} · {theme.item_count}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">No recurring themes yet.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="digest-section">
+        <div className="digest-section-title">Market-Impact Events</div>
+        {briefing.market_impact_events.length ? (
+          <div className="impact-event-list">
+            {briefing.market_impact_events.map((event) => (
+              <div className="impact-event-row" key={event.event_type}>
+                <div>
+                  <div className="digest-link">{formatCategoryLabel(event.event_type)}</div>
+                  <div className="small-muted">
+                    {event.item_count} item{event.item_count === 1 ? "" : "s"}
+                    {event.latest_at ? ` · latest ${formatDate(event.latest_at)}` : ""}
+                  </div>
+                  {event.latest_title ? (
+                    <div className="timeline-reason">{event.latest_title}</div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">No market-impact buckets yet.</div>
+        )}
+      </div>
 
       {briefing.key_themes.length ? (
         <div className="badges">
