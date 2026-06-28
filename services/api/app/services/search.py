@@ -26,6 +26,7 @@ class SearchIntent:
     ticker: str | None = None
     company: str | None = None
     topic: str | None = None
+    manual_tag: str | None = None
     language: str | None = None
     date_from: date | None = None
     min_importance_score: float | None = None
@@ -40,6 +41,7 @@ def search_feed_items(
     ticker: str | None = None,
     company: str | None = None,
     topic: str | None = None,
+    manual_tag: str | None = None,
     language: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -52,11 +54,12 @@ def search_feed_items(
     limit: int = 30,
 ) -> list[FeedItem]:
     intent = infer_search_intent(query)
-    effective_query = intent.query if query and intent.query is not None else query
+    effective_query = resolve_effective_query(query, intent)
     effective_category = category or intent.category
     effective_ticker = ticker or intent.ticker
     effective_company = company or intent.company
     effective_topic = topic or intent.topic
+    effective_manual_tag = manual_tag or intent.manual_tag
     effective_language = language or intent.language
     effective_date_from = date_from or intent.date_from
     effective_min_importance = (
@@ -91,6 +94,8 @@ def search_feed_items(
                 NormalizedItem.summary_detailed.ilike(pattern),
                 NormalizedItem.why_it_matters.ilike(pattern),
                 NormalizedItem.source_name.ilike(pattern),
+                UserItemAction.personal_note.ilike(pattern),
+                cast(UserItemAction.manual_tags, String).ilike(pattern),
                 cast(NormalizedItem.tickers, String).ilike(pattern),
                 cast(NormalizedItem.companies, String).ilike(pattern),
                 cast(NormalizedItem.products, String).ilike(pattern),
@@ -122,6 +127,12 @@ def search_feed_items(
     if normalized_topic:
         statement = statement.filter(
             cast(NormalizedItem.topics, String).ilike(f"%{normalized_topic}%")
+        )
+
+    normalized_manual_tag = normalize_filter_value(effective_manual_tag)
+    if normalized_manual_tag:
+        statement = statement.filter(
+            cast(UserItemAction.manual_tags, String).ilike(f"%{normalized_manual_tag}%")
         )
 
     normalized_language = normalize_filter_value(effective_language)
@@ -183,6 +194,30 @@ def search_feed_items(
     )[:limit]
 
 
+def resolve_effective_query(query: str | None, intent: SearchIntent) -> str | None:
+    if query is None:
+        return None
+    if intent.query is not None:
+        return intent.query
+    if has_structured_intent(intent):
+        return None
+    return query
+
+
+def has_structured_intent(intent: SearchIntent) -> bool:
+    return bool(
+        intent.category
+        or intent.ticker
+        or intent.company
+        or intent.topic
+        or intent.manual_tag
+        or intent.language
+        or intent.date_from
+        or intent.min_importance_score is not None
+        or intent.saved_only
+    )
+
+
 def infer_search_intent(query: str | None, today: date | None = None) -> SearchIntent:
     normalized = normalize_filter_value(query)
     if normalized is None:
@@ -194,6 +229,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
     language = infer_language(lowered)
     ticker = next(iter(detect_tickers(normalized)), None)
     company = infer_company(lowered)
+    manual_tag = infer_manual_tag(normalized)
     min_importance_score = (
         0.7
         if re.search(
@@ -216,6 +252,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         ticker=ticker,
         company=company,
         topic=topic,
+        manual_tag=manual_tag,
         language=language,
         date_from=date_from,
         min_importance_score=min_importance_score,
@@ -308,6 +345,20 @@ def infer_company(lowered_query: str) -> str | None:
     return next((company for alias, company in company_aliases if alias in lowered_query), None)
 
 
+def infer_manual_tag(query: str) -> str | None:
+    patterns = [
+        r"\bmanual\s+tag\s*[:=]\s*([A-Za-z0-9][\w-]{0,60})",
+        r"\bmanual\s+tag\s+([A-Za-z0-9][\w-]{0,60})",
+        r"\btag\s*[:=]\s*([A-Za-z0-9][\w-]{0,60})",
+        r"\btagged\s+([A-Za-z0-9][\w-]{0,60})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, query, flags=re.IGNORECASE)
+        if match:
+            return re.sub(r"\s+", " ", match.group(1)).strip(" .?,")
+    return None
+
+
 def extract_search_keywords(query: str) -> str | None:
     lowered = query.lower()
     phrase_matches = [
@@ -327,10 +378,35 @@ def extract_search_keywords(query: str) -> str | None:
         if needle in lowered:
             return replacement
 
-    cleaned = re.sub(r"\$?[A-Z]{1,5}\b", " ", query)
+    cleaned = re.sub(
+        r"\bmanual\s+tag\s*[:=]\s*[A-Za-z0-9][\w-]{0,60}",
+        " ",
+        query,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\bmanual\s+tag\s+[A-Za-z0-9][\w-]{0,60}",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\btag\s*[:=]\s*[A-Za-z0-9][\w-]{0,60}",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\btagged\s+[A-Za-z0-9][\w-]{0,60}",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\$?[A-Z]{1,5}\b", " ", cleaned)
     cleaned = re.sub(
         r"\b(show|me|what|are|the|latest|recent|find|about|posts|post|news|discussion|"
-        r"discussions|summarize|most|important|this|week|saved|bookmarked|chinese|social|media)\b",
+        r"discussions|summarize|most|important|this|week|saved|bookmarked|item|items|"
+        r"manual|tag|tags|tagged|chinese|social|media)\b",
         " ",
         cleaned,
         flags=re.IGNORECASE,

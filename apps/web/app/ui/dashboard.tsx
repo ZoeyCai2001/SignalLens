@@ -359,6 +359,7 @@ type SearchIntent = {
   ticker: string | null;
   company: string | null;
   topic: string | null;
+  manual_tag: string | null;
   language: string | null;
   date_from: string | null;
   min_importance_score: number | null;
@@ -723,6 +724,7 @@ export function Dashboard() {
   const [searchTicker, setSearchTicker] = useState("");
   const [searchCompany, setSearchCompany] = useState("");
   const [searchTopic, setSearchTopic] = useState("");
+  const [searchManualTag, setSearchManualTag] = useState("");
   const [searchLanguage, setSearchLanguage] = useState("");
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
@@ -1151,6 +1153,7 @@ export function Dashboard() {
         searchTicker,
         searchCompany,
         searchTopic,
+        searchManualTag,
         searchLanguage,
         searchDateFrom,
         searchDateTo,
@@ -1178,6 +1181,7 @@ export function Dashboard() {
       if (searchTicker.trim()) params.set("ticker", searchTicker.trim().toUpperCase());
       if (searchCompany.trim()) params.set("company", searchCompany.trim());
       if (searchTopic.trim()) params.set("topic", searchTopic.trim());
+      if (searchManualTag.trim()) params.set("manual_tag", searchManualTag.trim());
       if (searchLanguage.trim()) params.set("language", searchLanguage.trim().toLowerCase());
       if (searchDateFrom.trim()) params.set("date_from", searchDateFrom.trim());
       if (searchDateTo.trim()) params.set("date_to", searchDateTo.trim());
@@ -1206,6 +1210,7 @@ export function Dashboard() {
     setSearchTicker("");
     setSearchCompany("");
     setSearchTopic("");
+    setSearchManualTag("");
     setSearchLanguage("");
     setSearchDateFrom("");
     setSearchDateTo("");
@@ -1241,6 +1246,7 @@ export function Dashboard() {
       setSearchTicker("");
       setSearchCompany("");
       setSearchTopic(topic.topic);
+      setSearchManualTag("");
       setSearchLanguage("");
       setSearchDateFrom("");
       setSearchDateTo("");
@@ -2412,6 +2418,7 @@ export function Dashboard() {
                 ticker={searchTicker}
                 company={searchCompany}
                 topic={searchTopic}
+                manualTag={searchManualTag}
                 topicOptions={topics}
                 language={searchLanguage}
                 dateFrom={searchDateFrom}
@@ -2426,6 +2433,7 @@ export function Dashboard() {
                 onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
                 onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
                 onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
+                onManualTagChange={(value) => updateSearchField(setSearchManualTag, value)}
                 onTopicFilter={applyTopicFeedFilter}
                 onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
                 onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
@@ -3418,6 +3426,7 @@ function SearchPanel({
   ticker,
   company,
   topic,
+  manualTag,
   topicOptions,
   language,
   dateFrom,
@@ -3432,6 +3441,7 @@ function SearchPanel({
   onTickerChange,
   onCompanyChange,
   onTopicChange,
+  onManualTagChange,
   onTopicFilter,
   onLanguageChange,
   onDateFromChange,
@@ -3447,6 +3457,7 @@ function SearchPanel({
   ticker: string;
   company: string;
   topic: string;
+  manualTag: string;
   topicOptions: TopicWatchlistItem[];
   language: string;
   dateFrom: string;
@@ -3461,6 +3472,7 @@ function SearchPanel({
   onTickerChange: (value: string) => void;
   onCompanyChange: (value: string) => void;
   onTopicChange: (value: string) => void;
+  onManualTagChange: (value: string) => void;
   onTopicFilter: (topic: TopicWatchlistItem) => void;
   onLanguageChange: (value: string) => void;
   onDateFromChange: (value: string) => void;
@@ -3558,6 +3570,12 @@ function SearchPanel({
         </select>
       </div>
       <div className="filter-row advanced-filter-row">
+        <input
+          className="field"
+          value={manualTag}
+          onChange={(event) => onManualTagChange(event.target.value)}
+          placeholder="Manual tag"
+        />
         <input
           className="field"
           type="date"
@@ -6427,6 +6445,7 @@ function buildSearchIntentChips(intent: SearchIntent | null): string[] {
     intent.ticker ? `ticker: ${intent.ticker}` : null,
     intent.company ? `company: ${intent.company}` : null,
     intent.topic ? `topic: ${intent.topic}` : null,
+    intent.manual_tag ? `tag: ${intent.manual_tag}` : null,
     intent.language ? `language: ${intent.language}` : null,
     intent.date_from ? `from: ${intent.date_from}` : null,
     intent.min_importance_score !== null ? `importance: ${intent.min_importance_score}` : null,

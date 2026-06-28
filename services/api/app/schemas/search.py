@@ -11,6 +11,7 @@ class SearchIntentResponse(BaseModel):
     ticker: str | None = None
     company: str | None = None
     topic: str | None = None
+    manual_tag: str | None = None
     language: str | None = None
     date_from: date | None = None
     min_importance_score: float | None = None

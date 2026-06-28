@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.routes import search as search_routes
-from app.db.models import Base, NormalizedItem
+from app.db.models import Base, NormalizedItem, UserItemAction
 from app.schemas.preferences import RankingWeights
 from app.schemas.search import SearchIntentResponse
 from app.services.search import (
@@ -91,6 +91,14 @@ def test_infer_search_intent_handles_saved_items_query() -> None:
     assert intent.saved_only is True
 
 
+def test_infer_search_intent_handles_manual_tag_query() -> None:
+    intent = infer_search_intent("Find saved items tag:agent")
+
+    assert intent.manual_tag == "agent"
+    assert intent.query is None
+    assert intent.saved_only is True
+
+
 def test_search_intent_response_serializes_inferred_filters() -> None:
     intent = infer_search_intent(
         "Show me recent news about MRVL and AI data centers.",
@@ -103,6 +111,7 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     assert response.company == "Marvell"
     assert response.category == "stock_company_event"
     assert response.topic == "ai data center"
+    assert response.manual_tag is None
     assert response.query == "AI data center"
     assert response.date_from == date(2026, 6, 19)
 
@@ -187,6 +196,70 @@ def test_search_feed_items_matches_company_entities_in_query() -> None:
         results = search_feed_items(db, query="OpenAI")
 
     assert [item.title for item in results] == ["Frontier model launch"]
+
+
+def test_search_feed_items_matches_personal_notes() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(1, "Agent launch", "Agent launch.", ["agent"]),
+                make_search_item(2, "Benchmark update", "Benchmark update.", ["benchmark"]),
+            ]
+        )
+        db.add(
+            UserItemAction(
+                user_id="local",
+                item_id=2,
+                personal_note="Review for weekend digest.",
+                manual_tags=[],
+            )
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="weekend digest")
+
+    assert [item.title for item in results] == ["Benchmark update"]
+
+
+def test_search_feed_items_filters_by_manual_tag() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(1, "Agent launch", "Agent launch.", ["agent"]),
+                make_search_item(2, "Market impact note", "Market impact.", ["stocks"]),
+            ]
+        )
+        db.add_all(
+            [
+                UserItemAction(
+                    user_id="local",
+                    item_id=1,
+                    personal_note=None,
+                    manual_tags=["Agent"],
+                ),
+                UserItemAction(
+                    user_id="local",
+                    item_id=2,
+                    personal_note=None,
+                    manual_tags=["Market Impact"],
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, manual_tag="agent")
+        natural_language_results = search_feed_items(db, query="tag:agent")
+
+    assert [item.title for item in results] == ["Agent launch"]
+    assert [item.title for item in natural_language_results] == ["Agent launch"]
 
 
 @pytest.mark.anyio
