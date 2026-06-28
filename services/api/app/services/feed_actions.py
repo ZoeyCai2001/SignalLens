@@ -119,6 +119,7 @@ def list_visible_feed_items(
     blocked_sources: list[str] | None = None,
     language_preferences: list[str] | None = None,
     saved_only: bool = False,
+    hidden_only: bool = False,
     topic: str | None = None,
 ) -> list[FeedItem]:
     blocked_source_names = normalize_source_names(blocked_sources)
@@ -131,8 +132,11 @@ def list_visible_feed_items(
             (UserItemAction.item_id == NormalizedItem.id)
             & (UserItemAction.user_id == LOCAL_USER_ID),
         )
-        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
     )
+    if hidden_only:
+        query = query.filter(UserItemAction.is_hidden.is_(True))
+    else:
+        query = query.filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
     if blocked_source_names:
         query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
     if preferred_languages:
@@ -492,6 +496,8 @@ def update_item_action(
         action.is_saved = False
     elif action_name == "hide":
         action.is_hidden = True
+    elif action_name == "unhide":
+        action.is_hidden = False
     elif action_name == "mark-important":
         action.is_important = True
     else:

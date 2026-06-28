@@ -642,6 +642,7 @@ export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [selectedFeedDetail, setSelectedFeedDetail] = useState<FeedItemDetail | null>(null);
   const [savedItems, setSavedItems] = useState<FeedItem[]>([]);
+  const [hiddenItems, setHiddenItems] = useState<FeedItem[]>([]);
   const [stocks, setStocks] = useState<StockWatchlistItem[]>([]);
   const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -787,6 +788,7 @@ export function Dashboard() {
       const [
         nextFeed,
         nextSavedItems,
+        nextHiddenItems,
         nextStocks,
         nextStockSignals,
         nextCompanies,
@@ -805,6 +807,7 @@ export function Dashboard() {
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
           fetchJson<FeedItem[]>("/api/feed?limit=30&saved_only=true"),
+          fetchJson<FeedItem[]>("/api/feed?limit=30&hidden_only=true"),
           fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
           fetchJson<StockSignalSummary[]>("/api/watchlist/stocks/signals/summary"),
           fetchJson<CompanyWatchlistItem[]>("/api/watchlist/companies"),
@@ -822,6 +825,7 @@ export function Dashboard() {
         ]);
       setFeed(nextFeed);
       setSavedItems(nextSavedItems);
+      setHiddenItems(nextHiddenItems);
       setStocks(nextStocks);
       setStockSignals(nextStockSignals);
       setCompanies(nextCompanies);
@@ -1889,7 +1893,7 @@ export function Dashboard() {
 
   const updateFeedAction = async (
     itemId: number,
-    action: "save" | "unsave" | "hide" | "mark-important",
+    action: "save" | "unsave" | "hide" | "unhide" | "mark-important",
   ) => {
     setBusyItemId(itemId);
     setError(null);
@@ -1902,6 +1906,9 @@ export function Dashboard() {
         setSavedItems((items) => items.filter((item) => item.id !== itemId));
         setSelectedFeedDetail((detail) => (detail?.id === itemId ? null : detail));
         await refreshAllWithStatus(`Hidden item ${itemId}`);
+      } else if (action === "unhide") {
+        setHiddenItems((items) => items.filter((item) => item.id !== itemId));
+        await refreshAllWithStatus(`Restored hidden item ${itemId}`);
       } else if (action === "unsave") {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
         setSavedItems((items) => syncSavedFeedItem(items, updated));
@@ -2610,6 +2617,11 @@ export function Dashboard() {
               busyItemId={busyItemId}
               onManualTagFilter={applySavedManualTagFilter}
               onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
+            />
+            <HiddenItemsPanel
+              items={hiddenItems.slice(0, 8)}
+              busyItemId={busyItemId}
+              onUnhide={(itemId) => updateFeedAction(itemId, "unhide")}
             />
             <ChineseSocialPanel items={feed} />
             <EventClusterPanel
@@ -3393,6 +3405,59 @@ function SavedItemsPanel({
           </div>
         ) : (
           <div className="empty-state">No saved items yet.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function HiddenItemsPanel({
+  items,
+  busyItemId,
+  onUnhide,
+}: {
+  items: FeedItem[];
+  busyItemId: number | null;
+  onUnhide: (itemId: number) => void;
+}) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Hidden Items</h2>
+        <EyeOff size={16} aria-hidden="true" />
+      </div>
+      <div className="digest-panel">
+        {items.length ? (
+          <div className="digest-list">
+            {items.map((item) => (
+              <div className="saved-row" key={item.id}>
+                <div className="saved-row-main">
+                  <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
+                    {item.title}
+                  </a>
+                  <div className="small-muted">
+                    {item.source_name} · {formatDate(item.published_at)}
+                  </div>
+                </div>
+                <button
+                  className="button icon-button"
+                  onClick={() => onUnhide(item.id)}
+                  disabled={busyItemId === item.id}
+                  title="Restore hidden item"
+                  aria-label="Restore hidden item"
+                  type="button"
+                >
+                  {busyItemId === item.id ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : (
+                    <RefreshCw size={16} />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">No hidden items.</div>
         )}
       </div>
     </section>

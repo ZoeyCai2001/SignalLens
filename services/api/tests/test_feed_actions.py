@@ -22,6 +22,7 @@ from app.services.feed_actions import (
     serialize_feed_item,
     serialize_feed_item_detail,
     social_signal_score_for_item,
+    update_item_action,
     update_item_personal_metadata,
     weighted_feed_score,
 )
@@ -480,6 +481,48 @@ def test_list_visible_feed_items_filters_by_topic() -> None:
         "Agent coding launch",
         "Agent product summary",
     ]
+
+
+def test_list_visible_feed_items_can_return_hidden_items() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(1, "Visible signal", language="en"),
+                make_normalized_item(2, "Hidden signal", language="en"),
+            ]
+        )
+        db.add(UserItemAction(item_id=2, user_id="local", is_hidden=True))
+        db.commit()
+
+        visible_items = list_visible_feed_items(db, limit=10)
+        hidden_items = list_visible_feed_items(db, limit=10, hidden_only=True)
+
+    assert [item.title for item in visible_items] == ["Visible signal"]
+    assert [item.title for item in hidden_items] == ["Hidden signal"]
+    assert hidden_items[0].is_hidden is True
+
+
+def test_update_item_action_can_unhide_item() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        item = make_normalized_item(1, "Hidden signal", language="en")
+        db.add(item)
+        db.add(UserItemAction(item_id=1, user_id="local", is_hidden=True))
+        db.commit()
+
+        restored = update_item_action(db=db, item=item, action_name="unhide")
+
+        persisted = db.query(UserItemAction).filter(UserItemAction.item_id == 1).one()
+
+    assert restored.is_hidden is False
+    assert persisted.is_hidden is False
 
 
 def test_freshness_score_decays_over_three_days() -> None:

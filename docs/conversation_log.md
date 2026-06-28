@@ -206,3 +206,4 @@ Implementation progress:
 - Added Source Health triage summary filters for all, attention-needed, failed, never-run, and disabled sources.
 - Added a Source Health quick block action that adds a noisy source to blocked-source preferences and refreshes personal views.
 - Made Source Health source blocking reversible and added a Blocked triage filter.
+- Added hidden-item recovery with a hidden-only feed query, unhide API action, and dashboard restore panel.

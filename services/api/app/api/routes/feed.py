@@ -24,6 +24,7 @@ async def list_feed_items(
     db: DbSession,
     limit: int = Query(default=25, ge=1, le=100),
     saved_only: bool = Query(default=False),
+    hidden_only: bool = Query(default=False),
     topic: str | None = Query(default=None, max_length=120),
 ) -> list[FeedItem]:
     preferences = get_user_preferences(db)
@@ -35,6 +36,7 @@ async def list_feed_items(
         blocked_sources=preferences.blocked_sources,
         language_preferences=preferences.language_preferences,
         saved_only=saved_only,
+        hidden_only=hidden_only,
         topic=topic,
     )
 
@@ -97,6 +99,12 @@ async def unsave_item(item_id: int, db: DbSession) -> FeedItem:
 async def hide_item(item_id: int, db: DbSession) -> FeedItem:
     item = get_feed_item_or_404(db, item_id)
     return update_item_action(db=db, item=item, action_name="hide")
+
+
+@router.post("/{item_id}/unhide", response_model=FeedItem)
+async def unhide_item(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="unhide")
 
 
 @router.post("/{item_id}/mark-important", response_model=FeedItem)
