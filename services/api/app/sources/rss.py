@@ -37,9 +37,11 @@ class RssConnector(SourceConnector):
         feeds: list[RssFeedSpec] | None = None,
         source_name: str | None = None,
         source_type: str | None = None,
+        include_terms: list[str] | None = None,
     ) -> None:
         self.limit = limit
         self.feeds = feeds or DEFAULT_RSS_FEEDS
+        self.include_terms = [term.strip() for term in (include_terms or []) if term.strip()]
         if source_name:
             self.source_name = source_name
         if source_type:
@@ -88,11 +90,21 @@ class RssConnector(SourceConnector):
 
     def _parse_rss_feed(self, feed: RssFeedSpec, root: ElementTree.Element) -> list[RawItemInput]:
         entries = root.findall("./channel/item")
-        return [item for entry in entries if (item := self._rss_entry_to_raw_item(feed, entry))]
+        return [
+            item
+            for entry in entries
+            if (item := self._rss_entry_to_raw_item(feed, entry))
+            if self._matches_include_terms(item)
+        ]
 
     def _parse_atom_feed(self, feed: RssFeedSpec, root: ElementTree.Element) -> list[RawItemInput]:
         entries = root.findall("atom:entry", ATOM_NS)
-        return [item for entry in entries if (item := self._atom_entry_to_raw_item(feed, entry))]
+        return [
+            item
+            for entry in entries
+            if (item := self._atom_entry_to_raw_item(feed, entry))
+            if self._matches_include_terms(item)
+        ]
 
     def _rss_entry_to_raw_item(
         self,
@@ -188,6 +200,21 @@ class RssConnector(SourceConnector):
         if author is None:
             return None
         return self._find_text(author, "atom:name", ATOM_NS)
+
+    def _matches_include_terms(self, item: RawItemInput) -> bool:
+        if not self.include_terms:
+            return True
+        search_text = self._normalize_search_text(
+            " ".join([item.raw_title, item.raw_text or "", item.url])
+        )
+        return any(
+            normalized_term in search_text
+            for term in self.include_terms
+            if (normalized_term := self._normalize_search_text(term))
+        )
+
+    def _normalize_search_text(self, value: str) -> str:
+        return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", value.lower()).strip()
 
     def _parse_datetime(self, value: str | None) -> datetime | None:
         if not value:

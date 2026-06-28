@@ -93,6 +93,7 @@ SOURCE_QUALITY_BY_TYPE = {
     "product launch": 0.68,
     "blog": 0.66,
     "chinese social": 0.6,
+    "social keyword": 0.58,
     "manual": 0.55,
 }
 
@@ -420,6 +421,22 @@ async def run_source_ingestion_by_id(
                 topic_terms=product_hunt_topic_terms_for_source(source),
             )
             return await run_connector_ingestion(db=db, connector=connector, source=source)
+        if source.type == "social_keyword":
+            feeds = parse_custom_rss_feeds(source.base_url, default_name=source.name)
+            if not feeds:
+                return record_skipped_run(
+                    db=db,
+                    source=source,
+                    message="Social keyword source needs at least one public RSS/Atom feed URL.",
+                )
+            connector = RssConnector(
+                limit=limit or 25,
+                feeds=feeds,
+                source_name=source.name,
+                source_type=source.type,
+                include_terms=social_keyword_terms_for_source(source),
+            )
+            return await run_connector_ingestion(db=db, connector=connector, source=source)
         if source.type == "github_repository" and source.base_url:
             repository = parse_github_repository(source.base_url)
             if repository is None:
@@ -487,6 +504,32 @@ def split_product_hunt_terms(value: str | None) -> list[str]:
 
 def normalize_topic_term(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def social_keyword_terms_for_source(source: Source) -> list[str]:
+    values = [source.terms_notes, cleaned_social_source_name(source.name), source.name]
+    terms: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for term in split_product_hunt_terms(value):
+            normalized = normalize_social_keyword_term(term)
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                terms.append(term.strip())
+    return terms
+
+
+def cleaned_social_source_name(value: str) -> str:
+    return re.sub(
+        r"^(social|chinese|xiaohongshu|xhs|twitter|x)\s+",
+        "",
+        value.strip(),
+        flags=re.IGNORECASE,
+    ).strip()
+
+
+def normalize_social_keyword_term(value: str) -> str:
+    return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", value.lower()).strip()
 
 
 async def run_connector_ingestion(
@@ -692,6 +735,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
     if not is_ai_relevant(combined_text):
         return None
 
+    language = detect_language(combined_text)
     topics = detect_topics(combined_text)
     tickers = detect_tickers(combined_text)
     if raw.raw_metadata.get("ticker_sentiment"):
@@ -766,6 +810,14 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
             "This Chinese-language item matched the AI relevance prefilter "
             "from configured RSS feeds."
         )
+    elif source.type == "social_keyword":
+        category = "social_trend"
+        subcategory = "chinese_social_keyword" if language == "zh" else "social_keyword"
+        summary_prefix = "Experimental social keyword signal"
+        why_it_matters = (
+            "This item matched a followed social keyword source using public RSS/Atom "
+            "metadata only."
+        )
     elif source.name == "Product Hunt":
         category = "product"
         subcategory = "product_launch"
@@ -799,7 +851,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         url=raw.url,
         source_name=source.name,
         author=raw.raw_author,
-        language=detect_language(combined_text),
+        language=language,
         published_at=raw.published_at,
         text=raw.raw_text,
         category=category,
@@ -874,11 +926,14 @@ def source_quality_score_for_source(source: Source) -> float:
     if source_name in SOURCE_QUALITY_BY_NAME:
         return SOURCE_QUALITY_BY_NAME[source_name]
 
+    source_type = normalize_quality_key(source.type)
+    if source_type == "social keyword":
+        return SOURCE_QUALITY_BY_TYPE[source_type]
+
     access_method = normalize_quality_key(source.access_method)
     if access_method in SOURCE_QUALITY_BY_ACCESS_METHOD:
         return SOURCE_QUALITY_BY_ACCESS_METHOD[access_method]
 
-    source_type = normalize_quality_key(source.type)
     if source_type in SOURCE_QUALITY_BY_TYPE:
         return SOURCE_QUALITY_BY_TYPE[source_type]
 
@@ -932,6 +987,10 @@ def stock_impact_score_for_source(source: Source, tickers: list[str]) -> float:
 
 
 def parse_chinese_rss_feeds(value: str | None) -> list[RssFeedSpec]:
+    return parse_custom_rss_feeds(value, default_name="Chinese Feed")
+
+
+def parse_custom_rss_feeds(value: str | None, default_name: str) -> list[RssFeedSpec]:
     if not value:
         return []
 
@@ -943,9 +1002,9 @@ def parse_chinese_rss_feeds(value: str | None) -> list[RssFeedSpec]:
         if "|" in entry:
             name, url = [part.strip() for part in entry.split("|", 1)]
         else:
-            name, url = f"Chinese Feed {index}", entry
+            name, url = f"{default_name} {index}", entry
         if url:
-            feeds.append(RssFeedSpec(name=name or f"Chinese Feed {index}", url=url))
+            feeds.append(RssFeedSpec(name=name or f"{default_name} {index}", url=url))
     return feeds
 
 

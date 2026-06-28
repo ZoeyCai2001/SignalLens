@@ -222,6 +222,28 @@ def test_create_source_uses_product_hunt_api_for_product_topic() -> None:
     assert source.terms_notes == "Developer Tools, AI Coding"
 
 
+def test_create_source_uses_public_rss_for_social_keyword_with_feed() -> None:
+    db = FakeCreateSourceDb()
+
+    source = create_source(
+        db,
+        SourceCreate(
+            name="Xiaohongshu AI Photo",
+            type="social_keyword",
+            access_method="manual_watch",
+            base_url="https://example.com/social/rss.xml",
+            terms_notes="AI写真, AI photo",
+        ),
+    )
+
+    assert source.type == "social_keyword"
+    assert source.access_method == "rss"
+    assert source.auth_required is False
+    assert source.rate_limit == "Public RSS/Atom metadata only; no login-protected social scraping."
+    assert source.polling_interval == "6 hours"
+    assert source.terms_notes == "AI写真, AI photo"
+
+
 def test_product_hunt_topic_terms_strip_common_source_prefix() -> None:
     source = Source(
         id=3,
@@ -233,6 +255,20 @@ def test_product_hunt_topic_terms_strip_common_source_prefix() -> None:
     assert ingestion_service.product_hunt_topic_terms_for_source(source) == [
         "AI Coding",
         "Product Hunt AI Coding",
+    ]
+
+
+def test_social_keyword_terms_strip_common_source_prefix() -> None:
+    source = Source(
+        id=4,
+        name="Xiaohongshu AI Photo",
+        type="social_keyword",
+        access_method="rss",
+    )
+
+    assert ingestion_service.social_keyword_terms_for_source(source) == [
+        "AI Photo",
+        "Xiaohongshu AI Photo",
     ]
 
 
@@ -557,6 +593,81 @@ async def test_run_source_ingestion_by_id_runs_custom_product_hunt_topic(monkeyp
         "artificial intelligence",
         "Product Hunt AI Coding",
     ]
+
+
+@pytest.mark.anyio
+async def test_run_source_ingestion_by_id_runs_social_keyword_rss_source(monkeypatch) -> None:
+    source = Source(
+        id=8,
+        name="Xiaohongshu AI Photo",
+        type="social_keyword",
+        access_method="rss",
+        base_url="AI Photo Feed|https://example.com/social/rss.xml",
+        terms_notes="AI写真, AI photo",
+        enabled=True,
+    )
+    db = FakeSourceDb(source)
+    calls = []
+
+    async def fake_run_connector_ingestion(db, connector, source):
+        calls.append((db, connector, source))
+        return IngestionResult(
+            source_name=source.name,
+            status="success",
+            items_fetched=4,
+            items_stored=2,
+        )
+
+    monkeypatch.setattr(
+        ingestion_service,
+        "run_connector_ingestion",
+        fake_run_connector_ingestion,
+    )
+
+    result = await ingestion_service.run_source_ingestion_by_id(
+        db=db,
+        source_id=8,
+        limit=12,
+        runners_by_name={},
+    )
+
+    assert result.source_name == "Xiaohongshu AI Photo"
+    assert result.items_stored == 2
+    connector = calls[0][1]
+    assert connector.source_name == "Xiaohongshu AI Photo"
+    assert connector.source_type == "social_keyword"
+    assert connector.limit == 12
+    assert connector.feeds[0].name == "AI Photo Feed"
+    assert connector.feeds[0].url == "https://example.com/social/rss.xml"
+    assert connector.include_terms == [
+        "AI写真",
+        "AI photo",
+        "Xiaohongshu AI Photo",
+    ]
+
+
+@pytest.mark.anyio
+async def test_run_source_ingestion_by_id_skips_social_keyword_without_feed() -> None:
+    source = Source(
+        id=9,
+        name="Xiaohongshu AI Photo",
+        type="social_keyword",
+        access_method="manual_watch",
+        enabled=True,
+    )
+    db = FakeSourceDb(source)
+
+    result = await ingestion_service.run_source_ingestion_by_id(
+        db=db,
+        source_id=9,
+        runners_by_name={},
+    )
+
+    assert result.status == "skipped"
+    assert (
+        result.error_message
+        == "Social keyword source needs at least one public RSS/Atom feed URL."
+    )
 
 
 @pytest.mark.anyio

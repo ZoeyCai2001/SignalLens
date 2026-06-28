@@ -60,6 +60,61 @@ def test_rss_connector_parses_atom_items() -> None:
     assert items[0].raw_author == "Example AI"
 
 
+def test_rss_connector_filters_items_by_include_terms() -> None:
+    connector = RssConnector(include_terms=["AI photo tools"])
+    feed = RssFeedSpec(name="Social Feed", url="https://example.com/rss")
+
+    items = connector._parse_feed(
+        feed=feed,
+        xml_text="""
+        <rss version="2.0">
+          <channel>
+            <item>
+              <title>AI photo tools trend</title>
+              <link>https://example.com/ai-photo</link>
+              <description>Creators are sharing AI image workflows.</description>
+            </item>
+            <item>
+              <title>Restaurant map update</title>
+              <link>https://example.com/food</link>
+              <description>Food discovery notes.</description>
+            </item>
+          </channel>
+        </rss>
+        """,
+    )
+
+    assert len(items) == 1
+    assert items[0].url == "https://example.com/ai-photo"
+
+
+def test_rss_connector_filters_items_by_chinese_include_terms() -> None:
+    connector = RssConnector(include_terms=["AI写真"])
+    feed = RssFeedSpec(name="Chinese Social Feed", url="https://example.com/rss")
+
+    items = connector._parse_feed(
+        feed=feed,
+        xml_text="""
+        <rss version="2.0">
+          <channel>
+            <item>
+              <title>AI写真工具开始流行</title>
+              <link>https://example.com/photo</link>
+              <description>小红书用户讨论人工智能修图工作流。</description>
+            </item>
+            <item>
+              <title>普通生活帖子</title>
+              <link>https://example.com/life</link>
+            </item>
+          </channel>
+        </rss>
+        """,
+    )
+
+    assert len(items) == 1
+    assert items[0].raw_title == "AI写真工具开始流行"
+
+
 def test_rss_connector_skips_items_without_title_or_link() -> None:
     connector = RssConnector()
     feed = RssFeedSpec(name="Test Feed", url="https://example.com/rss")

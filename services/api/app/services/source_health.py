@@ -56,6 +56,8 @@ def create_source(db: Session, payload: SourceCreate) -> Source:
         access_method = "official_api"
     if source_type == "product_topic":
         access_method = "official_graphql_api"
+    if source_type == "social_keyword" and normalize_optional_text(payload.base_url):
+        access_method = "rss"
 
     source = Source(
         name=name,
@@ -68,9 +70,18 @@ def create_source(db: Session, payload: SourceCreate) -> Source:
             "Product Hunt API token required; keep topic polling conservative."
             if source_type == "product_topic"
             else None
+        )
+        or (
+            "Public RSS/Atom metadata only; no login-protected social scraping."
+            if source_type == "social_keyword"
+            else None
         ),
         polling_interval=normalize_optional_text(payload.polling_interval)
-        or ("6 hours" if source_type == "product_topic" else None),
+        or (
+            "6 hours"
+            if source_type in {"product_topic", "social_keyword"}
+            else None
+        ),
         enabled=payload.enabled,
         priority=payload.priority,
         terms_notes=normalize_optional_text(payload.terms_notes),

@@ -38,6 +38,31 @@ def test_chinese_rss_normalizes_to_social_trend() -> None:
     assert item.source_quality_score == 0.62
 
 
+def test_social_keyword_source_normalizes_to_experimental_social_trend() -> None:
+    source = Source(
+        id=2,
+        name="Xiaohongshu AI Photo",
+        type="social_keyword",
+        access_method="rss",
+    )
+    raw = RawItem(
+        id=2,
+        raw_title="AI写真工具开始流行",
+        url="https://example.com/xhs-ai-photo",
+        raw_text="小红书用户讨论人工智能修图和AI产品工作流。",
+        raw_metadata={"feed_name": "Public Social Feed"},
+    )
+
+    item = normalize_item(raw=raw, source=source)
+
+    assert item is not None
+    assert item.category == "social_trend"
+    assert item.subcategory == "chinese_social_keyword"
+    assert item.language == "zh"
+    assert item.source_quality_score == 0.58
+    assert "public RSS/Atom metadata" in item.why_it_matters
+
+
 def test_detect_language_marks_cjk_text_as_chinese() -> None:
     assert detect_language("AI 大模型") == "zh"
     assert detect_language("AI model") == "en"

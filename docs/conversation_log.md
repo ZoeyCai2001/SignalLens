@@ -178,3 +178,4 @@ Implementation progress:
 - Promoted Source Health and Settings to first-class dashboard navigation modules with focused main-column views for source operations, readiness, and ranking preferences.
 - Added stock watchlist create-time metadata resolution so users can add seeded or aliased stocks by ticker or company name while preserving a no-paid-API MVP path.
 - Added runnable followed Product Hunt topic sources through the official Product Hunt API with local topic-term filtering and token-missing skipped-run reporting.
+- Added runnable experimental social-keyword sources over user-provided public RSS/Atom feeds with local keyword filtering for Chinese/Xiaohongshu-style trend monitoring without scraping.
