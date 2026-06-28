@@ -176,6 +176,24 @@ def test_create_source_registers_followed_rss_source() -> None:
     assert db.commits == 1
 
 
+def test_create_source_uses_official_api_for_github_repository() -> None:
+    db = FakeCreateSourceDb()
+
+    source = create_source(
+        db,
+        SourceCreate(
+            name="LangChain Repo",
+            type="github_repository",
+            access_method="rss",
+            base_url="https://github.com/langchain-ai/langchain",
+        ),
+    )
+
+    assert source.type == "github_repository"
+    assert source.access_method == "official_api"
+    assert source.base_url == "https://github.com/langchain-ai/langchain"
+
+
 def test_create_source_rejects_duplicate_name() -> None:
     existing = Source(id=1, name="Existing", type="blog", access_method="rss")
     db = FakeCreateSourceDb(existing=existing)
@@ -304,6 +322,46 @@ async def test_run_source_ingestion_by_id_runs_custom_rss_source(monkeypatch) ->
     assert result.items_fetched == 3
     assert calls[0][1].source_name == "Custom Blog"
     assert calls[0][1].feeds[0].url == "https://example.com/feed.xml"
+
+
+@pytest.mark.anyio
+async def test_run_source_ingestion_by_id_runs_custom_github_repository(monkeypatch) -> None:
+    source = Source(
+        id=6,
+        name="LangChain Repo",
+        type="github_repository",
+        access_method="official_api",
+        base_url="https://github.com/langchain-ai/langchain",
+        enabled=True,
+    )
+    db = FakeSourceDb(source)
+    calls = []
+
+    async def fake_run_connector_ingestion(db, connector, source):
+        calls.append((db, connector, source))
+        return IngestionResult(
+            source_name=source.name,
+            status="success",
+            items_fetched=1,
+            items_stored=1,
+        )
+
+    monkeypatch.setattr(
+        ingestion_service,
+        "run_connector_ingestion",
+        fake_run_connector_ingestion,
+    )
+
+    result = await ingestion_service.run_source_ingestion_by_id(
+        db=db,
+        source_id=6,
+        runners_by_name={},
+    )
+
+    assert result.source_name == "LangChain Repo"
+    assert result.items_fetched == 1
+    assert calls[0][1].source_name == "LangChain Repo"
+    assert calls[0][1].repositories == ["langchain-ai/langchain"]
 
 
 class FakeDb:

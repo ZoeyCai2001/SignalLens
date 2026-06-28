@@ -50,10 +50,15 @@ def create_source(db: Session, payload: SourceCreate) -> Source:
     if existing is not None:
         raise ValueError(f"{name} is already registered.")
 
+    source_type = normalize_optional_text(payload.type) or "rss"
+    access_method = normalize_optional_text(payload.access_method) or "rss"
+    if source_type == "github_repository":
+        access_method = "official_api"
+
     source = Source(
         name=name,
-        type=normalize_optional_text(payload.type) or "rss",
-        access_method=normalize_optional_text(payload.access_method) or "rss",
+        type=source_type,
+        access_method=access_method,
         base_url=normalize_optional_text(payload.base_url),
         auth_required=payload.auth_required,
         rate_limit=normalize_optional_text(payload.rate_limit),

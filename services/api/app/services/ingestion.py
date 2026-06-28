@@ -29,7 +29,7 @@ from app.services.scoring import (
 from app.sources.alpha_vantage import AlphaVantageDailyPriceConnector, AlphaVantageNewsConnector
 from app.sources.arxiv import ArxivConnector
 from app.sources.base import FetchCursor, RawItemInput, SourceConnector
-from app.sources.github import GitHubConnector
+from app.sources.github import GitHubConnector, parse_github_repository
 from app.sources.hacker_news import HackerNewsConnector
 from app.sources.hugging_face import HuggingFaceConnector
 from app.sources.product_hunt import ProductHuntConnector
@@ -87,6 +87,7 @@ SOURCE_QUALITY_BY_TYPE = {
     "research": 0.78,
     "finance news": 0.76,
     "developer": 0.74,
+    "github repository": 0.74,
     "model hub": 0.74,
     "community": 0.68,
     "product launch": 0.68,
@@ -404,6 +405,19 @@ async def run_source_ingestion_by_id(
 
     registered = runners_by_name.get(source.name)
     if registered is None:
+        if source.type == "github_repository" and source.base_url:
+            repository = parse_github_repository(source.base_url)
+            if repository is None:
+                raise SourceRunnerNotFoundError(
+                    f"{source.name} does not have a valid GitHub repository URL."
+                )
+            connector = GitHubConnector(
+                limit=1,
+                api_token=get_settings().github_token,
+                repositories=[repository],
+                source_name=source.name,
+            )
+            return await run_connector_ingestion(db=db, connector=connector, source=source)
         if source.access_method == "rss" and source.base_url:
             connector = RssConnector(
                 limit=limit or 25,

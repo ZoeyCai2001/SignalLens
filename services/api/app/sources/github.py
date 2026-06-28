@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import ceil
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -17,11 +18,16 @@ class GitHubConnector(SourceConnector):
         limit: int = 25,
         reference_time: datetime | None = None,
         api_token: str | None = None,
+        repositories: list[str] | None = None,
+        source_name: str | None = None,
     ) -> None:
         self.limit = limit
         self.reference_time = reference_time
         self.api_token = api_token.strip() if api_token else None
+        self.repositories = normalize_github_repositories(repositories)
         self.base_url = "https://api.github.com"
+        if source_name:
+            self.source_name = source_name
         self.queries = [
             "llm in:name,description,readme stars:>50",
             "ai-agent in:name,description,readme stars:>20",
@@ -32,6 +38,18 @@ class GitHubConnector(SourceConnector):
 
     async def fetch(self, cursor: FetchCursor) -> FetchResult:
         headers = self.request_headers()
+        if self.repositories:
+            repos = await self._fetch_tracked_repositories(headers)
+            items = [
+                raw_item
+                for repo in repos[: self.limit]
+                if (raw_item := self._repo_to_raw_item(repo))
+            ]
+            return FetchResult(
+                items=items,
+                next_cursor=FetchCursor(metadata={"repositories": self.repositories}),
+            )
+
         per_query = min(20, max(5, ceil(self.limit / len(self.queries))))
         repos: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -67,6 +85,15 @@ class GitHubConnector(SourceConnector):
             items=items,
             next_cursor=FetchCursor(metadata={"last_limit": self.limit}),
         )
+
+    async def _fetch_tracked_repositories(self, headers: dict[str, str]) -> list[dict[str, Any]]:
+        repos: list[dict[str, Any]] = []
+        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+            for full_name in self.repositories[: self.limit]:
+                response = await client.get(f"{self.base_url}/repos/{full_name}")
+                response.raise_for_status()
+                repos.append(response.json())
+        return repos
 
     def request_headers(self) -> dict[str, str]:
         headers = {
@@ -162,3 +189,49 @@ def compute_repo_growth(
     else:
         label = "steady"
     return RepoGrowthSignal(stars_per_day=stars_per_day, label=label)
+
+
+def normalize_github_repositories(values: list[str] | None) -> list[str]:
+    repos: list[str] = []
+    seen: set[str] = set()
+    for value in values or []:
+        repo = parse_github_repository(value)
+        if repo and repo not in seen:
+            repos.append(repo)
+            seen.add(repo)
+    return repos
+
+
+def parse_github_repository(value: str | None) -> str | None:
+    if not value:
+        return None
+
+    candidate = value.strip()
+    if not candidate:
+        return None
+
+    if candidate.startswith("git@github.com:"):
+        candidate = candidate.removeprefix("git@github.com:")
+    elif "://" not in candidate and candidate.startswith("github.com/"):
+        candidate = f"https://{candidate}"
+
+    if "://" in candidate:
+        parsed = urlparse(candidate)
+        if parsed.netloc.lower() not in {"github.com", "www.github.com"}:
+            return None
+        parts = [part for part in parsed.path.strip("/").split("/") if part]
+    else:
+        parts = [part for part in candidate.strip("/").split("/") if part]
+
+    if len(parts) < 2:
+        return None
+
+    owner = clean_github_repo_part(parts[0])
+    repo = clean_github_repo_part(parts[1]).removesuffix(".git")
+    if not owner or not repo:
+        return None
+    return f"{owner}/{repo}"
+
+
+def clean_github_repo_part(value: str) -> str:
+    return value.strip().strip("/")

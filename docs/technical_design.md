@@ -390,6 +390,8 @@ Ingestion and manual submission normalization also detect common AI product name
 - `GET /api/sources/health`
 - `POST /api/sources/{source_id}/run`
 
+Custom followed sources can run through reusable connectors when the access pattern is safe and structured. RSS sources with a `base_url` run through `RssConnector`; `github_repository` sources with a GitHub URL run through the GitHub REST API for that specific repository, enabling the PRD source-watchlist requirement for followed GitHub projects without scraping.
+
 ### Manual Submission
 
 - `POST /api/manual-submissions`

@@ -1,6 +1,11 @@
 from datetime import UTC, datetime
 
-from app.sources.github import GitHubConnector, compute_repo_growth
+from app.sources.github import (
+    GitHubConnector,
+    compute_repo_growth,
+    normalize_github_repositories,
+    parse_github_repository,
+)
 
 
 def test_github_connector_converts_repo_to_raw_item() -> None:
@@ -39,6 +44,24 @@ def test_github_connector_converts_repo_to_raw_item() -> None:
     assert item.published_at is not None
 
 
+def test_github_connector_uses_custom_source_name_for_tracked_repos() -> None:
+    connector = GitHubConnector(source_name="LangChain Repo", repositories=["langchain-ai/langchain"])
+
+    item = connector._repo_to_raw_item(
+        {
+            "id": 456,
+            "full_name": "langchain-ai/langchain",
+            "html_url": "https://github.com/langchain-ai/langchain",
+            "description": "Build context-aware reasoning applications",
+            "owner": {"login": "langchain-ai"},
+        }
+    )
+
+    assert item is not None
+    assert item.source_name == "LangChain Repo"
+    assert connector.repositories == ["langchain-ai/langchain"]
+
+
 def test_github_connector_skips_repo_without_required_fields() -> None:
     connector = GitHubConnector()
 
@@ -62,3 +85,27 @@ def test_compute_repo_growth_labels_repo_traction() -> None:
     assert signal is not None
     assert signal.stars_per_day == 10
     assert signal.label == "gaining traction"
+
+
+def test_parse_github_repository_accepts_urls_ssh_and_slugs() -> None:
+    assert parse_github_repository("https://github.com/langchain-ai/langchain") == (
+        "langchain-ai/langchain"
+    )
+    assert parse_github_repository("github.com/openai/codex.git") == "openai/codex"
+    assert parse_github_repository("git@github.com:owner/repo.git") == "owner/repo"
+    assert parse_github_repository("owner/repo") == "owner/repo"
+
+
+def test_parse_github_repository_rejects_non_github_hosts() -> None:
+    assert parse_github_repository("https://gitlab.com/owner/repo") is None
+    assert parse_github_repository("owner") is None
+
+
+def test_normalize_github_repositories_deduplicates_valid_values() -> None:
+    assert normalize_github_repositories(
+        [
+            "https://github.com/openai/codex",
+            "openai/codex",
+            "https://gitlab.com/example/repo",
+        ]
+    ) == ["openai/codex"]
