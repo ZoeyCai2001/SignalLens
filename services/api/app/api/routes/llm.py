@@ -10,6 +10,7 @@ from app.schemas.llm import (
     SmokeTestResponse,
 )
 from app.services.llm_processing import process_feed_with_llm
+from app.services.preferences import get_user_preferences
 
 router = APIRouter()
 
@@ -49,6 +50,7 @@ async def process_feed_items(
     if not request.summarize and not request.classify:
         raise HTTPException(status_code=400, detail="Enable summarize or classify.")
 
+    preferences = get_user_preferences(db)
     return await process_feed_with_llm(
         db=db,
         settings=settings,
@@ -58,4 +60,5 @@ async def process_feed_items(
         skip_summarized=request.skip_summarized,
         skip_classified=request.skip_classified,
         min_classification_confidence=request.min_classification_confidence,
+        blocked_sources=preferences.blocked_sources,
     )

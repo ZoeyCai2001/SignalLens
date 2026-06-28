@@ -2,8 +2,10 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.api.routes import llm as llm_routes
 from app.core.config import Settings
 from app.db.models import Base, NormalizedItem, UserItemAction
+from app.schemas.llm import FeedProcessingRequest, FeedProcessingResponse
 from app.services.llm_processing import (
     list_llm_processing_candidates,
     process_llm_batch_items,
@@ -69,18 +71,46 @@ def test_list_llm_processing_candidates_skips_high_confidence_items_before_limit
     assert [item.id for item in candidates] == [2, 3]
 
 
+def test_list_llm_processing_candidates_excludes_blocked_sources_before_limit() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_item(1, importance_score=1.0, source_name="Noisy Blog"),
+                make_item(2, importance_score=0.9, source_name="Trusted Blog"),
+                make_item(3, importance_score=0.8, source_name="Trusted Blog"),
+            ]
+        )
+        db.commit()
+
+        candidates = list_llm_processing_candidates(
+            db=db,
+            limit=2,
+            summarize=True,
+            classify=False,
+            skip_summarized=True,
+            blocked_sources=["Noisy Blog"],
+        )
+
+    assert [item.id for item in candidates] == [2, 3]
+
+
 def make_item(
     item_id: int,
     summary_detailed: str | None = None,
     importance_score: float = 0,
     classification_confidence: float = 0.5,
+    source_name: str = "Test",
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
         raw_item_id=item_id,
         title=f"Item {item_id}",
         url=f"https://example.com/{item_id}",
-        source_name="Test",
+        source_name=source_name,
         text="A relevant AI intelligence item.",
         importance_score=importance_score,
         classification_confidence=classification_confidence,
@@ -211,3 +241,38 @@ async def test_process_llm_batch_items_captures_classification_errors() -> None:
     assert len(result.errors) == 1
     assert result.errors[0].item_id == 1
     assert result.errors[0].stage == "classify"
+
+
+@pytest.mark.anyio
+async def test_process_feed_route_passes_blocked_sources(monkeypatch) -> None:
+    monkeypatch.setattr(
+        llm_routes,
+        "get_settings",
+        lambda: Settings(moonshot_api_key="test-key"),
+    )
+    monkeypatch.setattr(
+        llm_routes,
+        "get_user_preferences",
+        lambda db: type("Preferences", (), {"blocked_sources": ["Noisy Blog"]})(),
+    )
+
+    async def fake_process_feed_with_llm(**kwargs) -> FeedProcessingResponse:
+        assert kwargs["blocked_sources"] == ["Noisy Blog"]
+        return FeedProcessingResponse(
+            requested_limit=kwargs["limit"],
+            candidates_seen=0,
+            summarized_count=0,
+            classified_count=0,
+            skipped_count=0,
+            item_ids=[],
+            errors=[],
+        )
+
+    monkeypatch.setattr(llm_routes, "process_feed_with_llm", fake_process_feed_with_llm)
+
+    result = await llm_routes.process_feed_items(
+        request=FeedProcessingRequest(limit=3, summarize=True, classify=False),
+        db=object(),
+    )
+
+    assert result.requested_limit == 3

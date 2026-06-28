@@ -7,7 +7,8 @@ from app.core.config import Settings
 from app.db.models import NormalizedItem, UserItemAction
 from app.schemas.llm import FeedProcessingError, FeedProcessingResponse
 from app.services.classification import classify_feed_item
-from app.services.feed_actions import LOCAL_USER_ID
+from app.services.feed_actions import LOCAL_USER_ID, normalize_source_names
+from app.services.preferences import get_user_preferences
 from app.services.summarization import summarize_feed_item
 
 LlmItemProcessor = Callable[[Session, NormalizedItem, Settings], Awaitable[NormalizedItem]]
@@ -22,7 +23,10 @@ async def process_feed_with_llm(
     skip_summarized: bool = True,
     skip_classified: bool = True,
     min_classification_confidence: float = 0.7,
+    blocked_sources: list[str] | None = None,
 ) -> FeedProcessingResponse:
+    if blocked_sources is None:
+        blocked_sources = get_user_preferences(db).blocked_sources
     candidates = list_llm_processing_candidates(
         db=db,
         limit=limit,
@@ -31,6 +35,7 @@ async def process_feed_with_llm(
         skip_summarized=skip_summarized,
         skip_classified=skip_classified,
         min_classification_confidence=min_classification_confidence,
+        blocked_sources=blocked_sources,
     )
     return await process_llm_batch_items(
         db=db,
@@ -53,13 +58,18 @@ def list_llm_processing_candidates(
     skip_summarized: bool = True,
     skip_classified: bool = True,
     min_classification_confidence: float = 0.7,
+    blocked_sources: list[str] | None = None,
 ) -> list[NormalizedItem]:
+    blocked_source_names = normalize_source_names(blocked_sources)
     query = db.query(NormalizedItem).outerjoin(
         UserItemAction,
         (UserItemAction.item_id == NormalizedItem.id)
         & (UserItemAction.user_id == LOCAL_USER_ID),
     )
     query = query.filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+    if blocked_source_names:
+        query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+
     candidate_filters = []
     if summarize and skip_summarized:
         candidate_filters.append(

@@ -187,7 +187,7 @@ The LLM service exposes stable internal methods:
 
 All LLM outputs must be parsed as structured JSON and validated before storage.
 
-Batch LLM processing filters summarize and classify candidates before spending model calls. When `skip_summarized` is enabled, already summarized feed items are excluded at query time so the requested batch limit is spent on items that still need summaries. When `skip_classified` is enabled, items whose classifier confidence is at or above the configured threshold are skipped so batch classification focuses on lower-confidence items.
+Batch LLM processing filters summarize and classify candidates before spending model calls. When `skip_summarized` is enabled, already summarized feed items are excluded at query time so the requested batch limit is spent on items that still need summaries. When `skip_classified` is enabled, items whose classifier confidence is at or above the configured threshold are skipped so batch classification focuses on lower-confidence items. Hidden items and blocked sources are excluded before candidate selection so local source preferences do not spend LLM budget.
 
 The dashboard exposes batch LLM classification and summarization as separate actions against `/api/llm/process-feed`, making cost-bearing enrichment explicit while still supporting the PRD requirement for LLM classification and LLM summarization.
 
