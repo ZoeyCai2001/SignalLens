@@ -133,11 +133,15 @@ def detect_tickers(text: str) -> list[str]:
 
 def detect_companies(text: str) -> list[str]:
     normalized = text.lower()
-    detected = {TICKER_COMPANY_NAMES[ticker] for ticker in detect_tickers(text)}
+    detected = set(company_names_for_tickers(detect_tickers(text)))
     for company, aliases in PRIVATE_AI_COMPANY_ALIASES.items():
         if any(alias.lower() in normalized for alias in aliases):
             detected.add(company)
     return sorted(detected)
+
+
+def company_names_for_tickers(tickers: list[str]) -> list[str]:
+    return sorted({TICKER_COMPANY_NAMES.get(ticker, ticker) for ticker in tickers})
 
 
 def is_ai_relevant(text: str) -> bool:

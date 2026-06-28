@@ -362,6 +362,8 @@ Company briefings aggregate matched items by source, topic, product, ticker, rec
 
 Manual submissions use deterministic company extraction for watched public tickers and private AI labs, so user-pasted company links can immediately flow into company search, company briefings, and company digest sections before any optional LLM processing.
 
+Ingestion normalization applies the same deterministic company extraction to provider, RSS, and community items, including ticker-to-company mapping from finance metadata. This lets company search, briefings, and digest sections work before optional LLM classification enriches the item.
+
 ### Stocks
 
 - `GET /api/stocks/watchlist-dashboard`

@@ -129,3 +129,4 @@ Implementation progress:
 - Fixed natural-language search so inferred topic filters are applied to database results, keeping dashboard search intent chips aligned with returned items.
 - Added company-aware search across the API, natural-language intent, backend filtering, free-text entity matching, and the dashboard search controls.
 - Added deterministic company detection for manual submissions so pasted OpenAI, Anthropic, and watched ticker links populate company entities without requiring an LLM call.
+- Extended deterministic company extraction to normalized ingestion items so RSS, finance, and community signals populate company entities before optional LLM classification.

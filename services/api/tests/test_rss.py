@@ -1,3 +1,5 @@
+from app.db.models import RawItem, Source
+from app.services.ingestion import normalize_item
 from app.sources.rss import RssConnector, RssFeedSpec
 
 
@@ -76,3 +78,25 @@ def test_rss_connector_skips_items_without_title_or_link() -> None:
     )
 
     assert items == []
+
+
+def test_rss_normalization_detects_private_ai_lab_companies() -> None:
+    source = Source(
+        id=1,
+        name="Selected RSS Feeds",
+        type="rss",
+        access_method="rss",
+    )
+    raw = RawItem(
+        id=1,
+        raw_title="OpenAI updates ChatGPT agents",
+        url="https://example.com/openai-agents",
+        raw_text="OpenAI described ChatGPT agent infrastructure and enterprise workflows.",
+        raw_metadata={},
+    )
+
+    item = normalize_item(raw=raw, source=source)
+
+    assert item is not None
+    assert item.companies == ["OpenAI"]
+    assert item.subcategory == "company_blog"

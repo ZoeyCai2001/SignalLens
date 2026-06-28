@@ -17,6 +17,8 @@ from app.db.models import (
 )
 from app.services.scoring import (
     TICKER_ALIASES,
+    company_names_for_tickers,
+    detect_companies,
     detect_tickers,
     detect_topics,
     importance_score,
@@ -632,6 +634,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
                 ],
             }
         )
+    companies = sorted({*detect_companies(combined_text), *company_names_for_tickers(tickers)})
     source_quality = source_quality_score_for_source(source)
     relevance = relevance_score(combined_text)
     importance = importance_score(source_quality_score=source_quality, text=combined_text)
@@ -725,7 +728,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         category=category,
         subcategory=subcategory,
         tickers=tickers,
-        companies=tickers,
+        companies=companies,
         products=[raw.raw_metadata["product_name"]] if raw.raw_metadata.get("product_name") else [],
         topics=topics,
         sentiment="neutral",

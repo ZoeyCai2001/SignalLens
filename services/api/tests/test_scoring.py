@@ -1,4 +1,5 @@
 from app.services.scoring import (
+    company_names_for_tickers,
     detect_companies,
     detect_tickers,
     detect_topics,
@@ -27,6 +28,10 @@ def test_detect_companies_maps_public_and_private_ai_companies() -> None:
     text = "OpenAI, Anthropic, and Marvell discussed AI agent infrastructure."
 
     assert detect_companies(text) == ["Anthropic", "Marvell Technology", "OpenAI"]
+
+
+def test_company_names_for_tickers_uses_canonical_names_with_fallback() -> None:
+    assert company_names_for_tickers(["MRVL", "UNKNOWN"]) == ["Marvell Technology", "UNKNOWN"]
 
 
 def test_ai_relevance_detects_chinese_ai_terms() -> None:
