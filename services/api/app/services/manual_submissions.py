@@ -14,6 +14,7 @@ from app.services.ingestion import (
     normalize_item,
 )
 from app.services.scoring import (
+    detect_companies,
     detect_tickers,
     detect_topics,
     importance_score,
@@ -130,6 +131,7 @@ def enrich_manual_normalized_item(item: NormalizedItem, raw: RawItem) -> None:
     category, subcategory = infer_manual_category(combined_text)
     topics = detect_topics(combined_text)
     tickers = detect_tickers(combined_text)
+    companies = detect_companies(combined_text)
     products = detect_manual_products(raw.raw_title, combined_text)
     source_quality = 0.65
 
@@ -137,7 +139,7 @@ def enrich_manual_normalized_item(item: NormalizedItem, raw: RawItem) -> None:
     item.category = category
     item.subcategory = subcategory
     item.tickers = tickers
-    item.companies = tickers
+    item.companies = companies
     item.products = products
     item.topics = topics
     item.classification_confidence = max(item.classification_confidence or 0, 0.65)

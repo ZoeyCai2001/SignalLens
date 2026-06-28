@@ -82,6 +82,39 @@ TICKER_ALIASES = {
     "HPE": ["Hewlett Packard Enterprise", "HPE"],
 }
 
+TICKER_COMPANY_NAMES = {
+    "MU": "Micron Technology",
+    "MRVL": "Marvell Technology",
+    "SNDK": "SanDisk",
+    "NVDA": "NVIDIA",
+    "AMD": "AMD",
+    "AVGO": "Broadcom",
+    "TSM": "TSMC",
+    "ASML": "ASML",
+    "AMAT": "Applied Materials",
+    "LRCX": "Lam Research",
+    "MSFT": "Microsoft",
+    "GOOGL": "Google",
+    "AMZN": "Amazon",
+    "META": "Meta",
+    "ORCL": "Oracle",
+    "ARM": "Arm Holdings",
+    "SMCI": "Supermicro",
+    "DELL": "Dell",
+    "HPE": "Hewlett Packard Enterprise",
+}
+
+PRIVATE_AI_COMPANY_ALIASES = {
+    "OpenAI": ["OpenAI", "ChatGPT", "Sora"],
+    "Anthropic": ["Anthropic", "Claude"],
+    "Google DeepMind": ["Google DeepMind", "DeepMind"],
+    "Hugging Face": ["Hugging Face"],
+    "Perplexity": ["Perplexity"],
+    "Cursor": ["Cursor"],
+    "DeepSeek": ["DeepSeek"],
+    "Mistral AI": ["Mistral AI", "Mistral"],
+}
+
 
 def detect_topics(text: str) -> list[str]:
     normalized = text.lower()
@@ -95,6 +128,15 @@ def detect_tickers(text: str) -> list[str]:
     for ticker, aliases in TICKER_ALIASES.items():
         if any(alias.lower() in normalized for alias in aliases):
             detected.add(ticker)
+    return sorted(detected)
+
+
+def detect_companies(text: str) -> list[str]:
+    normalized = text.lower()
+    detected = {TICKER_COMPANY_NAMES[ticker] for ticker in detect_tickers(text)}
+    for company, aliases in PRIVATE_AI_COMPANY_ALIASES.items():
+        if any(alias.lower() in normalized for alias in aliases):
+            detected.add(company)
     return sorted(detected)
 
 

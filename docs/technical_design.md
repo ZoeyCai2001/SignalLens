@@ -360,6 +360,8 @@ Digest payload fields that were added after earlier snapshots, such as company w
 
 Company briefings aggregate matched items by source, topic, product, ticker, recent timeline, and daily activity so followed AI companies can be inspected independently from the stock watchlist. The dashboard surfaces these briefings inside the company watchlist panel with source, topic, product, ticker, activity, and recent-signal views.
 
+Manual submissions use deterministic company extraction for watched public tickers and private AI labs, so user-pasted company links can immediately flow into company search, company briefings, and company digest sections before any optional LLM processing.
+
 ### Stocks
 
 - `GET /api/stocks/watchlist-dashboard`

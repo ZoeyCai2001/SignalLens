@@ -45,6 +45,7 @@ def test_manual_enrichment_routes_ai_product_submissions() -> None:
 
     assert item.category == "product"
     assert item.subcategory == "manual_product"
+    assert item.companies == []
     assert item.products == ["AgentDesk"]
     assert "agent" in item.topics
     assert item.summary_short == (
@@ -67,8 +68,24 @@ def test_manual_enrichment_routes_stock_submissions_with_tickers() -> None:
     assert item.category == "stock_company_event"
     assert item.subcategory == "manual_stock_signal"
     assert item.tickers == ["MRVL"]
+    assert item.companies == ["Marvell Technology"]
     assert item.stock_impact_score == 0.35
     assert "MRVL" in item.why_it_matters
+
+
+def test_manual_enrichment_detects_private_ai_lab_companies() -> None:
+    source = make_source()
+    raw = make_raw(
+        title="OpenAI agent update",
+        text="OpenAI and Anthropic both discussed Claude and ChatGPT enterprise agents.",
+    )
+    item = create_manual_normalized_item(raw=raw, source=source)
+
+    enrich_manual_normalized_item(item, raw)
+
+    assert item.category == "technical_trend"
+    assert item.companies == ["Anthropic", "OpenAI"]
+    assert item.tickers == []
 
 
 def test_manual_enrichment_prefers_chinese_social_context() -> None:
