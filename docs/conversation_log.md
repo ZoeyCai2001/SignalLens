@@ -179,3 +179,4 @@ Implementation progress:
 - Added stock watchlist create-time metadata resolution so users can add seeded or aliased stocks by ticker or company name while preserving a no-paid-API MVP path.
 - Added runnable followed Product Hunt topic sources through the official Product Hunt API with local topic-term filtering and token-missing skipped-run reporting.
 - Added runnable experimental social-keyword sources over user-provided public RSS/Atom feeds with local keyword filtering for Chinese/Xiaohongshu-style trend monitoring without scraping.
+- Added on-demand Kimi explanations for expanded event clusters so cluster pages can show LLM-generated summaries while keeping model cost explicit.

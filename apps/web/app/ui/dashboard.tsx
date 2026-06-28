@@ -459,6 +459,15 @@ type EventCluster = {
   items: FeedItem[];
 };
 
+type EventClusterLlmExplanation = {
+  cluster_key: string;
+  model: string;
+  explanation: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+};
+
 type EventClusterTimelineItem = {
   item_id: number;
   title: string;
@@ -598,6 +607,9 @@ export function Dashboard() {
   const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
   const [selectedEventCluster, setSelectedEventCluster] = useState<EventCluster | null>(null);
+  const [clusterExplanations, setClusterExplanations] = useState<
+    Record<string, EventClusterLlmExplanation>
+  >({});
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -617,6 +629,7 @@ export function Dashboard() {
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
   const [busyAlertRuleId, setBusyAlertRuleId] = useState<number | null>(null);
   const [busyClusterKey, setBusyClusterKey] = useState<string | null>(null);
+  const [busyClusterExplanationKey, setBusyClusterExplanationKey] = useState<string | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
   const [busyCompanyBriefing, setBusyCompanyBriefing] = useState<string | null>(null);
@@ -1737,6 +1750,27 @@ export function Dashboard() {
     }
   };
 
+  const explainEventCluster = async (cluster: EventCluster) => {
+    setBusyClusterExplanationKey(cluster.cluster_key);
+    setError(null);
+    try {
+      const result = await fetchJson<EventClusterLlmExplanation>(
+        `/api/events/clusters/${encodeURIComponent(cluster.cluster_key)}/llm-explanation`,
+        { method: "POST" },
+      );
+      setClusterExplanations((items) => ({
+        ...items,
+        [cluster.cluster_key]: result,
+      }));
+      setStatus(`Explained cluster with ${result.model}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Cluster explanation failed");
+    } finally {
+      setBusyClusterExplanationKey(null);
+    }
+  };
+
   const submitAlertRule = async () => {
     if (!alertRuleName.trim()) {
       setError("Alert rules need a name.");
@@ -2280,7 +2314,10 @@ export function Dashboard() {
               clusters={eventClusters}
               selectedCluster={selectedEventCluster}
               busyClusterKey={busyClusterKey}
+              busyClusterExplanationKey={busyClusterExplanationKey}
+              explanations={clusterExplanations}
               onSelectCluster={loadEventCluster}
+              onExplainCluster={explainEventCluster}
             />
             <ManualSubmissionPanel
               title={manualTitle}
@@ -2980,12 +3017,18 @@ function EventClusterPanel({
   clusters,
   selectedCluster,
   busyClusterKey,
+  busyClusterExplanationKey,
+  explanations,
   onSelectCluster,
+  onExplainCluster,
 }: {
   clusters: EventCluster[];
   selectedCluster: EventCluster | null;
   busyClusterKey: string | null;
+  busyClusterExplanationKey: string | null;
+  explanations: Record<string, EventClusterLlmExplanation>;
   onSelectCluster: (cluster: EventCluster) => void;
+  onExplainCluster: (cluster: EventCluster) => void;
 }) {
   return (
     <section className="section">
@@ -2998,6 +3041,7 @@ function EventClusterPanel({
           clusters.slice(0, 5).map((cluster) => {
             const expanded = selectedCluster?.cluster_key === cluster.cluster_key;
             const detail = expanded ? selectedCluster : cluster;
+            const llmExplanation = explanations[cluster.cluster_key];
             return (
               <div className="digest-section" key={cluster.cluster_key}>
                 <div className="cluster-head">
@@ -3061,6 +3105,33 @@ function EventClusterPanel({
                 </div>
                 {expanded ? (
                   <div className="cluster-evidence-list">
+                    <div className="cluster-explanation-actions">
+                      <button
+                        className="button"
+                        onClick={() => onExplainCluster(detail)}
+                        disabled={busyClusterExplanationKey === cluster.cluster_key}
+                        title="Generate LLM cluster explanation"
+                        type="button"
+                      >
+                        {busyClusterExplanationKey === cluster.cluster_key ? (
+                          <Loader2 className="spin" size={16} />
+                        ) : (
+                          <Bot size={16} />
+                        )}
+                        Explain
+                      </button>
+                      {llmExplanation ? (
+                        <span className="small-muted">
+                          {llmExplanation.model} · {llmExplanation.total_tokens} tokens
+                        </span>
+                      ) : null}
+                    </div>
+                    {llmExplanation ? (
+                      <div className="llm-explanation">
+                        <div className="digest-section-title">LLM Explanation</div>
+                        <div className="summary">{llmExplanation.explanation}</div>
+                      </div>
+                    ) : null}
                     <div className="digest-section-title">Uncertainty</div>
                     {detail.uncertainty_notes.map((note) => (
                       <div className="small-muted" key={note}>

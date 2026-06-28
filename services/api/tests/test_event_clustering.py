@@ -11,6 +11,7 @@ from app.services import event_clustering
 from app.services.event_clustering import (
     build_cluster_key,
     build_event_cluster,
+    build_event_cluster_llm_prompt,
     build_event_clusters_from_items,
     group_items_by_cluster,
     item_tickers,
@@ -72,6 +73,24 @@ def test_event_cluster_explains_single_source_uncertainties() -> None:
     assert any("No affected ticker was extracted" in note for note in cluster.uncertainty_notes)
 
 
+def test_event_cluster_llm_prompt_uses_evidence_and_guardrails() -> None:
+    cluster = build_event_cluster(
+        "strong|technical_trend|avgo",
+        [
+            make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
+            make_item(2, "Broadcom chip discussion", source_name="Hacker News", tickers=["AVGO"]),
+        ],
+    )
+
+    prompt = build_event_cluster_llm_prompt(cluster)
+
+    assert "Use only the supplied evidence" in prompt
+    assert "Do not provide investment advice" in prompt
+    assert "OpenAI and Broadcom unveil inference chip" in prompt
+    assert "Hacker News" in prompt
+    assert "AVGO" in prompt
+
+
 def test_event_clusters_can_be_retrieved_by_cluster_key() -> None:
     items = [
         make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
@@ -81,7 +100,10 @@ def test_event_clusters_can_be_retrieved_by_cluster_key() -> None:
 
     grouped = group_items_by_cluster(items)
     clusters = build_event_clusters_from_items(items, min_items=2)
-    cluster = build_event_cluster("strong|technical_trend|avgo", grouped["strong|technical_trend|avgo"])
+    cluster = build_event_cluster(
+        "strong|technical_trend|avgo",
+        grouped["strong|technical_trend|avgo"],
+    )
 
     assert len(clusters) == 1
     assert clusters[0].cluster_key == "strong|technical_trend|avgo"
@@ -198,6 +220,107 @@ async def test_get_cluster_route_raises_404_when_missing(monkeypatch) -> None:
 
     with pytest.raises(HTTPException) as exc_info:
         await events.get_cluster(cluster_key="missing", db=object())
+
+    assert exc_info.value.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_explain_cluster_route_uses_kimi_and_preferences(monkeypatch) -> None:
+    expected = build_event_cluster(
+        "strong|technical_trend|avgo",
+        [
+            make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
+            make_item(2, "Broadcom chip discussion", tickers=["AVGO"]),
+        ],
+    )
+    preferences = make_preferences()
+    seen: dict[str, object] = {}
+
+    monkeypatch.setattr(events, "get_user_preferences", lambda db: preferences)
+    monkeypatch.setattr(
+        events,
+        "get_settings",
+        lambda: SimpleNamespace(moonshot_api_key="test-key"),
+    )
+
+    def fake_get_event_cluster(
+        db,
+        cluster_key: str,
+        min_items: int = 1,
+        ranking_weights=None,
+        preferred_sources=None,
+        blocked_sources=None,
+    ):
+        seen["cluster_key"] = cluster_key
+        seen["min_items"] = min_items
+        seen["ranking_weights"] = ranking_weights
+        seen["preferred_sources"] = preferred_sources
+        seen["blocked_sources"] = blocked_sources
+        return expected
+
+    class FakeKimiClient:
+        def __init__(self, settings) -> None:
+            seen["settings"] = settings
+
+        async def create_message(self, prompt: str, max_tokens: int):
+            seen["prompt"] = prompt
+            seen["max_tokens"] = max_tokens
+            return SimpleNamespace(
+                model="kimi-test",
+                text="What happened: concise cluster explanation.",
+                input_tokens=20,
+                output_tokens=8,
+                total_tokens=28,
+            )
+
+    monkeypatch.setattr(events, "get_event_cluster", fake_get_event_cluster)
+    monkeypatch.setattr(events, "KimiCodingClient", FakeKimiClient)
+
+    result = await events.explain_cluster_with_llm(
+        cluster_key="strong|technical_trend|avgo",
+        db=object(),
+        min_items=2,
+    )
+
+    assert result.cluster_key == "strong|technical_trend|avgo"
+    assert result.model == "kimi-test"
+    assert result.explanation.startswith("What happened")
+    assert result.total_tokens == 28
+    assert seen["min_items"] == 2
+    assert seen["ranking_weights"] == preferences.ranking_weights
+    assert seen["preferred_sources"] == preferences.preferred_sources
+    assert seen["blocked_sources"] == preferences.blocked_sources
+    assert seen["max_tokens"] == 420
+    assert "OpenAI and Broadcom" in str(seen["prompt"])
+
+
+@pytest.mark.anyio
+async def test_explain_cluster_route_requires_kimi_key(monkeypatch) -> None:
+    monkeypatch.setattr(
+        events,
+        "get_settings",
+        lambda: SimpleNamespace(moonshot_api_key=None),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await events.explain_cluster_with_llm(cluster_key="cluster", db=object())
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "MOONSHOT_API_KEY is not configured."
+
+
+@pytest.mark.anyio
+async def test_explain_cluster_route_raises_404_when_missing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        events,
+        "get_settings",
+        lambda: SimpleNamespace(moonshot_api_key="test-key"),
+    )
+    monkeypatch.setattr(events, "get_user_preferences", lambda db: make_preferences())
+    monkeypatch.setattr(events, "get_event_cluster", lambda **_kwargs: None)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await events.explain_cluster_with_llm(cluster_key="missing", db=object())
 
     assert exc_info.value.status_code == 404
 

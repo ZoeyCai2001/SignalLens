@@ -128,7 +128,11 @@ def build_event_cluster(cluster_key: str, items: list[FeedItem]) -> EventCluster
     return EventCluster(
         cluster_key=cluster_key,
         title=build_cluster_title(representative, item_count=len(items), sources=sources),
-        main_summary=build_cluster_main_summary(representative, item_count=len(items), sources=sources),
+        main_summary=build_cluster_main_summary(
+            representative,
+            item_count=len(items),
+            sources=sources,
+        ),
         explanation=build_cluster_explanation(
             representative=representative,
             items=ranked_items,
@@ -215,7 +219,10 @@ def build_cluster_main_summary(item: FeedItem, item_count: int, sources: list[st
     base_summary = item.summary_short or item.why_it_matters or item.title
     if item_count <= 1:
         return f"{base_summary} Source: {source_text}."
-    return f"{base_summary} Cross-source cluster with {item_count} related items from {source_text}."
+    return (
+        f"{base_summary} Cross-source cluster with {item_count} related items "
+        f"from {source_text}."
+    )
 
 
 def build_cluster_explanation(
@@ -238,7 +245,8 @@ def build_cluster_explanation(
         evidence_bits.append(f"{len(items)} items were grouped by shared entities or title terms")
     if representative.stock_impact_score >= 0.35:
         evidence_bits.append(
-            f"the representative item has stock-impact score {round(representative.stock_impact_score * 100)}"
+            "the representative item has stock-impact score "
+            f"{round(representative.stock_impact_score * 100)}"
         )
     return "This cluster is surfaced because " + "; ".join(evidence_bits) + "."
 
@@ -252,7 +260,9 @@ def build_cluster_uncertainty_notes(
 ) -> list[str]:
     notes: list[str] = []
     if len(sources) <= 1:
-        notes.append("Only one source is currently represented, so cross-source confirmation is weak.")
+        notes.append(
+            "Only one source is currently represented, so cross-source confirmation is weak."
+        )
     if len(items) <= 1:
         notes.append("Only one item is currently grouped into this event.")
     average_confidence = (
@@ -263,8 +273,52 @@ def build_cluster_uncertainty_notes(
     if not tickers:
         notes.append("No affected ticker was extracted from the grouped items.")
     if first_seen_at is not None and last_seen_at is not None and first_seen_at == last_seen_at:
-        notes.append("The timeline has a single observed timestamp so event evolution is not established yet.")
+        notes.append(
+            "The timeline has a single observed timestamp so event evolution is not "
+            "established yet."
+        )
     return notes or ["No major uncertainty flags from the available cluster evidence."]
+
+
+def build_event_cluster_llm_prompt(cluster: EventCluster) -> str:
+    evidence_rows = [
+        (
+            f"- {item.title} | source={item.source_name} | "
+            f"importance={round(item.importance_score * 100)} | "
+            f"summary={item.summary_short or item.why_it_matters or item.title}"
+        )
+        for item in cluster.items[:6]
+    ]
+    timeline_rows = [
+        (
+            f"- {entry.published_at.isoformat() if entry.published_at else 'undated'} | "
+            f"{entry.source_name} | {entry.title}"
+        )
+        for entry in cluster.timeline[:8]
+    ]
+    return "\n".join(
+        [
+            "You are helping summarize an event cluster for a personal AI intelligence dashboard.",
+            "Write in concise English. Use only the supplied evidence.",
+            "Do not provide investment advice. For market impact, use conservative wording.",
+            "Return 3 short sections: What happened, Why it matters, What is uncertain.",
+            "",
+            f"Cluster title: {cluster.title}",
+            f"Category: {cluster.category}",
+            f"Tickers: {', '.join(cluster.tickers) if cluster.tickers else 'none'}",
+            f"Topics: {', '.join(cluster.topics) if cluster.topics else 'none'}",
+            f"Sources: {', '.join(cluster.sources) if cluster.sources else 'none'}",
+            f"Deterministic summary: {cluster.main_summary}",
+            f"Deterministic explanation: {cluster.explanation}",
+            f"Uncertainty notes: {' '.join(cluster.uncertainty_notes)}",
+            "",
+            "Evidence items:",
+            *evidence_rows,
+            "",
+            "Timeline:",
+            *timeline_rows,
+        ]
+    )
 
 
 def compute_cluster_confidence(items: list[FeedItem], sources: list[str]) -> float:

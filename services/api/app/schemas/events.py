@@ -37,3 +37,12 @@ class EventCluster(BaseModel):
     timeline: list[EventClusterTimelineItem]
     representative_item: FeedItem
     items: list[FeedItem]
+
+
+class EventClusterLlmExplanation(BaseModel):
+    cluster_key: str
+    model: str
+    explanation: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int

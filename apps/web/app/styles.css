@@ -728,6 +728,21 @@ table {
   padding-top: 8px;
 }
 
+.cluster-explanation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.llm-explanation {
+  display: grid;
+  gap: 6px;
+  border-radius: 7px;
+  background: var(--panel-soft);
+  padding: 8px;
+}
+
 .cluster-market-context {
   display: grid;
   gap: 6px;
