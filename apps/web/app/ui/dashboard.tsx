@@ -73,6 +73,8 @@ type FeedItemDetail = FeedItem & {
 
 type ManualSubmissionResponse = {
   item: FeedItem;
+  classification_status: "not_requested" | "succeeded" | "failed";
+  classification_error: string | null;
   summary_status: "not_requested" | "succeeded" | "failed";
   summary_error: string | null;
 };
@@ -713,6 +715,7 @@ export function Dashboard() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [manualClassifyWithLlm, setManualClassifyWithLlm] = useState(false);
   const [manualSummarizeWithLlm, setManualSummarizeWithLlm] = useState(false);
   const [stockTicker, setStockTicker] = useState("");
   const [stockCompany, setStockCompany] = useState("");
@@ -1531,6 +1534,7 @@ export function Dashboard() {
           title: manualTitle.trim() || null,
           url: manualUrl.trim(),
           text: manualText.trim() || null,
+          classify_with_llm: manualClassifyWithLlm,
           summarize_with_llm: manualSummarizeWithLlm,
         }),
       });
@@ -1540,13 +1544,27 @@ export function Dashboard() {
       setManualTitle("");
       setManualUrl("");
       setManualText("");
-      const statusMessage =
-        result.summary_status === "succeeded"
-          ? `Submitted and summarized item ${result.item.id}`
-          : `Submitted item ${result.item.id}`;
+      const completedLlmSteps = [
+        result.classification_status === "succeeded" ? "classified" : null,
+        result.summary_status === "succeeded" ? "summarized" : null,
+      ].filter((value): value is string => Boolean(value));
+      let statusMessage = `Submitted item ${result.item.id}`;
+      if (completedLlmSteps.length === 1) {
+        statusMessage = `Submitted and ${completedLlmSteps[0]} item ${result.item.id}`;
+      } else if (completedLlmSteps.length === 2) {
+        statusMessage = `Submitted, ${completedLlmSteps[0]}, and ${completedLlmSteps[1]} item ${result.item.id}`;
+      }
       await refreshAllWithStatus(statusMessage);
-      if (result.summary_status === "failed") {
-        setError(`Manual item saved, but Kimi summary failed: ${result.summary_error}`);
+      const llmErrors = [
+        result.classification_status === "failed"
+          ? `classification failed: ${result.classification_error ?? "unknown error"}`
+          : null,
+        result.summary_status === "failed"
+          ? `summary failed: ${result.summary_error ?? "unknown error"}`
+          : null,
+      ].filter((value): value is string => Boolean(value));
+      if (llmErrors.length) {
+        setError(`Manual item saved, but Kimi ${llmErrors.join("; ")}`);
       }
     } catch (err) {
       setError(readError(err));
@@ -2652,11 +2670,13 @@ export function Dashboard() {
               title={manualTitle}
               url={manualUrl}
               text={manualText}
+              classifyWithLlm={manualClassifyWithLlm}
               summarizeWithLlm={manualSummarizeWithLlm}
               disabled={loadState !== "idle"}
               onTitleChange={setManualTitle}
               onUrlChange={setManualUrl}
               onTextChange={setManualText}
+              onClassifyWithLlmChange={setManualClassifyWithLlm}
               onSummarizeWithLlmChange={setManualSummarizeWithLlm}
               onSubmit={submitManualItem}
             />
@@ -4239,25 +4259,39 @@ function ManualSubmissionPanel({
   title,
   url,
   text,
+  classifyWithLlm,
   summarizeWithLlm,
   disabled,
   onTitleChange,
   onUrlChange,
   onTextChange,
+  onClassifyWithLlmChange,
   onSummarizeWithLlmChange,
   onSubmit,
 }: {
   title: string;
   url: string;
   text: string;
+  classifyWithLlm: boolean;
   summarizeWithLlm: boolean;
   disabled: boolean;
   onTitleChange: (value: string) => void;
   onUrlChange: (value: string) => void;
   onTextChange: (value: string) => void;
+  onClassifyWithLlmChange: (value: boolean) => void;
   onSummarizeWithLlmChange: (value: boolean) => void;
   onSubmit: () => void;
 }) {
+  const hasLlmAction = classifyWithLlm || summarizeWithLlm;
+  const submitLabel = hasLlmAction
+    ? `Submit & ${[
+        classifyWithLlm ? "Classify" : null,
+        summarizeWithLlm ? "Summarize" : null,
+      ]
+        .filter(Boolean)
+        .join(" & ")}`
+    : "Submit";
+
   return (
     <section className="section">
       <div className="section-header">
@@ -4298,6 +4332,15 @@ function ManualSubmissionPanel({
         <label className="checkbox-row">
           <input
             type="checkbox"
+            checked={classifyWithLlm}
+            onChange={(event) => onClassifyWithLlmChange(event.target.checked)}
+            disabled={disabled}
+          />
+          Classify with Kimi
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
             checked={summarizeWithLlm}
             onChange={(event) => onSummarizeWithLlmChange(event.target.checked)}
             disabled={disabled}
@@ -4307,12 +4350,12 @@ function ManualSubmissionPanel({
         <button className="button primary" onClick={onSubmit} disabled={disabled}>
           {disabled ? (
             <Loader2 className="spin" size={16} />
-          ) : summarizeWithLlm ? (
+          ) : hasLlmAction ? (
             <Bot size={16} />
           ) : (
             <Send size={16} />
           )}
-          {summarizeWithLlm ? "Submit & Summarize" : "Submit"}
+          {submitLabel}
         </button>
       </div>
     </section>

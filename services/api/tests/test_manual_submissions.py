@@ -6,6 +6,7 @@ from app.db.models import Base, NormalizedItem
 from app.db.models import RawItem, Source
 from app.schemas.feed import FeedItem
 from app.schemas.manual_submissions import ManualSubmissionRequest
+from app.services.classification import ClassificationError
 from app.services.manual_submissions import (
     create_raw_manual_item,
     create_manual_normalized_item,
@@ -260,8 +261,12 @@ def test_manual_resubmission_updates_existing_url_item() -> None:
         assert raw_items[0].normalized_item.text == "Updated note about OpenAI agents."
 
 
-async def test_manual_submission_route_skips_llm_summary_by_default(monkeypatch) -> None:
+async def test_manual_submission_route_skips_llm_enrichment_by_default(monkeypatch) -> None:
     calls: list[str] = []
+
+    async def fake_classify_feed_item(**_kwargs) -> NormalizedItem:
+        calls.append("classify")
+        return make_normalized_manual_item()
 
     async def fake_summarize_feed_item(**_kwargs) -> NormalizedItem:
         calls.append("summarize")
@@ -272,6 +277,7 @@ async def test_manual_submission_route_skips_llm_summary_by_default(monkeypatch)
         "create_manual_submission",
         lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
     )
+    monkeypatch.setattr(manual_submission_routes, "classify_feed_item", fake_classify_feed_item)
     monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
 
     response = await manual_submission_routes.submit_manual_url(
@@ -280,18 +286,63 @@ async def test_manual_submission_route_skips_llm_summary_by_default(monkeypatch)
     )
 
     assert response.item.summary_short == "Manual summary"
+    assert response.classification_status == "not_requested"
+    assert response.classification_error is None
     assert response.summary_status == "not_requested"
     assert response.summary_error is None
     assert calls == []
 
 
-async def test_manual_submission_route_can_summarize_saved_item(monkeypatch) -> None:
+async def test_manual_submission_route_can_classify_and_summarize_saved_item(monkeypatch) -> None:
+    async def fake_classify_feed_item(**kwargs) -> NormalizedItem:
+        item = kwargs["item"]
+        item.category = "product"
+        item.subcategory = "manual_product"
+        item.topics = ["agent"]
+        item.products = ["AgentDesk"]
+        item.classification_confidence = 0.91
+        return item
+
     async def fake_summarize_feed_item(**kwargs) -> NormalizedItem:
         item = kwargs["item"]
         item.summary_short = "Kimi summary"
         item.summary_detailed = "Kimi detailed summary"
         item.why_it_matters = "Kimi why it matters"
         return item
+
+    monkeypatch.setattr(
+        manual_submission_routes,
+        "create_manual_submission",
+        lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
+    )
+    monkeypatch.setattr(manual_submission_routes, "classify_feed_item", fake_classify_feed_item)
+    monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
+    monkeypatch.setattr(manual_submission_routes, "get_settings", lambda: object())
+    monkeypatch.setattr(manual_submission_routes, "get_action", lambda *_args: None)
+
+    response = await manual_submission_routes.submit_manual_url(
+        request=ManualSubmissionRequest(
+            url="https://example.com/manual",
+            classify_with_llm=True,
+            summarize_with_llm=True,
+        ),
+        db=FakeManualSubmissionDb(make_normalized_manual_item()),
+    )
+
+    assert response.item.category == "product"
+    assert response.item.products == ["AgentDesk"]
+    assert response.item.summary_short == "Kimi summary"
+    assert response.item.summary_detailed == "Kimi detailed summary"
+    assert response.item.why_it_matters == "Kimi why it matters"
+    assert response.classification_status == "succeeded"
+    assert response.classification_error is None
+    assert response.summary_status == "succeeded"
+    assert response.summary_error is None
+
+
+async def test_manual_submission_route_keeps_item_when_llm_summary_fails(monkeypatch) -> None:
+    async def fake_summarize_feed_item(**_kwargs) -> NormalizedItem:
+        raise SummarizationError("Kimi unavailable")
 
     monkeypatch.setattr(
         manual_submission_routes,
@@ -310,36 +361,48 @@ async def test_manual_submission_route_can_summarize_saved_item(monkeypatch) -> 
         db=FakeManualSubmissionDb(make_normalized_manual_item()),
     )
 
-    assert response.item.summary_short == "Kimi summary"
-    assert response.item.summary_detailed == "Kimi detailed summary"
-    assert response.item.why_it_matters == "Kimi why it matters"
-    assert response.summary_status == "succeeded"
-    assert response.summary_error is None
+    assert response.item.summary_short == "Manual summary"
+    assert response.classification_status == "not_requested"
+    assert response.classification_error is None
+    assert response.summary_status == "failed"
+    assert response.summary_error == "Kimi unavailable"
 
 
-async def test_manual_submission_route_keeps_item_when_llm_summary_fails(monkeypatch) -> None:
-    async def fake_summarize_feed_item(**_kwargs) -> NormalizedItem:
-        raise SummarizationError("Kimi unavailable")
+async def test_manual_submission_route_can_summarize_after_llm_classification_fails(
+    monkeypatch,
+) -> None:
+    async def fake_classify_feed_item(**_kwargs) -> NormalizedItem:
+        raise ClassificationError("Kimi classification unavailable")
+
+    async def fake_summarize_feed_item(**kwargs) -> NormalizedItem:
+        item = kwargs["item"]
+        item.summary_short = "Kimi summary"
+        return item
 
     monkeypatch.setattr(
         manual_submission_routes,
         "create_manual_submission",
         lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
     )
+    monkeypatch.setattr(manual_submission_routes, "classify_feed_item", fake_classify_feed_item)
     monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
     monkeypatch.setattr(manual_submission_routes, "get_settings", lambda: object())
+    monkeypatch.setattr(manual_submission_routes, "get_action", lambda *_args: None)
 
     response = await manual_submission_routes.submit_manual_url(
         request=ManualSubmissionRequest(
             url="https://example.com/manual",
+            classify_with_llm=True,
             summarize_with_llm=True,
         ),
         db=FakeManualSubmissionDb(make_normalized_manual_item()),
     )
 
-    assert response.item.summary_short == "Manual summary"
-    assert response.summary_status == "failed"
-    assert response.summary_error == "Kimi unavailable"
+    assert response.item.summary_short == "Kimi summary"
+    assert response.classification_status == "failed"
+    assert response.classification_error == "Kimi classification unavailable"
+    assert response.summary_status == "succeeded"
+    assert response.summary_error is None
 
 
 def make_source() -> Source:

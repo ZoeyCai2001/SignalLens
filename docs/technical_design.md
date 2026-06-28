@@ -374,7 +374,7 @@ Company briefings aggregate matched items by source, topic, product, ticker, rec
 
 Manual submissions use deterministic company extraction for watched public tickers and private AI labs, so user-pasted company links can immediately flow into company search, company briefings, and company digest sections before any optional LLM processing.
 
-Manual URL submission stores and deterministically classifies the item by default to keep capture free and fast. The submission request can also set `summarize_with_llm=true`, which runs the normal Kimi summarizer after storage and returns `summary_status` plus an optional `summary_error`; summary failures keep the captured item instead of rolling back the manual submission.
+Manual URL submission stores and deterministically classifies the item by default to keep capture free and fast. The submission request can also set `classify_with_llm=true` and/or `summarize_with_llm=true`, which runs the normal Kimi classifier and summarizer after storage and returns independent `classification_status`, `classification_error`, `summary_status`, and `summary_error` fields; model failures keep the captured item instead of rolling back the manual submission.
 
 Manual URL submissions accept a URL without a user-supplied title. The backend infers a stable display title from the optional note text or URL path before storing the item, keeping the feed title contract non-null while reducing first-run submission friction.
 
