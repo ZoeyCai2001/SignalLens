@@ -16,6 +16,7 @@ class SearchIntent:
     query: str | None = None
     category: str | None = None
     ticker: str | None = None
+    company: str | None = None
     topic: str | None = None
     language: str | None = None
     date_from: date | None = None
@@ -29,6 +30,7 @@ def search_feed_items(
     source: str | None = None,
     category: str | None = None,
     ticker: str | None = None,
+    company: str | None = None,
     topic: str | None = None,
     language: str | None = None,
     date_from: date | None = None,
@@ -41,6 +43,7 @@ def search_feed_items(
     effective_query = intent.query if query and intent.query is not None else query
     effective_category = category or intent.category
     effective_ticker = ticker or intent.ticker
+    effective_company = company or intent.company
     effective_topic = topic or intent.topic
     effective_language = language or intent.language
     effective_date_from = date_from or intent.date_from
@@ -72,6 +75,10 @@ def search_feed_items(
                 NormalizedItem.summary_detailed.ilike(pattern),
                 NormalizedItem.why_it_matters.ilike(pattern),
                 NormalizedItem.source_name.ilike(pattern),
+                cast(NormalizedItem.tickers, String).ilike(pattern),
+                cast(NormalizedItem.companies, String).ilike(pattern),
+                cast(NormalizedItem.products, String).ilike(pattern),
+                cast(NormalizedItem.topics, String).ilike(pattern),
             )
         )
 
@@ -87,6 +94,12 @@ def search_feed_items(
     if normalized_ticker:
         statement = statement.filter(
             cast(NormalizedItem.tickers, String).ilike(f"%{normalized_ticker}%")
+        )
+
+    normalized_company = normalize_filter_value(effective_company)
+    if normalized_company:
+        statement = statement.filter(
+            cast(NormalizedItem.companies, String).ilike(f"%{normalized_company}%")
         )
 
     normalized_topic = normalize_filter_value(effective_topic)
@@ -154,6 +167,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
     category = infer_category(lowered)
     language = infer_language(lowered)
     ticker = next(iter(detect_tickers(normalized)), None)
+    company = infer_company(lowered)
     min_importance_score = (
         0.7
         if re.search(
@@ -174,6 +188,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         query=extract_search_keywords(normalized),
         category=category,
         ticker=ticker,
+        company=company,
         topic=topic,
         language=language,
         date_from=date_from,
@@ -235,6 +250,36 @@ def infer_topic(lowered_query: str) -> str | None:
         "semiconductor",
     ]
     return next((phrase for phrase in topic_phrases if phrase in lowered_query), None)
+
+
+def infer_company(lowered_query: str) -> str | None:
+    company_aliases = [
+        ("openai", "OpenAI"),
+        ("anthropic", "Anthropic"),
+        ("deepmind", "Google DeepMind"),
+        ("google deepmind", "Google DeepMind"),
+        ("nvidia", "NVIDIA"),
+        ("nvda", "NVIDIA"),
+        ("micron", "Micron"),
+        ("marvell", "Marvell"),
+        ("mrvl", "Marvell"),
+        ("sandisk", "SanDisk"),
+        ("sndk", "SanDisk"),
+        ("amd", "AMD"),
+        ("broadcom", "Broadcom"),
+        ("avgo", "Broadcom"),
+        ("tsmc", "TSMC"),
+        ("microsoft", "Microsoft"),
+        ("msft", "Microsoft"),
+        ("google", "Google"),
+        ("googl", "Google"),
+        ("amazon", "Amazon"),
+        ("amzn", "Amazon"),
+        ("meta", "Meta"),
+        ("oracle", "Oracle"),
+        ("orcl", "Oracle"),
+    ]
+    return next((company for alias, company in company_aliases if alias in lowered_query), None)
 
 
 def extract_search_keywords(query: str) -> str | None:

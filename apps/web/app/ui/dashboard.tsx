@@ -298,6 +298,7 @@ type SearchIntent = {
   query: string | null;
   category: string | null;
   ticker: string | null;
+  company: string | null;
   topic: string | null;
   language: string | null;
   date_from: string | null;
@@ -599,6 +600,7 @@ export function Dashboard() {
   const [searchSource, setSearchSource] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
   const [searchTicker, setSearchTicker] = useState("");
+  const [searchCompany, setSearchCompany] = useState("");
   const [searchTopic, setSearchTopic] = useState("");
   const [searchLanguage, setSearchLanguage] = useState("");
   const [searchDateFrom, setSearchDateFrom] = useState("");
@@ -994,6 +996,7 @@ export function Dashboard() {
         searchSource,
         searchCategory,
         searchTicker,
+        searchCompany,
         searchTopic,
         searchLanguage,
         searchDateFrom,
@@ -1020,6 +1023,7 @@ export function Dashboard() {
       if (searchSource.trim()) params.set("source", searchSource.trim());
       if (searchCategory.trim()) params.set("category", searchCategory.trim());
       if (searchTicker.trim()) params.set("ticker", searchTicker.trim().toUpperCase());
+      if (searchCompany.trim()) params.set("company", searchCompany.trim());
       if (searchTopic.trim()) params.set("topic", searchTopic.trim());
       if (searchLanguage.trim()) params.set("language", searchLanguage.trim().toLowerCase());
       if (searchDateFrom.trim()) params.set("date_from", searchDateFrom.trim());
@@ -1047,6 +1051,7 @@ export function Dashboard() {
     setSearchSource("");
     setSearchCategory("");
     setSearchTicker("");
+    setSearchCompany("");
     setSearchTopic("");
     setSearchLanguage("");
     setSearchDateFrom("");
@@ -1977,6 +1982,7 @@ export function Dashboard() {
               source={searchSource}
               category={searchCategory}
               ticker={searchTicker}
+              company={searchCompany}
               topic={searchTopic}
               language={searchLanguage}
               dateFrom={searchDateFrom}
@@ -1989,6 +1995,7 @@ export function Dashboard() {
               onSourceChange={(value) => updateSearchField(setSearchSource, value)}
               onCategoryChange={(value) => updateSearchField(setSearchCategory, value)}
               onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
+              onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
               onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
               onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
               onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
@@ -2861,6 +2868,7 @@ function SearchPanel({
   source,
   category,
   ticker,
+  company,
   topic,
   language,
   dateFrom,
@@ -2873,6 +2881,7 @@ function SearchPanel({
   onSourceChange,
   onCategoryChange,
   onTickerChange,
+  onCompanyChange,
   onTopicChange,
   onLanguageChange,
   onDateFromChange,
@@ -2886,6 +2895,7 @@ function SearchPanel({
   source: string;
   category: string;
   ticker: string;
+  company: string;
   topic: string;
   language: string;
   dateFrom: string;
@@ -2898,6 +2908,7 @@ function SearchPanel({
   onSourceChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
   onTickerChange: (value: string) => void;
+  onCompanyChange: (value: string) => void;
   onTopicChange: (value: string) => void;
   onLanguageChange: (value: string) => void;
   onDateFromChange: (value: string) => void;
@@ -2955,6 +2966,12 @@ function SearchPanel({
           value={ticker}
           onChange={(event) => onTickerChange(event.target.value)}
           placeholder="Ticker"
+        />
+        <input
+          className="field"
+          value={company}
+          onChange={(event) => onCompanyChange(event.target.value)}
+          placeholder="Company"
         />
         <input
           className="field"
@@ -5246,6 +5263,7 @@ function buildSearchIntentChips(intent: SearchIntent | null): string[] {
     intent.query ? `query: ${intent.query}` : null,
     intent.category ? `category: ${intent.category}` : null,
     intent.ticker ? `ticker: ${intent.ticker}` : null,
+    intent.company ? `company: ${intent.company}` : null,
     intent.topic ? `topic: ${intent.topic}` : null,
     intent.language ? `language: ${intent.language}` : null,
     intent.date_from ? `from: ${intent.date_from}` : null,

@@ -329,7 +329,7 @@ For MVP privacy, `shares` and `average_cost` should remain nullable and hidden u
 - `GET /api/search`
 - `POST /api/search/natural-language`
 
-Natural-language search infers category, ticker, topic, language, date, importance, and saved-item filters, then applies those inferred filters to the database query so dashboard search chips reflect the actual result set.
+Natural-language search infers category, ticker, company, topic, language, date, importance, and saved-item filters, then applies those inferred filters to the database query so dashboard search chips reflect the actual result set. Manual search filters include company entities, and free-text search matches stored entity arrays such as tickers, companies, products, and topics.
 
 ### Watchlists
 

@@ -38,6 +38,7 @@ def test_infer_search_intent_handles_recent_stock_query() -> None:
     )
 
     assert intent.ticker == "MRVL"
+    assert intent.company == "Marvell"
     assert intent.category == "stock_company_event"
     assert intent.topic == "ai data center"
     assert intent.query == "AI data center"
@@ -95,6 +96,7 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     response = SearchIntentResponse.model_validate(intent)
 
     assert response.ticker == "MRVL"
+    assert response.company == "Marvell"
     assert response.category == "stock_company_event"
     assert response.topic == "ai data center"
     assert response.query == "AI data center"
@@ -130,11 +132,65 @@ def test_search_feed_items_applies_inferred_topic_filter() -> None:
     assert [item.title for item in results] == ["Agent harness implementation notes"]
 
 
+def test_search_feed_items_filters_by_company() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "Model release",
+                    "Frontier model launch.",
+                    topics=["model release"],
+                    companies=["OpenAI"],
+                ),
+                make_search_item(
+                    2,
+                    "Benchmark update",
+                    "Benchmark discussion.",
+                    topics=["benchmark"],
+                    companies=["Anthropic"],
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, company="OpenAI")
+
+    assert [item.title for item in results] == ["Model release"]
+
+
+def test_search_feed_items_matches_company_entities_in_query() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            make_search_item(
+                1,
+                "Frontier model launch",
+                "New reasoning model launch.",
+                topics=["model release"],
+                companies=["OpenAI"],
+            )
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="OpenAI")
+
+    assert [item.title for item in results] == ["Frontier model launch"]
+
+
 def make_search_item(
     item_id: int,
     title: str,
     text: str,
     topics: list[str],
+    companies: list[str] | None = None,
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
@@ -149,7 +205,7 @@ def make_search_item(
         category="technical_trend",
         subcategory=None,
         tickers=[],
-        companies=[],
+        companies=companies or [],
         products=[],
         topics=topics,
         sentiment="neutral",

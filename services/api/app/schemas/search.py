@@ -9,6 +9,7 @@ class SearchIntentResponse(BaseModel):
     query: str | None = None
     category: str | None = None
     ticker: str | None = None
+    company: str | None = None
     topic: str | None = None
     language: str | None = None
     date_from: date | None = None
