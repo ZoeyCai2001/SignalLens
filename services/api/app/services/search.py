@@ -254,8 +254,8 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         if re.search(r"\b(recent|latest|this week|past week)\b", lowered)
         else None
     )
-    saved_only = bool(re.search(r"\b(saved|bookmarked)\b", lowered))
     read_status = infer_read_status(lowered)
+    saved_only = infer_saved_only(lowered)
     topic = infer_topic(lowered)
 
     return SearchIntent(
@@ -271,6 +271,10 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         saved_only=saved_only,
         read_status=read_status,
     )
+
+
+def infer_saved_only(lowered_query: str) -> bool:
+    return bool(re.search(r"\b(saved|bookmarked|read later|to read)\b", lowered_query))
 
 
 def infer_read_status(lowered_query: str) -> str | None:

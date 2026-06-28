@@ -116,6 +116,15 @@ def test_infer_search_intent_handles_unread_saved_query() -> None:
     assert intent.read_status == "unread"
 
 
+def test_infer_search_intent_treats_read_later_as_saved_unread() -> None:
+    intent = infer_search_intent("Show my read later agent harness items.")
+
+    assert intent.topic == "agent harness"
+    assert intent.query == "agent harness"
+    assert intent.saved_only is True
+    assert intent.read_status == "unread"
+
+
 def test_search_intent_response_serializes_inferred_filters() -> None:
     intent = infer_search_intent(
         "Show me recent news about MRVL and AI data centers.",

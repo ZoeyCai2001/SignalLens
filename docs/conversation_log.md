@@ -211,3 +211,4 @@ Implementation progress:
 - Added optional Kimi classification for manual URL submissions with independent classification and summary status reporting.
 - Added per-item read/unread state, dashboard read toggles, and unread-only saved items for the digest read-later section.
 - Added read-status search filtering, including natural-language inference for unread/read-later queries and a dashboard read-status filter.
+- Tightened read-later search intent so "read later" and "to read" resolve to saved-unread items, matching the digest reading queue.
