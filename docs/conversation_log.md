@@ -191,3 +191,4 @@ Implementation progress:
 - Added structured research contribution, method, and relevance readouts to research feed cards and item detail panels.
 - Ranked topic-briefing related papers by topic match and potential impact signals instead of raw query order.
 - Added deterministic English summaries, inferred product/use-case badges, and experimental markers for Chinese social and social-keyword signals.
+- Added an explicit daily digest generation endpoint and dashboard action so previews can be refreshed before copying or saving snapshots.

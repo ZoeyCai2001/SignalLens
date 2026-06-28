@@ -664,6 +664,7 @@ export function Dashboard() {
   const [busyTopicBriefing, setBusyTopicBriefing] = useState<string | null>(null);
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
   const [busyPreferences, setBusyPreferences] = useState(false);
+  const [busyDigestGenerate, setBusyDigestGenerate] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
   const [busyDigestSave, setBusyDigestSave] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
@@ -1197,6 +1198,23 @@ export function Dashboard() {
   const updateSavedOnlySearchFilter = (value: boolean) => {
     setSavedOnly(value);
     setSearchIntent(null);
+  };
+
+  const generateDailyDigest = async () => {
+    setBusyDigestGenerate(true);
+    setError(null);
+    try {
+      const generated = await fetchJson<DailyDigest>("/api/digest/daily/generate", {
+        method: "POST",
+      });
+      setDigest(generated);
+      setStatus(`Generated digest ${generated.digest_date}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Digest generation failed");
+    } finally {
+      setBusyDigestGenerate(false);
+    }
   };
 
   const copyDailyDigest = async () => {
@@ -2359,8 +2377,10 @@ export function Dashboard() {
             <DailyDigestPanel
               digest={digest}
               snapshots={digestSnapshots}
+              busyGenerate={busyDigestGenerate}
               busyCopy={busyDigestCopy}
               busySave={busyDigestSave}
+              onGenerate={generateDailyDigest}
               onCopy={copyDailyDigest}
               onSave={saveDailyDigestSnapshot}
             />
@@ -2930,15 +2950,19 @@ function AlertPanel({
 function DailyDigestPanel({
   digest,
   snapshots,
+  busyGenerate,
   busyCopy,
   busySave,
+  onGenerate,
   onCopy,
   onSave,
 }: {
   digest: DailyDigest | null;
   snapshots: DailyDigestSnapshot[];
+  busyGenerate: boolean;
   busyCopy: boolean;
   busySave: boolean;
+  onGenerate: () => void;
   onCopy: () => void;
   onSave: () => void;
 }) {
@@ -2948,6 +2972,15 @@ function DailyDigestPanel({
       <div className="section-header">
         <h2 className="section-title">Daily Digest</h2>
         <div className="table-actions">
+          <button
+            className="button icon-button"
+            onClick={onGenerate}
+            disabled={busyGenerate}
+            title="Generate digest preview"
+            aria-label="Generate digest preview"
+          >
+            {busyGenerate ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+          </button>
           <button
             className="button icon-button"
             onClick={onSave}

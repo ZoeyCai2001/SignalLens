@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.api.routes import digest as digest_routes
 from app.db.models import Base, CompanyWatchlistItem, NormalizedItem, UserPreference
 from app.db.models import DailyDigestSnapshot as DailyDigestSnapshotModel
 from app.schemas.digest import DailyDigest
@@ -88,6 +90,41 @@ def test_daily_digest_headline_handles_empty_day() -> None:
     headline = build_headline([], datetime(2026, 6, 25, tzinfo=UTC).date())
 
     assert headline == "No collected AI signals for 2026-06-25."
+
+
+@pytest.mark.anyio
+async def test_generate_daily_digest_route_uses_explicit_generation(monkeypatch) -> None:
+    digest = DailyDigest(
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+        headline="Generated digest",
+        total_items=0,
+        sections=[],
+        source_coverage=[],
+        disclaimer="For information organization only.",
+    )
+    calls = []
+
+    def fake_generate_daily_digest(db, digest_date=None, limit_per_section=5):
+        calls.append((db, digest_date, limit_per_section))
+        return digest
+
+    monkeypatch.setattr(
+        digest_routes,
+        "generate_daily_digest",
+        fake_generate_daily_digest,
+    )
+
+    result = await digest_routes.generate_daily_digest_now(
+        db="db-session",
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        limit_per_section=3,
+    )
+
+    assert result.headline == "Generated digest"
+    assert calls == [
+        ("db-session", datetime(2026, 6, 25, tzinfo=UTC).date(), 3),
+    ]
 
 
 def test_filter_items_by_excluded_topics_removes_digest_excluded_terms() -> None:
@@ -327,8 +364,18 @@ def test_generate_daily_digest_filters_language_preferences() -> None:
         )
         db.add_all(
             [
-                make_normalized_item(1, "English signal", source_name="Trusted Blog", language="en"),
-                make_normalized_item(2, "Chinese signal", source_name="Trusted Blog", language="zh"),
+                make_normalized_item(
+                    1,
+                    "English signal",
+                    source_name="Trusted Blog",
+                    language="en",
+                ),
+                make_normalized_item(
+                    2,
+                    "Chinese signal",
+                    source_name="Trusted Blog",
+                    language="zh",
+                ),
             ]
         )
         db.commit()

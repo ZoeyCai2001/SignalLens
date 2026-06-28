@@ -29,6 +29,19 @@ async def get_daily_digest(
     )
 
 
+@router.post("/daily/generate", response_model=DailyDigest)
+async def generate_daily_digest_now(
+    db: DbSession,
+    digest_date: Annotated[date | None, Query(alias="date")] = None,
+    limit_per_section: Annotated[int, Query(ge=1, le=10)] = 5,
+) -> DailyDigest:
+    return generate_daily_digest(
+        db=db,
+        digest_date=digest_date,
+        limit_per_section=limit_per_section,
+    )
+
+
 @router.get("/daily/markdown", response_model=DailyDigestMarkdown)
 async def get_daily_digest_markdown(
     db: DbSession,
