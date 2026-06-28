@@ -937,6 +937,29 @@ tr:last-child td {
   font-size: 11px;
 }
 
+.price-range-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.price-range-button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 760;
+  min-height: 26px;
+}
+
+.price-range-button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
 .price-chart-svg {
   width: 100%;
   height: 76px;

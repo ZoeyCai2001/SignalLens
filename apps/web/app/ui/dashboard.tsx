@@ -120,6 +120,8 @@ type StockMarketSnapshot = {
   history: StockPricePoint[];
 };
 
+type StockPriceRangeKey = "5d" | "1m" | "6m" | "1y";
+
 type StockSignalSummary = {
   stock: StockWatchlistItem;
   signal_count: number;
@@ -603,6 +605,7 @@ export function Dashboard() {
   const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
+  const [stockPriceSnapshot, setStockPriceSnapshot] = useState<StockMarketSnapshot | null>(null);
   const [stockLlmSummaries, setStockLlmSummaries] = useState<
     Record<string, StockBriefingLlmSummary>
   >({});
@@ -844,16 +847,28 @@ export function Dashboard() {
   useEffect(() => {
     if (!selectedTicker) {
       setStockBriefing(null);
+      setStockPriceSnapshot(null);
       return;
     }
 
     let cancelled = false;
     setBusyStockTicker(selectedTicker);
-    fetchJson<StockBriefing>(`/api/watchlist/stocks/${selectedTicker}/briefing?limit=8`)
-      .then((briefing) => {
-        if (!cancelled) {
-          setStockBriefing(briefing);
+    Promise.allSettled([
+      fetchJson<StockBriefing>(`/api/watchlist/stocks/${selectedTicker}/briefing?limit=8`),
+      fetchJson<StockMarketSnapshot | null>(
+        `/api/watchlist/stocks/${selectedTicker}/prices?limit=260`,
+      ),
+    ])
+      .then(([briefingResult, pricesResult]) => {
+        if (cancelled) {
+          return;
         }
+        if (briefingResult.status === "fulfilled") {
+          setStockBriefing(briefingResult.value);
+        } else {
+          setError(readError(briefingResult.reason));
+        }
+        setStockPriceSnapshot(pricesResult.status === "fulfilled" ? pricesResult.value : null);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -2370,6 +2385,7 @@ export function Dashboard() {
               stocks={stocks}
               signalSummaries={stockSignals}
               stockBriefing={stockBriefing}
+              stockPriceSnapshot={stockPriceSnapshot}
               stockLlmSummary={selectedTicker ? stockLlmSummaries[selectedTicker] ?? null : null}
               eventClusters={eventClusters}
               selectedTicker={selectedTicker}
@@ -3729,6 +3745,7 @@ function StockTable({
   stocks,
   signalSummaries,
   stockBriefing,
+  stockPriceSnapshot,
   stockLlmSummary,
   eventClusters,
   selectedTicker,
@@ -3753,6 +3770,7 @@ function StockTable({
   stocks: StockWatchlistItem[];
   signalSummaries: StockSignalSummary[];
   stockBriefing: StockBriefing | null;
+  stockPriceSnapshot: StockMarketSnapshot | null;
   stockLlmSummary: StockBriefingLlmSummary | null;
   eventClusters: EventCluster[];
   selectedTicker: string | null;
@@ -4014,6 +4032,7 @@ function StockTable({
       />
       <StockBriefingPanel
         briefing={stockBriefing}
+        priceSnapshot={stockPriceSnapshot}
         llmSummary={stockLlmSummary}
         eventClusters={eventClusters}
         loading={busyStockTicker === selectedTicker && selectedTicker !== null}
@@ -4191,6 +4210,7 @@ function StockDetailEditor({
 
 function StockBriefingPanel({
   briefing,
+  priceSnapshot,
   llmSummary,
   eventClusters,
   loading,
@@ -4199,6 +4219,7 @@ function StockBriefingPanel({
   onExplainStock,
 }: {
   briefing: StockBriefing | null;
+  priceSnapshot: StockMarketSnapshot | null;
   llmSummary: StockBriefingLlmSummary | null;
   eventClusters: EventCluster[];
   loading: boolean;
@@ -4296,7 +4317,7 @@ function StockBriefingPanel({
         </div>
       </div>
 
-      <StockPriceChart market={briefing.market} />
+      <StockPriceChart market={priceSnapshot ?? briefing.market} />
 
       {llmSummary ? (
         <div className="digest-section">
@@ -4446,28 +4467,52 @@ function StockBriefingPanel({
   );
 }
 
+const STOCK_PRICE_RANGES: { key: StockPriceRangeKey; label: string; days: number }[] = [
+  { key: "5d", label: "5D", days: 5 },
+  { key: "1m", label: "1M", days: 31 },
+  { key: "6m", label: "6M", days: 183 },
+  { key: "1y", label: "1Y", days: 366 },
+];
+
 function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
+  const [rangeKey, setRangeKey] = useState<StockPriceRangeKey>("1m");
   const history = market?.history ?? [];
-  if (history.length < 2) {
+  const selectedRange =
+    STOCK_PRICE_RANGES.find((range) => range.key === rangeKey) ?? STOCK_PRICE_RANGES[1]!;
+  const latestHistoryDate = parsePriceDate(history[history.length - 1]?.price_date);
+  const rangedHistory =
+    latestHistoryDate === null
+      ? history
+      : history.filter((point) => {
+          const pointDate = parsePriceDate(point.price_date);
+          if (pointDate === null) {
+            return true;
+          }
+          const ageMs = latestHistoryDate.getTime() - pointDate.getTime();
+          return ageMs <= selectedRange.days * 24 * 60 * 60 * 1000;
+        });
+  const visibleHistory = rangedHistory.length >= 2 ? rangedHistory : history;
+
+  if (visibleHistory.length < 2) {
     return <div className="empty-state">No price history loaded yet.</div>;
   }
 
   const width = 280;
   const height = 76;
   const padding = 8;
-  const closes = history.map((point) => point.close_price);
+  const closes = visibleHistory.map((point) => point.close_price);
   const min = Math.min(...closes);
   const max = Math.max(...closes);
   const range = max - min || 1;
-  const chartPoints = history.map((point, index) => {
-    const x = padding + (index / (history.length - 1)) * (width - padding * 2);
+  const chartPoints = visibleHistory.map((point, index) => {
+    const x = padding + (index / (visibleHistory.length - 1)) * (width - padding * 2);
     const y = height - padding - ((point.close_price - min) / range) * (height - padding * 2);
     return { x, y };
   });
   const points = chartPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
   const latestChartPoint = chartPoints[chartPoints.length - 1]!;
-  const first = history[0]!;
-  const latest = history[history.length - 1]!;
+  const first = visibleHistory[0]!;
+  const latest = visibleHistory[visibleHistory.length - 1]!;
   const trendClass = marketChangeClass(market?.change ?? null);
 
   return (
@@ -4475,6 +4520,18 @@ function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
       <div className="price-chart-head">
         <span className="digest-section-title">Price History</span>
         <span className={`small-muted ${trendClass}`}>{formatChange(market)}</span>
+      </div>
+      <div className="price-range-controls" aria-label="Price range">
+        {STOCK_PRICE_RANGES.map((rangeOption) => (
+          <button
+            className={`price-range-button ${rangeKey === rangeOption.key ? "active" : ""}`}
+            key={rangeOption.key}
+            onClick={() => setRangeKey(rangeOption.key)}
+            type="button"
+          >
+            {rangeOption.label}
+          </button>
+        ))}
       </div>
       <svg className="price-chart-svg" viewBox={`0 0 ${width} ${height}`} role="img">
         <polyline className="price-chart-line" points={points} />
@@ -4495,6 +4552,14 @@ function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
       </div>
     </div>
   );
+}
+
+function parsePriceDate(value: string | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function CompanyWatchlistPanel({

@@ -186,3 +186,4 @@ Implementation progress:
 - Adjusted feed summary presentation so cards prefer short LLM summaries while expanded item details retain the detailed summary, matching the PRD's scan-first dashboard behavior.
 - Added PRD stock-sensitive alert categories for earnings/guidance mentions, analyst actions, supply-chain signals, and multi-source theme breakouts, with dashboard rule-category options.
 - Made scheduled ingestion cycles respect custom followed-source polling intervals, so user-configured frequencies such as hourly, daily, or every 6 hours throttle source runs instead of running every enabled source every cycle.
+- Added extended selected-stock price history fetching and 5D, 1M, 6M, and 1Y dashboard chart controls for the PRD stock detail page.
