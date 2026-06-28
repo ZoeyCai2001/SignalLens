@@ -443,6 +443,7 @@ Recommended UI behavior:
 - Keep open feed details synchronized with summarize, classify, save, hide, and important actions so item feedback is visible in both the list card and expanded detail panel.
 - Keep saved-item state synchronized with per-item enrichment, manual resubmission, and feedback actions so the Saved Items module reflects updated titles, notes, summaries, classifier scores, and important flags without a manual refresh.
 - Keep open detail panels synchronized after global refreshes, source-preference updates, manual submissions, per-item enrichment, and feed feedback actions so feed details, event clusters, alerts, digest sections, and watchlist briefings do not continue showing hidden, stale, or blocked-source signals.
+- Preserve operation-specific status messages after dashboard-wide refreshes triggered by ingestion, LLM, watchlist, alert, source, and ranking actions so successful user commands are not overwritten by generic load status.
 - Keep the financial disclaimer visible on stock pages and stock summaries.
 - Render a local stock-disclaimer fallback in the dashboard so the non-financial-advice notice remains visible before stock summaries load or when no stock signals exist.
 

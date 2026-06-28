@@ -924,10 +924,9 @@ export function Dashboard() {
         items_fetched: number;
         items_stored: number;
       }>(`/api/ingestion/${source}?limit=${limit}`, { method: "POST" });
-      setStatus(
+      await refreshAllWithStatus(
         `${result.source_name}: ${result.items_fetched} fetched, ${result.items_stored} stored`,
       );
-      await refreshAll();
     } catch (err) {
       setError(readError(err));
       setStatus("Ingestion failed");
@@ -990,13 +989,11 @@ export function Dashboard() {
           min_classification_confidence: 0.7,
         }),
       });
-      setStatus(
-        `${label}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped`,
-      );
+      const nextStatus = `${label}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped`;
       if (result.errors.length) {
         setError(`${result.errors.length} LLM item errors; see API response logs.`);
       }
-      await refreshAll();
+      await refreshAllWithStatus(nextStatus);
     } catch (err) {
       setError(readError(err));
       setStatus("LLM batch failed");
@@ -1029,8 +1026,7 @@ export function Dashboard() {
       setRankingDraft(updated.ranking_weights);
       setPreferredSourcesDraft(updated.preferred_sources.join(", "));
       setBlockedSourcesDraft(updated.blocked_sources.join(", "));
-      setStatus("Updated ranking preferences");
-      await refreshAll();
+      await refreshAllWithStatus("Updated ranking preferences");
     } catch (err) {
       setError(readError(err));
       setStatus("Ranking preference update failed");
@@ -1276,8 +1272,7 @@ export function Dashboard() {
       setStockCompany("");
       setStockThemes("");
       setStockKeywords("");
-      setStatus(`Added ${created.ticker}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Added ${created.ticker}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Stock add failed");
@@ -1301,8 +1296,7 @@ export function Dashboard() {
         setSelectedTicker(remainingStocks[0]?.ticker ?? null);
         setStockBriefing(null);
       }
-      setStatus(`Removed ${ticker}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Removed ${ticker}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Stock remove failed");
@@ -1335,8 +1329,7 @@ export function Dashboard() {
       if (stockBriefing?.stock.ticker === updated.ticker) {
         setStockBriefing({ ...stockBriefing, stock: updated });
       }
-      setStatus(`Updated ${updated.ticker}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Updated ${updated.ticker}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Stock update failed");
@@ -1372,8 +1365,7 @@ export function Dashboard() {
       setCompanyTicker("");
       setCompanyCategory("ai_company");
       setCompanyTerms("");
-      setStatus(`Added company ${created.company_name}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Added company ${created.company_name}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Company add failed");
@@ -1403,8 +1395,7 @@ export function Dashboard() {
       if (companyBriefing?.company.company_key === updated.company_key) {
         setCompanyBriefing({ ...companyBriefing, company: updated });
       }
-      setStatus(`Updated company ${updated.company_name}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Updated company ${updated.company_name}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Company update failed");
@@ -1427,8 +1418,7 @@ export function Dashboard() {
         setSelectedCompanyKey(remainingCompanies[0]?.company_key ?? null);
         setCompanyBriefing(null);
       }
-      setStatus(`Removed company ${companyKey}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Removed company ${companyKey}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Company remove failed");
@@ -1461,8 +1451,7 @@ export function Dashboard() {
       setTopicLabel("");
       setTopicCategory("technical_trend");
       setTopicTerms("");
-      setStatus(`Added topic ${created.label}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Added topic ${created.label}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Topic add failed");
@@ -1485,8 +1474,7 @@ export function Dashboard() {
         setSelectedTopic(remainingTopics[0]?.topic ?? null);
         setTopicBriefing(null);
       }
-      setStatus(`Removed topic ${topic}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Removed topic ${topic}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Topic remove failed");
@@ -1514,8 +1502,7 @@ export function Dashboard() {
       if (topicBriefing?.topic.topic === updated.topic) {
         setTopicBriefing({ ...topicBriefing, topic: updated });
       }
-      setStatus(`Updated topic ${updated.label}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Updated topic ${updated.label}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Topic update failed");
@@ -1549,8 +1536,7 @@ export function Dashboard() {
       setProductCategory("");
       setProductLabel("");
       setProductTerms("");
-      setStatus(`Added product category ${created.label}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Added product category ${created.label}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Product category add failed");
@@ -1580,8 +1566,7 @@ export function Dashboard() {
       if (productBriefing?.product.category === updated.category) {
         setProductBriefing({ ...productBriefing, product: updated });
       }
-      setStatus(`Updated product category ${updated.label}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Updated product category ${updated.label}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Product category update failed");
@@ -1604,8 +1589,7 @@ export function Dashboard() {
         setSelectedProductCategory(remainingProducts[0]?.category ?? null);
         setProductBriefing(null);
       }
-      setStatus(`Removed product category ${category}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Removed product category ${category}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Product category remove failed");
@@ -1658,7 +1642,7 @@ export function Dashboard() {
         method: "POST",
       });
       setAlerts((items) => items.filter((item) => item.id !== alertId));
-      setStatus(`Dismissed alert ${alertId}`);
+      await refreshAllWithStatus(`Dismissed alert ${alertId}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Alert action failed");
@@ -1676,8 +1660,9 @@ export function Dashboard() {
         body: JSON.stringify({ enabled: !rule.enabled }),
       });
       setAlertRules((items) => items.map((item) => (item.id === updated.id ? updated : item)));
-      setStatus(`${updated.enabled ? "Enabled" : "Disabled"} alert rule ${updated.name}`);
-      await refreshAll();
+      await refreshAllWithStatus(
+        `${updated.enabled ? "Enabled" : "Disabled"} alert rule ${updated.name}`,
+      );
     } catch (err) {
       setError(readError(err));
       setStatus("Alert rule update failed");
@@ -1693,8 +1678,7 @@ export function Dashboard() {
       await sendRequest(`/api/alerts/rules/${ruleId}`, { method: "DELETE" });
       setAlertRules((items) => items.filter((item) => item.id !== ruleId));
       setAlerts((items) => items.filter((item) => item.rule.id !== ruleId));
-      setStatus(`Deleted alert rule ${ruleId}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Deleted alert rule ${ruleId}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Alert rule delete failed");
@@ -1750,8 +1734,7 @@ export function Dashboard() {
       setAlertRuleTickers("");
       setAlertRuleTopics("");
       setAlertRuleImportance("0.75");
-      setStatus(`Added alert rule ${created.name}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Added alert rule ${created.name}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Alert rule add failed");
@@ -1808,8 +1791,7 @@ export function Dashboard() {
       setSourceBaseUrl("");
       setSourceTermsNotes("");
       setSources((items) => [...items, created].sort((a, b) => a.priority - b.priority));
-      setStatus(`Following source ${created.name}`);
-      await refreshAll();
+      await refreshAllWithStatus(`Following source ${created.name}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Source add failed");
@@ -1828,10 +1810,9 @@ export function Dashboard() {
         items_fetched: number;
         items_stored: number;
       }>(`/api/sources/${source.id}/run`, { method: "POST" });
-      setStatus(
+      await refreshAllWithStatus(
         `${result.source_name}: ${result.status}, ${result.items_fetched} fetched, ${result.items_stored} stored`,
       );
-      await refreshAll();
     } catch (err) {
       setError(readError(err));
       setStatus("Source run failed");

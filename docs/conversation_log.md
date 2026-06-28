@@ -156,3 +156,4 @@ Implementation progress:
 - Applied blocked-source preferences to stock, company, topic, and product watchlist summaries and drill-down briefings.
 - Synchronized open dashboard detail panels after refreshes and source-preference updates so stale feed details, event clusters, and watchlist briefings are cleared or reloaded.
 - Triggered dashboard-wide refreshes after manual submissions, per-item summarize/classify actions, and save/hide/important feedback so digest, alerts, event clusters, and drill-down panels stay current.
+- Preserved operation-specific dashboard status after ingestion, LLM, watchlist, alert, source, and ranking refreshes so successful actions are not overwritten by generic load messages.
