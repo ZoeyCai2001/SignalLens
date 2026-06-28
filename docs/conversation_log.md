@@ -130,3 +130,4 @@ Implementation progress:
 - Added company-aware search across the API, natural-language intent, backend filtering, free-text entity matching, and the dashboard search controls.
 - Added deterministic company detection for manual submissions so pasted OpenAI, Anthropic, and watched ticker links populate company entities without requiring an LLM call.
 - Extended deterministic company extraction to normalized ingestion items so RSS, finance, and community signals populate company entities before optional LLM classification.
+- Added deterministic AI product detection for ingestion and manual submissions so product modules can surface known tools before optional LLM enrichment.

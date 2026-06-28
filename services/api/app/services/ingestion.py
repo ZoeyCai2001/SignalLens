@@ -19,6 +19,7 @@ from app.services.scoring import (
     TICKER_ALIASES,
     company_names_for_tickers,
     detect_companies,
+    detect_products,
     detect_tickers,
     detect_topics,
     importance_score,
@@ -633,8 +634,14 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
                     if str(item.get("ticker", "")).strip()
                 ],
             }
-        )
+    )
     companies = sorted({*detect_companies(combined_text), *company_names_for_tickers(tickers)})
+    products = sorted(
+        {
+            *detect_products(combined_text),
+            *([raw.raw_metadata["product_name"]] if raw.raw_metadata.get("product_name") else []),
+        }
+    )
     source_quality = source_quality_score_for_source(source)
     relevance = relevance_score(combined_text)
     importance = importance_score(source_quality_score=source_quality, text=combined_text)
@@ -729,7 +736,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         subcategory=subcategory,
         tickers=tickers,
         companies=companies,
-        products=[raw.raw_metadata["product_name"]] if raw.raw_metadata.get("product_name") else [],
+        products=products,
         topics=topics,
         sentiment="neutral",
         relevance_score=relevance,

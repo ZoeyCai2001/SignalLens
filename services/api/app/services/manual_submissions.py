@@ -15,6 +15,7 @@ from app.services.ingestion import (
 )
 from app.services.scoring import (
     detect_companies,
+    detect_products,
     detect_tickers,
     detect_topics,
     importance_score,
@@ -183,18 +184,8 @@ def detect_manual_products(title: str, text: str) -> list[str]:
         if 2 <= len(candidate) <= 60:
             products.append(candidate)
 
-    known_products = [
-        "ChatGPT",
-        "Claude",
-        "Cursor",
-        "Perplexity",
-        "Midjourney",
-        "Runway",
-        "Gemini",
-        "Copilot",
-    ]
-    for product in known_products:
-        if product.lower() in text.lower() and product not in products:
+    for product in detect_products(text):
+        if product not in products:
             products.append(product)
     return products[:6]
 

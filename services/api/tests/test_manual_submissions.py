@@ -55,6 +55,19 @@ def test_manual_enrichment_routes_ai_product_submissions() -> None:
     assert item.importance_score > 0.3
 
 
+def test_manual_enrichment_detects_known_ai_products() -> None:
+    source = make_source()
+    raw = make_raw(
+        title="Claude and Cursor workflow update",
+        text="Claude and Cursor improve AI coding agent workflows.",
+    )
+    item = create_manual_normalized_item(raw=raw, source=source)
+
+    enrich_manual_normalized_item(item, raw)
+
+    assert item.products == ["Claude", "Cursor"]
+
+
 def test_manual_enrichment_routes_stock_submissions_with_tickers() -> None:
     source = make_source()
     raw = make_raw(

@@ -1,6 +1,7 @@
 from app.services.scoring import (
     company_names_for_tickers,
     detect_companies,
+    detect_products,
     detect_tickers,
     detect_topics,
     is_ai_relevant,
@@ -32,6 +33,12 @@ def test_detect_companies_maps_public_and_private_ai_companies() -> None:
 
 def test_company_names_for_tickers_uses_canonical_names_with_fallback() -> None:
     assert company_names_for_tickers(["MRVL", "UNKNOWN"]) == ["Marvell Technology", "UNKNOWN"]
+
+
+def test_detect_products_maps_known_ai_product_names() -> None:
+    text = "ChatGPT, Claude, Cursor, and GitHub Copilot shipped agent updates."
+
+    assert detect_products(text) == ["ChatGPT", "Claude", "Copilot", "Cursor"]
 
 
 def test_ai_relevance_detects_chinese_ai_terms() -> None:

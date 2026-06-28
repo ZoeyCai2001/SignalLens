@@ -115,6 +115,21 @@ PRIVATE_AI_COMPANY_ALIASES = {
     "Mistral AI": ["Mistral AI", "Mistral"],
 }
 
+AI_PRODUCT_ALIASES = {
+    "ChatGPT": ["ChatGPT"],
+    "Claude": ["Claude"],
+    "Cursor": ["Cursor"],
+    "Perplexity": ["Perplexity"],
+    "Midjourney": ["Midjourney"],
+    "Runway": ["Runway"],
+    "Gemini": ["Gemini"],
+    "Copilot": ["Copilot", "GitHub Copilot"],
+    "Sora": ["Sora"],
+    "Devin": ["Devin"],
+    "DeepSeek": ["DeepSeek"],
+    "Hugging Face Spaces": ["Hugging Face Space", "Hugging Face Spaces"],
+}
+
 
 def detect_topics(text: str) -> list[str]:
     normalized = text.lower()
@@ -142,6 +157,16 @@ def detect_companies(text: str) -> list[str]:
 
 def company_names_for_tickers(tickers: list[str]) -> list[str]:
     return sorted({TICKER_COMPANY_NAMES.get(ticker, ticker) for ticker in tickers})
+
+
+def detect_products(text: str) -> list[str]:
+    normalized = text.lower()
+    detected = {
+        product
+        for product, aliases in AI_PRODUCT_ALIASES.items()
+        if any(alias.lower() in normalized for alias in aliases)
+    }
+    return sorted(detected)
 
 
 def is_ai_relevant(text: str) -> bool:

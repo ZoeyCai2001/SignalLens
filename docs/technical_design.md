@@ -364,6 +364,8 @@ Manual submissions use deterministic company extraction for watched public ticke
 
 Ingestion normalization applies the same deterministic company extraction to provider, RSS, and community items, including ticker-to-company mapping from finance metadata. This lets company search, briefings, and digest sections work before optional LLM classification enriches the item.
 
+Ingestion and manual submission normalization also detect common AI product names such as ChatGPT, Claude, Cursor, Perplexity, Copilot, Sora, and related tools so AI Products modules and product briefings have useful entity data before LLM enrichment.
+
 ### Stocks
 
 - `GET /api/stocks/watchlist-dashboard`

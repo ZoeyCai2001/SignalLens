@@ -99,4 +99,5 @@ def test_rss_normalization_detects_private_ai_lab_companies() -> None:
 
     assert item is not None
     assert item.companies == ["OpenAI"]
+    assert item.products == ["ChatGPT"]
     assert item.subcategory == "company_blog"
