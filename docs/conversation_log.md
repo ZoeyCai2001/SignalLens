@@ -199,3 +199,4 @@ Implementation progress:
 - Added computed social-signal scoring from GitHub, Hacker News, and Product Hunt metadata, with feed ranking, digest ordering, dashboard scores, and ranking-weight controls using the new PRD engagement signal.
 - Organized the selected stock detail view into Overview, Signals, Clusters, and Summary tabs so stock research is easier to scan without changing the backend contracts.
 - Added an explicit dashboard action to generate alerts now, showing newly created and active alert counts after evaluating alert rules.
+- Added private feed-item personal notes and manual tags, including persistence on user item actions, a feed metadata API, and an expanded item detail editor.

@@ -60,6 +60,8 @@ type FeedItem = {
   is_saved: boolean;
   is_hidden: boolean;
   is_important: boolean;
+  personal_note: string | null;
+  manual_tags: string[];
 };
 
 type FeedItemDetail = FeedItem & {
@@ -670,6 +672,7 @@ export function Dashboard() {
   const [activeModule, setActiveModule] = useState<ModuleKey>("dashboard");
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [busyDetailItemId, setBusyDetailItemId] = useState<number | null>(null);
+  const [busyMetadataItemId, setBusyMetadataItemId] = useState<number | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
   const [busyAlertRuleId, setBusyAlertRuleId] = useState<number | null>(null);
   const [busyAlertGenerate, setBusyAlertGenerate] = useState(false);
@@ -1365,6 +1368,36 @@ export function Dashboard() {
       setStatus("Classification failed");
     } finally {
       setBusyItemId(null);
+    }
+  };
+
+  const saveFeedItemPersonalMetadata = async (
+    itemId: number,
+    personalNote: string,
+    manualTags: string,
+  ) => {
+    setBusyMetadataItemId(itemId);
+    setError(null);
+    try {
+      const updated = await fetchJson<FeedItemDetail>(
+        `/api/feed/${itemId}/personal-metadata`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            personal_note: personalNote.trim() || null,
+            manual_tags: splitTerms(manualTags),
+          }),
+        },
+      );
+      setSelectedFeedDetail(updated);
+      setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+      setSavedItems((items) => syncSavedFeedItem(items, updated));
+      setStatus(`Saved note for item ${itemId}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Saving item note failed");
+    } finally {
+      setBusyMetadataItemId(null);
     }
   };
 
@@ -2411,10 +2444,12 @@ export function Dashboard() {
                       busy={busyItemId === item.id}
                       detail={selectedFeedDetail?.id === item.id ? selectedFeedDetail : null}
                       busyDetail={busyDetailItemId === item.id}
+                      busyMetadata={busyMetadataItemId === item.id}
                       onSummarize={summarizeItem}
                       onClassify={classifyItem}
                       onDetail={loadFeedDetail}
                       onAction={updateFeedAction}
+                      onPersonalMetadataSave={saveFeedItemPersonalMetadata}
                     />
                   ))
                 ) : (
@@ -3575,15 +3610,18 @@ function FeedCard({
   busy,
   detail,
   busyDetail,
+  busyMetadata,
   onSummarize,
   onClassify,
   onDetail,
   onAction,
+  onPersonalMetadataSave,
 }: {
   item: FeedItem;
   busy: boolean;
   detail: FeedItemDetail | null;
   busyDetail: boolean;
+  busyMetadata: boolean;
   onSummarize: (itemId: number) => void;
   onClassify: (itemId: number) => void;
   onDetail: (itemId: number) => void;
@@ -3591,6 +3629,7 @@ function FeedCard({
     itemId: number,
     action: "save" | "unsave" | "hide" | "mark-important",
   ) => void;
+  onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
 }) {
   const researchInsights = parseResearchInsights(item);
   const displaySummary = item.summary_short || (researchInsights ? null : item.summary_detailed);
@@ -3710,7 +3749,13 @@ function FeedCard({
           </a>
         </div>
       </div>
-      {detail ? <FeedDetailPanel detail={detail} /> : null}
+      {detail ? (
+        <FeedDetailPanel
+          detail={detail}
+          busy={busyMetadata}
+          onPersonalMetadataSave={onPersonalMetadataSave}
+        />
+      ) : null}
     </article>
   );
 }
@@ -3739,8 +3784,24 @@ function buildFeedCardExplanation(item: FeedItem): string {
   return `${formatCategoryLabel(item.category)} item selected because it has ${signalText}.${relatedText}`;
 }
 
-function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
+function FeedDetailPanel({
+  detail,
+  busy,
+  onPersonalMetadataSave,
+}: {
+  detail: FeedItemDetail;
+  busy: boolean;
+  onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
+}) {
   const researchInsights = parseResearchInsights(detail);
+  const [personalNote, setPersonalNote] = useState(detail.personal_note ?? "");
+  const [manualTags, setManualTags] = useState(detail.manual_tags.join(", "));
+
+  useEffect(() => {
+    setPersonalNote(detail.personal_note ?? "");
+    setManualTags(detail.manual_tags.join(", "));
+  }, [detail.id, detail.manual_tags, detail.personal_note]);
+
   return (
     <div className="feed-detail-panel">
       <div className="section-header">
@@ -3759,6 +3820,11 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
         {detail.is_saved ? <span className="badge">saved</span> : null}
         {detail.is_important ? <span className="badge stock">important</span> : null}
         {detail.is_hidden ? <span className="badge muted-badge">hidden</span> : null}
+        {detail.manual_tags.map((tag) => (
+          <span className="badge" key={`manual:${tag}`}>
+            {tag}
+          </span>
+        ))}
         {detail.companies.slice(0, 6).map((company) => (
           <span className="badge" key={company}>
             {company}
@@ -3769,6 +3835,37 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
             {product}
           </span>
         ))}
+      </div>
+      <div className="detail-note-editor">
+        <label className="weight-field">
+          <span className="field-label">Personal Note</span>
+          <textarea
+            className="field textarea"
+            value={personalNote}
+            onChange={(event) => setPersonalNote(event.target.value)}
+            disabled={busy}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Manual Tags</span>
+          <input
+            className="field"
+            value={manualTags}
+            onChange={(event) => setManualTags(event.target.value)}
+            disabled={busy}
+          />
+        </label>
+        <div className="toolbar">
+          <button
+            className="button primary"
+            onClick={() => onPersonalMetadataSave(detail.id, personalNote, manualTags)}
+            disabled={busy}
+            type="button"
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+            Save
+          </button>
+        </div>
       </div>
       {detail.why_it_matters ? (
         <div className="summary">

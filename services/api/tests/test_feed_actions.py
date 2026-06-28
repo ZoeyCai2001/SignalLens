@@ -22,6 +22,7 @@ from app.services.feed_actions import (
     serialize_feed_item,
     serialize_feed_item_detail,
     social_signal_score_for_item,
+    update_item_personal_metadata,
     weighted_feed_score,
 )
 
@@ -143,6 +144,32 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
     assert "saved by you" in detail.score_explanation
     assert "marked important by you" in detail.score_explanation
     assert detail.uncertainty_notes == ["No major uncertainty flags from the stored item signals."]
+
+
+def test_update_item_personal_metadata_saves_note_and_normalized_tags() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        item = make_normalized_item(1, "Saved reading item", language="en")
+        db.add(item)
+        db.commit()
+
+        detail = update_item_personal_metadata(
+            db=db,
+            item=item,
+            personal_note="  Review for weekend digest.  ",
+            manual_tags=[" Agent ", "agent", "market impact", ""],
+        )
+
+        assert detail.personal_note == "Review for weekend digest."
+        assert detail.manual_tags == ["Agent", "market impact"]
+        assert detail.action_state == {
+            "is_saved": False,
+            "is_hidden": False,
+            "is_important": False,
+        }
 
 
 def test_build_score_explanation_flags_lower_confidence_and_source_credibility() -> None:

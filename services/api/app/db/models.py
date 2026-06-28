@@ -134,6 +134,8 @@ class UserItemAction(Base, TimestampMixin):
     is_saved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_important: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    personal_note: Mapped[str | None] = mapped_column(Text)
+    manual_tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
     item: Mapped[NormalizedItem] = relationship(back_populates="user_actions")
 

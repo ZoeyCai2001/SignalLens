@@ -42,6 +42,8 @@ def serialize_feed_item(
         data.is_saved = action.is_saved
         data.is_hidden = action.is_hidden
         data.is_important = action.is_important
+        data.personal_note = action.personal_note
+        data.manual_tags = normalize_manual_tags(action.manual_tags)
     return data
 
 
@@ -499,3 +501,32 @@ def update_item_action(
     db.commit()
     db.refresh(action)
     return serialize_feed_item(item, action)
+
+
+def update_item_personal_metadata(
+    db: Session,
+    item: NormalizedItem,
+    personal_note: str | None,
+    manual_tags: list[str],
+) -> FeedItemDetail:
+    action = get_or_create_action(db, item.id)
+    normalized_note = str(personal_note or "").strip()
+    action.personal_note = normalized_note or None
+    action.manual_tags = normalize_manual_tags(manual_tags)
+
+    db.add(action)
+    db.commit()
+    db.refresh(action)
+    return serialize_feed_item_detail(item, action)
+
+
+def normalize_manual_tags(values: list[str] | None) -> list[str]:
+    seen = set()
+    tags = []
+    for value in values or []:
+        normalized = " ".join(str(value).strip().split())
+        key = normalized.lower()
+        if normalized and key not in seen:
+            tags.append(normalized[:60])
+            seen.add(key)
+    return tags[:12]

@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.db.models import NormalizedItem
-from app.schemas.feed import FeedItem, FeedItemDetail
+from app.schemas.feed import FeedItem, FeedItemDetail, FeedItemPersonalMetadataUpdate
 from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import (
     get_action,
@@ -11,6 +11,7 @@ from app.services.feed_actions import (
     serialize_feed_item,
     serialize_feed_item_detail,
     update_item_action,
+    update_item_personal_metadata,
 )
 from app.services.preferences import get_user_preferences
 from app.services.summarization import SummarizationError, summarize_feed_item
@@ -102,6 +103,21 @@ async def hide_item(item_id: int, db: DbSession) -> FeedItem:
 async def mark_item_important(item_id: int, db: DbSession) -> FeedItem:
     item = get_feed_item_or_404(db, item_id)
     return update_item_action(db=db, item=item, action_name="mark-important")
+
+
+@router.patch("/{item_id}/personal-metadata", response_model=FeedItemDetail)
+async def update_item_personal_metadata_route(
+    item_id: int,
+    payload: FeedItemPersonalMetadataUpdate,
+    db: DbSession,
+) -> FeedItemDetail:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_personal_metadata(
+        db=db,
+        item=item,
+        personal_note=payload.personal_note,
+        manual_tags=payload.manual_tags,
+    )
 
 
 def get_feed_item_or_404(db: DbSession, item_id: int) -> NormalizedItem:

@@ -220,6 +220,8 @@ stock_attention_score =
 
 The MVP computes these as deterministic functions over stored fields, source metadata, and explicit local feedback. Hidden items are removed from personal views, marked-important items are ranked first, and saved items receive a lightweight ranking boost so the main feed gradually reflects what the user keeps. Feed responses compute `social_signal_score` from free engagement metadata such as GitHub stars/stars-per-day/forks, Hacker News score/comment count, and Product Hunt votes/comments, then use that score in ranking and digest ordering without requiring an additional paid API or schema migration. Feed item details include deterministic uncertainty notes derived from classifier confidence, source quality, stock-impact linkage, summary availability, and manual-submission context so every expanded item can be audited before acting on it.
 
+Per-item personal metadata is stored on `user_item_actions` rather than the source item itself. Expanded feed details can save a private personal note and normalized manual tags through `PATCH /api/feed/{item_id}/personal-metadata`, supporting the PRD saved-article notes and manual-tag workflow while keeping reading context user-local.
+
 Source quality is deterministic in the MVP. Structured research and official APIs receive the highest baseline credibility; community, RSS, manual, and experimental sources receive lower baseline scores. The stored `source_quality_score` is then used by ranking, importance, and digest selection without requiring an LLM call.
 
 Daily digest ordering uses a deterministic blended score across importance, relevance, source quality, classifier confidence, social signal, stock impact, and novelty. This keeps the morning briefing biased toward useful and trustworthy items while preserving high-priority user-marked items at the top. Digest generation also applies local visibility rules, so hidden items and blocked sources are excluded from date selection, section contents, source coverage, markdown export, and saved snapshots.
@@ -328,6 +330,7 @@ For MVP privacy, `shares` and `average_cost` remain nullable and hidden in the d
 - `POST /api/feed/{item_id}/save`
 - `POST /api/feed/{item_id}/hide`
 - `POST /api/feed/{item_id}/mark-important`
+- `PATCH /api/feed/{item_id}/personal-metadata`
 
 ### Search
 

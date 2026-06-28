@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class FeedItem(BaseModel):
@@ -31,6 +31,8 @@ class FeedItem(BaseModel):
     is_saved: bool = False
     is_hidden: bool = False
     is_important: bool = False
+    personal_note: str | None = None
+    manual_tags: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,3 +47,8 @@ class FeedItemDetail(FeedItem):
     score_explanation: str
     uncertainty_notes: list[str]
     action_state: dict[str, bool]
+
+
+class FeedItemPersonalMetadataUpdate(BaseModel):
+    personal_note: str | None = None
+    manual_tags: list[str] = Field(default_factory=list)
