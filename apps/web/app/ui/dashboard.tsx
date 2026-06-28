@@ -757,6 +757,11 @@ export function Dashboard() {
     void refreshAll();
   }, [refreshAll]);
 
+  const refreshAllWithStatus = async (nextStatus: string) => {
+    await refreshAll();
+    setStatus(nextStatus);
+  };
+
   useEffect(() => {
     if (!selectedTicker && stocks.length) {
       setSelectedTicker(stocks[0].ticker);
@@ -1187,7 +1192,7 @@ export function Dashboard() {
       setFeed((items) => items.map((item) => (item.id === itemId ? summarized : item)));
       setSavedItems((items) => syncSavedFeedItem(items, summarized));
       setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, summarized));
-      setStatus(`Summarized item ${itemId}`);
+      await refreshAllWithStatus(`Summarized item ${itemId}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Summarization failed");
@@ -1206,7 +1211,7 @@ export function Dashboard() {
       setFeed((items) => items.map((item) => (item.id === itemId ? classified : item)));
       setSavedItems((items) => syncSavedFeedItem(items, classified));
       setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, classified));
-      setStatus(`Classified item ${itemId}`);
+      await refreshAllWithStatus(`Classified item ${itemId}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Classification failed");
@@ -1238,7 +1243,7 @@ export function Dashboard() {
       setManualTitle("");
       setManualUrl("");
       setManualText("");
-      setStatus(`Submitted item ${result.item.id}`);
+      await refreshAllWithStatus(`Submitted item ${result.item.id}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Manual submission failed");
@@ -1623,17 +1628,19 @@ export function Dashboard() {
         setFeed((items) => items.filter((item) => item.id !== itemId));
         setSavedItems((items) => items.filter((item) => item.id !== itemId));
         setSelectedFeedDetail((detail) => (detail?.id === itemId ? null : detail));
-        setStatus(`Hidden item ${itemId}`);
+        await refreshAllWithStatus(`Hidden item ${itemId}`);
       } else if (action === "unsave") {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
         setSavedItems((items) => syncSavedFeedItem(items, updated));
         setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
-        setStatus(`Removed saved item ${itemId}`);
+        await refreshAllWithStatus(`Removed saved item ${itemId}`);
       } else {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
         setSavedItems((items) => syncSavedFeedItem(items, updated));
         setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
-        setStatus(action === "save" ? `Saved item ${itemId}` : `Marked item ${itemId}`);
+        await refreshAllWithStatus(
+          action === "save" ? `Saved item ${itemId}` : `Marked item ${itemId}`,
+        );
       }
     } catch (err) {
       setError(readError(err));

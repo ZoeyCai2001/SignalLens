@@ -155,3 +155,4 @@ Implementation progress:
 - Applied blocked-source preferences to batch LLM candidate selection so blocked sources do not consume summarization or classification budget.
 - Applied blocked-source preferences to stock, company, topic, and product watchlist summaries and drill-down briefings.
 - Synchronized open dashboard detail panels after refreshes and source-preference updates so stale feed details, event clusters, and watchlist briefings are cleared or reloaded.
+- Triggered dashboard-wide refreshes after manual submissions, per-item summarize/classify actions, and save/hide/important feedback so digest, alerts, event clusters, and drill-down panels stay current.
