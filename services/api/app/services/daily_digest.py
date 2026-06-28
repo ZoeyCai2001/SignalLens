@@ -402,8 +402,9 @@ def digest_rank_score(item: FeedItem) -> float:
         + 0.22 * item.relevance_score
         + 0.16 * item.source_quality_score
         + 0.12 * item.classification_confidence
-        + 0.10 * item.stock_impact_score
-        + 0.08 * item.novelty_score,
+        + 0.08 * item.social_signal_score
+        + 0.06 * item.stock_impact_score
+        + 0.04 * item.novelty_score,
         4,
     )
 

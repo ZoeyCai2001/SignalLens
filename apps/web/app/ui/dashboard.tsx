@@ -52,6 +52,7 @@ type FeedItem = {
   importance_score: number;
   novelty_score: number;
   source_quality_score: number;
+  social_signal_score: number;
   stock_impact_score: number;
   summary_short: string | null;
   summary_detailed: string | null;
@@ -535,6 +536,7 @@ type RankingWeights = {
   importance: number;
   novelty: number;
   source_quality: number;
+  social_signal: number;
   stock_impact: number;
   freshness: number;
 };
@@ -586,6 +588,7 @@ const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
   importance: 0.2,
   novelty: 0.15,
   source_quality: 0.15,
+  social_signal: 0.1,
   stock_impact: 0.1,
   freshness: 0.05,
 };
@@ -595,6 +598,7 @@ const rankingWeightFields: { key: keyof RankingWeights; label: string }[] = [
   { key: "importance", label: "Importance" },
   { key: "novelty", label: "Novelty" },
   { key: "source_quality", label: "Source" },
+  { key: "social_signal", label: "Social" },
   { key: "stock_impact", label: "Stock" },
   { key: "freshness", label: "Freshness" },
 ];
@@ -3582,6 +3586,7 @@ function FeedCard({
         <Score label="Relevance" value={item.relevance_score} />
         <Score label="Confidence" value={item.classification_confidence} />
         <Score label="Source" value={item.source_quality_score} />
+        <Score label="Social" value={item.social_signal_score} />
         <Score label="Importance" value={item.importance_score} />
         <Score label="Novelty" value={item.novelty_score} />
         <Score label="Stock" value={item.stock_impact_score} />
@@ -3676,6 +3681,7 @@ function buildFeedCardExplanation(item: FeedItem): string {
     item.relevance_score >= 0.72 ? "high AI relevance" : null,
     item.importance_score >= 0.72 ? "high importance" : null,
     item.novelty_score >= 0.72 ? "novel signal" : null,
+    item.social_signal_score >= 0.65 ? "strong source engagement" : null,
     item.stock_impact_score >= 0.45 ? "stock-watchlist impact" : null,
   ].filter(Boolean);
   const signalText =
@@ -3700,6 +3706,7 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
       <div className="summary">{detail.score_explanation}</div>
       <div className="score-grid">
         <Score label="Source" value={detail.source_quality_score} />
+        <Score label="Social" value={detail.social_signal_score} />
         <Score label="Relevance" value={detail.relevance_score} />
         <Score label="Importance" value={detail.importance_score} />
         <Score label="Stock" value={detail.stock_impact_score} />

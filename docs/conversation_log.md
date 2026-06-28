@@ -196,3 +196,4 @@ Implementation progress:
 - Made the stock watchlist table default to attention-score ordering, with a watchlist-order mode for manual reorder controls.
 - Adjusted stock table attention ordering to keep pinned watchlist stocks above unpinned names, matching the PRD pinning rule.
 - Added LLM batch cost-control telemetry so manual classification/summarization responses and dashboard status show attempted model calls against the capped budget.
+- Added computed social-signal scoring from GitHub, Hacker News, and Product Hunt metadata, with feed ranking, digest ordering, dashboard scores, and ranking-weight controls using the new PRD engagement signal.

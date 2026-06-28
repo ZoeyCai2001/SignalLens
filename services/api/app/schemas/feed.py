@@ -23,6 +23,7 @@ class FeedItem(BaseModel):
     importance_score: float
     novelty_score: float
     source_quality_score: float
+    social_signal_score: float = 0
     stock_impact_score: float
     summary_short: str | None
     summary_detailed: str | None

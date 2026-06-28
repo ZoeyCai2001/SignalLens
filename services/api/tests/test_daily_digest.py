@@ -86,6 +86,31 @@ def test_sort_for_digest_uses_source_quality_and_confidence() -> None:
     assert digest_rank_score(trusted) > digest_rank_score(lower_trust)
 
 
+def test_sort_for_digest_uses_social_signal() -> None:
+    quiet = make_item(
+        1,
+        "Quiet product signal",
+        "product",
+        0.7,
+        source_quality_score=0.7,
+        classification_confidence=0.7,
+    )
+    popular = make_item(
+        2,
+        "Popular product signal",
+        "product",
+        0.7,
+        source_quality_score=0.7,
+        classification_confidence=0.7,
+    )
+    popular.social_signal_score = 0.9
+
+    ranked = sort_for_digest([quiet, popular])
+
+    assert ranked[0].title == "Popular product signal"
+    assert digest_rank_score(popular) > digest_rank_score(quiet)
+
+
 def test_daily_digest_headline_handles_empty_day() -> None:
     headline = build_headline([], datetime(2026, 6, 25, tzinfo=UTC).date())
 

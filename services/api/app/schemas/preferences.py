@@ -6,6 +6,7 @@ class RankingWeights(BaseModel):
     importance: float = Field(default=0.20, ge=0, le=1)
     novelty: float = Field(default=0.15, ge=0, le=1)
     source_quality: float = Field(default=0.15, ge=0, le=1)
+    social_signal: float = Field(default=0.10, ge=0, le=1)
     stock_impact: float = Field(default=0.10, ge=0, le=1)
     freshness: float = Field(default=0.05, ge=0, le=1)
 

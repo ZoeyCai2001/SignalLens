@@ -37,6 +37,7 @@ def serialize_feed_item(
     action: UserItemAction | None = None,
 ) -> FeedItem:
     data = FeedItem.model_validate(item)
+    data.social_signal_score = social_signal_score_for_item(item)
     if action:
         data.is_saved = action.is_saved
         data.is_hidden = action.is_hidden
@@ -74,6 +75,8 @@ def build_score_explanation(item: FeedItem) -> str:
         reasons.append("high source credibility")
     elif item.source_quality_score < 0.6:
         reasons.append("lower source credibility; review the original source")
+    if item.social_signal_score >= 0.65:
+        reasons.append("strong source engagement signal")
     if item.classification_confidence < 0.6:
         reasons.append("lower classifier confidence")
     if item.importance_score >= 0.75:
@@ -221,6 +224,7 @@ def weighted_feed_score(
         + weights.importance * item.importance_score
         + weights.novelty * item.novelty_score
         + weights.source_quality * item.source_quality_score
+        + weights.social_signal * item.social_signal_score
         + weights.stock_impact * item.stock_impact_score
         + weights.freshness * freshness_score(item, now=reference_time)
         + source_bonus
@@ -247,6 +251,49 @@ def freshness_score(item: FeedItem, now: datetime | None = None) -> float:
         published_at = published_at.replace(tzinfo=UTC)
     age_hours = max(0, (reference_time - published_at).total_seconds() / 3600)
     return round(max(0, 1 - age_hours / 72), 4)
+
+
+def social_signal_score_for_item(item: NormalizedItem) -> float:
+    raw_metadata = item.raw_item.raw_metadata if item.raw_item else {}
+    source_name = item.source_name.lower()
+
+    if "github" in source_name:
+        return bounded_social_score(
+            0.45 * scaled_metric(raw_metadata.get("stars"), 5000)
+            + 0.35 * scaled_metric(raw_metadata.get("stars_per_day"), 50)
+            + 0.20 * scaled_metric(raw_metadata.get("forks"), 1000)
+        )
+    if "hacker news" in source_name:
+        return bounded_social_score(
+            0.60 * scaled_metric(raw_metadata.get("score"), 500)
+            + 0.30 * scaled_metric(raw_metadata.get("descendants"), 200)
+            + 0.10 * scaled_metric(raw_metadata.get("top_comment_count"), 10)
+        )
+    if "product hunt" in source_name:
+        return bounded_social_score(
+            0.70 * scaled_metric(raw_metadata.get("votes_count"), 1000)
+            + 0.30 * scaled_metric(raw_metadata.get("comments_count"), 100)
+        )
+
+    return bounded_social_score(
+        0.45 * scaled_metric(raw_metadata.get("likes"), 1000)
+        + 0.30 * scaled_metric(raw_metadata.get("comments"), 200)
+        + 0.25 * scaled_metric(raw_metadata.get("views"), 50000)
+    )
+
+
+def scaled_metric(value: object, denominator: float) -> float:
+    if denominator <= 0:
+        return 0
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return 0
+    return min(max(parsed, 0) / denominator, 1)
+
+
+def bounded_social_score(value: float) -> float:
+    return round(min(max(value, 0), 1), 3)
 
 
 def normalize_source_names(values: list[str] | None) -> set[str]:

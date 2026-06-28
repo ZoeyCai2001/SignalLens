@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Base, NormalizedItem, UserItemAction
+from app.db.models import Base, NormalizedItem, RawItem, UserItemAction
 from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
@@ -21,6 +21,7 @@ from app.services.feed_actions import (
     rank_feed_items,
     serialize_feed_item,
     serialize_feed_item_detail,
+    social_signal_score_for_item,
     weighted_feed_score,
 )
 
@@ -58,6 +59,41 @@ def test_serialize_feed_item_includes_user_action_flags() -> None:
     assert serialized.is_saved is True
     assert serialized.is_hidden is False
     assert serialized.is_important is True
+
+
+def test_serialize_feed_item_computes_social_signal_from_raw_metadata() -> None:
+    item = NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Popular repository",
+        url="https://github.com/example/agent",
+        source_name="GitHub",
+        language="en",
+        category="technical_trend",
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=["agent"],
+        sentiment="neutral",
+        relevance_score=0.5,
+        importance_score=0.4,
+        novelty_score=1.0,
+        source_quality_score=0.75,
+        stock_impact_score=0,
+        raw_item=RawItem(
+            id=1,
+            source_id=1,
+            url="https://github.com/example/agent",
+            raw_title="Popular repository",
+            raw_metadata={"stars": 5000, "stars_per_day": 50, "forks": 1000},
+            content_hash="hash",
+        ),
+    )
+
+    serialized = serialize_feed_item(item)
+
+    assert serialized.social_signal_score == 1
+    assert social_signal_score_for_item(item) == 1
 
 
 def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> None:
@@ -203,6 +239,29 @@ def test_rank_feed_items_uses_configurable_weights() -> None:
     )
 
     assert [item.title for item in ranked] == ["Relevant", "Important"]
+
+
+def test_rank_feed_items_uses_social_signal_weight() -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+    quiet = make_feed_item(1, "Quiet launch", relevance_score=0.5, importance_score=0.5)
+    popular = make_feed_item(2, "Popular launch", relevance_score=0.5, importance_score=0.5)
+    popular.social_signal_score = 0.9
+
+    ranked = rank_feed_items(
+        [quiet, popular],
+        ranking_weights=RankingWeights(
+            relevance=0,
+            importance=0,
+            novelty=0,
+            source_quality=0,
+            social_signal=1,
+            stock_impact=0,
+            freshness=0,
+        ),
+        now=now,
+    )
+
+    assert [item.title for item in ranked] == ["Popular launch", "Quiet launch"]
 
 
 def test_weighted_feed_score_boosts_preferred_sources() -> None:
