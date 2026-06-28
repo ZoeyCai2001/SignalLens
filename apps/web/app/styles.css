@@ -709,6 +709,19 @@ table {
   padding-top: 8px;
 }
 
+.cluster-timeline {
+  display: grid;
+  gap: 4px;
+}
+
+.cluster-timeline-row {
+  display: grid;
+  grid-template-columns: minmax(88px, auto) minmax(0, 1fr) auto;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .cluster-evidence-row {
   display: grid;
   gap: 3px;

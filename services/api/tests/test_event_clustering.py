@@ -45,6 +45,12 @@ def test_event_cluster_builds_representative_summary() -> None:
     assert cluster.sources == ["RSS", "Hacker News"]
     assert cluster.representative_item.title == "OpenAI and Broadcom unveil inference chip"
     assert "2 related items" in cluster.title
+    assert "Cross-source cluster with 2 related items" in cluster.main_summary
+    assert cluster.earliest_source == "Hacker News"
+    assert cluster.latest_update_at == datetime(2026, 6, 25, 12, 3, tzinfo=UTC)
+    assert cluster.confidence == 0.62
+    assert cluster.importance_score == cluster.top_score
+    assert [item.source_name for item in cluster.timeline] == ["Hacker News", "RSS"]
 
 
 def test_event_clusters_can_be_retrieved_by_cluster_key() -> None:

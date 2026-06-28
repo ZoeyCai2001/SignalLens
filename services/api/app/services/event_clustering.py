@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.schemas.events import EventCluster
+from app.schemas.events import EventCluster, EventClusterTimelineItem
 from app.schemas.feed import FeedItem
 from app.services.feed_actions import list_visible_feed_items
 from app.services.scoring import detect_tickers
@@ -95,18 +95,29 @@ def build_event_cluster(cluster_key: str, items: list[FeedItem]) -> EventCluster
     topics = most_common_values(value for item in items for value in item.topics)
     tickers = most_common_values(value for item in items for value in item_tickers(item))
     sources = most_common_values(item.source_name for item in items)
+    timeline = build_cluster_timeline(items)
+    first_seen_at = min(timestamps) if timestamps else None
+    last_seen_at = max(timestamps) if timestamps else None
+    earliest_source = timeline[0].source_name if timeline else None
+    top_score = max(item.importance_score for item in items)
 
     return EventCluster(
         cluster_key=cluster_key,
         title=build_cluster_title(representative, item_count=len(items), sources=sources),
+        main_summary=build_cluster_main_summary(representative, item_count=len(items), sources=sources),
         category=representative.category,
         topics=topics[:8],
         tickers=tickers[:6],
         sources=sources,
         item_count=len(items),
-        top_score=max(item.importance_score for item in items),
-        first_seen_at=min(timestamps) if timestamps else None,
-        last_seen_at=max(timestamps) if timestamps else None,
+        top_score=top_score,
+        importance_score=top_score,
+        confidence=compute_cluster_confidence(items=items, sources=sources),
+        earliest_source=earliest_source,
+        first_seen_at=first_seen_at,
+        last_seen_at=last_seen_at,
+        latest_update_at=last_seen_at,
+        timeline=timeline,
         representative_item=representative,
         items=ranked_items[:5],
     )
@@ -149,3 +160,40 @@ def build_cluster_title(item: FeedItem, item_count: int, sources: list[str]) -> 
         return item.title
     source_text = ", ".join(sources[:3])
     return f"{item.title} ({item_count} related items from {source_text})"
+
+
+def build_cluster_main_summary(item: FeedItem, item_count: int, sources: list[str]) -> str:
+    source_text = ", ".join(sources[:3]) if sources else item.source_name
+    base_summary = item.summary_short or item.why_it_matters or item.title
+    if item_count <= 1:
+        return f"{base_summary} Source: {source_text}."
+    return f"{base_summary} Cross-source cluster with {item_count} related items from {source_text}."
+
+
+def compute_cluster_confidence(items: list[FeedItem], sources: list[str]) -> float:
+    if not items:
+        return 0
+    average_item_confidence = sum(item.classification_confidence for item in items) / len(items)
+    source_bonus = min(max(len(sources) - 1, 0) * 0.08, 0.2)
+    item_bonus = min(max(len(items) - 1, 0) * 0.04, 0.16)
+    return round(min(1, average_item_confidence + source_bonus + item_bonus), 3)
+
+
+def build_cluster_timeline(items: list[FeedItem], limit: int = 8) -> list[EventClusterTimelineItem]:
+    timeline_items = sorted(
+        items,
+        key=lambda item: (
+            item.published_at or datetime.min,
+            item.id,
+        ),
+    )
+    return [
+        EventClusterTimelineItem(
+            item_id=item.id,
+            title=item.title,
+            source_name=item.source_name,
+            published_at=item.published_at,
+            importance_score=item.importance_score,
+        )
+        for item in timeline_items[:limit]
+    ]

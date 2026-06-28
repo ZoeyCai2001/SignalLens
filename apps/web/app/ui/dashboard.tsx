@@ -350,16 +350,30 @@ type DailyDigestSnapshot = {
 type EventCluster = {
   cluster_key: string;
   title: string;
+  main_summary: string;
   category: string;
   topics: string[];
   tickers: string[];
   sources: string[];
   item_count: number;
   top_score: number;
+  importance_score: number;
+  confidence: number;
+  earliest_source: string | null;
   first_seen_at: string | null;
   last_seen_at: string | null;
+  latest_update_at: string | null;
+  timeline: EventClusterTimelineItem[];
   representative_item: FeedItem;
   items: FeedItem[];
+};
+
+type EventClusterTimelineItem = {
+  item_id: number;
+  title: string;
+  source_name: string;
+  published_at: string | null;
+  importance_score: number;
 };
 
 type AlertItem = {
@@ -2271,6 +2285,14 @@ function EventClusterPanel({
                       {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"} ·{" "}
                       {cluster.sources.slice(0, 2).join(", ")}
                     </div>
+                    <div className="small-muted">
+                      Confidence {Math.round(cluster.confidence * 100)} · Importance{" "}
+                      {Math.round(cluster.importance_score * 100)}
+                      {cluster.earliest_source ? ` · first ${cluster.earliest_source}` : ""}
+                      {cluster.latest_update_at
+                        ? ` · latest ${formatDate(cluster.latest_update_at)}`
+                        : ""}
+                    </div>
                     <a
                       className="digest-link"
                       href={cluster.representative_item.url}
@@ -2300,6 +2322,19 @@ function EventClusterPanel({
                     <span className="badge" key={label}>
                       {label}
                     </span>
+                  ))}
+                </div>
+                <div className="summary">{cluster.main_summary}</div>
+                <div className="cluster-timeline">
+                  {cluster.timeline.slice(0, 4).map((event) => (
+                    <div
+                      className="cluster-timeline-row"
+                      key={`${cluster.cluster_key}-${event.item_id}`}
+                    >
+                      <span>{event.published_at ? formatDate(event.published_at) : "undated"}</span>
+                      <span>{event.source_name}</span>
+                      <span>{Math.round(event.importance_score * 100)}</span>
+                    </div>
                   ))}
                 </div>
                 {expanded ? (
