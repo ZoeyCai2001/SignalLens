@@ -80,8 +80,16 @@ def create_raw_manual_item(
     )
     content_hash = compute_content_hash(raw_input)
 
-    existing = db.query(RawItem).filter(RawItem.content_hash == content_hash).one_or_none()
+    existing = find_existing_manual_raw_item(
+        db=db,
+        source=source,
+        external_id=raw_input.external_id,
+        content_hash=content_hash,
+    )
     if existing:
+        update_existing_manual_raw_item(existing, raw_input=raw_input, content_hash=content_hash)
+        db.add(existing)
+        db.flush()
         return existing
 
     raw = RawItem(
@@ -98,6 +106,49 @@ def create_raw_manual_item(
     db.add(raw)
     db.flush()
     return raw
+
+
+def find_existing_manual_raw_item(
+    db: Session,
+    source: Source,
+    external_id: str | None,
+    content_hash: str,
+) -> RawItem | None:
+    existing = db.query(RawItem).filter(RawItem.content_hash == content_hash).one_or_none()
+    if existing is not None:
+        return existing
+    if not external_id:
+        return None
+    return (
+        db.query(RawItem)
+        .filter(
+            RawItem.source_id == source.id,
+            RawItem.external_id == external_id,
+        )
+        .one_or_none()
+    )
+
+
+def update_existing_manual_raw_item(
+    raw: RawItem,
+    raw_input: RawItemInput,
+    content_hash: str,
+) -> None:
+    raw.url = raw_input.url
+    raw.raw_title = raw_input.raw_title
+    raw.raw_text = raw_input.raw_text
+    raw.raw_author = raw_input.raw_author
+    raw.raw_metadata = {
+        **(raw.raw_metadata or {}),
+        **raw_input.raw_metadata,
+        "resubmitted_at": raw_input.published_at.isoformat() if raw_input.published_at else None,
+    }
+    raw.content_hash = content_hash
+    raw.published_at = raw_input.published_at
+    if raw.normalized_item is not None:
+        raw.normalized_item.title = raw_input.raw_title
+        raw.normalized_item.text = raw_input.raw_text
+        raw.normalized_item.summary_short = build_manual_summary(raw)
 
 
 def resolve_manual_title(request: ManualSubmissionRequest) -> str:

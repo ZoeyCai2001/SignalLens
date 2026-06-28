@@ -1,6 +1,11 @@
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db.models import Base, NormalizedItem
 from app.db.models import RawItem, Source
 from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.manual_submissions import (
+    create_raw_manual_item,
     create_manual_normalized_item,
     enrich_manual_normalized_item,
     first_sentence,
@@ -161,6 +166,56 @@ def test_manual_submission_blank_title_is_treated_as_missing() -> None:
 
     assert request.title is None
     assert resolve_manual_title(request) == "Claude workflow update."
+
+
+def test_manual_resubmission_updates_existing_url_item() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        source = make_source()
+        db.add(source)
+        db.flush()
+
+        first = create_raw_manual_item(
+            db=db,
+            source=source,
+            request=ManualSubmissionRequest(
+                title="Old title",
+                url="https://example.com/agent-note",
+                text="Old note.",
+            ),
+        )
+        db.add(
+            NormalizedItem(
+                raw_item_id=first.id,
+                title=first.raw_title,
+                url=first.url,
+                source_name=source.name,
+                text=first.raw_text,
+            )
+        )
+        db.commit()
+
+        second = create_raw_manual_item(
+            db=db,
+            source=source,
+            request=ManualSubmissionRequest(
+                title="Updated agent note",
+                url="https://example.com/agent-note",
+                text="Updated note about OpenAI agents.",
+            ),
+        )
+        db.commit()
+
+        raw_items = db.query(RawItem).all()
+        assert second.id == first.id
+        assert len(raw_items) == 1
+        assert raw_items[0].raw_title == "Updated agent note"
+        assert raw_items[0].raw_text == "Updated note about OpenAI agents."
+        assert raw_items[0].normalized_item.title == "Updated agent note"
+        assert raw_items[0].normalized_item.text == "Updated note about OpenAI agents."
 
 
 def make_source() -> Source:
