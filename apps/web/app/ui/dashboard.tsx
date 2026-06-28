@@ -424,6 +424,8 @@ type EventCluster = {
   cluster_key: string;
   title: string;
   main_summary: string;
+  explanation: string;
+  uncertainty_notes: string[];
   category: string;
   topics: string[];
   tickers: string[];
@@ -2980,6 +2982,7 @@ function EventClusterPanel({
                   ))}
                 </div>
                 <div className="summary">{cluster.main_summary}</div>
+                <div className="small-muted">{detail.explanation}</div>
                 <div className="cluster-timeline">
                   {cluster.timeline.slice(0, 4).map((event) => (
                     <div
@@ -2994,6 +2997,12 @@ function EventClusterPanel({
                 </div>
                 {expanded ? (
                   <div className="cluster-evidence-list">
+                    <div className="digest-section-title">Uncertainty</div>
+                    {detail.uncertainty_notes.map((note) => (
+                      <div className="small-muted" key={note}>
+                        {note}
+                      </div>
+                    ))}
                     {detail.items.map((item) => (
                       <a
                         className="cluster-evidence-row"

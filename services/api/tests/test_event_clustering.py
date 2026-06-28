@@ -52,6 +52,22 @@ def test_event_cluster_builds_representative_summary() -> None:
     assert cluster.confidence == 0.62
     assert cluster.importance_score == cluster.top_score
     assert [item.source_name for item in cluster.timeline] == ["Hacker News", "RSS"]
+    assert "2 sources mention related signals" in cluster.explanation
+    assert "affected ticker context: AVGO" in cluster.explanation
+    assert cluster.uncertainty_notes == [
+        "Average classifier confidence is below the stronger-confirmation threshold."
+    ]
+
+
+def test_event_cluster_explains_single_source_uncertainties() -> None:
+    cluster = build_event_cluster(
+        "technical_trend|agent",
+        [make_item(1, "Agent framework update", tickers=[])],
+    )
+
+    assert "single-source event candidate" in cluster.explanation
+    assert "Only one source is currently represented" in cluster.uncertainty_notes[0]
+    assert any("No affected ticker was extracted" in note for note in cluster.uncertainty_notes)
 
 
 def test_event_clusters_can_be_retrieved_by_cluster_key() -> None:

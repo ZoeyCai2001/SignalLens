@@ -17,6 +17,8 @@ class EventCluster(BaseModel):
     cluster_key: str
     title: str
     main_summary: str
+    explanation: str
+    uncertainty_notes: list[str]
     category: str
     topics: list[str]
     tickers: list[str]

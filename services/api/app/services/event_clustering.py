@@ -124,6 +124,20 @@ def build_event_cluster(cluster_key: str, items: list[FeedItem]) -> EventCluster
         cluster_key=cluster_key,
         title=build_cluster_title(representative, item_count=len(items), sources=sources),
         main_summary=build_cluster_main_summary(representative, item_count=len(items), sources=sources),
+        explanation=build_cluster_explanation(
+            representative=representative,
+            items=ranked_items,
+            sources=sources,
+            topics=topics,
+            tickers=tickers,
+        ),
+        uncertainty_notes=build_cluster_uncertainty_notes(
+            items=items,
+            sources=sources,
+            tickers=tickers,
+            first_seen_at=first_seen_at,
+            last_seen_at=last_seen_at,
+        ),
         category=representative.category,
         topics=topics[:8],
         tickers=tickers[:6],
@@ -187,6 +201,55 @@ def build_cluster_main_summary(item: FeedItem, item_count: int, sources: list[st
     if item_count <= 1:
         return f"{base_summary} Source: {source_text}."
     return f"{base_summary} Cross-source cluster with {item_count} related items from {source_text}."
+
+
+def build_cluster_explanation(
+    representative: FeedItem,
+    items: list[FeedItem],
+    sources: list[str],
+    topics: list[str],
+    tickers: list[str],
+) -> str:
+    evidence_bits: list[str] = []
+    if len(items) <= 1 and len(sources) <= 1:
+        evidence_bits.append("the item is currently a single-source event candidate")
+    if len(sources) > 1:
+        evidence_bits.append(f"{len(sources)} sources mention related signals")
+    if tickers:
+        evidence_bits.append(f"affected ticker context: {', '.join(tickers[:3])}")
+    if topics:
+        evidence_bits.append(f"shared topics: {', '.join(topics[:4])}")
+    if len(items) > 1:
+        evidence_bits.append(f"{len(items)} items were grouped by shared entities or title terms")
+    if representative.stock_impact_score >= 0.35:
+        evidence_bits.append(
+            f"the representative item has stock-impact score {round(representative.stock_impact_score * 100)}"
+        )
+    return "This cluster is surfaced because " + "; ".join(evidence_bits) + "."
+
+
+def build_cluster_uncertainty_notes(
+    items: list[FeedItem],
+    sources: list[str],
+    tickers: list[str],
+    first_seen_at: datetime | None,
+    last_seen_at: datetime | None,
+) -> list[str]:
+    notes: list[str] = []
+    if len(sources) <= 1:
+        notes.append("Only one source is currently represented, so cross-source confirmation is weak.")
+    if len(items) <= 1:
+        notes.append("Only one item is currently grouped into this event.")
+    average_confidence = (
+        sum(item.classification_confidence for item in items) / len(items) if items else 0
+    )
+    if average_confidence < 0.65:
+        notes.append("Average classifier confidence is below the stronger-confirmation threshold.")
+    if not tickers:
+        notes.append("No affected ticker was extracted from the grouped items.")
+    if first_seen_at is not None and last_seen_at is not None and first_seen_at == last_seen_at:
+        notes.append("The timeline has a single observed timestamp so event evolution is not established yet.")
+    return notes or ["No major uncertainty flags from the available cluster evidence."]
 
 
 def compute_cluster_confidence(items: list[FeedItem], sources: list[str]) -> float:
