@@ -20,6 +20,7 @@ from app.services.ingestion import (
 from app.services.source_health import (
     create_source,
     delete_source,
+    list_source_run_history,
     serialize_source_health,
     serialize_source_run_history_item,
     source_needs_attention,
@@ -399,6 +400,43 @@ def test_serialize_source_run_history_item_includes_source_name_and_counts() -> 
     assert item.items_fetched == 4
     assert item.items_stored == 2
     assert item.error_message == "rate limited"
+
+
+def test_list_source_run_history_filters_by_status() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        source = Source(name="arXiv", type="research", access_method="api", enabled=True)
+        db.add(source)
+        db.flush()
+        db.add_all(
+            [
+                SourceRun(
+                    source_id=source.id,
+                    status="success",
+                    items_fetched=5,
+                    items_stored=5,
+                    started_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
+                ),
+                SourceRun(
+                    source_id=source.id,
+                    status="failed",
+                    items_fetched=0,
+                    items_stored=0,
+                    error_message="rate limited",
+                    started_at=datetime(2026, 6, 27, 9, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        failed_runs = list_source_run_history(db=db, status="failed")
+
+    assert [run.status for run in failed_runs] == ["failed"]
+    assert failed_runs[0].source_name == "arXiv"
+    assert failed_runs[0].error_message == "rate limited"
 
 
 @pytest.mark.anyio

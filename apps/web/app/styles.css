@@ -526,6 +526,12 @@ table {
   gap: 6px;
 }
 
+.source-run-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .cycle-summary {
   border: 1px solid var(--line);
   border-radius: 8px;

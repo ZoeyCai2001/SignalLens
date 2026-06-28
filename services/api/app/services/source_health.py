@@ -144,14 +144,20 @@ def normalize_optional_text(value: str | None) -> str | None:
     return value.strip() or None
 
 
-def list_source_run_history(db: Session, limit: int = 20) -> list[SourceRunHistoryItem]:
-    rows = (
+def list_source_run_history(
+    db: Session,
+    limit: int = 20,
+    status: str | None = None,
+) -> list[SourceRunHistoryItem]:
+    query = (
         db.query(SourceRun, Source)
         .join(Source, Source.id == SourceRun.source_id)
         .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
-        .limit(limit)
-        .all()
     )
+    normalized_status = normalize_optional_text(status)
+    if normalized_status:
+        query = query.filter(SourceRun.status == normalized_status)
+    rows = query.limit(limit).all()
     return [serialize_source_run_history_item(run=run, source=source) for run, source in rows]
 
 

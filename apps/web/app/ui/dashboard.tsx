@@ -676,6 +676,7 @@ export function Dashboard() {
   const [topicBriefing, setTopicBriefing] = useState<TopicBriefing | null>(null);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [sourceRuns, setSourceRuns] = useState<SourceRunHistoryItem[]>([]);
+  const [sourceRunStatusFilter, setSourceRunStatusFilter] = useState<"all" | "failed">("all");
   const [lastCycleResult, setLastCycleResult] = useState<ScheduledCycleResponse | null>(null);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
@@ -806,6 +807,8 @@ export function Dashboard() {
     setError(null);
     try {
       const digestDateQuery = buildDigestDateQuery(digestDateDraftRef.current);
+      const sourceRunQuery =
+        sourceRunStatusFilter === "failed" ? "?limit=8&status=failed" : "?limit=8";
       const [
         nextFeed,
         nextSavedItems,
@@ -835,7 +838,7 @@ export function Dashboard() {
           fetchJson<ProductWatchlistItem[]>("/api/watchlist/products"),
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
           fetchJson<SourceHealth[]>("/api/sources/health"),
-          fetchJson<SourceRunHistoryItem[]>("/api/sources/runs?limit=8"),
+          fetchJson<SourceRunHistoryItem[]>(`/api/sources/runs${sourceRunQuery}`),
           fetchJson<DailyDigest>(`/api/digest/daily${digestDateQuery}`),
           fetchJson<DailyDigestSnapshot[]>("/api/digest/daily/snapshots?limit=5"),
           fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
@@ -882,7 +885,7 @@ export function Dashboard() {
         setActiveOperation(null);
       }
     }
-  }, [alertIncludeDismissed, fetchJson]);
+  }, [alertIncludeDismissed, fetchJson, sourceRunStatusFilter]);
 
   useEffect(() => {
     void refreshAll();
@@ -2357,6 +2360,7 @@ export function Dashboard() {
     <SourceTable
       sources={sources}
       runs={sourceRuns}
+      runStatusFilter={sourceRunStatusFilter}
       lastCycleResult={lastCycleResult}
       blockedSources={preferences?.blocked_sources ?? []}
       name={sourceName}
@@ -2371,6 +2375,7 @@ export function Dashboard() {
       onAccessMethodChange={setSourceAccessMethod}
       onBaseUrlChange={setSourceBaseUrl}
       onTermsNotesChange={setSourceTermsNotes}
+      onRunStatusFilterChange={setSourceRunStatusFilter}
       onSubmit={submitSource}
       onRunSource={runSourceNow}
       onToggleSource={toggleSource}
@@ -6481,6 +6486,7 @@ function ProductBriefingPanel({
 function SourceTable({
   sources,
   runs,
+  runStatusFilter,
   lastCycleResult,
   blockedSources,
   name,
@@ -6495,6 +6501,7 @@ function SourceTable({
   onAccessMethodChange,
   onBaseUrlChange,
   onTermsNotesChange,
+  onRunStatusFilterChange,
   onSubmit,
   onRunSource,
   onToggleSource,
@@ -6504,6 +6511,7 @@ function SourceTable({
 }: {
   sources: SourceHealth[];
   runs: SourceRunHistoryItem[];
+  runStatusFilter: "all" | "failed";
   lastCycleResult: ScheduledCycleResponse | null;
   blockedSources: string[];
   name: string;
@@ -6518,6 +6526,7 @@ function SourceTable({
   onAccessMethodChange: (value: string) => void;
   onBaseUrlChange: (value: string) => void;
   onTermsNotesChange: (value: string) => void;
+  onRunStatusFilterChange: (value: "all" | "failed") => void;
   onSubmit: () => void;
   onRunSource: (source: SourceHealth) => void;
   onToggleSource: (source: SourceHealth) => void;
@@ -6814,6 +6823,22 @@ function SourceTable({
           </div>
         </div>
       ) : null}
+      <div className="source-run-toolbar" aria-label="Source run history filters">
+        <button
+          className={`button ${runStatusFilter === "all" ? "primary" : ""}`}
+          onClick={() => onRunStatusFilterChange("all")}
+          type="button"
+        >
+          All Runs
+        </button>
+        <button
+          className={`button ${runStatusFilter === "failed" ? "primary" : ""}`}
+          onClick={() => onRunStatusFilterChange("failed")}
+          type="button"
+        >
+          Failed Runs
+        </button>
+      </div>
       <div className="source-run-list">
         {runs.length ? (
           runs.map((run) => (
@@ -6832,7 +6857,11 @@ function SourceTable({
             </div>
           ))
         ) : (
-          <div className="empty-state">No source runs recorded yet.</div>
+          <div className="empty-state">
+            {runStatusFilter === "failed"
+              ? "No failed source runs recorded yet."
+              : "No source runs recorded yet."}
+          </div>
         )}
       </div>
     </section>

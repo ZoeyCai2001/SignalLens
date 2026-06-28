@@ -39,8 +39,9 @@ async def list_source_health(db: DbSession) -> list[SourceHealth]:
 async def list_source_runs(
     db: DbSession,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    status: Annotated[str | None, Query(max_length=40)] = None,
 ) -> list[SourceRunHistoryItem]:
-    return list_source_run_history(db=db, limit=limit)
+    return list_source_run_history(db=db, limit=limit, status=status)
 
 
 @router.post("", response_model=SourceHealth, status_code=201)
