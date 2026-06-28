@@ -57,9 +57,10 @@ def test_filter_items_by_excluded_topics_removes_digest_excluded_terms() -> None
     items = [
         make_item(1, "Keep", "technical_trend", 0.8, topics=["agent"]),
         make_item(2, "Exclude", "technical_trend", 0.9, topics=["model routing"]),
+        make_item(3, "Product Exclude", "product", 0.7, products=["AI search"]),
     ]
 
-    filtered = filter_items_by_excluded_topics(items, {"model routing"})
+    filtered = filter_items_by_excluded_topics(items, {"model routing", "ai search"})
 
     assert [item.title for item in filtered] == ["Keep"]
 

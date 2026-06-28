@@ -1,4 +1,8 @@
-from app.schemas.watchlist import StockWatchlistItem, TopicWatchlistItem
+from app.schemas.watchlist import (
+    ProductWatchlistItem,
+    StockWatchlistItem,
+    TopicWatchlistItem,
+)
 
 
 def initial_stock_watchlist() -> list[StockWatchlistItem]:
@@ -164,5 +168,47 @@ def initial_topic_watchlist() -> list[TopicWatchlistItem]:
                 "launch",
             ],
             notes="Catch new user-facing products and AI-native workflows.",
+        ),
+    ]
+
+
+def initial_product_watchlist() -> list[ProductWatchlistItem]:
+    return [
+        ProductWatchlistItem(
+            category="ai-coding-tools",
+            label="AI coding tools",
+            priority="High",
+            is_pinned=True,
+            related_terms=[
+                "coding assistant",
+                "developer agent",
+                "IDE agent",
+                "code review",
+            ],
+            notes="Track AI-native software development tools and coding-agent workflows.",
+        ),
+        ProductWatchlistItem(
+            category="ai-search-browsers",
+            label="AI search and browsers",
+            priority="Medium",
+            related_terms=[
+                "AI search",
+                "browser agent",
+                "answer engine",
+                "research assistant",
+            ],
+            notes="Watch search, browsing, and research products with agentic workflows.",
+        ),
+        ProductWatchlistItem(
+            category="ai-productivity",
+            label="AI productivity",
+            priority="Medium",
+            related_terms=[
+                "meeting notes",
+                "workflow automation",
+                "document assistant",
+                "knowledge management",
+            ],
+            notes="Follow user-facing productivity products and workflow automation launches.",
         ),
     ]

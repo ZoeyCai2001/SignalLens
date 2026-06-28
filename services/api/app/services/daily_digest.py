@@ -9,6 +9,7 @@ from app.db.models import (
 )
 from app.db.models import (
     NormalizedItem,
+    ProductWatchlistItem,
     StockWatchlistItem,
     TopicWatchlistItem,
     UserItemAction,
@@ -37,7 +38,7 @@ def generate_daily_digest(
     feed_items = [serialize_feed_item(item, action) for item, action in items]
     feed_items = filter_items_by_excluded_topics(
         feed_items,
-        excluded_terms=list_excluded_digest_topic_terms(db),
+        excluded_terms=list_excluded_digest_terms(db),
     )
     sections = build_digest_sections(feed_items, limit_per_section=limit_per_section)
     coverage = build_source_coverage(feed_items)
@@ -351,6 +352,10 @@ def list_watchlist_tickers(db: Session) -> list[str]:
     return [row[0] for row in rows]
 
 
+def list_excluded_digest_terms(db: Session) -> set[str]:
+    return list_excluded_digest_topic_terms(db) | list_excluded_digest_product_terms(db)
+
+
 def list_excluded_digest_topic_terms(db: Session) -> set[str]:
     rows = (
         db.query(TopicWatchlistItem)
@@ -365,6 +370,25 @@ def list_excluded_digest_topic_terms(db: Session) -> set[str]:
         terms.update(
             term.strip().lower()
             for term in [row.topic, row.label, *row.related_terms]
+            if term.strip()
+        )
+    return terms
+
+
+def list_excluded_digest_product_terms(db: Session) -> set[str]:
+    rows = (
+        db.query(ProductWatchlistItem)
+        .filter(
+            ProductWatchlistItem.user_id == LOCAL_USER_ID,
+            ProductWatchlistItem.include_in_digest.is_(False),
+        )
+        .all()
+    )
+    terms: set[str] = set()
+    for row in rows:
+        terms.update(
+            term.strip().lower()
+            for term in [row.category, row.label, *row.related_terms]
             if term.strip()
         )
     return terms

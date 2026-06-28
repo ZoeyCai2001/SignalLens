@@ -236,6 +236,20 @@ curl -X PATCH "http://127.0.0.1:8000/api/watchlist/topics/model-routing" \
 curl -X DELETE "http://127.0.0.1:8000/api/watchlist/topics/model-routing"
 ```
 
+Read and manage product-category watchlist items:
+
+```bash
+curl "http://127.0.0.1:8000/api/watchlist/products"
+curl -X POST "http://127.0.0.1:8000/api/watchlist/products/seed"
+curl -X POST "http://127.0.0.1:8000/api/watchlist/products" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"ai-coding-tools","label":"AI coding tools","priority":"High","related_terms":["coding assistant","developer agent"]}'
+curl -X PATCH "http://127.0.0.1:8000/api/watchlist/products/ai-coding-tools" \
+  -H "Content-Type: application/json" \
+  -d '{"is_pinned":true,"include_in_digest":true}'
+curl -X DELETE "http://127.0.0.1:8000/api/watchlist/products/ai-coding-tools"
+```
+
 Read stock-linked AI signals:
 
 ```bash

@@ -226,6 +226,23 @@ class TopicWatchlistItem(Base, TimestampMixin):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
+class ProductWatchlistItem(Base, TimestampMixin):
+    __tablename__ = "product_watchlist_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category", name="uq_product_watchlist_user_category"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), default="local", nullable=False)
+    category: Mapped[str] = mapped_column(String(160), nullable=False)
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+    priority: Mapped[str] = mapped_column(String(40), default="Medium", nullable=False)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    include_in_digest: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    related_terms: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
 class AlertRule(Base, TimestampMixin):
     __tablename__ = "alert_rules"
     __table_args__ = (

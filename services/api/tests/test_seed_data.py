@@ -2,12 +2,17 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.watchlist import StockWatchlistItemUpdate
-from app.services.seed_data import initial_stock_watchlist, initial_topic_watchlist
+from app.services.seed_data import (
+    initial_product_watchlist,
+    initial_stock_watchlist,
+    initial_topic_watchlist,
+)
 from app.services.watchlist import (
     build_stock_match_terms,
     build_stock_symbol_terms,
     build_stock_text_terms,
     clean_terms,
+    normalize_product_category,
     normalize_ticker,
     normalize_topic,
 )
@@ -25,6 +30,14 @@ def test_initial_topic_watchlist_contains_core_ai_topics() -> None:
     assert "ai-coding-agents" in topics
     assert "agent-workflows" in topics
     assert "open-source-llms" in topics
+
+
+def test_initial_product_watchlist_contains_prd_product_categories() -> None:
+    categories = {item.category for item in initial_product_watchlist()}
+
+    assert "ai-coding-tools" in categories
+    assert "ai-search-browsers" in categories
+    assert "ai-productivity" in categories
 
 
 def test_stock_match_terms_include_ticker_company_and_related_terms() -> None:
@@ -54,6 +67,10 @@ def test_stock_watchlist_input_helpers_normalize_user_values() -> None:
 
 def test_topic_watchlist_input_helpers_normalize_user_values() -> None:
     assert normalize_topic(" Model Routing ") == "model-routing"
+
+
+def test_product_watchlist_input_helpers_normalize_user_values() -> None:
+    assert normalize_product_category(" AI Coding Tools ") == "ai-coding-tools"
 
 
 def test_stock_watchlist_update_rejects_negative_portfolio_values() -> None:

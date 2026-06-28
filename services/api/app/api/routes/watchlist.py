@@ -4,6 +4,9 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
 from app.schemas.watchlist import (
+    ProductWatchlistItem,
+    ProductWatchlistItemCreate,
+    ProductWatchlistItemUpdate,
     StockBriefing,
     StockMarketSnapshot,
     StockSignalSummary,
@@ -15,20 +18,29 @@ from app.schemas.watchlist import (
     TopicWatchlistItemCreate,
     TopicWatchlistItemUpdate,
 )
-from app.services.seed_data import initial_stock_watchlist, initial_topic_watchlist
+from app.services.seed_data import (
+    initial_product_watchlist,
+    initial_stock_watchlist,
+    initial_topic_watchlist,
+)
 from app.services.watchlist import (
     build_stock_market_snapshot,
+    create_product_watchlist_item,
     create_stock_watchlist_item,
     create_topic_watchlist_item,
+    delete_product_watchlist_item,
     delete_stock_watchlist_item,
     delete_topic_watchlist_item,
     get_stock_briefing,
     get_stock_signals,
     get_topic_briefing,
+    list_product_watchlist,
     list_topic_watchlist,
+    seed_initial_product_watchlist,
     seed_initial_stock_watchlist,
     seed_initial_topic_watchlist,
     summarize_stock_signals,
+    update_product_watchlist_item,
     update_stock_watchlist_item,
     update_topic_watchlist_item,
 )
@@ -180,3 +192,48 @@ async def delete_topic(topic: str, db: DbSession) -> None:
     deleted = delete_topic_watchlist_item(db, topic=topic)
     if not deleted:
         raise HTTPException(status_code=404, detail="Topic not found in watchlist.")
+
+
+@router.get("/products", response_model=list[ProductWatchlistItem])
+async def list_products(db: DbSession) -> list[ProductWatchlistItem]:
+    items = list_product_watchlist(db)
+    if not items:
+        return initial_product_watchlist()
+    return [ProductWatchlistItem.model_validate(item) for item in items]
+
+
+@router.post("/products", response_model=ProductWatchlistItem, status_code=201)
+async def create_product(
+    payload: ProductWatchlistItemCreate,
+    db: DbSession,
+) -> ProductWatchlistItem:
+    try:
+        item = create_product_watchlist_item(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return ProductWatchlistItem.model_validate(item)
+
+
+@router.post("/products/seed", response_model=list[ProductWatchlistItem])
+async def seed_products(db: DbSession) -> list[ProductWatchlistItem]:
+    items = seed_initial_product_watchlist(db)
+    return [ProductWatchlistItem.model_validate(item) for item in items]
+
+
+@router.patch("/products/{category}", response_model=ProductWatchlistItem)
+async def update_product(
+    category: str,
+    payload: ProductWatchlistItemUpdate,
+    db: DbSession,
+) -> ProductWatchlistItem:
+    item = update_product_watchlist_item(db, category=category, payload=payload)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Product category not found in watchlist.")
+    return ProductWatchlistItem.model_validate(item)
+
+
+@router.delete("/products/{category}", status_code=204)
+async def delete_product(category: str, db: DbSession) -> None:
+    deleted = delete_product_watchlist_item(db, category=category)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Product category not found in watchlist.")

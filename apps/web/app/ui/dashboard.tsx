@@ -176,6 +176,16 @@ type TopicWatchlistItem = {
   notes: string | null;
 };
 
+type ProductWatchlistItem = {
+  category: string;
+  label: string;
+  priority: string;
+  is_pinned: boolean;
+  include_in_digest: boolean;
+  related_terms: string[];
+  notes: string | null;
+};
+
 type TopicSourceCount = {
   source_name: string;
   item_count: number;
@@ -477,6 +487,7 @@ export function Dashboard() {
   const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
+  const [productWatchlist, setProductWatchlist] = useState<ProductWatchlistItem[]>([]);
   const [topics, setTopics] = useState<TopicWatchlistItem[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [topicBriefing, setTopicBriefing] = useState<TopicBriefing | null>(null);
@@ -521,6 +532,9 @@ export function Dashboard() {
   const [topicLabel, setTopicLabel] = useState("");
   const [topicCategory, setTopicCategory] = useState("technical_trend");
   const [topicTerms, setTopicTerms] = useState("");
+  const [productCategory, setProductCategory] = useState("");
+  const [productLabel, setProductLabel] = useState("");
+  const [productTerms, setProductTerms] = useState("");
   const [sourceName, setSourceName] = useState("");
   const [sourceType, setSourceType] = useState("blog");
   const [sourceAccessMethod, setSourceAccessMethod] = useState("rss");
@@ -584,6 +598,7 @@ export function Dashboard() {
         nextSavedItems,
         nextStocks,
         nextStockSignals,
+        nextProductWatchlist,
         nextTopics,
         nextSources,
         nextSourceRuns,
@@ -600,6 +615,7 @@ export function Dashboard() {
           fetchJson<FeedItem[]>("/api/feed?limit=30&saved_only=true"),
           fetchJson<StockWatchlistItem[]>("/api/watchlist/stocks"),
           fetchJson<StockSignalSummary[]>("/api/watchlist/stocks/signals/summary"),
+          fetchJson<ProductWatchlistItem[]>("/api/watchlist/products"),
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
           fetchJson<SourceHealth[]>("/api/sources/health"),
           fetchJson<SourceRunHistoryItem[]>("/api/sources/runs?limit=8"),
@@ -615,6 +631,7 @@ export function Dashboard() {
       setSavedItems(nextSavedItems);
       setStocks(nextStocks);
       setStockSignals(nextStockSignals);
+      setProductWatchlist(nextProductWatchlist);
       setTopics(nextTopics);
       setSources(nextSources);
       setSourceRuns(nextSourceRuns);
@@ -1224,6 +1241,87 @@ export function Dashboard() {
     }
   };
 
+  const submitProductCategory = async () => {
+    if (!productCategory.trim()) {
+      setError("Product watchlist entries need a category.");
+      return;
+    }
+
+    setLoadState("running");
+    setError(null);
+    try {
+      const created = await fetchJson<ProductWatchlistItem>("/api/watchlist/products", {
+        method: "POST",
+        body: JSON.stringify({
+          category: productCategory.trim(),
+          label: productLabel.trim() || null,
+          related_terms: splitTerms(productTerms),
+        }),
+      });
+      setProductWatchlist((items) => [
+        created,
+        ...items.filter((item) => item.category !== created.category),
+      ]);
+      setProductCategory("");
+      setProductLabel("");
+      setProductTerms("");
+      setStatus(`Added product category ${created.label}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Product category add failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const updateProductCategory = async (
+    category: string,
+    payload: Partial<Pick<ProductWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+  ) => {
+    const key = `product:${category}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      const updated = await fetchJson<ProductWatchlistItem>(
+        `/api/watchlist/products/${encodeURIComponent(category)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        },
+      );
+      setProductWatchlist((items) =>
+        items.map((item) => (item.category === updated.category ? updated : item)),
+      );
+      setStatus(`Updated product category ${updated.label}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Product category update failed");
+    } finally {
+      setBusyWatchlistKey(null);
+    }
+  };
+
+  const deleteProductCategory = async (category: string) => {
+    const key = `product:${category}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      await sendRequest(`/api/watchlist/products/${encodeURIComponent(category)}`, {
+        method: "DELETE",
+      });
+      setProductWatchlist((items) => items.filter((item) => item.category !== category));
+      setStatus(`Removed product category ${category}`);
+      await refreshAll();
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Product category remove failed");
+    } finally {
+      setBusyWatchlistKey(null);
+    }
+  };
+
   const updateFeedAction = async (
     itemId: number,
     action: "save" | "unsave" | "hide" | "mark-important",
@@ -1698,7 +1796,7 @@ export function Dashboard() {
               sourceCount={sources.length}
               enabledSourceCount={sources.filter((source) => source.enabled).length}
               alertCount={alerts.length}
-              watchlistCount={stocks.length + topics.length}
+              watchlistCount={stocks.length + topics.length + productWatchlist.length}
             />
             <RankingPreferencesPanel
               preferences={preferences}
@@ -1804,6 +1902,20 @@ export function Dashboard() {
               onUpdateTopic={updateTopic}
               onDeleteTopic={deleteTopic}
               onSubmit={submitTopic}
+            />
+            <ProductWatchlistPanel
+              items={productWatchlist}
+              category={productCategory}
+              label={productLabel}
+              terms={productTerms}
+              disabled={loadState !== "idle"}
+              busyWatchlistKey={busyWatchlistKey}
+              onCategoryChange={setProductCategory}
+              onLabelChange={setProductLabel}
+              onTermsChange={setProductTerms}
+              onUpdate={updateProductCategory}
+              onDelete={deleteProductCategory}
+              onSubmit={submitProductCategory}
             />
             <SourceTable
               sources={sources}
@@ -3838,6 +3950,165 @@ function TopicBriefingLinks({
         <div className="small-muted">{emptyText}</div>
       )}
     </div>
+  );
+}
+
+function ProductWatchlistPanel({
+  items,
+  category,
+  label,
+  terms,
+  disabled,
+  busyWatchlistKey,
+  onCategoryChange,
+  onLabelChange,
+  onTermsChange,
+  onUpdate,
+  onDelete,
+  onSubmit,
+}: {
+  items: ProductWatchlistItem[];
+  category: string;
+  label: string;
+  terms: string;
+  disabled: boolean;
+  busyWatchlistKey: string | null;
+  onCategoryChange: (value: string) => void;
+  onLabelChange: (value: string) => void;
+  onTermsChange: (value: string) => void;
+  onUpdate: (
+    category: string,
+    payload: Partial<Pick<ProductWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+  ) => void;
+  onDelete: (category: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Product Categories</h2>
+        <span className="small-muted">{items.length} categories</span>
+      </div>
+      <div className="form-panel compact-form">
+        <input
+          className="field"
+          value={category}
+          onChange={(event) => onCategoryChange(event.target.value)}
+          placeholder="Category"
+          aria-label="Product category"
+        />
+        <input
+          className="field"
+          value={label}
+          onChange={(event) => onLabelChange(event.target.value)}
+          placeholder="Label"
+          aria-label="Product category label"
+        />
+        <input
+          className="field"
+          value={terms}
+          onChange={(event) => onTermsChange(event.target.value)}
+          placeholder="Terms"
+          aria-label="Product category terms"
+        />
+        <button className="button primary" onClick={onSubmit} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+          Add
+        </button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Priority</th>
+              <th>Terms</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => {
+              const busy = busyWatchlistKey === `product:${item.category}`;
+              return (
+                <tr key={item.category}>
+                  <td>
+                    <div className="ticker-button active">
+                      {item.label}
+                    </div>
+                    {item.is_pinned ? <Star size={13} fill="currentColor" /> : null}
+                  </td>
+                  <td>
+                    <select
+                      className={`field table-field priority-${item.priority.toLowerCase()}`}
+                      value={item.priority}
+                      onChange={(event) =>
+                        onUpdate(item.category, { priority: event.target.value })
+                      }
+                      disabled={disabled || busy}
+                      aria-label={`Priority for ${item.label}`}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </td>
+                  <td>{item.related_terms.slice(0, 3).join(", ")}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="button icon-button"
+                        onClick={() => onUpdate(item.category, { is_pinned: !item.is_pinned })}
+                        disabled={disabled || busy}
+                        title={item.is_pinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                        aria-label={item.is_pinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                      >
+                        {busy ? (
+                          <Loader2 className="spin" size={16} />
+                        ) : (
+                          <Star size={16} fill={item.is_pinned ? "currentColor" : "none"} />
+                        )}
+                      </button>
+                      <button
+                        className={`button icon-button ${
+                          item.include_in_digest ? "active-icon-button" : ""
+                        }`}
+                        onClick={() =>
+                          onUpdate(item.category, {
+                            include_in_digest: !item.include_in_digest,
+                          })
+                        }
+                        disabled={disabled || busy}
+                        title={
+                          item.include_in_digest
+                            ? `Exclude ${item.label} from digest`
+                            : `Include ${item.label} in digest`
+                        }
+                        aria-label={
+                          item.include_in_digest
+                            ? `Exclude ${item.label} from digest`
+                            : `Include ${item.label} in digest`
+                        }
+                      >
+                        {busy ? <Loader2 className="spin" size={16} /> : <CalendarDays size={16} />}
+                      </button>
+                      <button
+                        className="button icon-button"
+                        onClick={() => onDelete(item.category)}
+                        disabled={disabled || busy}
+                        title={`Remove ${item.label}`}
+                        aria-label={`Remove ${item.label}`}
+                      >
+                        {busy ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

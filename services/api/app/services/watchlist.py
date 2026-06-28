@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import (
     NormalizedItem,
+    ProductWatchlistItem,
     StockPricePoint,
     StockWatchlistItem,
     TopicWatchlistItem,
@@ -12,6 +13,8 @@ from app.db.models import (
 )
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
+    ProductWatchlistItemCreate,
+    ProductWatchlistItemUpdate,
     StockBriefing,
     StockBriefingTimelineItem,
     StockMarketSnapshot,
@@ -29,15 +32,17 @@ from app.schemas.watchlist import (
 from app.schemas.watchlist import (
     StockPricePoint as StockPricePointSchema,
 )
-from app.schemas.watchlist import (
-    StockWatchlistItem as StockWatchlistSchema,
-)
+from app.schemas.watchlist import StockWatchlistItem as StockWatchlistSchema
 from app.schemas.watchlist import (
     TopicWatchlistItem as TopicWatchlistSchema,
 )
 from app.services.feed_actions import LOCAL_USER_ID, serialize_feed_item
 from app.services.scoring import TICKER_ALIASES
-from app.services.seed_data import initial_stock_watchlist, initial_topic_watchlist
+from app.services.seed_data import (
+    initial_product_watchlist,
+    initial_stock_watchlist,
+    initial_topic_watchlist,
+)
 
 NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens links AI-related items to watched stocks for research only and does not "
@@ -172,6 +177,105 @@ def seed_initial_topic_watchlist(db: Session) -> list[TopicWatchlistItem]:
     db.commit()
 
     return list_topic_watchlist(db)
+
+
+def seed_initial_product_watchlist(db: Session) -> list[ProductWatchlistItem]:
+    existing = {item.category for item in db.query(ProductWatchlistItem).all()}
+    created: list[ProductWatchlistItem] = []
+
+    for seed_item in initial_product_watchlist():
+        if seed_item.category in existing:
+            continue
+        item = ProductWatchlistItem(**seed_item.model_dump(), user_id="local")
+        db.add(item)
+        created.append(item)
+
+    db.commit()
+
+    return list_product_watchlist(db)
+
+
+def list_product_watchlist(db: Session) -> list[ProductWatchlistItem]:
+    return (
+        db.query(ProductWatchlistItem)
+        .order_by(
+            ProductWatchlistItem.is_pinned.desc(),
+            ProductWatchlistItem.priority.asc(),
+            ProductWatchlistItem.label.asc(),
+        )
+        .all()
+    )
+
+
+def create_product_watchlist_item(
+    db: Session,
+    payload: ProductWatchlistItemCreate,
+) -> ProductWatchlistItem:
+    category = normalize_product_category(payload.category)
+    if not category:
+        raise ValueError("Product category is required.")
+    if get_product_watchlist_item(db, category):
+        raise ValueError(f"{category} is already in the product watchlist.")
+    label = payload.label.strip() if payload.label else payload.category.strip()
+    if not label:
+        raise ValueError("Product category label is required.")
+    item = ProductWatchlistItem(
+        user_id=LOCAL_USER_ID,
+        category=category,
+        label=label,
+        priority=payload.priority.strip() or "Medium",
+        is_pinned=payload.is_pinned,
+        include_in_digest=payload.include_in_digest,
+        related_terms=clean_terms(payload.related_terms),
+        notes=payload.notes.strip() if payload.notes else None,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def update_product_watchlist_item(
+    db: Session,
+    category: str,
+    payload: ProductWatchlistItemUpdate,
+) -> ProductWatchlistItem | None:
+    item = get_product_watchlist_item(db, category)
+    if item is None:
+        return None
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field_name, value in updates.items():
+        if field_name == "related_terms" and value is not None:
+            value = clean_terms(value)
+        elif isinstance(value, str):
+            value = value.strip()
+        setattr(item, field_name, value)
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_product_watchlist_item(db: Session, category: str) -> bool:
+    item = get_product_watchlist_item(db, category)
+    if item is None:
+        return False
+    db.delete(item)
+    db.commit()
+    return True
+
+
+def get_product_watchlist_item(db: Session, category: str) -> ProductWatchlistItem | None:
+    return (
+        db.query(ProductWatchlistItem)
+        .filter(
+            ProductWatchlistItem.user_id == LOCAL_USER_ID,
+            ProductWatchlistItem.category == normalize_product_category(category),
+        )
+        .one_or_none()
+    )
 
 
 def list_topic_watchlist(db: Session) -> list[TopicWatchlistItem]:
@@ -908,6 +1012,10 @@ def normalize_ticker(value: str) -> str:
 
 
 def normalize_topic(value: str) -> str:
+    return "-".join(value.strip().lower().split())
+
+
+def normalize_product_category(value: str) -> str:
     return "-".join(value.strip().lower().split())
 
 

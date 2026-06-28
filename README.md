@@ -95,6 +95,10 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/watchlist/topics`
 - `PATCH http://127.0.0.1:8000/api/watchlist/topics/{topic}`
 - `DELETE http://127.0.0.1:8000/api/watchlist/topics/{topic}`
+- `GET http://127.0.0.1:8000/api/watchlist/products`
+- `POST http://127.0.0.1:8000/api/watchlist/products`
+- `PATCH http://127.0.0.1:8000/api/watchlist/products/{category}`
+- `DELETE http://127.0.0.1:8000/api/watchlist/products/{category}`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/save`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/unsave`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/hide`
