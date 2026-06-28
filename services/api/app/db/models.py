@@ -199,6 +199,7 @@ class StockWatchlistItem(Base, TimestampMixin):
     industry: Mapped[str] = mapped_column(String(160), nullable=False)
     priority: Mapped[str] = mapped_column(String(40), default="Medium", nullable=False)
     group_name: Mapped[str] = mapped_column(String(120), default="Watch Only", nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_holding: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     shares: Mapped[float | None] = mapped_column(Float)

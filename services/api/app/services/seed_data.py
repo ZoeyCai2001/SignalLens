@@ -16,6 +16,7 @@ def initial_stock_watchlist() -> list[StockWatchlistItem]:
             industry="Semiconductors",
             priority="High",
             group_name="Memory / Storage",
+            display_order=10,
             is_pinned=True,
             related_keywords=[
                 "HBM",
@@ -41,6 +42,7 @@ def initial_stock_watchlist() -> list[StockWatchlistItem]:
             industry="Semiconductors",
             priority="High",
             group_name="AI Chips",
+            display_order=20,
             is_pinned=True,
             related_keywords=[
                 "custom silicon",
@@ -65,6 +67,7 @@ def initial_stock_watchlist() -> list[StockWatchlistItem]:
             industry="Computer Hardware",
             priority="Medium",
             group_name="Memory / Storage",
+            display_order=30,
             is_pinned=False,
             related_keywords=[
                 "NAND",

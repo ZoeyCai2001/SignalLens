@@ -305,6 +305,7 @@ Alert generation applies the same trust posture and local visibility rules. Sing
 - `industry`
 - `priority`
 - `group_name`
+- `display_order`
 - `is_pinned`
 - `is_holding`
 - `shares`
@@ -316,7 +317,7 @@ Alert generation applies the same trust posture and local visibility rules. Sing
 - `created_at`
 - `updated_at`
 
-For MVP privacy, `shares` and `average_cost` remain nullable and hidden in the dashboard unless the user explicitly enables portfolio note mode for a selected stock. Saving ordinary stock metadata does not overwrite hidden portfolio fields.
+For MVP privacy, `shares` and `average_cost` remain nullable and hidden in the dashboard unless the user explicitly enables portfolio note mode for a selected stock. Saving ordinary stock metadata does not overwrite hidden portfolio fields. Stock watchlist ordering uses pinned status first, then a durable `display_order` value that can be changed from the dashboard with up/down controls, then priority and ticker as tie-breakers.
 
 ## 9. API Design
 

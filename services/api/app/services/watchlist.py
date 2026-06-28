@@ -2,7 +2,7 @@ from collections import Counter
 from datetime import UTC, date, datetime, time, timedelta
 import re
 
-from sqlalchemy import String, cast, or_
+from sqlalchemy import String, case, cast, func, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -74,7 +74,8 @@ def list_stock_watchlist(db: Session) -> list[StockWatchlistItem]:
         db.query(StockWatchlistItem)
         .order_by(
             StockWatchlistItem.is_pinned.desc(),
-            StockWatchlistItem.priority.asc(),
+            StockWatchlistItem.display_order.asc(),
+            stock_priority_sort_expression(),
             StockWatchlistItem.ticker.asc(),
         )
         .all()
@@ -103,6 +104,11 @@ def create_stock_watchlist_item(
         industry=payload.industry.strip(),
         priority=payload.priority.strip() or "Medium",
         group_name=payload.group_name.strip() or "Watch Only",
+        display_order=(
+            payload.display_order
+            if payload.display_order is not None
+            else next_stock_display_order(db)
+        ),
         is_pinned=payload.is_pinned,
         is_holding=payload.is_holding,
         shares=payload.shares,
@@ -132,6 +138,8 @@ def update_stock_watchlist_item(
 
     updates = payload.model_dump(exclude_unset=True)
     for field_name, value in updates.items():
+        if field_name == "display_order" and value is None:
+            continue
         if field_name in {"related_keywords", "related_ai_themes"} and value is not None:
             value = clean_terms(value)
         elif field_name == "related_companies" and value is not None:
@@ -144,6 +152,24 @@ def update_stock_watchlist_item(
     db.commit()
     db.refresh(item)
     return item
+
+
+def next_stock_display_order(db: Session) -> int:
+    current_max = (
+        db.query(func.max(StockWatchlistItem.display_order))
+        .filter(StockWatchlistItem.user_id == LOCAL_USER_ID)
+        .scalar()
+    )
+    return int(current_max or 0) + 10
+
+
+def stock_priority_sort_expression():
+    return case(
+        (StockWatchlistItem.priority == "High", 0),
+        (StockWatchlistItem.priority == "Medium", 1),
+        (StockWatchlistItem.priority == "Low", 2),
+        else_=3,
+    )
 
 
 def delete_stock_watchlist_item(db: Session, ticker: str) -> bool:

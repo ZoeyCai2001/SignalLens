@@ -7,6 +7,8 @@ import {
   Bookmark,
   Bot,
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   DatabaseZap,
   EyeOff,
   ExternalLink,
@@ -74,6 +76,7 @@ type StockWatchlistItem = {
   industry: string;
   priority: string;
   group_name: string;
+  display_order: number;
   is_pinned: boolean;
   is_holding: boolean;
   shares: number | null;
@@ -3636,6 +3639,23 @@ function StockTable({
     onUpdateStock(selectedStock.ticker, payload);
   };
 
+  const reorderStock = (stock: StockWatchlistItem, direction: "up" | "down") => {
+    const peers = stocks.filter((item) => item.is_pinned === stock.is_pinned);
+    const index = peers.findIndex((item) => item.ticker === stock.ticker);
+    const neighbor = peers[index + (direction === "up" ? -1 : 1)];
+    if (!neighbor) {
+      return;
+    }
+    const nextOrder = neighbor.display_order + (direction === "up" ? -1 : 1);
+    onUpdateStock(stock.ticker, { display_order: nextOrder });
+  };
+
+  const canMoveStock = (stock: StockWatchlistItem, direction: "up" | "down") => {
+    const peers = stocks.filter((item) => item.is_pinned === stock.is_pinned);
+    const index = peers.findIndex((item) => item.ticker === stock.ticker);
+    return direction === "up" ? index > 0 : index >= 0 && index < peers.length - 1;
+  };
+
   return (
     <section className="section">
       <div className="section-header">
@@ -3748,6 +3768,28 @@ function StockTable({
                   <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
                   <td>
                     <div className="table-actions">
+                      <button
+                        className="button icon-button"
+                        onClick={() => reorderStock(stock, "up")}
+                        disabled={disabled || deleting || !canMoveStock(stock, "up")}
+                        title={`Move ${stock.ticker} up`}
+                        aria-label={`Move ${stock.ticker} up`}
+                      >
+                        {deleting ? <Loader2 className="spin" size={16} /> : <ChevronUp size={16} />}
+                      </button>
+                      <button
+                        className="button icon-button"
+                        onClick={() => reorderStock(stock, "down")}
+                        disabled={disabled || deleting || !canMoveStock(stock, "down")}
+                        title={`Move ${stock.ticker} down`}
+                        aria-label={`Move ${stock.ticker} down`}
+                      >
+                        {deleting ? (
+                          <Loader2 className="spin" size={16} />
+                        ) : (
+                          <ChevronDown size={16} />
+                        )}
+                      </button>
                       <button
                         className="button icon-button"
                         onClick={() => onUpdateStock(stock.ticker, { is_pinned: !stock.is_pinned })}

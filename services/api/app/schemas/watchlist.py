@@ -13,6 +13,7 @@ class StockWatchlistItem(BaseModel):
     industry: str
     priority: str
     group_name: str
+    display_order: int = 100
     is_pinned: bool = False
     is_holding: bool = False
     shares: float | None = None
@@ -110,6 +111,7 @@ class StockWatchlistItemCreate(BaseModel):
     industry: str = "Technology"
     priority: str = "Medium"
     group_name: str = "Watch Only"
+    display_order: int | None = None
     is_pinned: bool = False
     is_holding: bool = False
     shares: float | None = Field(default=None, ge=0)
@@ -127,6 +129,7 @@ class StockWatchlistItemUpdate(BaseModel):
     industry: str | None = None
     priority: str | None = None
     group_name: str | None = None
+    display_order: int | None = None
     is_pinned: bool | None = None
     is_holding: bool | None = None
     shares: float | None = Field(default=None, ge=0)
