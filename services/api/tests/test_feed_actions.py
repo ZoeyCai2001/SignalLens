@@ -4,7 +4,9 @@ from app.db.models import NormalizedItem, UserItemAction
 from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
+    FeedInterestProfile,
     build_score_explanation,
+    feed_interest_bonus,
     freshness_score,
     normalize_source_names,
     rank_feed_items,
@@ -145,6 +147,66 @@ def test_weighted_feed_score_boosts_preferred_sources() -> None:
     baseline = weighted_feed_score(item, RankingWeights(), now=now)
 
     assert score == baseline + 0.08
+
+
+def test_weighted_feed_score_boosts_watchlist_interest_matches() -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+    item = make_feed_item(1, "Micron HBM demand")
+    item.tickers = ["MU"]
+    item.topics = ["HBM memory"]
+    profile = FeedInterestProfile(
+        symbols=frozenset({"MU"}),
+        terms=frozenset({"hbm memory"}),
+    )
+
+    score = weighted_feed_score(
+        item,
+        RankingWeights(),
+        now=now,
+        interest_profile=profile,
+    )
+    baseline = weighted_feed_score(item, RankingWeights(), now=now)
+
+    assert score == baseline + 0.08
+
+
+def test_rank_feed_items_uses_watchlist_interest_profile() -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+    generic = make_feed_item(1, "Generic item", relevance_score=0.5, importance_score=0.5)
+    watched = make_feed_item(2, "Agent coding launch", relevance_score=0.5, importance_score=0.5)
+    watched.topics = ["coding agent"]
+
+    ranked = rank_feed_items(
+        [generic, watched],
+        ranking_weights=RankingWeights(
+            relevance=1,
+            importance=0,
+            novelty=0,
+            source_quality=0,
+            stock_impact=0,
+            freshness=0,
+        ),
+        interest_profile=FeedInterestProfile(
+            symbols=frozenset(),
+            terms=frozenset({"coding agent"}),
+        ),
+        now=now,
+    )
+
+    assert [item.title for item in ranked] == ["Agent coding launch", "Generic item"]
+
+
+def test_feed_interest_bonus_caps_multiple_matches() -> None:
+    item = make_feed_item(1, "Agent coding launch for Micron HBM")
+    item.tickers = ["MU"]
+    item.topics = ["coding agent", "HBM memory"]
+    item.products = ["IDE agent"]
+    profile = FeedInterestProfile(
+        symbols=frozenset({"MU"}),
+        terms=frozenset({"coding agent", "hbm memory", "ide agent", "micron"}),
+    )
+
+    assert feed_interest_bonus(item, profile) == 0.12
 
 
 def test_normalize_source_names_trims_empty_values() -> None:

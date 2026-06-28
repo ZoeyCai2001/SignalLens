@@ -105,3 +105,4 @@ Implementation progress:
 - Added PRD-aligned daily digest sections for GitHub/Hugging Face highlights and saved items to read later.
 - Added persisted product-category watchlists with dashboard controls and digest inclusion toggles.
 - Added product-category briefing APIs and dashboard drill-downs for matched product launches, sources, companies, activity, and recent signals.
+- Added a bounded watchlist-interest ranking boost so stock, topic, and product watchlists directly influence the main feed order.

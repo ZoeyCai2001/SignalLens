@@ -1,12 +1,30 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.db.models import NormalizedItem, UserItemAction
+from app.db.models import (
+    NormalizedItem,
+    ProductWatchlistItem,
+    StockWatchlistItem,
+    TopicWatchlistItem,
+    UserItemAction,
+)
 from app.schemas.feed import FeedItem, FeedItemDetail
 from app.schemas.preferences import RankingWeights
+from app.services.seed_data import (
+    initial_product_watchlist,
+    initial_stock_watchlist,
+    initial_topic_watchlist,
+)
 
 LOCAL_USER_ID = "local"
+
+
+@dataclass(frozen=True)
+class FeedInterestProfile:
+    symbols: frozenset[str]
+    terms: frozenset[str]
 
 
 def serialize_feed_item(
@@ -95,6 +113,7 @@ def list_visible_feed_items(
         items,
         ranking_weights=ranking_weights,
         preferred_sources=preferred_sources,
+        interest_profile=build_feed_interest_profile(db),
     )[:limit]
 
 
@@ -102,6 +121,7 @@ def rank_feed_items(
     items: list[FeedItem],
     ranking_weights: RankingWeights | dict | None = None,
     preferred_sources: list[str] | None = None,
+    interest_profile: FeedInterestProfile | None = None,
     now: datetime | None = None,
 ) -> list[FeedItem]:
     weights = resolve_ranking_weights(ranking_weights)
@@ -116,6 +136,7 @@ def rank_feed_items(
                 weights,
                 now=reference_time,
                 preferred_sources=preferred_source_names,
+                interest_profile=interest_profile,
             ),
             item.published_at or datetime.min.replace(tzinfo=UTC),
         ),
@@ -128,9 +149,11 @@ def weighted_feed_score(
     weights: RankingWeights,
     now: datetime | None = None,
     preferred_sources: set[str] | None = None,
+    interest_profile: FeedInterestProfile | None = None,
 ) -> float:
     reference_time = now or datetime.now(UTC)
     source_bonus = 0.08 if preferred_sources and item.source_name in preferred_sources else 0
+    interest_bonus = feed_interest_bonus(item=item, interest_profile=interest_profile)
     return round(
         weights.relevance * item.relevance_score
         + weights.importance * item.importance_score
@@ -138,7 +161,8 @@ def weighted_feed_score(
         + weights.source_quality * item.source_quality_score
         + weights.stock_impact * item.stock_impact_score
         + weights.freshness * freshness_score(item, now=reference_time)
-        + source_bonus,
+        + source_bonus
+        + interest_bonus,
         4,
     )
 
@@ -161,6 +185,115 @@ def freshness_score(item: FeedItem, now: datetime | None = None) -> float:
 
 def normalize_source_names(values: list[str] | None) -> set[str]:
     return {str(value).strip() for value in values or [] if str(value).strip()}
+
+
+def build_feed_interest_profile(db: Session) -> FeedInterestProfile:
+    symbols: set[str] = set()
+    terms: set[str] = set()
+
+    stocks = db.query(StockWatchlistItem).filter(StockWatchlistItem.user_id == LOCAL_USER_ID).all()
+    stock_items = stocks or initial_stock_watchlist()
+    for stock in stock_items:
+        symbols.update(
+            normalize_interest_symbol(value)
+            for value in [stock.ticker, *stock.related_companies]
+        )
+        terms.update(
+            normalize_interest_term(value)
+            for value in [
+                stock.company_name,
+                *stock.related_keywords,
+                *stock.related_ai_themes,
+            ]
+        )
+
+    topics = db.query(TopicWatchlistItem).filter(TopicWatchlistItem.user_id == LOCAL_USER_ID).all()
+    topic_items = topics or initial_topic_watchlist()
+    for topic in topic_items:
+        terms.update(
+            normalize_interest_term(value)
+            for value in [topic.topic, topic.label, topic.category, *topic.related_terms]
+        )
+
+    products = (
+        db.query(ProductWatchlistItem)
+        .filter(ProductWatchlistItem.user_id == LOCAL_USER_ID)
+        .all()
+    )
+    product_items = products or initial_product_watchlist()
+    for product in product_items:
+        terms.update(
+            normalize_interest_term(value)
+            for value in [product.category, product.label, *product.related_terms]
+        )
+
+    return FeedInterestProfile(
+        symbols=frozenset(symbol for symbol in symbols if symbol),
+        terms=frozenset(term for term in terms if term),
+    )
+
+
+def feed_interest_bonus(
+    item: FeedItem,
+    interest_profile: FeedInterestProfile | None,
+) -> float:
+    if not interest_profile:
+        return 0
+
+    matches = 0
+    item_symbols = {
+        normalize_interest_symbol(value)
+        for value in [*item.tickers, *item.companies]
+        if normalize_interest_symbol(value)
+    }
+    if item_symbols & interest_profile.symbols:
+        matches += 1
+
+    searchable_text = build_interest_search_text(item)
+    for term in interest_profile.terms:
+        if term in searchable_text:
+            matches += 1
+            if matches >= 3:
+                break
+
+    return round(min(0.12, matches * 0.04), 4)
+
+
+def build_interest_search_text(item: FeedItem) -> str:
+    parts = [
+        item.title,
+        item.source_name,
+        item.category,
+        item.subcategory or "",
+        item.summary_short or "",
+        item.summary_detailed or "",
+        item.why_it_matters or "",
+        *item.topics,
+        *item.products,
+        *item.companies,
+    ]
+    return "\n".join(part.lower() for part in parts if part)
+
+
+def normalize_interest_symbol(value: str) -> str:
+    return value.strip().upper().removeprefix("$")
+
+
+def normalize_interest_term(value: str) -> str:
+    normalized = " ".join(value.strip().lower().replace("-", " ").split())
+    generic_terms = {
+        "ai",
+        "app",
+        "apps",
+        "tool",
+        "tools",
+        "launch",
+        "technology",
+        "nasdaq",
+    }
+    if len(normalized) < 3 or normalized in generic_terms:
+        return ""
+    return normalized
 
 
 def get_action(db: Session, item_id: int) -> UserItemAction | None:
