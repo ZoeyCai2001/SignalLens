@@ -585,6 +585,7 @@ export function Dashboard() {
   const [activeOperation, setActiveOperation] = useState<DashboardOperation | null>(null);
   const [status, setStatus] = useState("Ready");
   const [error, setError] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [activeModule, setActiveModule] = useState<ModuleKey>("dashboard");
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [busyDetailItemId, setBusyDetailItemId] = useState<number | null>(null);
@@ -735,6 +736,11 @@ export function Dashboard() {
       setRankingDraft(nextPreferences.ranking_weights);
       setPreferredSourcesDraft(nextPreferences.preferred_sources.join(", "));
       setBlockedSourcesDraft(nextPreferences.blocked_sources.join(", "));
+      setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, nextFeed));
+      setSelectedEventCluster((cluster) =>
+        reconcileEventClusterAfterRefresh(cluster, nextEventClusters),
+      );
+      setRefreshVersion((value) => value + 1);
       setStatus(`Loaded ${nextFeed.length} feed items`);
     } catch (err) {
       setError(readError(err));
@@ -803,7 +809,7 @@ export function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [fetchJson, selectedTicker]);
+  }, [fetchJson, refreshVersion, selectedTicker]);
 
   useEffect(() => {
     if (!selectedProductCategory) {
@@ -835,7 +841,7 @@ export function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [fetchJson, selectedProductCategory]);
+  }, [fetchJson, refreshVersion, selectedProductCategory]);
 
   useEffect(() => {
     if (!selectedCompanyKey) {
@@ -867,7 +873,7 @@ export function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [fetchJson, selectedCompanyKey]);
+  }, [fetchJson, refreshVersion, selectedCompanyKey]);
 
   useEffect(() => {
     if (!selectedTopic) {
@@ -899,7 +905,7 @@ export function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [fetchJson, selectedTopic]);
+  }, [fetchJson, refreshVersion, selectedTopic]);
 
   const runIngestion = async (source: IngestionSource) => {
     setActiveOperation(`ingest:${source}`);
@@ -3387,6 +3393,27 @@ function updateSelectedFeedDetail(
       is_important: updated.is_important,
     },
   };
+}
+
+function reconcileFeedDetailAfterRefresh(
+  detail: FeedItemDetail | null,
+  feed: FeedItem[],
+): FeedItemDetail | null {
+  if (!detail) {
+    return null;
+  }
+  const refreshed = feed.find((item) => item.id === detail.id);
+  return refreshed ? updateSelectedFeedDetail(detail, refreshed) : null;
+}
+
+function reconcileEventClusterAfterRefresh(
+  selectedCluster: EventCluster | null,
+  clusters: EventCluster[],
+): EventCluster | null {
+  if (!selectedCluster) {
+    return null;
+  }
+  return clusters.find((cluster) => cluster.cluster_key === selectedCluster.cluster_key) ?? null;
 }
 
 function syncSavedFeedItem(items: FeedItem[], updated: FeedItem): FeedItem[] {

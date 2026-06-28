@@ -442,6 +442,7 @@ Recommended UI behavior:
 - Label setup checklist items as core, recommended, or optional so missing API keys do not look equally blocking during budget-limited local setup.
 - Keep open feed details synchronized with summarize, classify, save, hide, and important actions so item feedback is visible in both the list card and expanded detail panel.
 - Keep saved-item state synchronized with per-item enrichment, manual resubmission, and feedback actions so the Saved Items module reflects updated titles, notes, summaries, classifier scores, and important flags without a manual refresh.
+- Keep open detail panels synchronized after global refreshes and source-preference updates so feed details, event clusters, and watchlist briefings do not continue showing hidden or blocked-source signals.
 - Keep the financial disclaimer visible on stock pages and stock summaries.
 - Render a local stock-disclaimer fallback in the dashboard so the non-financial-advice notice remains visible before stock summaries load or when no stock signals exist.
 

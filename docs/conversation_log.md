@@ -154,3 +154,4 @@ Implementation progress:
 - Applied blocked-source preferences to daily digest generation, latest digest date selection, source coverage, markdown export, and saved snapshots.
 - Applied blocked-source preferences to batch LLM candidate selection so blocked sources do not consume summarization or classification budget.
 - Applied blocked-source preferences to stock, company, topic, and product watchlist summaries and drill-down briefings.
+- Synchronized open dashboard detail panels after refreshes and source-preference updates so stale feed details, event clusters, and watchlist briefings are cleared or reloaded.
