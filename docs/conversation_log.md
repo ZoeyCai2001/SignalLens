@@ -174,3 +174,4 @@ Implementation progress:
 - Added related event clusters to the selected stock detail view so stock briefings show cluster evidence alongside price, themes, market-impact buckets, and news timelines.
 - Added deterministic topic definitions to topic briefings and displayed them in the topic detail panel, using user notes when available.
 - Added visible daily digest snapshot history to the dashboard so saved briefings show dates, headlines, item counts, and markdown size instead of only a saved count.
+- Surfaced latest source-run error text in the Source Health table so ingestion failures can be diagnosed from the dashboard.

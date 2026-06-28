@@ -446,6 +446,12 @@ table {
   width: 220px;
 }
 
+.source-error {
+  color: var(--rose);
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+
 .source-run-list {
   display: grid;
   gap: 6px;

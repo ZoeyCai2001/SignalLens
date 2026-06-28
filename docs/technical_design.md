@@ -395,6 +395,8 @@ Ingestion and manual submission normalization also detect common AI product name
 
 Custom followed sources can run through reusable connectors when the access pattern is safe and structured. RSS sources with a `base_url` run through `RssConnector`; `github_repository` sources with a GitHub URL run through the GitHub REST API for that specific repository, enabling the PRD source-watchlist requirement for followed GitHub projects without scraping. Newly followed sources can be removed before they collect items or run history; after that, disabling preserves historical attribution while stopping future ingestion.
 
+Source Health rows surface the latest run status, recent failure count, and latest error text so ingestion failures can be diagnosed directly from the dashboard instead of requiring terminal logs.
+
 ### Manual Submission
 
 - `POST /api/manual-submissions`

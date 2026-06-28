@@ -5467,6 +5467,9 @@ function SourceTable({
                   </td>
                   <td className={source.latest_status === "success" ? "health-ok" : ""}>
                     <div>{source.latest_status}</div>
+                    {source.latest_error ? (
+                      <div className="small-muted source-error">{source.latest_error}</div>
+                    ) : null}
                     {source.needs_attention ? (
                       <div className="small-muted source-attention">
                         needs attention{source.failure_count > 0 ? ` · ${failureCopy}` : ""}
