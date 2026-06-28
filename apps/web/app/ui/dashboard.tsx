@@ -122,6 +122,7 @@ type StockSignalSummary = {
   market: StockMarketSnapshot | null;
   latest_event_title: string | null;
   latest_event_at: string | null;
+  last_updated_at: string | null;
   sentiment_counts: Record<string, number>;
   top_signals: FeedItem[];
   disclaimer: string;
@@ -3672,6 +3673,7 @@ function StockTable({
               <th>Latest Event</th>
               <th>Sentiment</th>
               <th>Attention</th>
+              <th>Last Updated</th>
               <th>Themes</th>
               <th>Action</th>
             </tr>
@@ -3723,6 +3725,9 @@ function StockTable({
                   </td>
                   <td>{formatDominantSentiment(summary?.sentiment_counts)}</td>
                   <td>{Math.round((summary?.attention_score ?? 0) * 100)}</td>
+                  <td>
+                    {summary?.last_updated_at ? formatDate(summary.last_updated_at) : "--"}
+                  </td>
                   <td>{stock.related_ai_themes.slice(0, 2).join(", ")}</td>
                   <td>
                     <div className="table-actions">

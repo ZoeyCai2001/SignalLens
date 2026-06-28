@@ -166,3 +166,4 @@ Implementation progress:
 - Added event-cluster explanations and uncertainty notes to the API and dashboard so cluster evidence is easier to audit before optional LLM cluster summarization.
 - Added feed-item detail uncertainty notes so expanded item views flag low confidence, lower source credibility, unclear stock linkage, missing summaries, and manual-submission context.
 - Added stock market snapshot volume-change calculations and surfaced the metric in the stock detail dashboard summary.
+- Added stock-summary last-updated timestamps and a dedicated stock table column based on the newest signal or market price date.

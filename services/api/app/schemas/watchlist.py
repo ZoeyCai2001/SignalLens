@@ -54,6 +54,7 @@ class StockSignalSummary(BaseModel):
     market: StockMarketSnapshot | None = None
     latest_event_title: str | None = None
     latest_event_at: datetime | None = None
+    last_updated_at: datetime | None = None
     sentiment_counts: dict[str, int] = Field(default_factory=dict)
     top_signals: list[FeedItem]
     disclaimer: str

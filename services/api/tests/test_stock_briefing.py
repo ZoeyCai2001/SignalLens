@@ -14,6 +14,7 @@ from app.schemas.watchlist import (
 from app.services.watchlist import (
     build_stock_market_snapshot,
     build_stock_briefing,
+    compute_stock_summary_last_updated_at,
     compute_stock_attention_score,
     infer_stock_price_reaction,
 )
@@ -53,6 +54,7 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
         ),
         latest_event_title="Micron discusses HBM demand",
         latest_event_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
+        last_updated_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
         sentiment_counts={"positive": 1, "mixed": 1},
         top_signals=[
             make_feed_item(
@@ -162,6 +164,28 @@ def test_build_stock_market_snapshot_includes_volume_change() -> None:
         "2026-06-24",
         "2026-06-25",
     ]
+
+
+def test_compute_stock_summary_last_updated_prefers_newest_signal_or_market_date() -> None:
+    market = StockMarketSnapshot(
+        latest=StockPricePoint(
+            price_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+            open_price=100,
+            high_price=100,
+            low_price=100,
+            close_price=100,
+        ),
+        history=[],
+    )
+
+    assert compute_stock_summary_last_updated_at(
+        latest_event_at=datetime(2026, 6, 24, 16, 0, tzinfo=UTC),
+        market=market,
+    ) == datetime(2026, 6, 25, 0, 0, tzinfo=UTC)
+    assert compute_stock_summary_last_updated_at(
+        latest_event_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
+        market=market,
+    ) == datetime(2026, 6, 25, 10, 0, tzinfo=UTC)
 
 
 def test_infer_stock_price_reaction_labels_market_alignment() -> None:

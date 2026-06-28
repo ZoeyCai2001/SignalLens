@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import UTC, datetime, time
 import re
 
 from sqlalchemy import String, cast, or_
@@ -980,6 +981,8 @@ def build_stock_signal_summary(
     stock_schema = stock if isinstance(stock, StockWatchlistSchema) else (
         StockWatchlistSchema.model_validate(stock)
     )
+    market = build_stock_market_snapshot(db=db, ticker=stock_schema.ticker)
+    latest_event_at = latest_signal.published_at if latest_signal else None
     return StockSignalSummary(
         stock=stock_schema,
         signal_count=signal_count,
@@ -993,9 +996,13 @@ def build_stock_signal_summary(
             top_signals=top_signals,
             signal_count=signal_count,
         ),
-        market=build_stock_market_snapshot(db=db, ticker=stock_schema.ticker),
+        market=market,
         latest_event_title=latest_signal.title if latest_signal else None,
-        latest_event_at=latest_signal.published_at if latest_signal else None,
+        latest_event_at=latest_event_at,
+        last_updated_at=compute_stock_summary_last_updated_at(
+            latest_event_at=latest_event_at,
+            market=market,
+        ),
         sentiment_counts=build_sentiment_counts(top_signals),
         top_signals=top_signals,
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
@@ -1064,6 +1071,20 @@ def build_stock_market_snapshot(
         volume_change_percent=volume_change_percent,
         history=history,
     )
+
+
+def compute_stock_summary_last_updated_at(
+    latest_event_at: datetime | None,
+    market: StockMarketSnapshot | None,
+) -> datetime | None:
+    candidates = []
+    if latest_event_at is not None:
+        candidates.append(
+            latest_event_at if latest_event_at.tzinfo else latest_event_at.replace(tzinfo=UTC)
+        )
+    if market and market.latest:
+        candidates.append(datetime.combine(market.latest.price_date, time.min, tzinfo=UTC))
+    return max(candidates) if candidates else None
 
 
 def classify_stock_urgency(summary: StockSignalSummary) -> str:
