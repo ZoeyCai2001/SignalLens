@@ -1179,6 +1179,7 @@ export function Dashboard() {
         method: "POST",
       });
       setFeed((items) => items.map((item) => (item.id === itemId ? summarized : item)));
+      setSavedItems((items) => syncSavedFeedItem(items, summarized));
       setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, summarized));
       setStatus(`Summarized item ${itemId}`);
     } catch (err) {
@@ -1197,6 +1198,7 @@ export function Dashboard() {
         method: "POST",
       });
       setFeed((items) => items.map((item) => (item.id === itemId ? classified : item)));
+      setSavedItems((items) => syncSavedFeedItem(items, classified));
       setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, classified));
       setStatus(`Classified item ${itemId}`);
     } catch (err) {
@@ -1616,14 +1618,12 @@ export function Dashboard() {
         setStatus(`Hidden item ${itemId}`);
       } else if (action === "unsave") {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
-        setSavedItems((items) => items.filter((item) => item.id !== itemId));
+        setSavedItems((items) => syncSavedFeedItem(items, updated));
         setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
         setStatus(`Removed saved item ${itemId}`);
       } else {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
-        if (action === "save") {
-          setSavedItems((items) => [updated, ...items.filter((item) => item.id !== itemId)]);
-        }
+        setSavedItems((items) => syncSavedFeedItem(items, updated));
         setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
         setStatus(action === "save" ? `Saved item ${itemId}` : `Marked item ${itemId}`);
       }
@@ -3385,6 +3385,17 @@ function updateSelectedFeedDetail(
       is_important: updated.is_important,
     },
   };
+}
+
+function syncSavedFeedItem(items: FeedItem[], updated: FeedItem): FeedItem[] {
+  if (!updated.is_saved) {
+    return items.filter((item) => item.id !== updated.id);
+  }
+  const exists = items.some((item) => item.id === updated.id);
+  if (!exists) {
+    return [updated, ...items];
+  }
+  return items.map((item) => (item.id === updated.id ? updated : item));
 }
 
 function ManualSubmissionPanel({

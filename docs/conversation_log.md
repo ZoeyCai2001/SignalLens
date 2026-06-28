@@ -145,3 +145,4 @@ Implementation progress:
 - Updated manual URL resubmission to refresh the existing item instead of creating a duplicate or hitting a uniqueness error.
 - Synchronized open feed details with save, hide, and important actions so expanded item state stays consistent with feed cards.
 - Extended feed-detail synchronization to per-item summarize and classify actions so expanded summaries and classifier scores refresh in place.
+- Synchronized saved-item state after per-item summarize, classify, save, unsave, and important actions so the Saved Items module stays current without refresh.
