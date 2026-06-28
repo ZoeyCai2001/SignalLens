@@ -7,9 +7,11 @@ from app.services.daily_digest import (
     build_digest_sections,
     build_headline,
     build_source_coverage,
+    digest_rank_score,
     filter_items_by_excluded_topics,
     render_digest_markdown,
     serialize_daily_digest_snapshot,
+    sort_for_digest,
 )
 
 
@@ -45,6 +47,30 @@ def test_daily_digest_source_coverage_counts_sources() -> None:
     assert coverage[0].source_name == "arXiv"
     assert coverage[0].item_count == 2
     assert coverage[1].source_name == "Hacker News"
+
+
+def test_sort_for_digest_uses_source_quality_and_confidence() -> None:
+    lower_trust = make_item(
+        1,
+        "Slightly higher importance rumor",
+        "technical_trend",
+        0.74,
+        source_quality_score=0.55,
+        classification_confidence=0.5,
+    )
+    trusted = make_item(
+        2,
+        "Trusted source confirmation",
+        "technical_trend",
+        0.7,
+        source_quality_score=0.9,
+        classification_confidence=0.85,
+    )
+
+    ranked = sort_for_digest([lower_trust, trusted])
+
+    assert ranked[0].title == "Trusted source confirmation"
+    assert digest_rank_score(trusted) > digest_rank_score(lower_trust)
 
 
 def test_daily_digest_headline_handles_empty_day() -> None:
@@ -134,6 +160,8 @@ def make_item(
     products: list[str] | None = None,
     tickers: list[str] | None = None,
     is_saved: bool = False,
+    source_quality_score: float = 0.7,
+    classification_confidence: float = 0.5,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -151,9 +179,10 @@ def make_item(
         topics=topics or [],
         sentiment="neutral",
         relevance_score=0.8,
+        classification_confidence=classification_confidence,
         importance_score=importance_score,
         novelty_score=0.7,
-        source_quality_score=0.7,
+        source_quality_score=source_quality_score,
         stock_impact_score=0.0,
         summary_short=None,
         summary_detailed=None,

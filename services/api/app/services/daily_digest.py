@@ -316,12 +316,22 @@ def sort_for_digest(items: list[FeedItem]) -> list[FeedItem]:
         items,
         key=lambda item: (
             item.is_important,
-            item.importance_score,
-            item.relevance_score,
-            item.stock_impact_score,
+            digest_rank_score(item),
             item.published_at or datetime.min.replace(tzinfo=UTC),
         ),
         reverse=True,
+    )
+
+
+def digest_rank_score(item: FeedItem) -> float:
+    return round(
+        0.32 * item.importance_score
+        + 0.22 * item.relevance_score
+        + 0.16 * item.source_quality_score
+        + 0.12 * item.classification_confidence
+        + 0.10 * item.stock_impact_score
+        + 0.08 * item.novelty_score,
+        4,
     )
 
 

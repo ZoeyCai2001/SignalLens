@@ -115,3 +115,4 @@ Implementation progress:
 - Added deterministic source credibility scoring so ranking and importance now reflect source quality instead of a flat default.
 - Added optional GitHub token support and readiness reporting so repository ingestion can use higher public API limits when configured.
 - Surfaced source credibility and lower-confidence signals in feed explanations so ranking reasons are easier to audit.
+- Updated daily digest ranking to include source quality and classifier confidence, improving the trust profile of morning briefings.

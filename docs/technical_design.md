@@ -218,6 +218,8 @@ The MVP can compute these as deterministic functions over stored fields. Later v
 
 Source quality is deterministic in the MVP. Structured research and official APIs receive the highest baseline credibility; community, RSS, manual, and experimental sources receive lower baseline scores. The stored `source_quality_score` is then used by ranking, importance, and digest selection without requiring an LLM call.
 
+Daily digest ordering uses a deterministic blended score across importance, relevance, source quality, classifier confidence, stock impact, and novelty. This keeps the morning briefing biased toward useful and trustworthy items while preserving high-priority user-marked items at the top.
+
 ## 8. Data Model
 
 ### 8.1 Main Tables
