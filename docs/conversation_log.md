@@ -148,3 +148,4 @@ Implementation progress:
 - Synchronized saved-item state after per-item summarize, classify, save, unsave, and important actions so the Saved Items module stays current without refresh.
 - Synchronized manual submission responses with saved items and open feed details so resubmitted URLs update visible state immediately.
 - Reset normalized manual-submission metadata before re-enriching resubmitted URLs so corrected notes do not retain stale AI categories, entities, scores, or summaries.
+- Routed event cluster APIs through local ranking and source preferences so preferred and blocked sources affect cross-source event discovery consistently with the main feed.

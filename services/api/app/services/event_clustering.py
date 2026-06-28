@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.events import EventCluster, EventClusterTimelineItem
 from app.schemas.feed import FeedItem
+from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import list_visible_feed_items
 from app.services.scoring import detect_tickers
 
@@ -31,8 +32,17 @@ def list_event_clusters(
     limit: int = 12,
     items_limit: int = 200,
     min_items: int = 1,
+    ranking_weights: RankingWeights | dict | None = None,
+    preferred_sources: list[str] | None = None,
+    blocked_sources: list[str] | None = None,
 ) -> list[EventCluster]:
-    items = list_visible_feed_items(db=db, limit=items_limit)
+    items = list_visible_feed_items(
+        db=db,
+        limit=items_limit,
+        ranking_weights=ranking_weights,
+        preferred_sources=preferred_sources,
+        blocked_sources=blocked_sources,
+    )
     return build_event_clusters_from_items(items=items, limit=limit, min_items=min_items)
 
 
@@ -41,8 +51,17 @@ def get_event_cluster(
     cluster_key: str,
     items_limit: int = 500,
     min_items: int = 1,
+    ranking_weights: RankingWeights | dict | None = None,
+    preferred_sources: list[str] | None = None,
+    blocked_sources: list[str] | None = None,
 ) -> EventCluster | None:
-    items = list_visible_feed_items(db=db, limit=items_limit)
+    items = list_visible_feed_items(
+        db=db,
+        limit=items_limit,
+        ranking_weights=ranking_weights,
+        preferred_sources=preferred_sources,
+        blocked_sources=blocked_sources,
+    )
     grouped = group_items_by_cluster(items)
     cluster_items = grouped.get(cluster_key, [])
     if len(cluster_items) < min_items:

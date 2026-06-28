@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -71,6 +72,43 @@ def test_event_clusters_can_be_retrieved_by_cluster_key() -> None:
 
 
 @pytest.mark.anyio
+async def test_list_clusters_route_passes_user_preferences(monkeypatch) -> None:
+    expected = [
+        build_event_cluster(
+            "strong|technical_trend|avgo",
+            [
+                make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
+                make_item(2, "Broadcom chip discussion", tickers=["AVGO"]),
+            ],
+        )
+    ]
+    preferences = make_preferences()
+
+    monkeypatch.setattr(events, "get_user_preferences", lambda db: preferences)
+
+    def fake_list_event_clusters(
+        db,
+        limit: int = 12,
+        min_items: int = 1,
+        ranking_weights=None,
+        preferred_sources=None,
+        blocked_sources=None,
+    ):
+        assert limit == 7
+        assert min_items == 2
+        assert ranking_weights == preferences.ranking_weights
+        assert preferred_sources == preferences.preferred_sources
+        assert blocked_sources == preferences.blocked_sources
+        return expected
+
+    monkeypatch.setattr(events, "list_event_clusters", fake_list_event_clusters)
+
+    result = await events.list_clusters(db=object(), limit=7, min_items=2)
+
+    assert result == expected
+
+
+@pytest.mark.anyio
 async def test_get_cluster_route_returns_detail(monkeypatch) -> None:
     expected = build_event_cluster(
         "strong|technical_trend|avgo",
@@ -79,10 +117,23 @@ async def test_get_cluster_route_returns_detail(monkeypatch) -> None:
             make_item(2, "Broadcom chip discussion", tickers=["AVGO"]),
         ],
     )
+    preferences = make_preferences()
 
-    def fake_get_event_cluster(db, cluster_key: str, min_items: int = 1):
+    monkeypatch.setattr(events, "get_user_preferences", lambda db: preferences)
+
+    def fake_get_event_cluster(
+        db,
+        cluster_key: str,
+        min_items: int = 1,
+        ranking_weights=None,
+        preferred_sources=None,
+        blocked_sources=None,
+    ):
         assert cluster_key == "strong|technical_trend|avgo"
         assert min_items == 2
+        assert ranking_weights == preferences.ranking_weights
+        assert preferred_sources == preferences.preferred_sources
+        assert blocked_sources == preferences.blocked_sources
         return expected
 
     monkeypatch.setattr(events, "get_event_cluster", fake_get_event_cluster)
@@ -98,12 +149,21 @@ async def test_get_cluster_route_returns_detail(monkeypatch) -> None:
 
 @pytest.mark.anyio
 async def test_get_cluster_route_raises_404_when_missing(monkeypatch) -> None:
+    monkeypatch.setattr(events, "get_user_preferences", lambda db: make_preferences())
     monkeypatch.setattr(events, "get_event_cluster", lambda **_kwargs: None)
 
     with pytest.raises(HTTPException) as exc_info:
         await events.get_cluster(cluster_key="missing", db=object())
 
     assert exc_info.value.status_code == 404
+
+
+def make_preferences() -> SimpleNamespace:
+    return SimpleNamespace(
+        ranking_weights={"stock_impact": 1},
+        preferred_sources=["RSS"],
+        blocked_sources=["Blocked Source"],
+    )
 
 
 def make_item(
