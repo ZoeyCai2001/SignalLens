@@ -519,6 +519,12 @@ type AlertItem = {
   disclaimer: string;
 };
 
+type AlertGenerationResult = {
+  rules_seeded: number;
+  alerts_created: number;
+  active_alerts: number;
+};
+
 type AlertRule = {
   id: number;
   name: string;
@@ -666,6 +672,7 @@ export function Dashboard() {
   const [busyDetailItemId, setBusyDetailItemId] = useState<number | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<number | null>(null);
   const [busyAlertRuleId, setBusyAlertRuleId] = useState<number | null>(null);
+  const [busyAlertGenerate, setBusyAlertGenerate] = useState(false);
   const [busyClusterKey, setBusyClusterKey] = useState<string | null>(null);
   const [busyClusterExplanationKey, setBusyClusterExplanationKey] = useState<string | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
@@ -1796,6 +1803,24 @@ export function Dashboard() {
     }
   };
 
+  const generateDashboardAlerts = async () => {
+    setBusyAlertGenerate(true);
+    setError(null);
+    try {
+      const result = await fetchJson<AlertGenerationResult>("/api/alerts/generate", {
+        method: "POST",
+      });
+      await refreshAllWithStatus(
+        `Generated alerts: ${result.alerts_created} new, ${result.active_alerts} active`,
+      );
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert generation failed");
+    } finally {
+      setBusyAlertGenerate(false);
+    }
+  };
+
   const toggleAlertRule = async (rule: AlertRule) => {
     setBusyAlertRuleId(rule.id);
     setError(null);
@@ -2407,6 +2432,7 @@ export function Dashboard() {
               rules={alertRules}
               busyAlertId={busyAlertId}
               busyAlertRuleId={busyAlertRuleId}
+              busyGenerate={busyAlertGenerate}
               ruleName={alertRuleName}
               ruleCategory={alertRuleCategory}
               ruleTickers={alertRuleTickers}
@@ -2414,6 +2440,7 @@ export function Dashboard() {
               ruleImportance={alertRuleImportance}
               disabled={loadState !== "idle"}
               onDismiss={dismissAlert}
+              onGenerate={generateDashboardAlerts}
               onRuleToggle={toggleAlertRule}
               onRuleDelete={deleteAlertRule}
               onRuleNameChange={setAlertRuleName}
@@ -2811,6 +2838,7 @@ function AlertPanel({
   rules,
   busyAlertId,
   busyAlertRuleId,
+  busyGenerate,
   ruleName,
   ruleCategory,
   ruleTickers,
@@ -2818,6 +2846,7 @@ function AlertPanel({
   ruleImportance,
   disabled,
   onDismiss,
+  onGenerate,
   onRuleToggle,
   onRuleDelete,
   onRuleNameChange,
@@ -2831,6 +2860,7 @@ function AlertPanel({
   rules: AlertRule[];
   busyAlertId: number | null;
   busyAlertRuleId: number | null;
+  busyGenerate: boolean;
   ruleName: string;
   ruleCategory: string;
   ruleTickers: string;
@@ -2838,6 +2868,7 @@ function AlertPanel({
   ruleImportance: string;
   disabled: boolean;
   onDismiss: (alertId: number) => void;
+  onGenerate: () => void;
   onRuleToggle: (rule: AlertRule) => void;
   onRuleDelete: (ruleId: number) => void;
   onRuleNameChange: (value: string) => void;
@@ -2851,7 +2882,19 @@ function AlertPanel({
     <section className="section">
       <div className="section-header">
         <h2 className="section-title">Alerts</h2>
-        <BellRing size={16} aria-hidden="true" />
+        <div className="table-actions">
+          <button
+            className="button icon-button"
+            onClick={onGenerate}
+            disabled={disabled || busyGenerate}
+            title="Generate alerts now"
+            aria-label="Generate alerts now"
+            type="button"
+          >
+            {busyGenerate ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+          </button>
+          <BellRing size={16} aria-hidden="true" />
+        </div>
       </div>
       <div className="form-panel compact-form">
         <input

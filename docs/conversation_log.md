@@ -198,3 +198,4 @@ Implementation progress:
 - Added LLM batch cost-control telemetry so manual classification/summarization responses and dashboard status show attempted model calls against the capped budget.
 - Added computed social-signal scoring from GitHub, Hacker News, and Product Hunt metadata, with feed ranking, digest ordering, dashboard scores, and ranking-weight controls using the new PRD engagement signal.
 - Organized the selected stock detail view into Overview, Signals, Clusters, and Summary tabs so stock research is easier to scan without changing the backend contracts.
+- Added an explicit dashboard action to generate alerts now, showing newly created and active alert counts after evaluating alert rules.

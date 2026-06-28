@@ -409,10 +409,11 @@ Source Health rows surface the latest run status, recent failure count, and late
 - `GET /api/digests/daily`
 - `POST /api/digests/daily/generate`
 - `GET /api/alerts`
+- `POST /api/alerts/generate`
 - `POST /api/alerts/rules`
 - `PATCH /api/alerts/rules/{rule_id}`
 
-Default alert rules include high-impact stock signals, important AI developments, cross-source confirmations, large watched-stock price moves with related AI news, earnings/guidance mentions, analyst actions, supply-chain signals, and theme breakouts.
+Default alert rules include high-impact stock signals, important AI developments, cross-source confirmations, large watched-stock price moves with related AI news, earnings/guidance mentions, analyst actions, supply-chain signals, and theme breakouts. The dashboard can explicitly run alert generation through `POST /api/alerts/generate`, returning new and active alert counts so the user can test alert rules without running a full ingestion cycle.
 
 ## 10. Frontend Information Architecture
 
