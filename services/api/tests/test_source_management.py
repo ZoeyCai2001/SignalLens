@@ -22,6 +22,7 @@ from app.sources.base import FetchCursor, FetchResult, SourceConnector
 
 
 def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
+    last_success_at = datetime(2026, 6, 27, 8, 0, tzinfo=UTC)
     source = Source(
         id=1,
         name="Test Source",
@@ -43,7 +44,7 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
         error_message="disabled",
     )
 
-    health = serialize_source_health(source, run)
+    health = serialize_source_health(source, run, last_success_at=last_success_at)
 
     assert health.enabled is False
     assert health.base_url == "https://example.com/feed.xml"
@@ -53,6 +54,7 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     assert health.terms_notes == "Use RSS feed only."
     assert health.latest_status == "skipped"
     assert health.latest_error == "disabled"
+    assert health.last_success_at == last_success_at
     assert health.failure_count == 0
     assert health.needs_attention is False
 

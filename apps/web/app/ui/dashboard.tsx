@@ -233,6 +233,7 @@ type SourceHealth = {
   latest_error: string | null;
   last_started_at: string | null;
   last_finished_at: string | null;
+  last_success_at: string | null;
   items_fetched: number;
   items_stored: number;
   failure_count: number;
@@ -4497,7 +4498,12 @@ function SourceTable({
                     ) : null}
                   </td>
                   <td>{source.items_stored}</td>
-                  <td>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</td>
+                  <td>
+                    <div>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</div>
+                    {source.last_success_at ? (
+                      <div className="small-muted">success {formatDate(source.last_success_at)}</div>
+                    ) : null}
+                  </td>
                   <td>
                     <div className="table-actions">
                       <button

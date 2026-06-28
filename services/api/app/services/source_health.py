@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -36,6 +38,7 @@ def list_source_health(db: Session) -> list[SourceHealth]:
             source,
             run,
             failure_count=count_recent_source_failures(db, source.id),
+            last_success_at=get_latest_success_at(db, source.id),
         )
         for source, run in rows
     ]
@@ -115,6 +118,18 @@ def get_latest_source_run(db: Session, source_id: int) -> SourceRun | None:
     )
 
 
+def get_latest_success_at(db: Session, source_id: int) -> datetime | None:
+    run = (
+        db.query(SourceRun)
+        .filter(SourceRun.source_id == source_id, SourceRun.status == "success")
+        .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
+        .first()
+    )
+    if run is None:
+        return None
+    return run.finished_at or run.started_at
+
+
 def count_recent_source_failures(
     db: Session,
     source_id: int,
@@ -148,6 +163,7 @@ def serialize_source_health(
     source: Source,
     run: SourceRun | None,
     failure_count: int = 0,
+    last_success_at: datetime | None = None,
 ) -> SourceHealth:
     latest_status = run.status if run else "never_run"
     return SourceHealth(
@@ -166,6 +182,7 @@ def serialize_source_health(
         latest_error=run.error_message if run else None,
         last_started_at=run.started_at if run else None,
         last_finished_at=run.finished_at if run else None,
+        last_success_at=last_success_at,
         items_fetched=run.items_fetched if run else 0,
         items_stored=run.items_stored if run else 0,
         failure_count=failure_count,

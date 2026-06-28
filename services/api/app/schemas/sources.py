@@ -19,6 +19,7 @@ class SourceHealth(BaseModel):
     latest_error: str | None
     last_started_at: datetime | None
     last_finished_at: datetime | None
+    last_success_at: datetime | None
     items_fetched: int
     items_stored: int
     failure_count: int = 0
