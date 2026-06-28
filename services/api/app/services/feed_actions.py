@@ -64,6 +64,12 @@ def build_score_explanation(item: FeedItem) -> str:
         reasons.append(f"matched topics {', '.join(item.topics[:3])}")
     if item.category:
         reasons.append(f"classified as {item.category.replace('_', ' ')}")
+    if item.source_quality_score >= 0.8:
+        reasons.append("high source credibility")
+    elif item.source_quality_score < 0.6:
+        reasons.append("lower source credibility; review the original source")
+    if item.classification_confidence < 0.6:
+        reasons.append("lower classifier confidence")
     if item.importance_score >= 0.75:
         reasons.append("high importance score")
     if item.stock_impact_score >= 0.75:

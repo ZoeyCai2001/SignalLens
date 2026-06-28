@@ -71,7 +71,7 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
         relevance_score=0.8,
         importance_score=0.82,
         novelty_score=0.7,
-        source_quality_score=0.75,
+        source_quality_score=0.82,
         stock_impact_score=0.9,
     )
     action = UserItemAction(
@@ -91,12 +91,27 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
         "is_important": True,
     }
     assert "matched tickers MU" in detail.score_explanation
+    assert "high source credibility" in detail.score_explanation
     assert "high stock-impact score" in detail.score_explanation
+
+
+def test_build_score_explanation_flags_lower_confidence_and_source_credibility() -> None:
+    item = make_feed_item(1, "Manual rumor", relevance_score=0.6, importance_score=0.5)
+    item.category = "manual_submission"
+    item.source_quality_score = 0.55
+    item.classification_confidence = 0.45
+
+    explanation = build_score_explanation(item)
+
+    assert "lower source credibility; review the original source" in explanation
+    assert "lower classifier confidence" in explanation
 
 
 def test_build_score_explanation_has_default_reason() -> None:
     item = make_feed_item(1, "Fallback")
     item.category = ""
+    item.source_quality_score = 0.65
+    item.classification_confidence = 0.7
 
     assert build_score_explanation(item) == "Shown because it matched the AI relevance prefilter."
 
