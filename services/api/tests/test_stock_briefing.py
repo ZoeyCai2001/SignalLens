@@ -7,7 +7,11 @@ from app.schemas.watchlist import (
     StockSignalSummary,
     StockWatchlistItem,
 )
-from app.services.watchlist import build_stock_briefing, compute_stock_attention_score
+from app.services.watchlist import (
+    build_stock_briefing,
+    compute_stock_attention_score,
+    infer_stock_price_reaction,
+)
 
 
 def test_build_stock_briefing_summarizes_signal_state() -> None:
@@ -88,6 +92,7 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
     assert briefing.recent_timeline[0].signal_score == 0.84
     assert briefing.recent_timeline[0].event_type == "demand_signal"
     assert briefing.recent_timeline[0].possible_market_impact == "positive"
+    assert briefing.recent_timeline[0].price_reaction == "aligned_up"
     assert briefing.recent_timeline[0].confidence == 0.714
     assert briefing.recent_timeline[0].time_sensitivity == "high"
     assert briefing.recent_timeline[0].uncertainties == [
@@ -126,6 +131,46 @@ def test_compute_stock_attention_score_combines_signal_volume_and_preferences() 
     score = compute_stock_attention_score(stock=stock, top_signals=signals, signal_count=4)
 
     assert score == 0.74
+
+
+def test_infer_stock_price_reaction_labels_market_alignment() -> None:
+    market = StockMarketSnapshot(
+        latest=None,
+        previous_close=100,
+        change=2.5,
+        change_percent=2.5,
+        history=[],
+    )
+
+    assert infer_stock_price_reaction(market, "positive") == "aligned_up"
+    assert infer_stock_price_reaction(market, "negative") == "opposite_move"
+    assert infer_stock_price_reaction(market, "mixed") == "muted_or_unclear"
+
+
+def test_infer_stock_price_reaction_handles_down_moves_and_missing_data() -> None:
+    market = StockMarketSnapshot(
+        latest=None,
+        previous_close=100,
+        change=-1.4,
+        change_percent=-1.4,
+        history=[],
+    )
+
+    assert infer_stock_price_reaction(market, "negative") == "aligned_down"
+    assert infer_stock_price_reaction(market, "positive") == "opposite_move"
+    assert infer_stock_price_reaction(None, "positive") == "no_price_data"
+
+
+def test_infer_stock_price_reaction_treats_small_moves_as_unclear() -> None:
+    market = StockMarketSnapshot(
+        latest=None,
+        previous_close=100,
+        change=0.2,
+        change_percent=0.2,
+        history=[],
+    )
+
+    assert infer_stock_price_reaction(market, "positive") == "muted_or_unclear"
 
 
 def make_feed_item(

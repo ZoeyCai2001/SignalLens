@@ -64,6 +64,7 @@ class StockBriefingTimelineItem(BaseModel):
     reason: str
     event_type: str
     possible_market_impact: str
+    price_reaction: str
     confidence: float
     time_sensitivity: str
     event_summary: str

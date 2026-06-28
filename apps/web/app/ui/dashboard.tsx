@@ -131,6 +131,7 @@ type StockBriefingTimelineItem = {
   reason: string;
   event_type: string;
   possible_market_impact: string;
+  price_reaction: string;
   confidence: number;
   time_sensitivity: string;
   event_summary: string;
@@ -4021,6 +4022,7 @@ function StockBriefingPanel({
                   >
                     Impact: {entry.possible_market_impact}
                   </span>
+                  <span className="badge">Price: {formatCategoryLabel(entry.price_reaction)}</span>
                   <span className="badge">Confidence {Math.round(entry.confidence * 100)}</span>
                   <span className="badge">Time: {entry.time_sensitivity}</span>
                 </div>

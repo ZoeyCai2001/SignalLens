@@ -158,3 +158,4 @@ Implementation progress:
 - Triggered dashboard-wide refreshes after manual submissions, per-item summarize/classify actions, and save/hide/important feedback so digest, alerts, event clusters, and drill-down panels stay current.
 - Preserved operation-specific dashboard status after ingestion, LLM, watchlist, alert, source, and ranking refreshes so successful actions are not overwritten by generic load messages.
 - Added feedback-aware main-feed ranking: hidden items stay filtered, important items stay first, and saved items now receive a lightweight ranking boost with score explanations.
+- Added conservative stock-briefing price-reaction labels so each stock-linked timeline item can show whether the latest daily price move appears aligned, opposite, muted, or unavailable.

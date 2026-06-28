@@ -1020,17 +1020,7 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
         theme_breakdown=build_stock_theme_breakdown(summary),
         market_impact_events=build_stock_market_impact_events(summary.top_signals),
         recent_timeline=[
-            StockBriefingTimelineItem(
-                item=item,
-                signal_score=compute_stock_signal_score(item),
-                reason=build_stock_signal_reason(item),
-                event_type=infer_stock_event_type(item),
-                possible_market_impact=infer_possible_market_impact(item),
-                confidence=compute_stock_event_confidence(item),
-                time_sensitivity=infer_stock_event_time_sensitivity(item),
-                event_summary=build_stock_event_summary(item),
-                uncertainties=build_stock_event_uncertainties(item),
-            )
+            build_stock_briefing_timeline_item(item=item, market=summary.market)
             for item in summary.top_signals
         ],
         disclaimer=summary.disclaimer,
@@ -1221,6 +1211,28 @@ def build_stock_market_impact_events(
     ]
 
 
+def build_stock_briefing_timeline_item(
+    item: FeedItem,
+    market: StockMarketSnapshot | None,
+) -> StockBriefingTimelineItem:
+    possible_market_impact = infer_possible_market_impact(item)
+    return StockBriefingTimelineItem(
+        item=item,
+        signal_score=compute_stock_signal_score(item),
+        reason=build_stock_signal_reason(item),
+        event_type=infer_stock_event_type(item),
+        possible_market_impact=possible_market_impact,
+        price_reaction=infer_stock_price_reaction(
+            market=market,
+            possible_market_impact=possible_market_impact,
+        ),
+        confidence=compute_stock_event_confidence(item),
+        time_sensitivity=infer_stock_event_time_sensitivity(item),
+        event_summary=build_stock_event_summary(item),
+        uncertainties=build_stock_event_uncertainties(item),
+    )
+
+
 def infer_stock_event_type(item: FeedItem) -> str:
     text = " ".join(
         part
@@ -1266,6 +1278,24 @@ def infer_possible_market_impact(item: FeedItem) -> str:
     if item.sentiment == "mixed" or item.stock_impact_score >= 0.35:
         return "mixed"
     return "uncertain"
+
+
+def infer_stock_price_reaction(
+    market: StockMarketSnapshot | None,
+    possible_market_impact: str,
+) -> str:
+    if market is None or market.change_percent is None:
+        return "no_price_data"
+
+    change_percent = market.change_percent
+    if abs(change_percent) < 0.75:
+        return "muted_or_unclear"
+
+    if possible_market_impact == "positive":
+        return "aligned_up" if change_percent > 0 else "opposite_move"
+    if possible_market_impact == "negative":
+        return "aligned_down" if change_percent < 0 else "opposite_move"
+    return "muted_or_unclear"
 
 
 def compute_stock_event_confidence(item: FeedItem) -> float:
