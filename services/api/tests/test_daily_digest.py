@@ -14,6 +14,7 @@ from app.services.daily_digest import (
     digest_rank_score,
     filter_items_by_excluded_topics,
     list_excluded_digest_company_terms,
+    list_watchlist_companies,
     render_digest_markdown,
     serialize_daily_digest_snapshot,
     sort_for_digest,
@@ -143,6 +144,41 @@ def test_list_excluded_digest_company_terms_uses_company_watchlist_toggles() -> 
     assert "openai" not in terms
 
 
+def test_list_watchlist_companies_returns_digest_included_companies() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                CompanyWatchlistItem(
+                    user_id="local",
+                    company_key="openai",
+                    company_name="OpenAI",
+                    category="ai_lab",
+                    priority="High",
+                    is_pinned=True,
+                    include_in_digest=True,
+                ),
+                CompanyWatchlistItem(
+                    user_id="local",
+                    company_key="nvidia",
+                    company_name="NVIDIA",
+                    ticker="NVDA",
+                    category="semiconductor",
+                    priority="Medium",
+                    include_in_digest=False,
+                ),
+            ]
+        )
+        db.commit()
+
+        companies = list_watchlist_companies(db)
+
+    assert companies == ["OpenAI"]
+
+
 def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None:
     items = [
         make_item(1, "Research", "research", 0.9, topics=["llm"]),
@@ -156,13 +192,15 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
         sections=build_digest_sections(items, limit_per_section=2),
         source_coverage=build_source_coverage(items),
         watchlist_tickers=["MU", "MRVL"],
+        watchlist_companies=["OpenAI", "Anthropic"],
         disclaimer="Informational only.",
     )
 
     markdown = render_digest_markdown(digest)
 
     assert markdown.startswith("# SignalLens Daily Digest - 2026-06-25")
-    assert "Watchlist: MU, MRVL" in markdown
+    assert "Ticker watchlist: MU, MRVL" in markdown
+    assert "Company watchlist: OpenAI, Anthropic" in markdown
     assert "## AI Research" in markdown
     assert "- [Research](https://example.com/1) - Test Source" in markdown
     assert "## Disclaimer" in markdown
@@ -178,6 +216,7 @@ def test_serialize_daily_digest_snapshot_round_trips_payload() -> None:
         sections=[],
         source_coverage=[],
         watchlist_tickers=[],
+        watchlist_companies=[],
         disclaimer="Informational only.",
     )
     timestamp = datetime(2026, 6, 25, 13, 5, tzinfo=UTC)

@@ -383,6 +383,7 @@ type DailyDigest = {
   sections: DigestSection[];
   source_coverage: DigestSourceCoverage[];
   watchlist_tickers: string[];
+  watchlist_companies: string[];
   disclaimer: string;
 };
 
@@ -2654,6 +2655,18 @@ function DailyDigestPanel({
             </span>
           </div>
           <div className="digest-headline">{digest.headline}</div>
+          <div className="digest-coverage">
+            {digest.watchlist_tickers.slice(0, 4).map((ticker) => (
+              <span className="badge stock" key={`ticker:${ticker}`}>
+                {ticker}
+              </span>
+            ))}
+            {digest.watchlist_companies.slice(0, 4).map((company) => (
+              <span className="badge" key={`company:${company}`}>
+                {company}
+              </span>
+            ))}
+          </div>
           <div className="digest-coverage">
             {digest.source_coverage.slice(0, 4).map((source) => (
               <span className="badge" key={source.source_name}>

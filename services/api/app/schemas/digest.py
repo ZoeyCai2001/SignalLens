@@ -25,6 +25,7 @@ class DailyDigest(BaseModel):
     sections: list[DigestSection]
     source_coverage: list[DigestSourceCoverage]
     watchlist_tickers: list[str]
+    watchlist_companies: list[str]
     disclaimer: str
 
 

@@ -44,6 +44,7 @@ def generate_daily_digest(
     sections = build_digest_sections(feed_items, limit_per_section=limit_per_section)
     coverage = build_source_coverage(feed_items)
     tickers = list_watchlist_tickers(db)
+    companies = list_watchlist_companies(db)
 
     return DailyDigest(
         digest_date=selected_date,
@@ -53,6 +54,7 @@ def generate_daily_digest(
         sections=sections,
         source_coverage=coverage,
         watchlist_tickers=tickers,
+        watchlist_companies=companies,
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
     )
 
@@ -67,7 +69,14 @@ def render_digest_markdown(digest: DailyDigest) -> str:
     if digest.watchlist_tickers:
         lines.extend(
             [
-                f"Watchlist: {', '.join(digest.watchlist_tickers)}",
+                f"Ticker watchlist: {', '.join(digest.watchlist_tickers)}",
+                "",
+            ]
+        )
+    if digest.watchlist_companies:
+        lines.extend(
+            [
+                f"Company watchlist: {', '.join(digest.watchlist_companies)}",
                 "",
             ]
         )
@@ -361,6 +370,23 @@ def list_watchlist_tickers(db: Session) -> list[str]:
         .all()
     )
     return [row[0] for row in rows]
+
+
+def list_watchlist_companies(db: Session) -> list[str]:
+    rows = (
+        db.query(CompanyWatchlistItem)
+        .filter(
+            CompanyWatchlistItem.user_id == LOCAL_USER_ID,
+            CompanyWatchlistItem.include_in_digest.is_(True),
+        )
+        .order_by(
+            CompanyWatchlistItem.is_pinned.desc(),
+            CompanyWatchlistItem.priority.asc(),
+            CompanyWatchlistItem.company_name.asc(),
+        )
+        .all()
+    )
+    return [row.company_name for row in rows]
 
 
 def list_excluded_digest_terms(db: Session) -> set[str]:
