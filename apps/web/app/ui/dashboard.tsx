@@ -1263,6 +1263,40 @@ export function Dashboard() {
     }
   };
 
+  const applySavedManualTagFilter = async (tag: string) => {
+    setLoadState("loading");
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "30");
+      params.set("manual_tag", tag);
+      params.set("saved_only", "true");
+      const results = await fetchJson<FeedItem[]>(`/api/search?${params.toString()}`);
+      setFeed(results);
+      setActiveModule("dashboard");
+      setSearchQuery("");
+      setSearchSource("");
+      setSearchCategory("");
+      setSearchTicker("");
+      setSearchCompany("");
+      setSearchTopic("");
+      setSearchManualTag(tag);
+      setSearchLanguage("");
+      setSearchDateFrom("");
+      setSearchDateTo("");
+      setSearchMinImportance("");
+      setSavedOnly(true);
+      setSearchIntent(null);
+      setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
+      setStatus(`Filtered saved items by tag ${tag}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Saved tag filter failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
   const generateDailyDigest = async () => {
     setBusyDigestGenerate(true);
     setError(null);
@@ -2506,6 +2540,7 @@ export function Dashboard() {
             <SavedItemsPanel
               items={savedItems.slice(0, 8)}
               busyItemId={busyItemId}
+              onManualTagFilter={applySavedManualTagFilter}
               onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
             />
             <ChineseSocialPanel items={feed} />
@@ -3218,10 +3253,12 @@ function countMarkdownLines(markdown: string): number {
 function SavedItemsPanel({
   items,
   busyItemId,
+  onManualTagFilter,
   onUnsave,
 }: {
   items: FeedItem[];
   busyItemId: number | null;
+  onManualTagFilter: (tag: string) => void;
   onUnsave: (itemId: number) => void;
 }) {
   return (
@@ -3235,9 +3272,28 @@ function SavedItemsPanel({
           <div className="digest-list">
             {items.map((item) => (
               <div className="saved-row" key={item.id}>
-                <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
-                  {item.title}
-                </a>
+                <div className="saved-row-main">
+                  <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
+                    {item.title}
+                  </a>
+                  {item.personal_note ? (
+                    <div className="saved-note">{item.personal_note}</div>
+                  ) : null}
+                  {item.manual_tags.length ? (
+                    <div className="saved-tag-row" aria-label={`Manual tags for ${item.title}`}>
+                      {item.manual_tags.map((tag) => (
+                        <button
+                          className="badge-button"
+                          key={`${item.id}:${tag}`}
+                          onClick={() => onManualTagFilter(tag)}
+                          type="button"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <button
                   className="button icon-button"
                   onClick={() => onUnsave(item.id)}

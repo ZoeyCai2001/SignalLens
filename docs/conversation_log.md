@@ -201,3 +201,4 @@ Implementation progress:
 - Added an explicit dashboard action to generate alerts now, showing newly created and active alert counts after evaluating alert rules.
 - Added private feed-item personal notes and manual tags, including persistence on user item actions, a feed metadata API, and an expanded item detail editor.
 - Added personal metadata search so saved notes and manual tags can be found through free-text search, natural-language tag intent, and a dashboard Manual Tag filter.
+- Surfaced saved-item notes and manual tags directly in the Saved Items panel, including one-click saved-only tag filtering and a corrected advanced search grid.

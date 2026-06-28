@@ -626,7 +626,7 @@ table {
 }
 
 .advanced-filter-row {
-  grid-template-columns: 150px 150px 150px auto;
+  grid-template-columns: repeat(4, minmax(130px, 1fr)) auto;
 }
 
 .intent-row {
@@ -895,7 +895,32 @@ table {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 36px;
   gap: 8px;
-  align-items: center;
+  align-items: start;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.saved-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.saved-row-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.saved-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.saved-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
 th,
