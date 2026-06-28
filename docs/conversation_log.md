@@ -218,3 +218,4 @@ Implementation progress:
 - Added read/read-later status and read toggles to the Saved Items panel so the reading queue can be managed directly.
 - Added failed-run filtering for Source Health history through the API and dashboard.
 - Added manual submission source-name attribution to the dashboard form.
+- Preserved exact saved digest snapshot markdown when copying an opened snapshot.

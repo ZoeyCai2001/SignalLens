@@ -680,6 +680,7 @@ export function Dashboard() {
   const [lastCycleResult, setLastCycleResult] = useState<ScheduledCycleResponse | null>(null);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
+  const [activeDigestSnapshot, setActiveDigestSnapshot] = useState<DailyDigestSnapshot | null>(null);
   const [eventClusters, setEventClusters] = useState<EventCluster[]>([]);
   const [selectedEventCluster, setSelectedEventCluster] = useState<EventCluster | null>(null);
   const [clusterExplanations, setClusterExplanations] = useState<
@@ -899,6 +900,11 @@ export function Dashboard() {
   const refreshAllWithStatus = async (nextStatus: string) => {
     await refreshAll();
     setStatus(nextStatus);
+  };
+
+  const updateDigestDateDraft = (value: string) => {
+    setDigestDateDraft(value);
+    setActiveDigestSnapshot(null);
   };
 
   useEffect(() => {
@@ -1391,6 +1397,7 @@ export function Dashboard() {
       });
       setDigest(generated);
       setDigestDateDraft(generated.digest_date);
+      setActiveDigestSnapshot(null);
       setStatus(`Generated digest ${generated.digest_date}`);
     } catch (err) {
       setError(readError(err));
@@ -1404,7 +1411,16 @@ export function Dashboard() {
     setBusyDigestCopy(true);
     setError(null);
     try {
-      const query = buildDigestDateQuery(digestDateDraft || digest?.digest_date || "");
+      const targetDigestDate = digestDateDraft || digest?.digest_date || "";
+      const query = buildDigestDateQuery(targetDigestDate);
+      if (activeDigestSnapshot?.digest_date === targetDigestDate) {
+        if (!navigator.clipboard?.writeText) {
+          throw new Error("Clipboard API unavailable.");
+        }
+        await navigator.clipboard.writeText(activeDigestSnapshot.markdown);
+        setStatus(`Copied saved digest snapshot ${activeDigestSnapshot.digest_date}`);
+        return;
+      }
       const result = await fetchJson<DailyDigestMarkdown>(`/api/digest/daily/markdown${query}`);
       if (!navigator.clipboard?.writeText) {
         throw new Error("Clipboard API unavailable.");
@@ -1449,6 +1465,7 @@ export function Dashboard() {
       });
       setDigest(snapshot.digest);
       setDigestDateDraft(snapshot.digest_date);
+      setActiveDigestSnapshot(snapshot);
       setDigestSnapshots((items) => [
         snapshot,
         ...items.filter((item) => item.digest_date !== snapshot.digest_date),
@@ -1465,6 +1482,7 @@ export function Dashboard() {
   const loadDigestSnapshot = (snapshot: DailyDigestSnapshot) => {
     setDigest(snapshot.digest);
     setDigestDateDraft(snapshot.digest_date);
+    setActiveDigestSnapshot(snapshot);
     setStatus(`Loaded digest snapshot ${snapshot.digest_date}`);
   };
 
@@ -2727,10 +2745,11 @@ export function Dashboard() {
               digest={digest}
               snapshots={digestSnapshots}
               digestDate={digestDateDraft}
+              activeSnapshotId={activeDigestSnapshot?.id ?? null}
               busyGenerate={busyDigestGenerate}
               busyCopy={busyDigestCopy}
               busySave={busyDigestSave}
-              onDigestDateChange={setDigestDateDraft}
+              onDigestDateChange={updateDigestDateDraft}
               onGenerate={generateDailyDigest}
               onCopy={copyDailyDigest}
               onSave={saveDailyDigestSnapshot}
@@ -3402,6 +3421,7 @@ function DailyDigestPanel({
   digest,
   snapshots,
   digestDate,
+  activeSnapshotId,
   busyGenerate,
   busyCopy,
   busySave,
@@ -3414,6 +3434,7 @@ function DailyDigestPanel({
   digest: DailyDigest | null;
   snapshots: DailyDigestSnapshot[];
   digestDate: string;
+  activeSnapshotId: number | null;
   busyGenerate: boolean;
   busyCopy: boolean;
   busySave: boolean;
@@ -3519,7 +3540,9 @@ function DailyDigestPanel({
               <div className="digest-list">
                 {snapshots.slice(0, 5).map((snapshot) => (
                   <button
-                    className="snapshot-row"
+                    className={`snapshot-row ${
+                      activeSnapshotId === snapshot.id ? "active-snapshot-row" : ""
+                    }`}
                     key={snapshot.id}
                     onClick={() => onSnapshotOpen(snapshot)}
                     type="button"
@@ -3531,6 +3554,7 @@ function DailyDigestPanel({
                     </div>
                     <span className="small-muted">
                       {snapshot.total_items} items · {countMarkdownLines(snapshot.markdown)} lines
+                      {activeSnapshotId === snapshot.id ? " · open" : ""}
                     </span>
                   </button>
                 ))}

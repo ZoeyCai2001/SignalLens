@@ -935,6 +935,10 @@ table {
   outline: none;
 }
 
+.snapshot-row.active-snapshot-row {
+  background: #eef8f6;
+}
+
 .digest-link {
   color: #243230;
   font-size: 13px;
