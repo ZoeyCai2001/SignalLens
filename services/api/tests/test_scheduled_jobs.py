@@ -1,17 +1,23 @@
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.api.routes import ingestion as ingestion_routes
+from app.db.models import Base, Source, SourceRun
 from app.services.ingestion import IngestionResult, SourceRunnerNotFoundError
 from app.services.scheduled_jobs import (
     ScheduledCycleResult,
     ScheduledIngestionJob,
+    list_enabled_custom_sources,
+    parse_polling_interval,
     run_ingestion_cycle,
     scheduled_cycle_to_log_dict,
+    source_due_for_cycle,
 )
 
 
@@ -91,6 +97,91 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
             "error_message": None,
         }
     ]
+
+
+def test_parse_polling_interval_handles_common_source_frequency_text() -> None:
+    assert parse_polling_interval("hourly") == timedelta(hours=1)
+    assert parse_polling_interval("daily") == timedelta(days=1)
+    assert parse_polling_interval("every 4 hours") == timedelta(hours=4)
+    assert parse_polling_interval("15 minutes") == timedelta(minutes=15)
+    assert parse_polling_interval("unknown") is None
+
+
+def test_source_due_for_cycle_respects_latest_run_and_interval() -> None:
+    source = Source(
+        id=1,
+        name="Custom RSS",
+        type="blog",
+        access_method="rss",
+        polling_interval="6 hours",
+    )
+    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+
+    assert source_due_for_cycle(source=source, latest_run=None, now=now)
+    assert not source_due_for_cycle(
+        source=source,
+        latest_run=SourceRun(
+            source_id=1,
+            status="success",
+            started_at=datetime(2026, 6, 28, 9, 0, tzinfo=UTC),
+        ),
+        now=now,
+    )
+    assert source_due_for_cycle(
+        source=source,
+        latest_run=SourceRun(
+            source_id=1,
+            status="success",
+            started_at=datetime(2026, 6, 28, 5, 0, tzinfo=UTC),
+        ),
+        now=now,
+    )
+
+
+def test_list_enabled_custom_sources_skips_sources_before_polling_interval() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        due = Source(
+            name="Due RSS",
+            type="blog",
+            access_method="rss",
+            polling_interval="1 hour",
+            enabled=True,
+            priority=10,
+        )
+        recent = Source(
+            name="Recent RSS",
+            type="blog",
+            access_method="rss",
+            polling_interval="7 days",
+            enabled=True,
+            priority=20,
+        )
+        disabled = Source(
+            name="Disabled RSS",
+            type="blog",
+            access_method="rss",
+            polling_interval="1 hour",
+            enabled=False,
+            priority=30,
+        )
+        db.add_all([due, recent, disabled])
+        db.flush()
+        db.add(
+            SourceRun(
+                source_id=recent.id,
+                status="success",
+                started_at=datetime.now(UTC),
+            )
+        )
+        db.commit()
+
+        sources = list_enabled_custom_sources(db)
+
+    assert [source.name for source in sources] == ["Due RSS"]
 
 
 @pytest.mark.anyio

@@ -1,10 +1,11 @@
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Source
+from app.db.models import Source, SourceRun
 from app.services.alerts import generate_alerts
 from app.services.daily_digest import save_daily_digest_snapshot
 from app.services.ingestion import (
@@ -97,12 +98,81 @@ def save_cycle_digest_snapshot(db: Session) -> date:
 
 def list_enabled_custom_sources(db: Session) -> list[Source]:
     registered_names = set(REGISTERED_SOURCE_RUNNERS_BY_NAME)
-    return (
+    now = datetime.now(UTC)
+    sources = (
         db.query(Source)
         .filter(Source.enabled.is_(True), ~Source.name.in_(registered_names))
         .order_by(Source.priority.asc(), Source.name.asc())
         .all()
     )
+    return [
+        source
+        for source in sources
+        if source_due_for_cycle(
+            source=source,
+            latest_run=get_latest_source_run_for_cycle(db=db, source_id=source.id),
+            now=now,
+        )
+    ]
+
+
+def get_latest_source_run_for_cycle(db: Session, source_id: int) -> SourceRun | None:
+    return (
+        db.query(SourceRun)
+        .filter(SourceRun.source_id == source_id)
+        .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
+        .first()
+    )
+
+
+def source_due_for_cycle(
+    source: Source,
+    latest_run: SourceRun | None,
+    now: datetime,
+) -> bool:
+    interval = parse_polling_interval(source.polling_interval)
+    if interval is None:
+        return True
+    if latest_run is None or latest_run.started_at is None:
+        return True
+    started_at = latest_run.started_at
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=UTC)
+    return now - started_at >= interval
+
+
+def parse_polling_interval(value: str | None) -> timedelta | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    aliases = {
+        "hourly": timedelta(hours=1),
+        "daily": timedelta(days=1),
+        "weekly": timedelta(days=7),
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+
+    match = re.search(
+        r"(?:every\s+)?(?P<count>\d+(?:\.\d+)?)\s*(?P<unit>minute|minutes|min|hour|hours|day|days|week|weeks)",
+        normalized,
+    )
+    if match is None:
+        return None
+
+    count = float(match.group("count"))
+    unit = match.group("unit")
+    if unit in {"minute", "minutes", "min"}:
+        return timedelta(minutes=count)
+    if unit in {"hour", "hours"}:
+        return timedelta(hours=count)
+    if unit in {"day", "days"}:
+        return timedelta(days=count)
+    if unit in {"week", "weeks"}:
+        return timedelta(weeks=count)
+    return None
 
 
 async def run_ingestion_cycle(

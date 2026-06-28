@@ -185,3 +185,4 @@ Implementation progress:
 - Added dashboard editing for stock relevance profiles, including related AI themes, keywords, and related companies, so watched-stock matching can be tuned after a ticker is created.
 - Adjusted feed summary presentation so cards prefer short LLM summaries while expanded item details retain the detailed summary, matching the PRD's scan-first dashboard behavior.
 - Added PRD stock-sensitive alert categories for earnings/guidance mentions, analyst actions, supply-chain signals, and multi-source theme breakouts, with dashboard rule-category options.
+- Made scheduled ingestion cycles respect custom followed-source polling intervals, so user-configured frequencies such as hourly, daily, or every 6 hours throttle source runs instead of running every enabled source every cycle.
