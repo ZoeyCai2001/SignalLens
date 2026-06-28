@@ -54,6 +54,8 @@ from app.services.seed_data import (
     initial_topic_watchlist,
 )
 
+HIGH_IMPACT_SIGNAL_THRESHOLD = 0.75
+
 NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens links AI-related items to watched stocks for research only and does not "
     "provide investment advice."
@@ -373,6 +375,8 @@ def build_company_briefing(
     return CompanyBriefing(
         company=company,
         item_count=len(items),
+        high_impact_count=count_high_impact_feed_items(items),
+        average_importance_score=average_importance_score(items),
         trending_sources=[
             TopicSourceCount(source_name=source_name, item_count=count)
             for source_name, count in source_counts.most_common(8)
@@ -583,6 +587,8 @@ def build_product_briefing(
     return ProductBriefing(
         product=product,
         item_count=len(items),
+        high_impact_count=count_high_impact_feed_items(items),
+        average_importance_score=average_importance_score(items),
         trending_sources=[
             TopicSourceCount(source_name=source_name, item_count=count)
             for source_name, count in source_counts.most_common(8)
@@ -799,6 +805,8 @@ def build_topic_briefing(
     return TopicBriefing(
         topic=topic,
         item_count=len(items),
+        high_impact_count=count_high_impact_feed_items(items),
+        average_importance_score=average_importance_score(items),
         trending_sources=[
             TopicSourceCount(source_name=source_name, item_count=count)
             for source_name, count in source_counts.most_common(8)
@@ -1447,12 +1455,27 @@ def count_high_impact_stock_signal_rows(
         stock_signal_query(db, stock=stock, blocked_sources=blocked_sources)
         .filter(
             or_(
-                NormalizedItem.stock_impact_score >= 0.75,
-                NormalizedItem.importance_score >= 0.75,
+                NormalizedItem.stock_impact_score >= HIGH_IMPACT_SIGNAL_THRESHOLD,
+                NormalizedItem.importance_score >= HIGH_IMPACT_SIGNAL_THRESHOLD,
             )
         )
         .count()
     )
+
+
+def count_high_impact_feed_items(items: list[FeedItem]) -> int:
+    return sum(
+        1
+        for item in items
+        if item.stock_impact_score >= HIGH_IMPACT_SIGNAL_THRESHOLD
+        or item.importance_score >= HIGH_IMPACT_SIGNAL_THRESHOLD
+    )
+
+
+def average_importance_score(items: list[FeedItem]) -> float:
+    if not items:
+        return 0
+    return sum(item.importance_score for item in items) / len(items)
 
 
 def build_sentiment_counts(items: list[FeedItem]) -> dict[str, int]:

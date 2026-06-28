@@ -26,6 +26,7 @@ def test_build_topic_briefing_groups_sources_entities_and_activity() -> None:
             source_name="arXiv",
             companies=["OpenAI"],
             published_at=datetime(2026, 6, 27, 10, 0, tzinfo=UTC),
+            importance_score=0.8,
         ),
         make_item(
             item_id=2,
@@ -35,6 +36,7 @@ def test_build_topic_briefing_groups_sources_entities_and_activity() -> None:
             products=["AgentDesk"],
             tickers=["MSFT"],
             published_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
+            stock_impact_score=0.76,
         ),
         make_item(
             item_id=3,
@@ -43,6 +45,7 @@ def test_build_topic_briefing_groups_sources_entities_and_activity() -> None:
             source_name="arXiv",
             companies=["Anthropic"],
             published_at=datetime(2026, 6, 26, 8, 0, tzinfo=UTC),
+            importance_score=0.4,
         ),
     ]
 
@@ -50,6 +53,8 @@ def test_build_topic_briefing_groups_sources_entities_and_activity() -> None:
 
     assert briefing.topic.topic == "ai-coding-agents"
     assert briefing.item_count == 3
+    assert briefing.high_impact_count == 2
+    assert briefing.average_importance_score == (0.8 + 0.7 + 0.4) / 3
     assert briefing.trending_sources[0].source_name == "arXiv"
     assert briefing.trending_sources[0].item_count == 2
     assert [item.title for item in briefing.related_papers] == ["Agent paper"]
@@ -84,6 +89,8 @@ def make_item(
     products: list[str] | None = None,
     tickers: list[str] | None = None,
     published_at: datetime | None = None,
+    importance_score: float = 0.7,
+    stock_impact_score: float = 0.1,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -101,10 +108,10 @@ def make_item(
         topics=["ai coding agents"],
         sentiment="neutral",
         relevance_score=0.8,
-        importance_score=0.7,
+        importance_score=importance_score,
         novelty_score=0.7,
         source_quality_score=0.7,
-        stock_impact_score=0.1,
+        stock_impact_score=stock_impact_score,
         summary_short=None,
         summary_detailed=None,
         why_it_matters=None,

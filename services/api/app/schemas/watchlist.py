@@ -200,6 +200,8 @@ class TopicActivityBucket(BaseModel):
 class CompanyBriefing(BaseModel):
     company: CompanyWatchlistItem
     item_count: int
+    high_impact_count: int = 0
+    average_importance_score: float = 0
     trending_sources: list[TopicSourceCount]
     related_topics: list[str]
     related_products: list[str]
@@ -211,6 +213,8 @@ class CompanyBriefing(BaseModel):
 class TopicBriefing(BaseModel):
     topic: TopicWatchlistItem
     item_count: int
+    high_impact_count: int = 0
+    average_importance_score: float = 0
     trending_sources: list[TopicSourceCount]
     related_papers: list[FeedItem]
     related_products: list[FeedItem]
@@ -274,6 +278,8 @@ class ProductWatchlistItemUpdate(BaseModel):
 class ProductBriefing(BaseModel):
     product: ProductWatchlistItem
     item_count: int
+    high_impact_count: int = 0
+    average_importance_score: float = 0
     trending_sources: list[TopicSourceCount]
     matched_products: list[str]
     related_companies: list[str]

@@ -16,6 +16,7 @@ def test_build_company_briefing_groups_sources_topics_products_and_activity() ->
             products=["CUDA"],
             tickers=["NVDA"],
             published_at=datetime(2026, 6, 27, 10, 0, tzinfo=UTC),
+            importance_score=0.85,
         ),
         make_item(
             2,
@@ -25,6 +26,7 @@ def test_build_company_briefing_groups_sources_topics_products_and_activity() ->
             products=["CUDA"],
             tickers=["NVDA"],
             published_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
+            stock_impact_score=0.8,
         ),
         make_item(
             3,
@@ -41,6 +43,8 @@ def test_build_company_briefing_groups_sources_topics_products_and_activity() ->
 
     assert briefing.company.company_key == "nvidia"
     assert briefing.item_count == 3
+    assert briefing.high_impact_count == 2
+    assert briefing.average_importance_score == (0.85 + 0.7 + 0.7) / 3
     assert briefing.trending_sources[0].source_name == "NVIDIA Blog"
     assert briefing.trending_sources[0].item_count == 2
     assert briefing.related_topics[:3] == ["GPU", "inference", "developer tooling"]
@@ -86,6 +90,8 @@ def make_item(
     products: list[str],
     tickers: list[str],
     published_at: datetime,
+    importance_score: float = 0.7,
+    stock_impact_score: float = 0.1,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -103,10 +109,10 @@ def make_item(
         topics=topics,
         sentiment="neutral",
         relevance_score=0.8,
-        importance_score=0.7,
+        importance_score=importance_score,
         novelty_score=0.7,
         source_quality_score=0.7,
-        stock_impact_score=0.1,
+        stock_impact_score=stock_impact_score,
         summary_short=None,
         summary_detailed=None,
         why_it_matters=None,

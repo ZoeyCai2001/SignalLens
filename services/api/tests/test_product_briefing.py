@@ -20,6 +20,7 @@ def test_build_product_briefing_groups_sources_products_and_activity() -> None:
             products=["AgentDesk"],
             companies=["AgentDesk"],
             published_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
+            importance_score=0.8,
         ),
         make_item(
             2,
@@ -28,6 +29,7 @@ def test_build_product_briefing_groups_sources_products_and_activity() -> None:
             products=["CodePilot"],
             companies=["CodePilot"],
             published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+            importance_score=0.6,
         ),
         make_item(
             3,
@@ -36,6 +38,7 @@ def test_build_product_briefing_groups_sources_products_and_activity() -> None:
             products=["AgentDesk"],
             companies=["AgentDesk"],
             published_at=datetime(2026, 6, 24, 12, 0, tzinfo=UTC),
+            importance_score=0.9,
         ),
     ]
 
@@ -43,6 +46,8 @@ def test_build_product_briefing_groups_sources_products_and_activity() -> None:
 
     assert briefing.product.category == "ai-coding-tools"
     assert briefing.item_count == 3
+    assert briefing.high_impact_count == 2
+    assert briefing.average_importance_score == (0.8 + 0.6 + 0.9) / 3
     assert briefing.trending_sources[0].source_name == "Product Hunt"
     assert briefing.trending_sources[0].item_count == 2
     assert briefing.matched_products[:2] == ["AgentDesk", "CodePilot"]
@@ -77,6 +82,7 @@ def make_item(
     products: list[str],
     companies: list[str],
     published_at: datetime,
+    importance_score: float = 0.7,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -94,7 +100,7 @@ def make_item(
         topics=["developer agent"],
         sentiment="neutral",
         relevance_score=0.8,
-        importance_score=0.7,
+        importance_score=importance_score,
         novelty_score=0.7,
         source_quality_score=0.7,
         stock_impact_score=0.0,

@@ -185,6 +185,8 @@ type CompanyWatchlistItem = {
 type CompanyBriefing = {
   company: CompanyWatchlistItem;
   item_count: number;
+  high_impact_count: number;
+  average_importance_score: number;
   trending_sources: TopicSourceCount[];
   related_topics: string[];
   related_products: string[];
@@ -217,6 +219,8 @@ type ProductWatchlistItem = {
 type ProductBriefing = {
   product: ProductWatchlistItem;
   item_count: number;
+  high_impact_count: number;
+  average_importance_score: number;
   trending_sources: TopicSourceCount[];
   matched_products: string[];
   related_companies: string[];
@@ -237,6 +241,8 @@ type TopicActivityBucket = {
 type TopicBriefing = {
   topic: TopicWatchlistItem;
   item_count: number;
+  high_impact_count: number;
+  average_importance_score: number;
   trending_sources: TopicSourceCount[];
   related_papers: FeedItem[];
   related_products: FeedItem[];
@@ -4419,6 +4425,12 @@ function CompanyBriefingPanel({
         ))}
       </div>
 
+      <BriefingImpactMetrics
+        itemCount={briefing.item_count}
+        highImpactCount={briefing.high_impact_count}
+        averageImportanceScore={briefing.average_importance_score}
+      />
+
       <div className="topic-briefing-grid">
         <TopicBriefingList
           title="Trending Sources"
@@ -4717,6 +4729,12 @@ function TopicBriefingPanel({
         ))}
       </div>
 
+      <BriefingImpactMetrics
+        itemCount={briefing.item_count}
+        highImpactCount={briefing.high_impact_count}
+        averageImportanceScore={briefing.average_importance_score}
+      />
+
       <div className="topic-briefing-grid">
         <TopicBriefingList
           title="Trending Sources"
@@ -4771,6 +4789,33 @@ function TopicBriefingPanel({
         ) : (
           <div className="empty-state">No topic-linked signals yet.</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function BriefingImpactMetrics({
+  itemCount,
+  highImpactCount,
+  averageImportanceScore,
+}: {
+  itemCount: number;
+  highImpactCount: number;
+  averageImportanceScore: number;
+}) {
+  return (
+    <div className="score-grid">
+      <div className="score-cell">
+        <span className="score-label">Items</span>
+        <span className="score-value">{itemCount}</span>
+      </div>
+      <div className="score-cell">
+        <span className="score-label">High Impact</span>
+        <span className="score-value">{highImpactCount}</span>
+      </div>
+      <div className="score-cell">
+        <span className="score-label">Avg Importance</span>
+        <span className="score-value">{Math.round(averageImportanceScore * 100)}</span>
       </div>
     </div>
   );
@@ -5054,6 +5099,12 @@ function ProductBriefingPanel({
           </span>
         ))}
       </div>
+
+      <BriefingImpactMetrics
+        itemCount={briefing.item_count}
+        highImpactCount={briefing.high_impact_count}
+        averageImportanceScore={briefing.average_importance_score}
+      />
 
       <div className="topic-briefing-grid">
         <TopicBriefingList
