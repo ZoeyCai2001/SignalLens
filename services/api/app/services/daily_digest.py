@@ -264,6 +264,12 @@ def build_digest_sections(
             lambda item: item.category == "product" or bool(item.products),
         ),
         (
+            "company_watchlist",
+            "AI Company Watchlist",
+            "Company-linked AI signals across watched companies and AI labs.",
+            lambda item: bool(item.companies),
+        ),
+        (
             "stock_watchlist",
             "AI Stock Watchlist",
             "Company and ticker-linked AI signals, informational only.",
