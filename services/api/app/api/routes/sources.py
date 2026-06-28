@@ -12,6 +12,7 @@ from app.services.ingestion import (
 )
 from app.services.source_health import (
     create_source,
+    delete_source,
     get_latest_source_run,
     list_source_run_history,
     serialize_source_health,
@@ -22,6 +23,11 @@ from app.services.source_health import (
 )
 
 router = APIRouter()
+
+
+@router.get("", response_model=list[SourceHealth])
+async def list_sources(db: DbSession) -> list[SourceHealth]:
+    return list_source_health_items(db)
 
 
 @router.get("/health", response_model=list[SourceHealth])
@@ -77,3 +83,13 @@ async def patch_source(
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
     return serialize_source_health(source, get_latest_source_run(db, source_id=source.id))
+
+
+@router.delete("/{source_id}", status_code=204)
+async def delete_followed_source(source_id: int, db: DbSession) -> None:
+    try:
+        deleted = delete_source(db, source_id=source_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Source not found.")

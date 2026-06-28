@@ -1827,6 +1827,21 @@ export function Dashboard() {
     }
   };
 
+  const deleteSource = async (source: SourceHealth) => {
+    setBusySourceId(source.id);
+    setError(null);
+    try {
+      await sendRequest(`/api/sources/${source.id}`, { method: "DELETE" });
+      setSources((items) => items.filter((item) => item.id !== source.id));
+      setStatus(`Removed source ${source.name}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Source remove failed");
+    } finally {
+      setBusySourceId(null);
+    }
+  };
+
   const moduleCounts = useMemo(
     () => buildModuleCounts(feed, digest, savedItems),
     [digest, feed, savedItems],
@@ -2314,6 +2329,7 @@ export function Dashboard() {
               onRunSource={runSourceNow}
               onToggleSource={toggleSource}
               onUpdateSource={updateSource}
+              onDeleteSource={deleteSource}
             />
           </aside>
         </div>
@@ -5077,6 +5093,7 @@ function SourceTable({
   onRunSource,
   onToggleSource,
   onUpdateSource,
+  onDeleteSource,
 }: {
   sources: SourceHealth[];
   runs: SourceRunHistoryItem[];
@@ -5097,6 +5114,7 @@ function SourceTable({
   onRunSource: (source: SourceHealth) => void;
   onToggleSource: (source: SourceHealth) => void;
   onUpdateSource: (source: SourceHealth, payload: SourceUpdatePayload) => void;
+  onDeleteSource: (source: SourceHealth) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<number, SourceDraft>>({});
 
@@ -5294,6 +5312,15 @@ function SourceTable({
                         type="button"
                       >
                         {saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+                      </button>
+                      <button
+                        className="button icon-button"
+                        onClick={() => onDeleteSource(source)}
+                        disabled={disabled || saving}
+                        title="Remove source"
+                        type="button"
+                      >
+                        {saving ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
                       </button>
                     </div>
                   </td>

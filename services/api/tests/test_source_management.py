@@ -1,8 +1,12 @@
 from datetime import UTC, datetime
 
 import pytest
+from fastapi import HTTPException
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Source, SourceRun
+from app.api.routes import sources as source_routes
+from app.db.models import Base, RawItem, Source, SourceRun
 from app.schemas.sources import SourceCreate, SourceUpdate
 from app.services import ingestion as ingestion_service
 from app.services.ingestion import (
@@ -14,6 +18,7 @@ from app.services.ingestion import (
 )
 from app.services.source_health import (
     create_source,
+    delete_source,
     serialize_source_health,
     serialize_source_run_history_item,
     source_needs_attention,
@@ -200,6 +205,104 @@ def test_create_source_rejects_duplicate_name() -> None:
 
     with pytest.raises(ValueError):
         create_source(db, SourceCreate(name="Existing"))
+
+
+def test_delete_source_removes_source_without_history() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        source = Source(
+            name="Unused Custom RSS",
+            type="blog",
+            access_method="rss",
+            base_url="https://example.com/rss.xml",
+        )
+        db.add(source)
+        db.commit()
+        source_id = source.id
+
+        deleted = delete_source(db, source_id)
+
+        assert deleted is True
+        assert db.get(Source, source_id) is None
+
+
+def test_delete_source_preserves_sources_with_history() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        source = Source(name="Historical RSS", type="blog", access_method="rss")
+        db.add(source)
+        db.commit()
+        source_id = source.id
+        db.add(SourceRun(source_id=source_id, status="success", items_fetched=1, items_stored=0))
+        db.commit()
+
+        with pytest.raises(ValueError, match="disable the source instead"):
+            delete_source(db, source_id)
+
+        assert db.get(Source, source_id) is not None
+
+
+def test_delete_source_preserves_sources_with_collected_items() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        source = Source(name="Collected RSS", type="blog", access_method="rss")
+        db.add(source)
+        db.commit()
+        source_id = source.id
+        db.add(
+            RawItem(
+                source_id=source_id,
+                url="https://example.com/item",
+                raw_title="Collected item",
+                raw_metadata={},
+                content_hash="collected-item-hash",
+            )
+        )
+        db.commit()
+
+        with pytest.raises(ValueError, match="disable the source instead"):
+            delete_source(db, source_id)
+
+        assert db.get(Source, source_id) is not None
+
+
+@pytest.mark.anyio
+async def test_list_sources_route_uses_source_health_listing(monkeypatch) -> None:
+    expected = []
+
+    monkeypatch.setattr(source_routes, "list_source_health_items", lambda db: expected)
+
+    assert await source_routes.list_sources(db=object()) is expected
+
+
+@pytest.mark.anyio
+async def test_delete_source_route_maps_service_errors(monkeypatch) -> None:
+    monkeypatch.setattr(source_routes, "delete_source", lambda *_args, **_kwargs: False)
+
+    with pytest.raises(HTTPException) as missing:
+        await source_routes.delete_followed_source(source_id=99, db=object())
+
+    assert missing.value.status_code == 404
+
+    def blocked_delete(*_args, **_kwargs):
+        raise ValueError("disable the source instead")
+
+    monkeypatch.setattr(source_routes, "delete_source", blocked_delete)
+
+    with pytest.raises(HTTPException) as blocked:
+        await source_routes.delete_followed_source(source_id=1, db=object())
+
+    assert blocked.value.status_code == 400
+    assert blocked.value.detail == "disable the source instead"
 
 
 def test_serialize_source_run_history_item_includes_source_name_and_counts() -> None:

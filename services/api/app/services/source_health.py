@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.db.models import Source, SourceRun
+from app.db.models import RawItem, Source, SourceRun
 from app.schemas.sources import SourceCreate, SourceHealth, SourceRunHistoryItem, SourceUpdate
 
 SOURCE_ATTENTION_FAILURE_THRESHOLD = 2
@@ -88,6 +88,27 @@ def update_source(db: Session, source_id: int, payload: SourceUpdate) -> Source 
     db.commit()
     db.refresh(source)
     return source
+
+
+def delete_source(db: Session, source_id: int) -> bool:
+    source = db.get(Source, source_id)
+    if source is None:
+        return False
+
+    has_run_history = (
+        db.query(SourceRun.id).filter(SourceRun.source_id == source.id).first() is not None
+    )
+    has_collected_items = (
+        db.query(RawItem.id).filter(RawItem.source_id == source.id).first() is not None
+    )
+    if has_run_history or has_collected_items:
+        raise ValueError(
+            "Sources with run history or collected items cannot be deleted; disable the source instead."
+        )
+
+    db.delete(source)
+    db.commit()
+    return True
 
 
 def normalize_required_text(value: str, label: str) -> str:

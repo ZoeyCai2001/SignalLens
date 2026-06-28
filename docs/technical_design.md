@@ -386,11 +386,13 @@ Ingestion and manual submission normalization also detect common AI product name
 ### Sources
 
 - `GET /api/sources`
+- `POST /api/sources`
 - `PATCH /api/sources/{source_id}`
+- `DELETE /api/sources/{source_id}`
 - `GET /api/sources/health`
 - `POST /api/sources/{source_id}/run`
 
-Custom followed sources can run through reusable connectors when the access pattern is safe and structured. RSS sources with a `base_url` run through `RssConnector`; `github_repository` sources with a GitHub URL run through the GitHub REST API for that specific repository, enabling the PRD source-watchlist requirement for followed GitHub projects without scraping.
+Custom followed sources can run through reusable connectors when the access pattern is safe and structured. RSS sources with a `base_url` run through `RssConnector`; `github_repository` sources with a GitHub URL run through the GitHub REST API for that specific repository, enabling the PRD source-watchlist requirement for followed GitHub projects without scraping. Newly followed sources can be removed before they collect items or run history; after that, disabling preserves historical attribution while stopping future ingestion.
 
 ### Manual Submission
 
