@@ -189,6 +189,8 @@ All LLM outputs must be parsed as structured JSON and validated before storage.
 
 Batch LLM processing filters summarize-only candidates before spending model calls. When `skip_summarized` is enabled, already summarized feed items are excluded at query time so the requested batch limit is spent on items that still need summaries.
 
+The dashboard exposes batch LLM classification and summarization as separate actions against `/api/llm/process-feed`, making cost-bearing enrichment explicit while still supporting the PRD requirement for LLM classification and LLM summarization.
+
 ### 7.4 Ranking Service
 
 Feed ranking uses configurable weights:

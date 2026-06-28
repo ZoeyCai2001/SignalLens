@@ -131,3 +131,4 @@ Implementation progress:
 - Added deterministic company detection for manual submissions so pasted OpenAI, Anthropic, and watched ticker links populate company entities without requiring an LLM call.
 - Extended deterministic company extraction to normalized ingestion items so RSS, finance, and community signals populate company entities before optional LLM classification.
 - Added deterministic AI product detection for ingestion and manual submissions so product modules can surface known tools before optional LLM enrichment.
+- Split dashboard batch LLM controls into explicit classify and summarize actions so enrichment costs and PRD LLM workflows are easier to operate.

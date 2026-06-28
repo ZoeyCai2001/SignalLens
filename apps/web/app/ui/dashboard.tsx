@@ -294,6 +294,16 @@ type ScheduledCycleResponse = {
   ingestion_results: IngestionRunResponse[];
 };
 
+type FeedProcessingResponse = {
+  requested_limit: number;
+  candidates_seen: number;
+  summarized_count: number;
+  classified_count: number;
+  skipped_count: number;
+  item_ids: number[];
+  errors: { item_id: number; stage: string; error: string }[];
+};
+
 type SearchIntent = {
   query: string | null;
   category: string | null;
@@ -922,26 +932,29 @@ export function Dashboard() {
     }
   };
 
-  const processTopItemsWithLlm = async () => {
+  const processTopItemsWithLlm = async ({
+    summarize,
+    classify,
+    label,
+  }: {
+    summarize: boolean;
+    classify: boolean;
+    label: string;
+  }) => {
     setLoadState("running");
     setError(null);
     try {
-      const result = await fetchJson<{
-        summarized_count: number;
-        classified_count: number;
-        skipped_count: number;
-        errors: { item_id: number; stage: string; error: string }[];
-      }>("/api/llm/process-feed", {
+      const result = await fetchJson<FeedProcessingResponse>("/api/llm/process-feed", {
         method: "POST",
         body: JSON.stringify({
           limit: 3,
-          summarize: true,
-          classify: false,
+          summarize,
+          classify,
           skip_summarized: true,
         }),
       });
       setStatus(
-        `LLM processed ${result.summarized_count} summaries, ${result.skipped_count} skipped`,
+        `${label}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped`,
       );
       if (result.errors.length) {
         setError(`${result.errors.length} LLM item errors; see API response logs.`);
@@ -1948,12 +1961,33 @@ export function Dashboard() {
             </button>
             <button
               className="button"
-              onClick={processTopItemsWithLlm}
+              onClick={() =>
+                processTopItemsWithLlm({
+                  summarize: false,
+                  classify: true,
+                  label: "LLM classify",
+                })
+              }
+              disabled={loadState !== "idle"}
+              title="Classify top feed items with Kimi"
+            >
+              {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
+              Classify
+            </button>
+            <button
+              className="button"
+              onClick={() =>
+                processTopItemsWithLlm({
+                  summarize: true,
+                  classify: false,
+                  label: "LLM summarize",
+                })
+              }
               disabled={loadState !== "idle"}
               title="Summarize top feed items with Kimi"
             >
               {loadState === "running" ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
-              LLM
+              Summarize
             </button>
           </div>
         </header>
