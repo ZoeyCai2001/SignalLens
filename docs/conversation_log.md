@@ -209,3 +209,4 @@ Implementation progress:
 - Added hidden-item recovery with a hidden-only feed query, unhide API action, and dashboard restore panel.
 - Added optional Kimi summarization for manual URL submissions, keeping the default capture path free while supporting PRD summarize-and-store behavior on demand.
 - Added optional Kimi classification for manual URL submissions with independent classification and summary status reporting.
+- Added per-item read/unread state, dashboard read toggles, and unread-only saved items for the digest read-later section.

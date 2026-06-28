@@ -113,6 +113,18 @@ async def mark_item_important(item_id: int, db: DbSession) -> FeedItem:
     return update_item_action(db=db, item=item, action_name="mark-important")
 
 
+@router.post("/{item_id}/mark-read", response_model=FeedItem)
+async def mark_item_read(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="mark-read")
+
+
+@router.post("/{item_id}/mark-unread", response_model=FeedItem)
+async def mark_item_unread(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="mark-unread")
+
+
 @router.patch("/{item_id}/personal-metadata", response_model=FeedItemDetail)
 async def update_item_personal_metadata_route(
     item_id: int,

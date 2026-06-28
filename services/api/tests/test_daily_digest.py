@@ -33,6 +33,7 @@ def test_daily_digest_sections_group_items() -> None:
         make_item(3, "Stock", "stock_company_event", 0.7, tickers=["MU"]),
         make_item(4, "Repo", "technical_trend", 0.6, source_name="GitHub"),
         make_item(5, "Saved", "technical_trend", 0.5, is_saved=True),
+        make_item(7, "Read saved", "technical_trend", 0.4, is_saved=True, is_read=True),
         make_item(6, "Company", "technical_trend", 0.65, companies=["OpenAI"]),
     ]
 
@@ -46,6 +47,7 @@ def test_daily_digest_sections_group_items() -> None:
     assert section_map["stock_watchlist"].items[0].title == "Stock"
     assert section_map["developer_highlights"].items[0].title == "Repo"
     assert section_map["read_later"].items[0].title == "Saved"
+    assert "Read saved" not in {item.title for item in section_map["read_later"].items}
 
 
 def test_daily_digest_source_coverage_counts_sources() -> None:
@@ -508,6 +510,7 @@ def make_item(
     tickers: list[str] | None = None,
     companies: list[str] | None = None,
     is_saved: bool = False,
+    is_read: bool = False,
     source_quality_score: float = 0.7,
     classification_confidence: float = 0.5,
 ) -> FeedItem:
@@ -536,6 +539,7 @@ def make_item(
         summary_detailed=None,
         why_it_matters=None,
         is_saved=is_saved,
+        is_read=is_read,
     )
 
 

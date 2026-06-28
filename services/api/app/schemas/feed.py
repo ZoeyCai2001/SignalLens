@@ -31,6 +31,8 @@ class FeedItem(BaseModel):
     is_saved: bool = False
     is_hidden: bool = False
     is_important: bool = False
+    is_read: bool = False
+    read_at: datetime | None = None
     personal_note: str | None = None
     manual_tags: list[str] = Field(default_factory=list)
 

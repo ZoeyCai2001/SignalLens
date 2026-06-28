@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  CircleCheck,
   DatabaseZap,
   EyeOff,
   ExternalLink,
@@ -60,6 +61,8 @@ type FeedItem = {
   is_saved: boolean;
   is_hidden: boolean;
   is_important: boolean;
+  is_read: boolean;
+  read_at: string | null;
   personal_note: string | null;
   manual_tags: string[];
 };
@@ -1926,7 +1929,14 @@ export function Dashboard() {
 
   const updateFeedAction = async (
     itemId: number,
-    action: "save" | "unsave" | "hide" | "unhide" | "mark-important",
+    action:
+      | "save"
+      | "unsave"
+      | "hide"
+      | "unhide"
+      | "mark-important"
+      | "mark-read"
+      | "mark-unread",
   ) => {
     setBusyItemId(itemId);
     setError(null);
@@ -1947,6 +1957,13 @@ export function Dashboard() {
         setSavedItems((items) => syncSavedFeedItem(items, updated));
         setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
         await refreshAllWithStatus(`Removed saved item ${itemId}`);
+      } else if (action === "mark-read" || action === "mark-unread") {
+        setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+        setSavedItems((items) => syncSavedFeedItem(items, updated));
+        setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
+        await refreshAllWithStatus(
+          action === "mark-read" ? `Marked item ${itemId} read` : `Marked item ${itemId} unread`,
+        );
       } else {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
         setSavedItems((items) => syncSavedFeedItem(items, updated));
@@ -3888,7 +3905,7 @@ function FeedCard({
   onDetail: (itemId: number) => void;
   onAction: (
     itemId: number,
-    action: "save" | "unsave" | "hide" | "mark-important",
+    action: "save" | "unsave" | "hide" | "mark-important" | "mark-read" | "mark-unread",
   ) => void;
   onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
 }) {
@@ -3907,6 +3924,7 @@ function FeedCard({
         <div className="badges">
           {item.is_important ? <span className="badge stock">important</span> : null}
           {item.is_saved ? <span className="badge">saved</span> : null}
+          {item.is_read ? <span className="badge muted-badge">read</span> : null}
           <span className={`badge ${item.category === "research" ? "research" : ""}`}>
             {item.category}
           </span>
@@ -3968,6 +3986,15 @@ function FeedCard({
             aria-label="Mark important"
           >
             {busy ? <Loader2 className="spin" size={16} /> : <Flag size={16} />}
+          </button>
+          <button
+            className={`button icon-button ${item.is_read ? "active-icon-button" : ""}`}
+            onClick={() => onAction(item.id, item.is_read ? "mark-unread" : "mark-read")}
+            disabled={busy}
+            title={item.is_read ? "Mark unread" : "Mark read"}
+            aria-label={item.is_read ? "Mark unread" : "Mark read"}
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <CircleCheck size={16} />}
           </button>
           <button
             className="button icon-button"
@@ -4081,6 +4108,7 @@ function FeedDetailPanel({
         {detail.is_saved ? <span className="badge">saved</span> : null}
         {detail.is_important ? <span className="badge stock">important</span> : null}
         {detail.is_hidden ? <span className="badge muted-badge">hidden</span> : null}
+        {detail.is_read ? <span className="badge muted-badge">read</span> : null}
         {detail.manual_tags.map((tag) => (
           <span className="badge" key={`manual:${tag}`}>
             {tag}
@@ -4219,6 +4247,7 @@ function updateSelectedFeedDetail(
       is_saved: updated.is_saved,
       is_hidden: updated.is_hidden,
       is_important: updated.is_important,
+      is_read: updated.is_read,
     },
   };
 }

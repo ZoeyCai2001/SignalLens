@@ -42,6 +42,8 @@ def serialize_feed_item(
         data.is_saved = action.is_saved
         data.is_hidden = action.is_hidden
         data.is_important = action.is_important
+        data.is_read = action.is_read
+        data.read_at = action.read_at
         data.personal_note = action.personal_note
         data.manual_tags = normalize_manual_tags(action.manual_tags)
     return data
@@ -61,6 +63,7 @@ def serialize_feed_item_detail(
             "is_saved": base.is_saved,
             "is_hidden": base.is_hidden,
             "is_important": base.is_important,
+            "is_read": base.is_read,
         },
     )
 
@@ -500,6 +503,12 @@ def update_item_action(
         action.is_hidden = False
     elif action_name == "mark-important":
         action.is_important = True
+    elif action_name == "mark-read":
+        action.is_read = True
+        action.read_at = datetime.now(UTC)
+    elif action_name == "mark-unread":
+        action.is_read = False
+        action.read_at = None
     else:
         raise ValueError(f"Unsupported action: {action_name}")
 

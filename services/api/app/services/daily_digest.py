@@ -347,8 +347,8 @@ def build_digest_sections(
         (
             "read_later",
             "Items to Read Later",
-            "Saved items from today's collected signals.",
-            lambda item: item.is_saved,
+            "Saved items from today's collected signals that are still unread.",
+            lambda item: item.is_saved and not item.is_read,
         ),
     ]
 

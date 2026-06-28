@@ -129,6 +129,8 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
         is_saved=True,
         is_hidden=False,
         is_important=True,
+        is_read=True,
+        read_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
     )
 
     detail = serialize_feed_item_detail(item, action)
@@ -138,6 +140,7 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
         "is_saved": True,
         "is_hidden": False,
         "is_important": True,
+        "is_read": True,
     }
     assert "matched tickers MU" in detail.score_explanation
     assert "high source credibility" in detail.score_explanation
@@ -166,11 +169,12 @@ def test_update_item_personal_metadata_saves_note_and_normalized_tags() -> None:
 
         assert detail.personal_note == "Review for weekend digest."
         assert detail.manual_tags == ["Agent", "market impact"]
-        assert detail.action_state == {
-            "is_saved": False,
-            "is_hidden": False,
-            "is_important": False,
-        }
+    assert detail.action_state == {
+        "is_saved": False,
+        "is_hidden": False,
+        "is_important": False,
+        "is_read": False,
+    }
 
 
 def test_build_score_explanation_flags_lower_confidence_and_source_credibility() -> None:
@@ -523,6 +527,32 @@ def test_update_item_action_can_unhide_item() -> None:
 
     assert restored.is_hidden is False
     assert persisted.is_hidden is False
+
+
+def test_update_item_action_can_mark_item_read_and_unread() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        item = make_normalized_item(1, "Reading item", language="en")
+        db.add(item)
+        db.commit()
+
+        read_item = update_item_action(db=db, item=item, action_name="mark-read")
+        read_action = db.query(UserItemAction).filter(UserItemAction.item_id == 1).one()
+        assert read_item.is_read is True
+        assert read_item.read_at is not None
+        assert read_action.is_read is True
+        assert read_action.read_at is not None
+
+        unread_item = update_item_action(db=db, item=item, action_name="mark-unread")
+        unread_action = db.query(UserItemAction).filter(UserItemAction.item_id == 1).one()
+
+    assert unread_item.is_read is False
+    assert unread_item.read_at is None
+    assert unread_action.is_read is False
+    assert unread_action.read_at is None
 
 
 def test_freshness_score_decays_over_three_days() -> None:
