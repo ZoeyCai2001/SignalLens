@@ -12,6 +12,7 @@ from app.schemas.search import SearchIntentResponse
 from app.services.search import (
     infer_search_intent,
     normalize_filter_value,
+    normalize_read_status,
     normalize_score,
     search_feed_items,
     start_of_day,
@@ -29,6 +30,13 @@ def test_normalize_score_clamps_optional_importance_filter() -> None:
     assert normalize_score(-0.5) == 0
     assert normalize_score(0.7) == 0.7
     assert normalize_score(1.5) == 1
+
+
+def test_normalize_read_status_accepts_read_and_unread() -> None:
+    assert normalize_read_status(" unread ") == "unread"
+    assert normalize_read_status("read") == "read"
+    assert normalize_read_status("ignored") is None
+    assert normalize_read_status(None) is None
 
 
 def test_start_of_day_uses_utc_calendar_boundary() -> None:
@@ -99,6 +107,15 @@ def test_infer_search_intent_handles_manual_tag_query() -> None:
     assert intent.saved_only is True
 
 
+def test_infer_search_intent_handles_unread_saved_query() -> None:
+    intent = infer_search_intent("Show saved unread items about agent harness.")
+
+    assert intent.topic == "agent harness"
+    assert intent.query == "agent harness"
+    assert intent.saved_only is True
+    assert intent.read_status == "unread"
+
+
 def test_search_intent_response_serializes_inferred_filters() -> None:
     intent = infer_search_intent(
         "Show me recent news about MRVL and AI data centers.",
@@ -114,6 +131,7 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     assert response.manual_tag is None
     assert response.query == "AI data center"
     assert response.date_from == date(2026, 6, 19)
+    assert response.read_status is None
 
 
 def test_search_feed_items_applies_inferred_topic_filter() -> None:
@@ -262,6 +280,44 @@ def test_search_feed_items_filters_by_manual_tag() -> None:
     assert [item.title for item in natural_language_results] == ["Agent launch"]
 
 
+def test_search_feed_items_filters_by_read_status() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(1, "Read agent signal", "Agent launch.", ["agent"]),
+                make_search_item(2, "Unread saved signal", "Agent launch.", ["agent"]),
+                make_search_item(3, "Implicit unread signal", "Agent launch.", ["agent"]),
+            ]
+        )
+        db.add_all(
+            [
+                UserItemAction(user_id="local", item_id=1, is_saved=True, is_read=True),
+                UserItemAction(user_id="local", item_id=2, is_saved=True, is_read=False),
+            ]
+        )
+        db.commit()
+
+        read_results = search_feed_items(db, query="agent", read_status="read")
+        unread_saved_results = search_feed_items(
+            db,
+            query="agent",
+            saved_only=True,
+            read_status="unread",
+        )
+        unread_results = search_feed_items(db, query="agent", read_status="unread")
+
+    assert [item.title for item in read_results] == ["Read agent signal"]
+    assert [item.title for item in unread_saved_results] == ["Unread saved signal"]
+    assert {item.title for item in unread_results} == {
+        "Unread saved signal",
+        "Implicit unread signal",
+    }
+
+
 @pytest.mark.anyio
 async def test_search_route_passes_user_preferences(monkeypatch) -> None:
     preferences = make_preferences()
@@ -271,6 +327,7 @@ async def test_search_route_passes_user_preferences(monkeypatch) -> None:
     def fake_search_feed_items(**kwargs):
         assert kwargs["query"] == "agent"
         assert kwargs["limit"] == 5
+        assert kwargs["read_status"] == "unread"
         assert kwargs["ranking_weights"] == preferences.ranking_weights
         assert kwargs["preferred_sources"] == preferences.preferred_sources
         assert kwargs["blocked_sources"] == preferences.blocked_sources
@@ -279,7 +336,12 @@ async def test_search_route_passes_user_preferences(monkeypatch) -> None:
 
     monkeypatch.setattr(search_routes, "search_feed_items", fake_search_feed_items)
 
-    result = await search_routes.search_items(db=object(), q="agent", limit=5)
+    result = await search_routes.search_items(
+        db=object(),
+        q="agent",
+        read_status="unread",
+        limit=5,
+    )
 
     assert result == []
 

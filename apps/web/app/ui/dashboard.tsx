@@ -375,6 +375,7 @@ type SearchIntent = {
   date_from: string | null;
   min_importance_score: number | null;
   saved_only: boolean;
+  read_status: "read" | "unread" | null;
 };
 
 type NaturalLanguageSearchResponse = {
@@ -756,6 +757,7 @@ export function Dashboard() {
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
   const [searchMinImportance, setSearchMinImportance] = useState("");
+  const [searchReadStatus, setSearchReadStatus] = useState("");
   const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
   const [savedOnly, setSavedOnly] = useState(false);
 
@@ -1219,6 +1221,7 @@ export function Dashboard() {
         searchDateFrom,
         searchDateTo,
         searchMinImportance,
+        searchReadStatus,
       ].some((value) => value.trim()) || savedOnly;
 
       if (searchQuery.trim() && !hasManualFilters) {
@@ -1249,6 +1252,7 @@ export function Dashboard() {
       if (searchMinImportance.trim()) {
         params.set("min_importance_score", searchMinImportance.trim());
       }
+      if (searchReadStatus.trim()) params.set("read_status", searchReadStatus.trim());
       if (savedOnly) params.set("saved_only", "true");
       params.set("limit", "30");
 
@@ -1276,6 +1280,7 @@ export function Dashboard() {
     setSearchDateFrom("");
     setSearchDateTo("");
     setSearchMinImportance("");
+    setSearchReadStatus("");
     setSearchIntent(null);
     setSavedOnly(false);
     await refreshAll();
@@ -1312,6 +1317,7 @@ export function Dashboard() {
       setSearchDateFrom("");
       setSearchDateTo("");
       setSearchMinImportance("");
+      setSearchReadStatus("");
       setSavedOnly(false);
       setSearchIntent(null);
       setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
@@ -1346,6 +1352,7 @@ export function Dashboard() {
       setSearchDateFrom("");
       setSearchDateTo("");
       setSearchMinImportance("");
+      setSearchReadStatus("");
       setSavedOnly(true);
       setSearchIntent(null);
       setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
@@ -2583,6 +2590,7 @@ export function Dashboard() {
                 dateFrom={searchDateFrom}
                 dateTo={searchDateTo}
                 minImportance={searchMinImportance}
+                readStatus={searchReadStatus}
                 intent={searchIntent}
                 savedOnly={savedOnly}
                 disabled={loadState !== "idle"}
@@ -2598,6 +2606,7 @@ export function Dashboard() {
                 onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
                 onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
                 onMinImportanceChange={(value) => updateSearchField(setSearchMinImportance, value)}
+                onReadStatusChange={(value) => updateSearchField(setSearchReadStatus, value)}
                 onSavedOnlyChange={updateSavedOnlySearchFilter}
                 onSearch={runSearch}
                 onClear={clearSearch}
@@ -3692,6 +3701,7 @@ function SearchPanel({
   dateFrom,
   dateTo,
   minImportance,
+  readStatus,
   intent,
   savedOnly,
   disabled,
@@ -3707,6 +3717,7 @@ function SearchPanel({
   onDateFromChange,
   onDateToChange,
   onMinImportanceChange,
+  onReadStatusChange,
   onSavedOnlyChange,
   onSearch,
   onClear,
@@ -3723,6 +3734,7 @@ function SearchPanel({
   dateFrom: string;
   dateTo: string;
   minImportance: string;
+  readStatus: string;
   intent: SearchIntent | null;
   savedOnly: boolean;
   disabled: boolean;
@@ -3738,6 +3750,7 @@ function SearchPanel({
   onDateFromChange: (value: string) => void;
   onDateToChange: (value: string) => void;
   onMinImportanceChange: (value: string) => void;
+  onReadStatusChange: (value: string) => void;
   onSavedOnlyChange: (value: boolean) => void;
   onSearch: () => void;
   onClear: () => void;
@@ -3861,6 +3874,16 @@ function SearchPanel({
           placeholder="Min importance"
           aria-label="Minimum importance score"
         />
+        <select
+          className="field"
+          value={readStatus}
+          onChange={(event) => onReadStatusChange(event.target.value)}
+          aria-label="Read status filter"
+        >
+          <option value="">Any read status</option>
+          <option value="unread">Unread</option>
+          <option value="read">Read</option>
+        </select>
         <label className="checkbox-row">
           <input
             type="checkbox"
@@ -6838,6 +6861,7 @@ function buildSearchIntentChips(intent: SearchIntent | null): string[] {
     intent.date_from ? `from: ${intent.date_from}` : null,
     intent.min_importance_score !== null ? `importance: ${intent.min_importance_score}` : null,
     intent.saved_only ? "saved" : null,
+    intent.read_status ? `read: ${intent.read_status}` : null,
   ];
 
   return chips.filter(Boolean) as string[];

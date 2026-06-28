@@ -31,6 +31,7 @@ class SearchIntent:
     date_from: date | None = None
     min_importance_score: float | None = None
     saved_only: bool = False
+    read_status: str | None = None
 
 
 def search_feed_items(
@@ -47,6 +48,7 @@ def search_feed_items(
     date_to: date | None = None,
     min_importance_score: float | None = None,
     saved_only: bool = False,
+    read_status: str | None = None,
     ranking_weights: RankingWeights | dict | None = None,
     preferred_sources: list[str] | None = None,
     blocked_sources: list[str] | None = None,
@@ -68,6 +70,7 @@ def search_feed_items(
         else intent.min_importance_score
     )
     effective_saved_only = saved_only or intent.saved_only
+    effective_read_status = normalize_read_status(read_status or intent.read_status)
 
     statement = db.query(NormalizedItem, UserItemAction).outerjoin(
         UserItemAction,
@@ -173,6 +176,13 @@ def search_feed_items(
     if effective_saved_only:
         statement = statement.filter(UserItemAction.is_saved.is_(True))
 
+    if effective_read_status == "read":
+        statement = statement.filter(UserItemAction.is_read.is_(True))
+    elif effective_read_status == "unread":
+        statement = statement.filter(
+            (UserItemAction.is_read.is_(False)) | (UserItemAction.id.is_(None))
+        )
+
     rows = (
         statement.order_by(
             UserItemAction.is_important.desc().nullslast(),
@@ -215,6 +225,7 @@ def has_structured_intent(intent: SearchIntent) -> bool:
         or intent.date_from
         or intent.min_importance_score is not None
         or intent.saved_only
+        or intent.read_status
     )
 
 
@@ -244,6 +255,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         else None
     )
     saved_only = bool(re.search(r"\b(saved|bookmarked)\b", lowered))
+    read_status = infer_read_status(lowered)
     topic = infer_topic(lowered)
 
     return SearchIntent(
@@ -257,7 +269,16 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         date_from=date_from,
         min_importance_score=min_importance_score,
         saved_only=saved_only,
+        read_status=read_status,
     )
+
+
+def infer_read_status(lowered_query: str) -> str | None:
+    if re.search(r"\b(unread|not read|read later|to read)\b", lowered_query):
+        return "unread"
+    if re.search(r"\b(already read|marked read|read items|read articles)\b", lowered_query):
+        return "read"
+    return None
 
 
 def infer_category(lowered_query: str) -> str | None:
@@ -426,6 +447,16 @@ def normalize_score(value: float | None) -> float | None:
     if value is None:
         return None
     return min(1, max(0, value))
+
+
+def normalize_read_status(value: str | None) -> str | None:
+    normalized = normalize_filter_value(value)
+    if normalized is None:
+        return None
+    lowered = normalized.lower().replace("_", "-")
+    if lowered in {"read", "unread"}:
+        return lowered
+    return None
 
 
 def start_of_day(value: date) -> datetime:

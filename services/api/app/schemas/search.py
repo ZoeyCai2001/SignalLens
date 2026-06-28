@@ -16,6 +16,7 @@ class SearchIntentResponse(BaseModel):
     date_from: date | None = None
     min_importance_score: float | None = None
     saved_only: bool = False
+    read_status: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

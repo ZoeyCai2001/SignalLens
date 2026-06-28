@@ -31,6 +31,7 @@ async def search_items(
     date_to: Annotated[date | None, Query()] = None,
     min_importance_score: float | None = Query(default=None, ge=0, le=1),
     saved_only: bool = Query(default=False),
+    read_status: str | None = Query(default=None, max_length=20),
     limit: int = Query(default=30, ge=1, le=100),
 ) -> list[FeedItem]:
     preferences = get_user_preferences(db)
@@ -48,6 +49,7 @@ async def search_items(
         date_to=date_to,
         min_importance_score=min_importance_score,
         saved_only=saved_only,
+        read_status=read_status,
         ranking_weights=preferences.ranking_weights,
         preferred_sources=preferences.preferred_sources,
         blocked_sources=preferences.blocked_sources,
