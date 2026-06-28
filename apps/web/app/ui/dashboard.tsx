@@ -2606,12 +2606,21 @@ function ChineseSocialPanel({ items }: { items: FeedItem[] }) {
                 {item.title}
               </a>
               <div className="badges">
+                {item.subcategory?.includes("social_keyword") ? (
+                  <span className="badge muted-badge">experimental</span>
+                ) : null}
+                {item.products.slice(0, 3).map((product) => (
+                  <span className="badge" key={product}>
+                    {product}
+                  </span>
+                ))}
                 {item.topics.slice(0, 4).map((topic) => (
                   <span className="badge" key={topic}>
                     {topic}
                   </span>
                 ))}
               </div>
+              {item.summary_detailed ? <div className="summary">{item.summary_detailed}</div> : null}
             </div>
           ))
         ) : (

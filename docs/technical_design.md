@@ -374,6 +374,8 @@ Manual URL submissions accept a URL without a user-supplied title. The backend i
 
 Manual resubmission of the same URL updates the existing raw and normalized item instead of creating a duplicate or surfacing a uniqueness error, allowing the user to add better notes later without breaking deduplication. Before re-enrichment, the normalized item is reset to deterministic manual-submission metadata so old categories, entities, scores, and generated summaries cannot leak into the corrected submission.
 
+Chinese social and social-keyword items receive deterministic English summary scaffolds before any LLM enrichment. The summary records the English social-trend interpretation, original source excerpt, inferred product/use-case names such as AI photo tools or AI agent products, adoption context from the public feed, and an experimental access note for social-keyword sources. The dashboard Chinese Social panel shows these summaries, product/use-case badges, and an experimental marker so the user can monitor Chinese consumer AI signals while preserving the compliant public-RSS posture.
+
 Ingestion normalization applies the same deterministic company extraction to provider, RSS, and community items, including ticker-to-company mapping from finance metadata. This lets company search, briefings, and digest sections work before optional LLM classification enriches the item.
 
 Ingestion and manual submission normalization also detect common AI product names such as ChatGPT, Claude, Cursor, Perplexity, Copilot, Sora, and related tools so AI Products modules and product briefings have useful entity data before LLM enrichment.

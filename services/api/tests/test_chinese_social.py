@@ -36,6 +36,17 @@ def test_chinese_rss_normalizes_to_social_trend() -> None:
     assert item.subcategory == "chinese_rss"
     assert item.language == "zh"
     assert item.source_quality_score == 0.62
+    assert "English summary:" in (item.summary_detailed or "")
+    assert "Source excerpt: 人工智能应用和AI产品在中文社区获得讨论。" in (
+        item.summary_detailed or ""
+    )
+    assert "AI agent product" in item.products
+    assert "Product/use case: AI agent product" in (
+        item.summary_detailed or ""
+    )
+    assert "Source access: configured public Chinese RSS/Atom feed." in (
+        item.summary_detailed or ""
+    )
 
 
 def test_social_keyword_source_normalizes_to_experimental_social_trend() -> None:
@@ -59,8 +70,13 @@ def test_social_keyword_source_normalizes_to_experimental_social_trend() -> None
     assert item.category == "social_trend"
     assert item.subcategory == "chinese_social_keyword"
     assert item.language == "zh"
+    assert "AI photo tool" in item.products
     assert item.source_quality_score == 0.58
     assert "public RSS/Atom metadata" in item.why_it_matters
+    assert "Product/use case: AI photo tool" in (item.summary_detailed or "")
+    assert "Experimental source: public RSS/Atom metadata only" in (
+        item.summary_detailed or ""
+    )
 
 
 def test_detect_language_marks_cjk_text_as_chinese() -> None:

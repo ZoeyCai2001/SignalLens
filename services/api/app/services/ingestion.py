@@ -845,6 +845,9 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
             "This item matched the AI relevance prefilter from a developer community source."
         )
 
+    if category == "social_trend":
+        products = sorted({*products, *infer_social_product_names(combined_text)})
+
     return NormalizedItem(
         raw_item_id=raw.id,
         title=raw.raw_title,
@@ -872,6 +875,10 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
             raw=raw,
             category=category,
             topics=topics,
+            products=products,
+            source=source,
+            language=language,
+            subcategory=subcategory,
         ),
         why_it_matters=why_it_matters,
     )
@@ -881,9 +888,14 @@ def build_initial_detailed_summary(
     raw: RawItem,
     category: str,
     topics: list[str],
+    products: list[str] | None = None,
+    source: Source | None = None,
+    language: str | None = None,
+    subcategory: str | None = None,
 ) -> str | None:
     source_excerpt = first_sentence(raw.raw_text or raw.raw_title)
     topic_text = ", ".join(topics[:5]) if topics else "AI relevance prefilter"
+    product_names = products or []
 
     if category == "research":
         return "\n".join(
@@ -897,6 +909,17 @@ def build_initial_detailed_summary(
             ]
         )
 
+    if category == "social_trend":
+        return build_social_trend_summary(
+            raw=raw,
+            source_excerpt=source_excerpt,
+            topics=topics,
+            products=product_names,
+            language=language,
+            subcategory=subcategory,
+            source=source,
+        )
+
     if category == "product":
         traction = build_product_traction_signal(raw.raw_metadata)
         parts = [
@@ -908,6 +931,67 @@ def build_initial_detailed_summary(
         return "\n".join(parts)
 
     return None
+
+
+def build_social_trend_summary(
+    raw: RawItem,
+    source_excerpt: str,
+    topics: list[str],
+    products: list[str],
+    language: str | None,
+    subcategory: str | None,
+    source: Source | None,
+) -> str:
+    feed_name = raw.raw_metadata.get("feed_name") or (source.name if source else "public feed")
+    topic_text = ", ".join(topics[:5]) if topics else "AI product discussion"
+    product_text = (
+        ", ".join(products[:4])
+        if products
+        else infer_social_use_case(raw.raw_text or raw.raw_title)
+    )
+    access_note = (
+        "Experimental source: public RSS/Atom metadata only; no login-protected "
+        "or anti-bot-protected pages are accessed."
+        if subcategory in {"chinese_social_keyword", "social_keyword"}
+        else "Source access: configured public Chinese RSS/Atom feed."
+    )
+    language_note = (
+        "Chinese-language source summarized in English."
+        if language == "zh"
+        else "Social source summarized in English."
+    )
+    return "\n".join(
+        [
+            f"English summary: {language_note} The item discusses {product_text} "
+            "and related AI adoption signals.",
+            f"Source excerpt: {source_excerpt}",
+            f"Product/use case: {product_text}",
+            f"Adoption signal: Mentioned in {feed_name} with topics: {topic_text}.",
+            access_note,
+        ]
+    )
+
+
+def infer_social_product_names(text: str) -> list[str]:
+    lowered = text.lower()
+    candidates: list[tuple[str, str]] = [
+        ("AI photo tool", r"(写真|修图|图片|图像|photo|image)"),
+        ("AI video tool", r"(视频|剪辑|video)"),
+        ("AI writing tool", r"(写作|文案|文章|writing|copywriting)"),
+        ("AI coding tool", r"(编程|代码|coding|code)"),
+        ("AI search assistant", r"(搜索|浏览|search|browser)"),
+        ("AI education tool", r"(教育|学习|课程|education|study)"),
+        ("AI productivity tool", r"(办公|效率|工作流|workflow|productivity)"),
+        ("AI agent product", r"(智能体|agent|agents)"),
+    ]
+    return [name for name, pattern in candidates if re.search(pattern, lowered)]
+
+
+def infer_social_use_case(text: str) -> str:
+    product_names = infer_social_product_names(text)
+    if product_names:
+        return ", ".join(product_names[:4])
+    return "AI consumer or productivity product"
 
 
 def build_product_traction_signal(metadata: dict) -> str | None:
