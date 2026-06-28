@@ -1610,16 +1610,19 @@ export function Dashboard() {
       if (action === "hide") {
         setFeed((items) => items.filter((item) => item.id !== itemId));
         setSavedItems((items) => items.filter((item) => item.id !== itemId));
+        setSelectedFeedDetail((detail) => (detail?.id === itemId ? null : detail));
         setStatus(`Hidden item ${itemId}`);
       } else if (action === "unsave") {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
         setSavedItems((items) => items.filter((item) => item.id !== itemId));
+        setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
         setStatus(`Removed saved item ${itemId}`);
       } else {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
         if (action === "save") {
           setSavedItems((items) => [updated, ...items.filter((item) => item.id !== itemId)]);
         }
+        setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
         setStatus(action === "save" ? `Saved item ${itemId}` : `Marked item ${itemId}`);
       }
     } catch (err) {
@@ -3337,6 +3340,9 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
         <Score label="Stock" value={detail.stock_impact_score} />
       </div>
       <div className="badges">
+        {detail.is_saved ? <span className="badge">saved</span> : null}
+        {detail.is_important ? <span className="badge stock">important</span> : null}
+        {detail.is_hidden ? <span className="badge muted-badge">hidden</span> : null}
         {detail.companies.slice(0, 6).map((company) => (
           <span className="badge" key={company}>
             {company}
@@ -3356,6 +3362,27 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
       {detail.text ? <div className="detail-text">{detail.text}</div> : null}
     </div>
   );
+}
+
+function updateSelectedFeedDetail(
+  detail: FeedItemDetail | null,
+  updated: FeedItem,
+): FeedItemDetail | null {
+  if (!detail || detail.id !== updated.id) {
+    return detail;
+  }
+  return {
+    ...detail,
+    ...updated,
+    text: detail.text,
+    score_explanation: detail.score_explanation,
+    action_state: {
+      ...detail.action_state,
+      is_saved: updated.is_saved,
+      is_hidden: updated.is_hidden,
+      is_important: updated.is_important,
+    },
+  };
 }
 
 function ManualSubmissionPanel({

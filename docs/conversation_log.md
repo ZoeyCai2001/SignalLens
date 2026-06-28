@@ -143,3 +143,4 @@ Implementation progress:
 - Made manual URL submission title optional, with backend title inference from note text or URL path to reduce first-run capture friction.
 - Changed empty watchlist list APIs to persist default stock, company, topic, and product records on first read so first-run dashboard defaults can be edited immediately.
 - Updated manual URL resubmission to refresh the existing item instead of creating a duplicate or hitting a uniqueness error.
+- Synchronized open feed details with save, hide, and important actions so expanded item state stays consistent with feed cards.
