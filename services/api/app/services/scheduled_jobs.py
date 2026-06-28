@@ -20,12 +20,13 @@ from app.services.ingestion import (
 )
 from app.services.watchlist import (
     seed_initial_company_watchlist,
+    seed_initial_product_watchlist,
     seed_initial_stock_watchlist,
     seed_initial_topic_watchlist,
 )
 
 IngestionJob = Callable[[Session, int], Awaitable[IngestionResult]]
-WatchlistSeeder = Callable[[Session], tuple[int, int, int]]
+WatchlistSeeder = Callable[[Session], tuple[int, int, int, int]]
 AlertGenerator = Callable[[Session], int]
 DigestSnapshotSaver = Callable[[Session], date]
 
@@ -44,6 +45,7 @@ class ScheduledCycleResult:
     seeded_stock_count: int
     seeded_company_count: int
     seeded_topic_count: int
+    seeded_product_count: int
     generated_alert_count: int
     saved_digest_date: date | None
     ingestion_results: list[IngestionResult]
@@ -70,11 +72,12 @@ DEFAULT_INGESTION_JOBS = [
 ]
 
 
-def seed_default_watchlists(db: Session) -> tuple[int, int, int]:
+def seed_default_watchlists(db: Session) -> tuple[int, int, int, int]:
     stocks = seed_initial_stock_watchlist(db)
     companies = seed_initial_company_watchlist(db)
     topics = seed_initial_topic_watchlist(db)
-    return len(stocks), len(companies), len(topics)
+    products = seed_initial_product_watchlist(db)
+    return len(stocks), len(companies), len(topics), len(products)
 
 
 def generate_cycle_alerts(db: Session) -> int:
@@ -93,7 +96,12 @@ async def run_ingestion_cycle(
     save_digest_snapshot_fn: DigestSnapshotSaver = save_cycle_digest_snapshot,
 ) -> ScheduledCycleResult:
     started_at = datetime.now(UTC)
-    seeded_stock_count, seeded_company_count, seeded_topic_count = seed_watchlists(db)
+    (
+        seeded_stock_count,
+        seeded_company_count,
+        seeded_topic_count,
+        seeded_product_count,
+    ) = seed_watchlists(db)
     ingestion_results: list[IngestionResult] = []
 
     for job in jobs or DEFAULT_INGESTION_JOBS:
@@ -108,6 +116,7 @@ async def run_ingestion_cycle(
         seeded_stock_count=seeded_stock_count,
         seeded_company_count=seeded_company_count,
         seeded_topic_count=seeded_topic_count,
+        seeded_product_count=seeded_product_count,
         generated_alert_count=generated_alert_count,
         saved_digest_date=saved_digest_date,
         ingestion_results=ingestion_results,
@@ -121,6 +130,7 @@ def scheduled_cycle_to_log_dict(result: ScheduledCycleResult) -> dict[str, objec
         "seeded_stock_count": result.seeded_stock_count,
         "seeded_company_count": result.seeded_company_count,
         "seeded_topic_count": result.seeded_topic_count,
+        "seeded_product_count": result.seeded_product_count,
         "generated_alert_count": result.generated_alert_count,
         "saved_digest_date": result.saved_digest_date.isoformat()
         if result.saved_digest_date

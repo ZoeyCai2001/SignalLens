@@ -36,7 +36,7 @@ async def test_run_ingestion_cycle_runs_jobs_in_order() -> None:
     result = await run_ingestion_cycle(
         db,
         jobs=jobs,
-        seed_watchlists=lambda _db: (3, 5, 4),
+        seed_watchlists=lambda _db: (3, 5, 4, 2),
         generate_cycle_alerts_fn=lambda _db: 2,
         save_digest_snapshot_fn=lambda _db: date(2026, 6, 26),
     )
@@ -45,6 +45,7 @@ async def test_run_ingestion_cycle_runs_jobs_in_order() -> None:
     assert result.seeded_stock_count == 3
     assert result.seeded_company_count == 5
     assert result.seeded_topic_count == 4
+    assert result.seeded_product_count == 2
     assert result.generated_alert_count == 2
     assert result.saved_digest_date == date(2026, 6, 26)
     assert [item.source_name for item in result.ingestion_results] == ["one", "two"]
@@ -65,7 +66,7 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
         return await run_ingestion_cycle(
             object(),
             jobs=[job],
-            seed_watchlists=lambda _db: (3, 5, 4),
+            seed_watchlists=lambda _db: (3, 5, 4, 2),
             generate_cycle_alerts_fn=lambda _db: 1,
             save_digest_snapshot_fn=lambda _db: date(2026, 6, 26),
         )
@@ -75,6 +76,7 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
     assert log_data["seeded_stock_count"] == 3
     assert log_data["seeded_company_count"] == 5
     assert log_data["seeded_topic_count"] == 4
+    assert log_data["seeded_product_count"] == 2
     assert log_data["generated_alert_count"] == 1
     assert log_data["saved_digest_date"] == "2026-06-26"
     assert log_data["ingestion_results"] == [
@@ -98,6 +100,7 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
             seeded_stock_count=2,
             seeded_company_count=5,
             seeded_topic_count=3,
+            seeded_product_count=4,
             generated_alert_count=1,
             saved_digest_date=date(2026, 6, 27),
             ingestion_results=[
@@ -117,6 +120,7 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
     assert response.seeded_stock_count == 2
     assert response.seeded_company_count == 5
     assert response.seeded_topic_count == 3
+    assert response.seeded_product_count == 4
     assert response.generated_alert_count == 1
     assert response.saved_digest_date == date(2026, 6, 27)
     assert response.ingestion_results[0].source_name == "rss"

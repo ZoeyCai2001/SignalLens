@@ -352,7 +352,7 @@ Natural-language search infers category, ticker, company, topic, language, date,
 - `PATCH /api/watchlist/products/{category}`
 - `DELETE /api/watchlist/products/{category}`
 
-The dashboard surfaces stock, company, topic, and product-category watchlists as editable operational panels. Company watchlists support public tickers and private AI labs, and their terms feed into ranking personalization.
+The dashboard surfaces stock, company, topic, and product-category watchlists as editable operational panels. Company watchlists support public tickers and private AI labs, and their terms feed into ranking personalization. The scheduled ingestion cycle seeds stock, company, topic, and product-category watchlists so first-run dashboards have useful defaults across all first-class modules.
 
 Daily digest responses include both ticker and company watchlist context so the user can see which personal focus areas shaped the briefing. Digest inclusion toggles are enforced for topic, product-category, and company watchlists. Company exclusions match company keys, company names, tickers, categories, and related terms so a hidden company does not continue leaking into digest sections through ticker-linked items.
 

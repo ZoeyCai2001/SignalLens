@@ -289,6 +289,7 @@ type ScheduledCycleResponse = {
   seeded_stock_count: number;
   seeded_company_count: number;
   seeded_topic_count: number;
+  seeded_product_count: number;
   generated_alert_count: number;
   saved_digest_date: string | null;
   ingestion_results: IngestionRunResponse[];

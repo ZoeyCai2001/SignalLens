@@ -19,6 +19,7 @@ class ScheduledCycleResponse(BaseModel):
     seeded_stock_count: int
     seeded_company_count: int
     seeded_topic_count: int
+    seeded_product_count: int
     generated_alert_count: int
     saved_digest_date: date | None = None
     ingestion_results: list[IngestionRunResponse]
