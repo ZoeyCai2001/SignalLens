@@ -172,3 +172,4 @@ Implementation progress:
 - Added related-ticker market snapshots to event clusters and surfaced the existing price chart inside expanded cluster evidence when ticker price data is available.
 - Added durable stock watchlist display ordering with dashboard up/down controls so watched stocks can be manually reordered within pinned and unpinned sections.
 - Added related event clusters to the selected stock detail view so stock briefings show cluster evidence alongside price, themes, market-impact buckets, and news timelines.
+- Added deterministic topic definitions to topic briefings and displayed them in the topic detail panel, using user notes when available.

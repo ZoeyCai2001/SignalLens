@@ -52,6 +52,10 @@ def test_build_topic_briefing_groups_sources_entities_and_activity() -> None:
     briefing = build_topic_briefing(topic=topic, items=items)
 
     assert briefing.topic.topic == "ai-coding-agents"
+    assert briefing.definition == (
+        "AI coding agents is a technical trend watch topic focused on "
+        "coding agent, agentic coding."
+    )
     assert briefing.item_count == 3
     assert briefing.high_impact_count == 2
     assert briefing.average_importance_score == (0.8 + 0.7 + 0.4) / 3
@@ -68,7 +72,15 @@ def test_build_topic_briefing_groups_sources_entities_and_activity() -> None:
     ]
 
 
-def make_topic() -> TopicWatchlistItem:
+def test_build_topic_briefing_uses_notes_as_definition() -> None:
+    topic = make_topic(notes="Track practical coding-agent workflows and adoption signals.")
+
+    briefing = build_topic_briefing(topic=topic, items=[])
+
+    assert briefing.definition == "Track practical coding-agent workflows and adoption signals."
+
+
+def make_topic(notes: str | None = None) -> TopicWatchlistItem:
     return TopicWatchlistItem(
         topic="ai-coding-agents",
         label="AI coding agents",
@@ -77,6 +89,7 @@ def make_topic() -> TopicWatchlistItem:
         is_pinned=True,
         include_in_digest=True,
         related_terms=["coding agent", "agentic coding"],
+        notes=notes,
     )
 
 

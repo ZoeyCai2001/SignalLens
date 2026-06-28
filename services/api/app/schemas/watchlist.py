@@ -215,6 +215,7 @@ class CompanyBriefing(BaseModel):
 
 class TopicBriefing(BaseModel):
     topic: TopicWatchlistItem
+    definition: str = ""
     item_count: int
     high_impact_count: int = 0
     average_importance_score: float = 0

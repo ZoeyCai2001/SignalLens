@@ -830,6 +830,7 @@ def build_topic_briefing(
 
     return TopicBriefing(
         topic=topic,
+        definition=build_topic_definition(topic),
         item_count=len(items),
         high_impact_count=count_high_impact_feed_items(items),
         average_importance_score=average_importance_score(items),
@@ -850,6 +851,18 @@ def build_topic_briefing(
             for activity_date, count in sorted(activity_counts.items(), reverse=True)[:14]
         ],
     )
+
+
+def build_topic_definition(topic: TopicWatchlistSchema) -> str:
+    if topic.notes:
+        return topic.notes.strip()
+
+    category = topic.category.replace("_", " ").replace("-", " ").strip() or "AI"
+    if topic.related_terms:
+        focus = ", ".join(topic.related_terms[:4])
+        return f"{topic.label} is a {category} watch topic focused on {focus}."
+    return f"{topic.label} is a {category} watch topic."
+
 
 def query_topic_rows(
     db: Session,

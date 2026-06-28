@@ -243,6 +243,7 @@ type TopicActivityBucket = {
 
 type TopicBriefing = {
   topic: TopicWatchlistItem;
+  definition: string;
   item_count: number;
   high_impact_count: number;
   average_importance_score: number;
@@ -4807,7 +4808,7 @@ function TopicBriefingPanel({
         <div>
           <div className="digest-section-title">{briefing.topic.category}</div>
           <div className="digest-headline">{briefing.topic.label}</div>
-          <div className="small-muted">{briefing.topic.notes ?? "Topic watchlist signal view"}</div>
+          <div className="small-muted">{briefing.definition}</div>
         </div>
         <span className="badge">{briefing.item_count} items</span>
       </div>
