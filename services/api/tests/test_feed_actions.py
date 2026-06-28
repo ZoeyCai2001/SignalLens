@@ -9,6 +9,7 @@ from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
     FeedInterestProfile,
     build_feed_interest_profile,
+    build_feed_uncertainty_notes,
     build_score_explanation,
     feed_interest_bonus,
     freshness_score,
@@ -75,10 +76,12 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
         topics=["HBM"],
         sentiment="positive",
         relevance_score=0.8,
+        classification_confidence=0.82,
         importance_score=0.82,
         novelty_score=0.7,
         source_quality_score=0.82,
         stock_impact_score=0.9,
+        summary_short="Micron demand signal",
     )
     action = UserItemAction(
         item_id=1,
@@ -101,6 +104,7 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
     assert "high stock-impact score" in detail.score_explanation
     assert "saved by you" in detail.score_explanation
     assert "marked important by you" in detail.score_explanation
+    assert detail.uncertainty_notes == ["No major uncertainty flags from the stored item signals."]
 
 
 def test_build_score_explanation_flags_lower_confidence_and_source_credibility() -> None:
@@ -113,6 +117,27 @@ def test_build_score_explanation_flags_lower_confidence_and_source_credibility()
 
     assert "lower source credibility; review the original source" in explanation
     assert "lower classifier confidence" in explanation
+
+
+def test_build_feed_uncertainty_notes_flags_review_risks() -> None:
+    item = make_feed_item(1, "Manual stock rumor", relevance_score=0.6, importance_score=0.5)
+    item.source_name = "Manual Submission"
+    item.source_quality_score = 0.55
+    item.classification_confidence = 0.45
+    item.stock_impact_score = 0.45
+    item.sentiment = "neutral"
+    item.tickers = []
+    item.summary_short = None
+    item.summary_detailed = None
+
+    notes = build_feed_uncertainty_notes(item)
+
+    assert "Classifier confidence is low, so category and entity labels may need review." in notes
+    assert "Source credibility is lower than the preferred-source threshold." in notes
+    assert "Stock impact was inferred, but no explicit ticker was extracted." in notes
+    assert "Market direction is unclear from the available signal." in notes
+    assert "No generated summary is stored yet; review the original source text." in notes
+    assert "Manual submissions depend on the supplied URL and note context." in notes
 
 
 def test_build_score_explanation_has_default_reason() -> None:

@@ -164,3 +164,4 @@ Implementation progress:
 - Added large watched-stock price movement alerts that combine recent daily price changes with related AI news and expose the rule in the dashboard alert controls.
 - Added followed-source removal for newly added sources without run history or collected items, with dashboard Source Health controls and preserved historical attribution for sources that already collected data.
 - Added event-cluster explanations and uncertainty notes to the API and dashboard so cluster evidence is easier to audit before optional LLM cluster summarization.
+- Added feed-item detail uncertainty notes so expanded item views flag low confidence, lower source credibility, unclear stock linkage, missing summaries, and manual-submission context.

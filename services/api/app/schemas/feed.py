@@ -42,4 +42,5 @@ class FeedItem(BaseModel):
 class FeedItemDetail(FeedItem):
     text: str | None = None
     score_explanation: str
+    uncertainty_notes: list[str]
     action_state: dict[str, bool]

@@ -62,6 +62,7 @@ type FeedItem = {
 type FeedItemDetail = FeedItem & {
   text: string | null;
   score_explanation: string;
+  uncertainty_notes: string[];
   action_state: Record<string, boolean>;
 };
 
@@ -3405,6 +3406,9 @@ function FeedDetailPanel({ detail }: { detail: FeedItemDetail }) {
           <strong>Why it matters:</strong> {detail.why_it_matters}
         </div>
       ) : null}
+      <div className="summary">
+        <strong>Uncertainty:</strong> {detail.uncertainty_notes.join(" ")}
+      </div>
       {detail.text ? <div className="detail-text">{detail.text}</div> : null}
     </div>
   );
@@ -3422,6 +3426,7 @@ function updateSelectedFeedDetail(
     ...updated,
     text: detail.text,
     score_explanation: detail.score_explanation,
+    uncertainty_notes: detail.uncertainty_notes,
     action_state: {
       ...detail.action_state,
       is_saved: updated.is_saved,

@@ -52,6 +52,7 @@ def serialize_feed_item_detail(
         **base.model_dump(),
         text=item.text,
         score_explanation=build_score_explanation(base),
+        uncertainty_notes=build_feed_uncertainty_notes(base),
         action_state={
             "is_saved": base.is_saved,
             "is_hidden": base.is_hidden,
@@ -85,6 +86,23 @@ def build_score_explanation(item: FeedItem) -> str:
     if not reasons:
         reasons.append("matched the AI relevance prefilter")
     return "Shown because it " + "; ".join(reasons) + "."
+
+
+def build_feed_uncertainty_notes(item: FeedItem) -> list[str]:
+    notes: list[str] = []
+    if item.classification_confidence < 0.6:
+        notes.append("Classifier confidence is low, so category and entity labels may need review.")
+    if item.source_quality_score < 0.6:
+        notes.append("Source credibility is lower than the preferred-source threshold.")
+    if item.stock_impact_score >= 0.35 and not item.tickers:
+        notes.append("Stock impact was inferred, but no explicit ticker was extracted.")
+    if item.stock_impact_score >= 0.35 and item.sentiment == "neutral":
+        notes.append("Market direction is unclear from the available signal.")
+    if not item.summary_short and not item.summary_detailed:
+        notes.append("No generated summary is stored yet; review the original source text.")
+    if item.source_name == "Manual Submission":
+        notes.append("Manual submissions depend on the supplied URL and note context.")
+    return notes or ["No major uncertainty flags from the stored item signals."]
 
 
 def list_visible_feed_items(
