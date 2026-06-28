@@ -723,6 +723,7 @@ export function Dashboard() {
   const digestDateDraftRef = useRef("");
   const [busySetupCopy, setBusySetupCopy] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
+  const [manualSourceName, setManualSourceName] = useState("Manual Submission");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
   const [manualClassifyWithLlm, setManualClassifyWithLlm] = useState(false);
@@ -1570,6 +1571,7 @@ export function Dashboard() {
           title: manualTitle.trim() || null,
           url: manualUrl.trim(),
           text: manualText.trim() || null,
+          source_name: manualSourceName.trim() || "Manual Submission",
           classify_with_llm: manualClassifyWithLlm,
           summarize_with_llm: manualSummarizeWithLlm,
         }),
@@ -2760,12 +2762,14 @@ export function Dashboard() {
             />
             <ManualSubmissionPanel
               title={manualTitle}
+              sourceName={manualSourceName}
               url={manualUrl}
               text={manualText}
               classifyWithLlm={manualClassifyWithLlm}
               summarizeWithLlm={manualSummarizeWithLlm}
               disabled={loadState !== "idle"}
               onTitleChange={setManualTitle}
+              onSourceNameChange={setManualSourceName}
               onUrlChange={setManualUrl}
               onTextChange={setManualText}
               onClassifyWithLlmChange={setManualClassifyWithLlm}
@@ -4477,12 +4481,14 @@ function syncSavedFeedItem(items: FeedItem[], updated: FeedItem): FeedItem[] {
 
 function ManualSubmissionPanel({
   title,
+  sourceName,
   url,
   text,
   classifyWithLlm,
   summarizeWithLlm,
   disabled,
   onTitleChange,
+  onSourceNameChange,
   onUrlChange,
   onTextChange,
   onClassifyWithLlmChange,
@@ -4490,12 +4496,14 @@ function ManualSubmissionPanel({
   onSubmit,
 }: {
   title: string;
+  sourceName: string;
   url: string;
   text: string;
   classifyWithLlm: boolean;
   summarizeWithLlm: boolean;
   disabled: boolean;
   onTitleChange: (value: string) => void;
+  onSourceNameChange: (value: string) => void;
   onUrlChange: (value: string) => void;
   onTextChange: (value: string) => void;
   onClassifyWithLlmChange: (value: boolean) => void;
@@ -4528,6 +4536,16 @@ function ManualSubmissionPanel({
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
           placeholder="Paste an AI item title or leave blank"
+        />
+        <label className="field-label" htmlFor="manual-source-name">
+          Source name
+        </label>
+        <input
+          id="manual-source-name"
+          className="field"
+          value={sourceName}
+          onChange={(event) => onSourceNameChange(event.target.value)}
+          placeholder="Manual Submission"
         />
         <label className="field-label" htmlFor="manual-url">
           URL

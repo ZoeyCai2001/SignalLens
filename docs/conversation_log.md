@@ -217,3 +217,4 @@ Implementation progress:
 - Added digest date selection and clickable saved digest snapshots so historical briefings can be previewed, copied, or saved by date.
 - Added read/read-later status and read toggles to the Saved Items panel so the reading queue can be managed directly.
 - Added failed-run filtering for Source Health history through the API and dashboard.
+- Added manual submission source-name attribution to the dashboard form.
