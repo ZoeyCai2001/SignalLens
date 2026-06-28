@@ -2733,6 +2733,9 @@ export function Dashboard() {
               items={savedItems.slice(0, 8)}
               busyItemId={busyItemId}
               onManualTagFilter={applySavedManualTagFilter}
+              onReadToggle={(item) =>
+                updateFeedAction(item.id, item.is_read ? "mark-unread" : "mark-read")
+              }
               onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
             />
             <HiddenItemsPanel
@@ -3544,11 +3547,13 @@ function SavedItemsPanel({
   items,
   busyItemId,
   onManualTagFilter,
+  onReadToggle,
   onUnsave,
 }: {
   items: FeedItem[];
   busyItemId: number | null;
   onManualTagFilter: (tag: string) => void;
+  onReadToggle: (item: FeedItem) => void;
   onUnsave: (itemId: number) => void;
 }) {
   return (
@@ -3566,6 +3571,13 @@ function SavedItemsPanel({
                   <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
                     {item.title}
                   </a>
+                  <div className="badges">
+                    {item.is_read ? <span className="badge muted-badge">read</span> : null}
+                    {!item.is_read ? <span className="badge">read later</span> : null}
+                    {item.read_at ? (
+                      <span className="small-muted">read {formatDate(item.read_at)}</span>
+                    ) : null}
+                  </div>
                   {item.personal_note ? (
                     <div className="saved-note">{item.personal_note}</div>
                   ) : null}
@@ -3584,15 +3596,36 @@ function SavedItemsPanel({
                     </div>
                   ) : null}
                 </div>
-                <button
-                  className="button icon-button"
-                  onClick={() => onUnsave(item.id)}
-                  disabled={busyItemId === item.id}
-                  title="Remove saved item"
-                  aria-label="Remove saved item"
-                >
-                  {busyItemId === item.id ? <Loader2 className="spin" size={16} /> : <X size={16} />}
-                </button>
+                <div className="table-actions">
+                  <button
+                    className={`button icon-button ${item.is_read ? "active-icon-button" : ""}`}
+                    onClick={() => onReadToggle(item)}
+                    disabled={busyItemId === item.id}
+                    title={item.is_read ? "Mark unread" : "Mark read"}
+                    aria-label={item.is_read ? "Mark unread" : "Mark read"}
+                    type="button"
+                  >
+                    {busyItemId === item.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <CircleCheck size={16} />
+                    )}
+                  </button>
+                  <button
+                    className="button icon-button"
+                    onClick={() => onUnsave(item.id)}
+                    disabled={busyItemId === item.id}
+                    title="Remove saved item"
+                    aria-label="Remove saved item"
+                    type="button"
+                  >
+                    {busyItemId === item.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <X size={16} />
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

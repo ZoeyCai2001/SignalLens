@@ -215,3 +215,4 @@ Implementation progress:
 - Added alert-rule snoozing with backend persistence, generation filtering, and dashboard quick snooze/resume controls.
 - Added dashboard alert history using dismissed alerts while keeping active alert metrics separate.
 - Added digest date selection and clickable saved digest snapshots so historical briefings can be previewed, copied, or saved by date.
+- Added read/read-later status and read toggles to the Saved Items panel so the reading queue can be managed directly.
