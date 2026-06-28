@@ -32,7 +32,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type FeedItem = {
   id: number;
@@ -718,6 +718,8 @@ export function Dashboard() {
   const [busyDigestGenerate, setBusyDigestGenerate] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
   const [busyDigestSave, setBusyDigestSave] = useState(false);
+  const [digestDateDraft, setDigestDateDraft] = useState("");
+  const digestDateDraftRef = useRef("");
   const [busySetupCopy, setBusySetupCopy] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
@@ -803,6 +805,7 @@ export function Dashboard() {
     setLoadState("loading");
     setError(null);
     try {
+      const digestDateQuery = buildDigestDateQuery(digestDateDraftRef.current);
       const [
         nextFeed,
         nextSavedItems,
@@ -833,7 +836,7 @@ export function Dashboard() {
           fetchJson<TopicWatchlistItem[]>("/api/watchlist/topics"),
           fetchJson<SourceHealth[]>("/api/sources/health"),
           fetchJson<SourceRunHistoryItem[]>("/api/sources/runs?limit=8"),
-          fetchJson<DailyDigest>("/api/digest/daily"),
+          fetchJson<DailyDigest>(`/api/digest/daily${digestDateQuery}`),
           fetchJson<DailyDigestSnapshot[]>("/api/digest/daily/snapshots?limit=5"),
           fetchJson<EventCluster[]>("/api/events/clusters?limit=8&min_items=2"),
           fetchJson<AlertItem[]>(
@@ -884,6 +887,10 @@ export function Dashboard() {
   useEffect(() => {
     void refreshAll();
   }, [refreshAll]);
+
+  useEffect(() => {
+    digestDateDraftRef.current = digestDateDraft;
+  }, [digestDateDraft]);
 
   const refreshAllWithStatus = async (nextStatus: string) => {
     await refreshAll();
@@ -1374,10 +1381,12 @@ export function Dashboard() {
     setBusyDigestGenerate(true);
     setError(null);
     try {
-      const generated = await fetchJson<DailyDigest>("/api/digest/daily/generate", {
+      const query = buildDigestDateQuery(digestDateDraft);
+      const generated = await fetchJson<DailyDigest>(`/api/digest/daily/generate${query}`, {
         method: "POST",
       });
       setDigest(generated);
+      setDigestDateDraft(generated.digest_date);
       setStatus(`Generated digest ${generated.digest_date}`);
     } catch (err) {
       setError(readError(err));
@@ -1391,7 +1400,8 @@ export function Dashboard() {
     setBusyDigestCopy(true);
     setError(null);
     try {
-      const result = await fetchJson<DailyDigestMarkdown>("/api/digest/daily/markdown");
+      const query = buildDigestDateQuery(digestDateDraft || digest?.digest_date || "");
+      const result = await fetchJson<DailyDigestMarkdown>(`/api/digest/daily/markdown${query}`);
       if (!navigator.clipboard?.writeText) {
         throw new Error("Clipboard API unavailable.");
       }
@@ -1429,10 +1439,12 @@ export function Dashboard() {
     setBusyDigestSave(true);
     setError(null);
     try {
-      const snapshot = await fetchJson<DailyDigestSnapshot>("/api/digest/daily/snapshots", {
+      const query = buildDigestDateQuery(digestDateDraft || digest?.digest_date || "");
+      const snapshot = await fetchJson<DailyDigestSnapshot>(`/api/digest/daily/snapshots${query}`, {
         method: "POST",
       });
       setDigest(snapshot.digest);
+      setDigestDateDraft(snapshot.digest_date);
       setDigestSnapshots((items) => [
         snapshot,
         ...items.filter((item) => item.digest_date !== snapshot.digest_date),
@@ -1444,6 +1456,12 @@ export function Dashboard() {
     } finally {
       setBusyDigestSave(false);
     }
+  };
+
+  const loadDigestSnapshot = (snapshot: DailyDigestSnapshot) => {
+    setDigest(snapshot.digest);
+    setDigestDateDraft(snapshot.digest_date);
+    setStatus(`Loaded digest snapshot ${snapshot.digest_date}`);
   };
 
   const loadFeedDetail = async (itemId: number) => {
@@ -2701,12 +2719,15 @@ export function Dashboard() {
             <DailyDigestPanel
               digest={digest}
               snapshots={digestSnapshots}
+              digestDate={digestDateDraft}
               busyGenerate={busyDigestGenerate}
               busyCopy={busyDigestCopy}
               busySave={busyDigestSave}
+              onDigestDateChange={setDigestDateDraft}
               onGenerate={generateDailyDigest}
               onCopy={copyDailyDigest}
               onSave={saveDailyDigestSnapshot}
+              onSnapshotOpen={loadDigestSnapshot}
             />
             <SavedItemsPanel
               items={savedItems.slice(0, 8)}
@@ -3368,21 +3389,27 @@ function AlertPanel({
 function DailyDigestPanel({
   digest,
   snapshots,
+  digestDate,
   busyGenerate,
   busyCopy,
   busySave,
+  onDigestDateChange,
   onGenerate,
   onCopy,
   onSave,
+  onSnapshotOpen,
 }: {
   digest: DailyDigest | null;
   snapshots: DailyDigestSnapshot[];
+  digestDate: string;
   busyGenerate: boolean;
   busyCopy: boolean;
   busySave: boolean;
+  onDigestDateChange: (value: string) => void;
   onGenerate: () => void;
   onCopy: () => void;
   onSave: () => void;
+  onSnapshotOpen: (snapshot: DailyDigestSnapshot) => void;
 }) {
   const sectionsWithItems = digest?.sections.filter((section) => section.items.length) ?? [];
   return (
@@ -3418,6 +3445,15 @@ function DailyDigestPanel({
             {busyCopy ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
           </button>
         </div>
+      </div>
+      <div className="form-panel digest-date-form">
+        <input
+          className="field"
+          type="date"
+          value={digestDate}
+          onChange={(event) => onDigestDateChange(event.target.value)}
+          aria-label="Digest date"
+        />
       </div>
       {digest ? (
         <div className="digest-panel">
@@ -3470,7 +3506,13 @@ function DailyDigestPanel({
             {snapshots.length ? (
               <div className="digest-list">
                 {snapshots.slice(0, 5).map((snapshot) => (
-                  <div className="snapshot-row" key={snapshot.id}>
+                  <button
+                    className="snapshot-row"
+                    key={snapshot.id}
+                    onClick={() => onSnapshotOpen(snapshot)}
+                    type="button"
+                    aria-label={`Open digest snapshot ${snapshot.digest_date}`}
+                  >
                     <div>
                       <div className="timeline-title">{snapshot.digest_date}</div>
                       <div className="small-muted">{snapshot.headline}</div>
@@ -3478,7 +3520,7 @@ function DailyDigestPanel({
                     <span className="small-muted">
                       {snapshot.total_items} items · {countMarkdownLines(snapshot.markdown)} lines
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -6916,6 +6958,11 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function buildDigestDateQuery(value: string): string {
+  const normalized = value.trim();
+  return normalized ? `?date=${encodeURIComponent(normalized)}` : "";
 }
 
 function isAlertRuleSnoozed(rule: AlertRule): boolean {

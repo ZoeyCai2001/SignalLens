@@ -214,3 +214,4 @@ Implementation progress:
 - Tightened read-later search intent so "read later" and "to read" resolve to saved-unread items, matching the digest reading queue.
 - Added alert-rule snoozing with backend persistence, generation filtering, and dashboard quick snooze/resume controls.
 - Added dashboard alert history using dismissed alerts while keeping active alert metrics separate.
+- Added digest date selection and clickable saved digest snapshots so historical briefings can be previewed, copied, or saved by date.
