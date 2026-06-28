@@ -187,6 +187,8 @@ The LLM service exposes stable internal methods:
 
 All LLM outputs must be parsed as structured JSON and validated before storage.
 
+Batch LLM processing filters summarize-only candidates before spending model calls. When `skip_summarized` is enabled, already summarized feed items are excluded at query time so the requested batch limit is spent on items that still need summaries.
+
 ### 7.4 Ranking Service
 
 Feed ranking uses configurable weights:

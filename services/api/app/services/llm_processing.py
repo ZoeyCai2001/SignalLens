@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -20,7 +21,13 @@ async def process_feed_with_llm(
     classify: bool = False,
     skip_summarized: bool = True,
 ) -> FeedProcessingResponse:
-    candidates = list_llm_processing_candidates(db=db, limit=limit)
+    candidates = list_llm_processing_candidates(
+        db=db,
+        limit=limit,
+        summarize=summarize,
+        classify=classify,
+        skip_summarized=skip_summarized,
+    )
     return await process_llm_batch_items(
         db=db,
         settings=settings,
@@ -32,26 +39,35 @@ async def process_feed_with_llm(
     )
 
 
-def list_llm_processing_candidates(db: Session, limit: int) -> list[NormalizedItem]:
-    rows = (
-        db.query(NormalizedItem)
-        .outerjoin(
-            UserItemAction,
-            (UserItemAction.item_id == NormalizedItem.id)
-            & (UserItemAction.user_id == LOCAL_USER_ID),
-        )
-        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
-        .order_by(
-            UserItemAction.is_important.desc().nullslast(),
-            NormalizedItem.importance_score.desc(),
-            NormalizedItem.relevance_score.desc(),
-            NormalizedItem.stock_impact_score.desc(),
-            NormalizedItem.published_at.desc().nullslast(),
-            NormalizedItem.created_at.desc(),
-        )
-        .limit(limit)
-        .all()
+def list_llm_processing_candidates(
+    db: Session,
+    limit: int,
+    summarize: bool = True,
+    classify: bool = False,
+    skip_summarized: bool = True,
+) -> list[NormalizedItem]:
+    query = db.query(NormalizedItem).outerjoin(
+        UserItemAction,
+        (UserItemAction.item_id == NormalizedItem.id)
+        & (UserItemAction.user_id == LOCAL_USER_ID),
     )
+    query = query.filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+    if summarize and skip_summarized and not classify:
+        query = query.filter(
+            or_(
+                NormalizedItem.summary_detailed.is_(None),
+                NormalizedItem.summary_detailed == "",
+            )
+        )
+
+    rows = query.order_by(
+        UserItemAction.is_important.desc().nullslast(),
+        NormalizedItem.importance_score.desc(),
+        NormalizedItem.relevance_score.desc(),
+        NormalizedItem.stock_impact_score.desc(),
+        NormalizedItem.published_at.desc().nullslast(),
+        NormalizedItem.created_at.desc(),
+    ).limit(limit).all()
     return list(rows)
 
 

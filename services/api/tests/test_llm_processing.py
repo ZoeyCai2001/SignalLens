@@ -1,11 +1,49 @@
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import Settings
-from app.db.models import NormalizedItem
-from app.services.llm_processing import process_llm_batch_items, should_summarize_item
+from app.db.models import Base, NormalizedItem, UserItemAction
+from app.services.llm_processing import (
+    list_llm_processing_candidates,
+    process_llm_batch_items,
+    should_summarize_item,
+)
 
 
-def make_item(item_id: int, summary_detailed: str | None = None) -> NormalizedItem:
+def test_list_llm_processing_candidates_skips_summarized_items_before_limit() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_item(1, summary_detailed="Already summarized", importance_score=1.0),
+                make_item(2, importance_score=0.9),
+                make_item(3, importance_score=0.8),
+                make_item(4, importance_score=0.7),
+            ]
+        )
+        db.add(UserItemAction(item_id=4, user_id="local", is_hidden=True))
+        db.commit()
+
+        candidates = list_llm_processing_candidates(
+            db=db,
+            limit=2,
+            summarize=True,
+            classify=False,
+            skip_summarized=True,
+        )
+
+    assert [item.id for item in candidates] == [2, 3]
+
+
+def make_item(
+    item_id: int,
+    summary_detailed: str | None = None,
+    importance_score: float = 0,
+) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
         raw_item_id=item_id,
@@ -13,6 +51,7 @@ def make_item(item_id: int, summary_detailed: str | None = None) -> NormalizedIt
         url=f"https://example.com/{item_id}",
         source_name="Test",
         text="A relevant AI intelligence item.",
+        importance_score=importance_score,
         summary_detailed=summary_detailed,
     )
 
