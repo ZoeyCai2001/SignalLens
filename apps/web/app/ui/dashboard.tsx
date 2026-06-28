@@ -2296,6 +2296,7 @@ function AlertPanel({
           <option value="product">Product</option>
           <option value="stock_company_event">Stock</option>
           <option value="social_trend">Social</option>
+          <option value="cross_source_cluster">Cross-source</option>
         </select>
         <input
           className="field"

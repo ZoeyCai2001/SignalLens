@@ -4,8 +4,13 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import Alert, AlertRule, NormalizedItem
 from app.schemas.alerts import AlertGenerationResult, AlertItem, AlertRuleCreate, AlertRuleUpdate
+from app.schemas.events import EventCluster
+from app.schemas.feed import FeedItem
+from app.services.event_clustering import build_event_clusters_from_items
 from app.services.feed_actions import LOCAL_USER_ID, get_action, serialize_feed_item
 from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER
+
+CROSS_SOURCE_CLUSTER_CATEGORY = "cross_source_cluster"
 
 
 @dataclass(frozen=True)
@@ -32,6 +37,16 @@ DEFAULT_ALERT_RULES = [
         "category": "all",
         "severity": "medium",
         "min_importance_score": 0.82,
+        "min_stock_impact_score": 0,
+        "tickers": [],
+        "topics": [],
+    },
+    {
+        "name": "Cross-source confirmation",
+        "description": "Related AI signals appearing across multiple sources.",
+        "category": CROSS_SOURCE_CLUSTER_CATEGORY,
+        "severity": "high",
+        "min_importance_score": 0.7,
         "min_stock_impact_score": 0,
         "tickers": [],
         "topics": [],
@@ -194,6 +209,11 @@ def generate_alerts(db: Session, limit: int = 100) -> AlertGenerationResult:
                 )
             )
             created += 1
+    created += generate_cross_source_alerts(
+        db=db,
+        rules=rules,
+        items=[serialize_feed_item(item) for item in items],
+    )
     if created:
         db.commit()
     return AlertGenerationResult(
@@ -208,11 +228,86 @@ def match_alert_rules(item: NormalizedItem, rules: list[AlertRule]) -> list[Aler
     for rule in rules:
         if not rule.enabled:
             continue
+        if rule.category == CROSS_SOURCE_CLUSTER_CATEGORY:
+            continue
         reason = alert_reason(item, rule)
         if reason is None:
             continue
         matches.append(AlertMatch(rule=rule, severity=rule.severity, reason=reason))
     return matches
+
+
+def generate_cross_source_alerts(
+    db: Session,
+    rules: list[AlertRule],
+    items: list[FeedItem],
+) -> int:
+    cluster_rules = [
+        rule
+        for rule in rules
+        if rule.enabled and rule.category == CROSS_SOURCE_CLUSTER_CATEGORY
+    ]
+    if not cluster_rules:
+        return 0
+
+    clusters = build_event_clusters_from_items(items=items, limit=30, min_items=2)
+    created = 0
+    for cluster in clusters:
+        if len(cluster.sources) < 2:
+            continue
+        for rule in cluster_rules:
+            reason = cross_source_alert_reason(cluster=cluster, rule=rule)
+            if reason is None:
+                continue
+            existing = (
+                db.query(Alert)
+                .filter(
+                    Alert.user_id == LOCAL_USER_ID,
+                    Alert.item_id == cluster.representative_item.id,
+                    Alert.rule_id == rule.id,
+                )
+                .one_or_none()
+            )
+            if existing:
+                continue
+            db.add(
+                Alert(
+                    user_id=LOCAL_USER_ID,
+                    item_id=cluster.representative_item.id,
+                    rule_id=rule.id,
+                    title=cluster.title,
+                    reason=reason,
+                    severity=rule.severity,
+                    status="active",
+                )
+            )
+            created += 1
+    return created
+
+
+def cross_source_alert_reason(cluster: EventCluster, rule: AlertRule) -> str | None:
+    if cluster.importance_score < rule.min_importance_score:
+        return None
+    if rule.tickers and not set(normalize_list(rule.tickers)).intersection(
+        normalize_list(cluster.tickers)
+    ):
+        return None
+    if rule.topics and not set(normalize_list(rule.topics)).intersection(
+        normalize_list(cluster.topics)
+    ):
+        return None
+
+    score_bits = [
+        f"{cluster.item_count} related items",
+        f"{len(cluster.sources)} sources",
+        f"importance {round(cluster.importance_score * 100)}",
+        f"confidence {round(cluster.confidence * 100)}",
+    ]
+    if cluster.tickers:
+        score_bits.append(f"tickers {', '.join(cluster.tickers[:4])}")
+    if cluster.topics:
+        score_bits.append(f"topics {', '.join(cluster.topics[:4])}")
+    return f"{rule.name}: " + ", ".join(score_bits)
 
 
 def alert_reason(item: NormalizedItem, rule: AlertRule) -> str | None:
