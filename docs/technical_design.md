@@ -433,6 +433,7 @@ Recommended UI behavior:
 - Use filters and segmented controls for category views.
 - Use restrained color for severity, sentiment, and source health.
 - Keep the financial disclaimer visible on stock pages and stock summaries.
+- Render a local stock-disclaimer fallback in the dashboard so the non-financial-advice notice remains visible before stock summaries load or when no stock signals exist.
 
 ## 12. Compliance and Privacy
 

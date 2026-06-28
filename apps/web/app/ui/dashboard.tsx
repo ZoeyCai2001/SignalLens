@@ -500,6 +500,8 @@ type ModuleKey =
   | "digest";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+const STOCK_DISCLAIMER =
+  "SignalLens links AI-related items to watched stocks for research only and does not provide investment advice.";
 
 const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
   relevance: 0.25,
@@ -3386,7 +3388,8 @@ function StockTable({
   onSubmit: () => void;
 }) {
   const signalMap = new Map(signalSummaries.map((summary) => [summary.stock.ticker, summary]));
-  const disclaimer = signalSummaries[0]?.disclaimer;
+  const disclaimer =
+    signalSummaries[0]?.disclaimer ?? stockBriefing?.disclaimer ?? STOCK_DISCLAIMER;
   const selectedStock = stocks.find((stock) => stock.ticker === selectedTicker) ?? null;
   const [detailDraft, setDetailDraft] = useState<StockDetailDraft>(() =>
     stockToDetailDraft(selectedStock),
@@ -3578,7 +3581,7 @@ function StockTable({
         loading={busyStockTicker === selectedTicker && selectedTicker !== null}
         selectedTicker={selectedTicker}
       />
-      {disclaimer ? <div className="small-muted">{disclaimer}</div> : null}
+      <div className="small-muted">{disclaimer}</div>
     </section>
   );
 }
