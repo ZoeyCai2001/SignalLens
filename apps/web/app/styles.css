@@ -812,6 +812,11 @@ tr:last-child td {
   font-weight: 700;
 }
 
+.source-attention {
+  color: var(--rose);
+  font-weight: 700;
+}
+
 .market-up {
   color: var(--green);
   font-weight: 700;

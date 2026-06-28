@@ -15,6 +15,7 @@ from app.services.source_health import (
     create_source,
     serialize_source_health,
     serialize_source_run_history_item,
+    source_needs_attention,
     update_source,
 )
 from app.sources.base import FetchCursor, FetchResult, SourceConnector
@@ -52,6 +53,35 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     assert health.terms_notes == "Use RSS feed only."
     assert health.latest_status == "skipped"
     assert health.latest_error == "disabled"
+    assert health.failure_count == 0
+    assert health.needs_attention is False
+
+
+def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
+    source = Source(
+        id=2,
+        name="Failing Source",
+        type="api",
+        access_method="official_api",
+        enabled=True,
+    )
+    run = SourceRun(
+        source_id=2,
+        status="failed",
+        items_fetched=2,
+        items_stored=0,
+        error_message="rate limited",
+    )
+
+    health = serialize_source_health(source, run, failure_count=1)
+
+    assert health.failure_count == 1
+    assert health.needs_attention is True
+
+
+def test_source_attention_uses_recent_failure_count_threshold() -> None:
+    assert source_needs_attention("success", 1) is False
+    assert source_needs_attention("success", 2) is True
 
 
 def test_update_source_trims_editable_settings_and_clears_empty_notes() -> None:

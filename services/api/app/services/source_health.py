@@ -4,6 +4,10 @@ from sqlalchemy.orm import Session
 from app.db.models import Source, SourceRun
 from app.schemas.sources import SourceCreate, SourceHealth, SourceRunHistoryItem, SourceUpdate
 
+SOURCE_ATTENTION_FAILURE_THRESHOLD = 2
+SOURCE_HEALTH_RECENT_RUN_LIMIT = 5
+SOURCE_FAILURE_STATUSES = {"failed"}
+
 
 def list_source_health(db: Session) -> list[SourceHealth]:
     latest_run_subquery = (
@@ -27,7 +31,14 @@ def list_source_health(db: Session) -> list[SourceHealth]:
         .all()
     )
 
-    return [serialize_source_health(source, run) for source, run in rows]
+    return [
+        serialize_source_health(
+            source,
+            run,
+            failure_count=count_recent_source_failures(db, source.id),
+        )
+        for source, run in rows
+    ]
 
 
 def create_source(db: Session, payload: SourceCreate) -> Source:
@@ -104,7 +115,41 @@ def get_latest_source_run(db: Session, source_id: int) -> SourceRun | None:
     )
 
 
-def serialize_source_health(source: Source, run: SourceRun | None) -> SourceHealth:
+def count_recent_source_failures(
+    db: Session,
+    source_id: int,
+    limit: int = SOURCE_HEALTH_RECENT_RUN_LIMIT,
+) -> int:
+    rows = (
+        db.query(SourceRun.status)
+        .filter(SourceRun.source_id == source_id)
+        .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return sum(1 for row in rows if unwrap_status(row) in SOURCE_FAILURE_STATUSES)
+
+
+def unwrap_status(row) -> str:
+    if isinstance(row, str):
+        return row
+    if hasattr(row, "status"):
+        return row.status
+    if isinstance(row, tuple) and row:
+        return row[0]
+    return ""
+
+
+def source_needs_attention(latest_status: str, failure_count: int) -> bool:
+    return latest_status in SOURCE_FAILURE_STATUSES or failure_count >= SOURCE_ATTENTION_FAILURE_THRESHOLD
+
+
+def serialize_source_health(
+    source: Source,
+    run: SourceRun | None,
+    failure_count: int = 0,
+) -> SourceHealth:
+    latest_status = run.status if run else "never_run"
     return SourceHealth(
         id=source.id,
         name=source.name,
@@ -117,12 +162,14 @@ def serialize_source_health(source: Source, run: SourceRun | None) -> SourceHeal
         enabled=bool(source.enabled),
         priority=source.priority if source.priority is not None else 100,
         terms_notes=source.terms_notes,
-        latest_status=run.status if run else "never_run",
+        latest_status=latest_status,
         latest_error=run.error_message if run else None,
         last_started_at=run.started_at if run else None,
         last_finished_at=run.finished_at if run else None,
         items_fetched=run.items_fetched if run else 0,
         items_stored=run.items_stored if run else 0,
+        failure_count=failure_count,
+        needs_attention=source_needs_attention(latest_status, failure_count),
     )
 
 

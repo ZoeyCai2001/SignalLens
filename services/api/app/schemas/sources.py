@@ -21,6 +21,8 @@ class SourceHealth(BaseModel):
     last_finished_at: datetime | None
     items_fetched: int
     items_stored: int
+    failure_count: int = 0
+    needs_attention: bool = False
 
 
 class SourceRunHistoryItem(BaseModel):

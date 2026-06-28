@@ -107,3 +107,4 @@ Implementation progress:
 - Added product-category briefing APIs and dashboard drill-downs for matched product launches, sources, companies, activity, and recent signals.
 - Added a bounded watchlist-interest ranking boost so stock, topic, and product watchlists directly influence the main feed order.
 - Added cross-source cluster alert generation so repeated signals across multiple sources can create dashboard alerts.
+- Added source reliability attention signals so repeated connector failures are visible in Source Health.

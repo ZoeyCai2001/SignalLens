@@ -235,6 +235,8 @@ type SourceHealth = {
   last_finished_at: string | null;
   items_fetched: number;
   items_stored: number;
+  failure_count: number;
+  needs_attention: boolean;
 };
 
 type SourceRunHistoryItem = {
@@ -4436,6 +4438,9 @@ function SourceTable({
               const draft = drafts[source.id] ?? buildSourceDraft(source);
               const changed = isSourceDraftChanged(source, draft);
               const saving = busySourceId === source.id;
+              const failureCopy = `${source.failure_count} recent ${
+                source.failure_count === 1 ? "failure" : "failures"
+              }`;
               return (
                 <tr key={source.id}>
                   <td>
@@ -4482,7 +4487,14 @@ function SourceTable({
                     />
                   </td>
                   <td className={source.latest_status === "success" ? "health-ok" : ""}>
-                    {source.latest_status}
+                    <div>{source.latest_status}</div>
+                    {source.needs_attention ? (
+                      <div className="small-muted source-attention">
+                        needs attention{source.failure_count > 0 ? ` · ${failureCopy}` : ""}
+                      </div>
+                    ) : source.failure_count > 0 ? (
+                      <div className="small-muted">{failureCopy}</div>
+                    ) : null}
                   </td>
                   <td>{source.items_stored}</td>
                   <td>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</td>
