@@ -181,3 +181,4 @@ Implementation progress:
 - Added runnable experimental social-keyword sources over user-provided public RSS/Atom feeds with local keyword filtering for Chinese/Xiaohongshu-style trend monitoring without scraping.
 - Added on-demand Kimi explanations for expanded event clusters so cluster pages can show LLM-generated summaries while keeping model cost explicit.
 - Added enabled custom followed sources to the full ingestion cycle so scheduled runs collect user-followed RSS, GitHub, Product Hunt topic, and social keyword sources after built-in sources.
+- Added on-demand Kimi summaries for selected stock briefings so stock detail pages can generate PRD-style what-happened, why-it-matters, market-relevance, and uncertainty sections from existing evidence without automatic model spend.

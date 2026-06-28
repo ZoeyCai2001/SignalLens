@@ -173,6 +173,15 @@ type StockBriefing = {
   disclaimer: string;
 };
 
+type StockBriefingLlmSummary = {
+  ticker: string;
+  model: string;
+  summary: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+};
+
 type CompanyWatchlistItem = {
   company_key: string;
   company_name: string;
@@ -591,6 +600,9 @@ export function Dashboard() {
   const [stockSignals, setStockSignals] = useState<StockSignalSummary[]>([]);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [stockBriefing, setStockBriefing] = useState<StockBriefing | null>(null);
+  const [stockLlmSummaries, setStockLlmSummaries] = useState<
+    Record<string, StockBriefingLlmSummary>
+  >({});
   const [companies, setCompanies] = useState<CompanyWatchlistItem[]>([]);
   const [selectedCompanyKey, setSelectedCompanyKey] = useState<string | null>(null);
   const [companyBriefing, setCompanyBriefing] = useState<CompanyBriefing | null>(null);
@@ -632,6 +644,7 @@ export function Dashboard() {
   const [busyClusterExplanationKey, setBusyClusterExplanationKey] = useState<string | null>(null);
   const [busySourceId, setBusySourceId] = useState<number | null>(null);
   const [busyStockTicker, setBusyStockTicker] = useState<string | null>(null);
+  const [busyStockSummaryTicker, setBusyStockSummaryTicker] = useState<string | null>(null);
   const [busyCompanyBriefing, setBusyCompanyBriefing] = useState<string | null>(null);
   const [busyProductBriefing, setBusyProductBriefing] = useState<string | null>(null);
   const [busyTopicBriefing, setBusyTopicBriefing] = useState<string | null>(null);
@@ -1771,6 +1784,27 @@ export function Dashboard() {
     }
   };
 
+  const explainStockBriefing = async (ticker: string) => {
+    setBusyStockSummaryTicker(ticker);
+    setError(null);
+    try {
+      const result = await fetchJson<StockBriefingLlmSummary>(
+        `/api/watchlist/stocks/${encodeURIComponent(ticker)}/briefing/llm-summary?limit=8`,
+        { method: "POST" },
+      );
+      setStockLlmSummaries((items) => ({
+        ...items,
+        [result.ticker]: result,
+      }));
+      setStatus(`Explained ${result.ticker} briefing with ${result.model}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Stock briefing explanation failed");
+    } finally {
+      setBusyStockSummaryTicker(null);
+    }
+  };
+
   const submitAlertRule = async () => {
     if (!alertRuleName.trim()) {
       setError("Alert rules need a name.");
@@ -2333,9 +2367,11 @@ export function Dashboard() {
               stocks={stocks}
               signalSummaries={stockSignals}
               stockBriefing={stockBriefing}
+              stockLlmSummary={selectedTicker ? stockLlmSummaries[selectedTicker] ?? null : null}
               eventClusters={eventClusters}
               selectedTicker={selectedTicker}
               busyStockTicker={busyStockTicker}
+              busyStockSummaryTicker={busyStockSummaryTicker}
               busyWatchlistKey={busyWatchlistKey}
               ticker={stockTicker}
               company={stockCompany}
@@ -2347,6 +2383,7 @@ export function Dashboard() {
               onThemesChange={setStockThemes}
               onKeywordsChange={setStockKeywords}
               onSelectTicker={setSelectedTicker}
+              onExplainStock={explainStockBriefing}
               onUpdateStock={updateStock}
               onDeleteStock={deleteStock}
               onSubmit={submitStock}
@@ -3679,9 +3716,11 @@ function StockTable({
   stocks,
   signalSummaries,
   stockBriefing,
+  stockLlmSummary,
   eventClusters,
   selectedTicker,
   busyStockTicker,
+  busyStockSummaryTicker,
   busyWatchlistKey,
   ticker,
   company,
@@ -3693,6 +3732,7 @@ function StockTable({
   onThemesChange,
   onKeywordsChange,
   onSelectTicker,
+  onExplainStock,
   onUpdateStock,
   onDeleteStock,
   onSubmit,
@@ -3700,9 +3740,11 @@ function StockTable({
   stocks: StockWatchlistItem[];
   signalSummaries: StockSignalSummary[];
   stockBriefing: StockBriefing | null;
+  stockLlmSummary: StockBriefingLlmSummary | null;
   eventClusters: EventCluster[];
   selectedTicker: string | null;
   busyStockTicker: string | null;
+  busyStockSummaryTicker: string | null;
   busyWatchlistKey: string | null;
   ticker: string;
   company: string;
@@ -3714,6 +3756,7 @@ function StockTable({
   onThemesChange: (value: string) => void;
   onKeywordsChange: (value: string) => void;
   onSelectTicker: (value: string) => void;
+  onExplainStock: (ticker: string) => void;
   onUpdateStock: (
     ticker: string,
     payload: Partial<Omit<StockWatchlistItem, "ticker">>,
@@ -3955,9 +3998,12 @@ function StockTable({
       />
       <StockBriefingPanel
         briefing={stockBriefing}
+        llmSummary={stockLlmSummary}
         eventClusters={eventClusters}
         loading={busyStockTicker === selectedTicker && selectedTicker !== null}
+        busyLlmSummary={busyStockSummaryTicker === selectedTicker && selectedTicker !== null}
         selectedTicker={selectedTicker}
+        onExplainStock={onExplainStock}
       />
       <div className="small-muted">{disclaimer}</div>
     </section>
@@ -4100,14 +4146,20 @@ function StockDetailEditor({
 
 function StockBriefingPanel({
   briefing,
+  llmSummary,
   eventClusters,
   loading,
+  busyLlmSummary,
   selectedTicker,
+  onExplainStock,
 }: {
   briefing: StockBriefing | null;
+  llmSummary: StockBriefingLlmSummary | null;
   eventClusters: EventCluster[];
   loading: boolean;
+  busyLlmSummary: boolean;
   selectedTicker: string | null;
+  onExplainStock: (ticker: string) => void;
 }) {
   if (!selectedTicker) {
     return <div className="empty-state">No stock selected.</div>;
@@ -4143,7 +4195,17 @@ function StockBriefingPanel({
             {briefing.latest_signal_at ? formatDate(briefing.latest_signal_at) : "No recent signal"}
           </div>
         </div>
-        <span className={`urgency urgency-${briefing.urgency}`}>{briefing.urgency}</span>
+        <div className="cluster-explanation-actions">
+          <button
+            className="button secondary"
+            onClick={() => onExplainStock(briefing.stock.ticker)}
+            disabled={busyLlmSummary}
+          >
+            {busyLlmSummary ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
+            Explain
+          </button>
+          <span className={`urgency urgency-${briefing.urgency}`}>{briefing.urgency}</span>
+        </div>
       </div>
 
       <div className="score-grid">
@@ -4190,6 +4252,16 @@ function StockBriefingPanel({
       </div>
 
       <StockPriceChart market={briefing.market} />
+
+      {llmSummary ? (
+        <div className="digest-section">
+          <div className="digest-section-title">LLM Summary</div>
+          <div className="llm-explanation">{llmSummary.summary}</div>
+          <div className="small-muted">
+            {llmSummary.model} · {llmSummary.total_tokens} tokens
+          </div>
+        </div>
+      ) : null}
 
       <div className="stock-detail-grid-view">
         <div className="digest-section">

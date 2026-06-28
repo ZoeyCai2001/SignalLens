@@ -3,6 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
+from app.core.config import get_settings
+from app.llm.kimi_coding import KimiCodingClient, KimiCodingError
 from app.schemas.watchlist import (
     CompanyBriefing,
     CompanyWatchlistItem,
@@ -13,6 +15,7 @@ from app.schemas.watchlist import (
     ProductWatchlistItemCreate,
     ProductWatchlistItemUpdate,
     StockBriefing,
+    StockBriefingLlmSummary,
     StockMarketSnapshot,
     StockSignalSummary,
     StockWatchlistItem,
@@ -23,7 +26,9 @@ from app.schemas.watchlist import (
     TopicWatchlistItemCreate,
     TopicWatchlistItemUpdate,
 )
+from app.services.preferences import get_user_preferences
 from app.services.watchlist import (
+    build_stock_briefing_llm_prompt,
     build_stock_market_snapshot,
     create_company_watchlist_item,
     create_product_watchlist_item,
@@ -33,10 +38,10 @@ from app.services.watchlist import (
     delete_product_watchlist_item,
     delete_stock_watchlist_item,
     delete_topic_watchlist_item,
-    get_stock_briefing,
-    get_stock_signals,
     get_company_briefing,
     get_product_briefing,
+    get_stock_briefing,
+    get_stock_signals,
     get_topic_briefing,
     list_company_watchlist,
     list_product_watchlist,
@@ -51,7 +56,6 @@ from app.services.watchlist import (
     update_stock_watchlist_item,
     update_topic_watchlist_item,
 )
-from app.services.preferences import get_user_preferences
 from app.services.watchlist import (
     list_stock_watchlist as list_stock_watchlist_items,
 )
@@ -132,6 +136,48 @@ async def get_stock_watchlist_briefing(
     if result is None:
         raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
     return result
+
+
+@router.post(
+    "/stocks/{ticker}/briefing/llm-summary",
+    response_model=StockBriefingLlmSummary,
+)
+async def summarize_stock_briefing_with_llm(
+    ticker: str,
+    db: DbSession,
+    limit: Annotated[int, Query(ge=1, le=50)] = 10,
+) -> StockBriefingLlmSummary:
+    settings = get_settings()
+    if not settings.moonshot_api_key:
+        raise HTTPException(status_code=400, detail="MOONSHOT_API_KEY is not configured.")
+
+    preferences = get_user_preferences(db)
+    briefing = get_stock_briefing(
+        db,
+        ticker=ticker,
+        limit=limit,
+        blocked_sources=preferences.blocked_sources,
+    )
+    if briefing is None:
+        raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
+
+    client = KimiCodingClient(settings=settings)
+    try:
+        result = await client.create_message(
+            prompt=build_stock_briefing_llm_prompt(briefing),
+            max_tokens=520,
+        )
+    except KimiCodingError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return StockBriefingLlmSummary(
+        ticker=briefing.stock.ticker,
+        model=result.model,
+        summary=result.text,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        total_tokens=result.total_tokens,
+    )
 
 
 @router.get("/stocks/{ticker}/prices", response_model=StockMarketSnapshot | None)

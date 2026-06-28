@@ -3,7 +3,8 @@ from datetime import UTC, datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Base, NormalizedItem, StockPricePoint as StockPricePointModel
+from app.db.models import Base, NormalizedItem
+from app.db.models import StockPricePoint as StockPricePointModel
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
     StockMarketSnapshot,
@@ -12,10 +13,11 @@ from app.schemas.watchlist import (
     StockWatchlistItem,
 )
 from app.services.watchlist import (
-    build_stock_market_snapshot,
     build_stock_briefing,
-    compute_stock_summary_last_updated_at,
+    build_stock_briefing_llm_prompt,
+    build_stock_market_snapshot,
     compute_stock_attention_score,
+    compute_stock_summary_last_updated_at,
     count_stock_signal_rows_for_date,
     infer_stock_price_reaction,
 )
@@ -111,6 +113,67 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
         == "HBM demand links directly to watched memory names."
     )
     assert briefing.disclaimer == "Informational only."
+
+
+def test_build_stock_briefing_llm_prompt_uses_evidence_and_guardrails() -> None:
+    summary = StockSignalSummary(
+        stock=StockWatchlistItem(
+            ticker="MU",
+            company_name="Micron",
+            exchange="NASDAQ",
+            sector="Technology",
+            industry="Semiconductors",
+            priority="High",
+            group_name="Watch Only",
+            related_ai_themes=["HBM"],
+        ),
+        signal_count=1,
+        high_impact_count=1,
+        attention_score=0.82,
+        market=StockMarketSnapshot(
+            latest=StockPricePoint(
+                price_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+                open_price=110,
+                high_price=113,
+                low_price=109,
+                close_price=112.5,
+                adjusted_close=112.5,
+                volume=123456,
+            ),
+            previous_close=110,
+            change=2.5,
+            change_percent=2.27,
+            history=[],
+        ),
+        latest_event_title="Micron discusses HBM demand",
+        latest_event_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
+        last_updated_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
+        sentiment_counts={"positive": 1},
+        top_signals=[
+            make_feed_item(
+                1,
+                "Micron discusses HBM demand",
+                sentiment="positive",
+                stock_impact_score=0.84,
+                importance_score=0.7,
+                topics=["HBM", "AI infrastructure"],
+                companies=["Micron"],
+                why_it_matters="HBM demand links directly to watched memory names.",
+                published_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
+            )
+        ],
+        disclaimer="Informational only.",
+    )
+
+    prompt = build_stock_briefing_llm_prompt(build_stock_briefing(summary))
+
+    assert "Use only the supplied evidence" in prompt
+    assert "Do not provide investment advice" in prompt
+    assert "What happened" in prompt
+    assert "Possible market relevance" in prompt
+    assert "Micron discusses HBM demand" in prompt
+    assert "Latest close: 112.5" in prompt
+    assert "Uncertainties" in prompt
 
 
 def test_compute_stock_attention_score_combines_signal_volume_and_preferences() -> None:

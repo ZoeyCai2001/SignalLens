@@ -1390,6 +1390,87 @@ def build_stock_ai_relevance_summary(summary: StockSignalSummary) -> str:
     )
 
 
+def build_stock_briefing_llm_prompt(briefing: StockBriefing) -> str:
+    stock = briefing.stock
+    market_lines = ["No recent price context is available."]
+    if briefing.market and briefing.market.latest:
+        latest = briefing.market.latest
+        market_lines = [
+            f"Latest close: {latest.close_price} on {latest.price_date.isoformat()}",
+            f"Previous close: {briefing.market.previous_close}",
+            f"Change: {briefing.market.change} ({briefing.market.change_percent}%)",
+            f"Volume: {latest.volume}",
+        ]
+        if briefing.market.volume_change_percent is not None:
+            market_lines.append(f"Volume change: {briefing.market.volume_change_percent}%")
+
+    themes = ", ".join(briefing.key_themes[:8]) or "None extracted"
+    sentiment = ", ".join(
+        f"{label}: {count}" for label, count in sorted(briefing.sentiment_counts.items())
+    ) or "None"
+    event_lines = [
+        (
+            f"- {event.event_type}: {event.item_count} item(s); "
+            f"latest={event.latest_title or 'unknown'}"
+        )
+        for event in briefing.market_impact_events[:6]
+    ] or ["- None"]
+    timeline_lines = []
+    for item in briefing.recent_timeline[:8]:
+        published = item.item.published_at.isoformat() if item.item.published_at else "unknown"
+        uncertainties = "; ".join(item.uncertainties) or "none"
+        timeline_lines.append(
+            f"- {item.item.title} | source={item.item.source_name} | "
+            f"published={published} | event={item.event_type} | "
+            f"impact={item.possible_market_impact} | price_reaction={item.price_reaction} | "
+            f"confidence={item.confidence} | summary={item.event_summary} | "
+            f"uncertainties={uncertainties}"
+        )
+    if not timeline_lines:
+        timeline_lines = ["- No recent timeline items."]
+
+    return "\n".join(
+        [
+            "You are SignalLens, a research assistant for AI market intelligence.",
+            "Use only the supplied evidence. Do not provide investment advice.",
+            "If evidence is thin or uncertain, say so directly.",
+            "Return four short sections with these exact headings:",
+            "What happened",
+            "Why it matters",
+            "Possible market relevance",
+            "Uncertainties",
+            "",
+            "Stock:",
+            f"- Ticker: {stock.ticker}",
+            f"- Company: {stock.company_name}",
+            f"- Exchange: {stock.exchange}",
+            f"- Sector: {stock.sector}",
+            f"- Industry: {stock.industry}",
+            f"- Watchlist priority: {stock.priority}",
+            f"- Watched AI themes: {', '.join(stock.related_ai_themes) or 'None configured'}",
+            "",
+            "Signal state:",
+            f"- Signal count: {briefing.signal_count}",
+            f"- Attention score: {briefing.attention_score}",
+            f"- Urgency: {briefing.urgency}",
+            f"- Sentiment counts: {sentiment}",
+            f"- Key themes: {themes}",
+            f"- Existing deterministic summary: {briefing.ai_relevance_summary}",
+            "",
+            "Market context:",
+            *market_lines,
+            "",
+            "Market-impact event groups:",
+            *event_lines,
+            "",
+            "Recent timeline evidence:",
+            *timeline_lines,
+            "",
+            f"Disclaimer to respect: {briefing.disclaimer}",
+        ]
+    )
+
+
 def build_stock_theme_breakdown(
     summary: StockSignalSummary,
     limit: int = 8,

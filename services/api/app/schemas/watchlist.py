@@ -103,6 +103,15 @@ class StockBriefing(BaseModel):
     disclaimer: str
 
 
+class StockBriefingLlmSummary(BaseModel):
+    ticker: str
+    model: str
+    summary: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
 class StockWatchlistItemCreate(BaseModel):
     ticker: str | None = None
     company_name: str | None = None
