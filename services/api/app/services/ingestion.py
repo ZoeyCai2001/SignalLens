@@ -614,12 +614,28 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
             "This repository matched the AI relevance prefilter from GitHub metadata."
         )
     elif source.name == "Hugging Face":
-        category = "research"
-        subcategory = "model_release"
-        summary_prefix = "Hugging Face model"
-        why_it_matters = (
-            "This model metadata matched the AI relevance prefilter from Hugging Face."
-        )
+        hf_kind = raw.raw_metadata.get("hf_kind")
+        if hf_kind == "space":
+            category = "product"
+            subcategory = "hf_space_demo"
+            summary_prefix = "Hugging Face Space"
+            why_it_matters = (
+                "This Space metadata matched AI product or demo signals on Hugging Face."
+            )
+        elif hf_kind == "dataset":
+            category = "research"
+            subcategory = "dataset_release"
+            summary_prefix = "Hugging Face dataset"
+            why_it_matters = (
+                "This dataset metadata matched AI research or benchmark signals on Hugging Face."
+            )
+        else:
+            category = "research"
+            subcategory = "model_release"
+            summary_prefix = "Hugging Face model"
+            why_it_matters = (
+                "This model metadata matched the AI relevance prefilter from Hugging Face."
+            )
     elif source.name == "Selected RSS Feeds":
         category = "technical_trend"
         subcategory = "company_blog"
