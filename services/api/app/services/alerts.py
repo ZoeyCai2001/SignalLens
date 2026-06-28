@@ -25,10 +25,46 @@ from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER
 
 CROSS_SOURCE_CLUSTER_CATEGORY = "cross_source_cluster"
 STOCK_PRICE_MOVE_CATEGORY = "stock_price_move"
+EARNINGS_GUIDANCE_CATEGORY = "earnings_guidance"
+ANALYST_ACTION_CATEGORY = "analyst_action"
+SUPPLY_CHAIN_SIGNAL_CATEGORY = "supply_chain_signal"
+THEME_BREAKOUT_CATEGORY = "theme_breakout"
 MIN_ALERT_CLASSIFICATION_CONFIDENCE = 0.55
 MIN_ALERT_SOURCE_QUALITY = 0.55
 MIN_CROSS_SOURCE_CLUSTER_CONFIDENCE = 0.65
 MIN_PRICE_MOVE_ALERT_PERCENT = 5
+MIN_THEME_BREAKOUT_ITEMS = 2
+MIN_THEME_BREAKOUT_SOURCES = 2
+
+SPECIAL_STOCK_EVENT_TERMS = {
+    EARNINGS_GUIDANCE_CATEGORY: [
+        "earnings",
+        "guidance",
+        "revenue guidance",
+        "data center revenue",
+        "ai demand",
+        "capex",
+        "forecast",
+    ],
+    ANALYST_ACTION_CATEGORY: [
+        "analyst",
+        "upgrade",
+        "downgrade",
+        "price target",
+        "rating",
+        "overweight",
+        "underweight",
+    ],
+    SUPPLY_CHAIN_SIGNAL_CATEGORY: [
+        "supply chain",
+        "supplier",
+        "customer",
+        "competitor",
+        "export control",
+        "capacity",
+        "inventory",
+    ],
+}
 
 
 @dataclass(frozen=True)
@@ -71,11 +107,62 @@ DEFAULT_ALERT_RULES = [
     },
     {
         "name": "Large price move with AI news",
-        "description": "Watched or rule-matched ticker moved sharply while related AI news is present.",
+        "description": (
+            "Watched or rule-matched ticker moved sharply while related AI news is present."
+        ),
         "category": STOCK_PRICE_MOVE_CATEGORY,
         "severity": "high",
         "min_importance_score": 0.6,
         "min_stock_impact_score": 0.25,
+        "tickers": [],
+        "topics": [],
+    },
+    {
+        "name": "Earnings or guidance mention",
+        "description": (
+            "Stock-linked item mentions earnings, guidance, AI demand, revenue, or capex."
+        ),
+        "category": EARNINGS_GUIDANCE_CATEGORY,
+        "severity": "high",
+        "min_importance_score": 0.62,
+        "min_stock_impact_score": 0.25,
+        "tickers": [],
+        "topics": [],
+    },
+    {
+        "name": "Analyst action",
+        "description": (
+            "Stock-linked item mentions analyst rating, upgrade, downgrade, or price target."
+        ),
+        "category": ANALYST_ACTION_CATEGORY,
+        "severity": "medium",
+        "min_importance_score": 0.6,
+        "min_stock_impact_score": 0.2,
+        "tickers": [],
+        "topics": [],
+    },
+    {
+        "name": "Supply chain signal",
+        "description": (
+            "Stock-linked item mentions suppliers, customers, competitors, export controls, "
+            "or capacity."
+        ),
+        "category": SUPPLY_CHAIN_SIGNAL_CATEGORY,
+        "severity": "medium",
+        "min_importance_score": 0.62,
+        "min_stock_impact_score": 0.25,
+        "tickers": [],
+        "topics": [],
+    },
+    {
+        "name": "Theme breakout",
+        "description": (
+            "A watched AI theme appears across multiple sources in recent high-quality items."
+        ),
+        "category": THEME_BREAKOUT_CATEGORY,
+        "severity": "medium",
+        "min_importance_score": 0.65,
+        "min_stock_impact_score": 0,
         "tickers": [],
         "topics": [],
     },
@@ -263,6 +350,7 @@ def generate_alerts(
         items=[serialize_feed_item(item) for item in items],
     )
     created += generate_price_move_alerts(db=db, rules=rules, items=items)
+    created += generate_theme_breakout_alerts(db=db, rules=rules, items=items)
     if created:
         db.commit()
     return AlertGenerationResult(
@@ -277,9 +365,16 @@ def match_alert_rules(item: NormalizedItem, rules: list[AlertRule]) -> list[Aler
     for rule in rules:
         if not rule.enabled:
             continue
-        if rule.category in {CROSS_SOURCE_CLUSTER_CATEGORY, STOCK_PRICE_MOVE_CATEGORY}:
+        if rule.category in {
+            CROSS_SOURCE_CLUSTER_CATEGORY,
+            STOCK_PRICE_MOVE_CATEGORY,
+            THEME_BREAKOUT_CATEGORY,
+        }:
             continue
-        reason = alert_reason(item, rule)
+        if rule.category in SPECIAL_STOCK_EVENT_TERMS:
+            reason = stock_event_alert_reason(item, rule)
+        else:
+            reason = alert_reason(item, rule)
         if reason is None:
             continue
         matches.append(AlertMatch(rule=rule, severity=rule.severity, reason=reason))
@@ -380,6 +475,115 @@ def generate_price_move_alerts(
     return created
 
 
+def generate_theme_breakout_alerts(
+    db: Session,
+    rules: list[AlertRule],
+    items: list[NormalizedItem],
+) -> int:
+    theme_rules = [
+        rule
+        for rule in rules
+        if rule.enabled and rule.category == THEME_BREAKOUT_CATEGORY
+    ]
+    if not theme_rules:
+        return 0
+
+    created = 0
+    buckets = build_theme_breakout_buckets(items)
+    for theme, theme_items in buckets.items():
+        sources = {item.source_name for item in theme_items}
+        if len(theme_items) < MIN_THEME_BREAKOUT_ITEMS:
+            continue
+        if len(sources) < MIN_THEME_BREAKOUT_SOURCES:
+            continue
+        representative = max(
+            theme_items,
+            key=lambda item: (
+                item.importance_score,
+                item.source_quality_score,
+                alert_item_sort_time(item),
+            ),
+        )
+        for rule in theme_rules:
+            reason = theme_breakout_alert_reason(
+                theme=theme,
+                items=theme_items,
+                sources=sources,
+                representative=representative,
+                rule=rule,
+            )
+            if reason is None:
+                continue
+            existing = (
+                db.query(Alert)
+                .filter(
+                    Alert.user_id == LOCAL_USER_ID,
+                    Alert.item_id == representative.id,
+                    Alert.rule_id == rule.id,
+                )
+                .one_or_none()
+            )
+            if existing:
+                continue
+            db.add(
+                Alert(
+                    user_id=LOCAL_USER_ID,
+                    item_id=representative.id,
+                    rule_id=rule.id,
+                    title=f"{rule.name}: {theme}",
+                    reason=reason,
+                    severity=rule.severity,
+                    status="active",
+                )
+            )
+            created += 1
+    return created
+
+
+def build_theme_breakout_buckets(
+    items: list[NormalizedItem],
+) -> dict[str, list[NormalizedItem]]:
+    buckets: dict[str, list[NormalizedItem]] = {}
+    for item in items:
+        if item.importance_score < 0.55:
+            continue
+        if item.classification_confidence < MIN_ALERT_CLASSIFICATION_CONFIDENCE:
+            continue
+        if item.source_quality_score < MIN_ALERT_SOURCE_QUALITY:
+            continue
+        for topic in normalize_list(item.topics):
+            buckets.setdefault(topic, []).append(item)
+    return buckets
+
+
+def theme_breakout_alert_reason(
+    theme: str,
+    items: list[NormalizedItem],
+    sources: set[str],
+    representative: NormalizedItem,
+    rule: AlertRule,
+) -> str | None:
+    if representative.importance_score < rule.min_importance_score:
+        return None
+    if representative.stock_impact_score < rule.min_stock_impact_score:
+        return None
+    if rule.topics and theme not in normalize_list(rule.topics):
+        return None
+    theme_tickers = sorted({ticker for item in items for ticker in normalize_tickers(item.tickers)})
+    if rule.tickers and not set(normalize_tickers(rule.tickers)).intersection(theme_tickers):
+        return None
+
+    score_bits = [
+        f"theme {theme}",
+        f"{len(items)} related items",
+        f"{len(sources)} sources",
+        f"importance {round(representative.importance_score * 100)}",
+    ]
+    if theme_tickers:
+        score_bits.append(f"tickers {', '.join(theme_tickers[:4])}")
+    return f"{rule.name}: " + ", ".join(score_bits)
+
+
 def price_move_alert_reason(
     db: Session,
     item: NormalizedItem,
@@ -441,6 +645,61 @@ def price_move_alert_reason(
         f"confidence {round(item.classification_confidence * 100)}",
     ]
     return f"{rule.name}: " + ", ".join(score_bits)
+
+
+def stock_event_alert_reason(item: NormalizedItem, rule: AlertRule) -> str | None:
+    if item.importance_score < rule.min_importance_score:
+        return None
+    if item.classification_confidence < MIN_ALERT_CLASSIFICATION_CONFIDENCE:
+        return None
+    if item.source_quality_score < MIN_ALERT_SOURCE_QUALITY:
+        return None
+    if item.stock_impact_score < rule.min_stock_impact_score:
+        return None
+    if not item.tickers and item.category != "stock_company_event":
+        return None
+    if rule.tickers and not set(normalize_tickers(rule.tickers)).intersection(
+        normalize_tickers(item.tickers)
+    ):
+        return None
+    if rule.topics and not set(normalize_list(rule.topics)).intersection(
+        normalize_list(item.topics)
+    ):
+        return None
+
+    terms = SPECIAL_STOCK_EVENT_TERMS.get(rule.category)
+    if not terms:
+        return None
+    text = build_alert_item_text(item)
+    matched_terms = [term for term in terms if term in text]
+    if not matched_terms:
+        return None
+
+    score_bits = [
+        f"matched {', '.join(matched_terms[:3])}",
+        f"importance {round(item.importance_score * 100)}",
+        f"stock impact {round(item.stock_impact_score * 100)}",
+        f"confidence {round(item.classification_confidence * 100)}",
+    ]
+    if item.tickers:
+        score_bits.append(f"tickers {', '.join(item.tickers[:4])}")
+    return f"{rule.name}: " + ", ".join(score_bits)
+
+
+def build_alert_item_text(item: NormalizedItem) -> str:
+    parts = [
+        item.title,
+        item.summary_short or "",
+        item.summary_detailed or "",
+        item.why_it_matters or "",
+        " ".join(item.topics or []),
+    ]
+    return " ".join(parts).lower()
+
+
+def alert_item_sort_time(item: NormalizedItem):
+    timestamp = item.published_at or item.created_at
+    return timestamp.timestamp() if timestamp else 0
 
 
 def latest_price_change_percent(db: Session, ticker: str) -> float | None:

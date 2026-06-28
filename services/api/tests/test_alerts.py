@@ -15,17 +15,22 @@ from app.db.models import (
 from app.schemas.feed import FeedItem
 from app.services.alerts import (
     CROSS_SOURCE_CLUSTER_CATEGORY,
+    EARNINGS_GUIDANCE_CATEGORY,
     STOCK_PRICE_MOVE_CATEGORY,
+    THEME_BREAKOUT_CATEGORY,
     alert_reason,
+    build_theme_breakout_buckets,
     clean_terms,
+    cross_source_alert_reason,
     format_signed_percent,
     generate_alerts,
     latest_price_change_percent,
     list_alerts,
-    cross_source_alert_reason,
     match_alert_rules,
     normalize_tickers,
     price_move_alert_reason,
+    stock_event_alert_reason,
+    theme_breakout_alert_reason,
 )
 from app.services.event_clustering import build_event_cluster
 
@@ -111,6 +116,92 @@ def test_match_alert_rules_skips_cross_source_rules_for_single_items() -> None:
     assert match_alert_rules(item, rules) == []
 
 
+def test_stock_event_alert_reason_matches_earnings_guidance_terms() -> None:
+    item = make_item(
+        title="Micron guidance highlights AI demand and data center revenue",
+        category="stock_company_event",
+        importance_score=0.72,
+        stock_impact_score=0.4,
+        tickers=["MU"],
+        topics=["HBM"],
+    )
+    rule = make_rule(
+        name="Earnings or guidance mention",
+        category=EARNINGS_GUIDANCE_CATEGORY,
+        min_importance_score=0.62,
+        min_stock_impact_score=0.25,
+    )
+
+    reason = stock_event_alert_reason(item, rule)
+
+    assert reason is not None
+    assert "guidance" in reason
+    assert "ai demand" in reason
+    assert "MU" in reason
+
+
+def test_stock_event_alert_reason_requires_stock_context() -> None:
+    item = make_item(
+        title="Startup guidance for AI product onboarding",
+        category="product",
+        importance_score=0.8,
+        stock_impact_score=0.4,
+        tickers=[],
+    )
+    rule = make_rule(
+        name="Earnings or guidance mention",
+        category=EARNINGS_GUIDANCE_CATEGORY,
+        min_importance_score=0.62,
+        min_stock_impact_score=0.25,
+    )
+
+    assert stock_event_alert_reason(item, rule) is None
+
+
+def test_theme_breakout_alert_reason_summarizes_multi_source_topic() -> None:
+    items = [
+        make_item(
+            item_id=1,
+            title="HBM demand signal",
+            source_name="RSS",
+            importance_score=0.72,
+            stock_impact_score=0.4,
+            tickers=["MU"],
+            topics=["HBM"],
+        ),
+        make_item(
+            item_id=2,
+            title="More HBM discussion",
+            source_name="Hacker News",
+            importance_score=0.68,
+            stock_impact_score=0.2,
+            tickers=["MU"],
+            topics=["HBM"],
+        ),
+    ]
+    buckets = build_theme_breakout_buckets(items)
+    rule = make_rule(
+        name="Theme breakout",
+        category=THEME_BREAKOUT_CATEGORY,
+        min_importance_score=0.65,
+        topics=["hbm"],
+    )
+
+    reason = theme_breakout_alert_reason(
+        theme="hbm",
+        items=buckets["hbm"],
+        sources={"RSS", "Hacker News"},
+        representative=items[0],
+        rule=rule,
+    )
+
+    assert reason is not None
+    assert "theme hbm" in reason
+    assert "2 related items" in reason
+    assert "2 sources" in reason
+    assert "MU" in reason
+
+
 def test_cross_source_alert_reason_requires_multiple_source_cluster_match() -> None:
     cluster = build_event_cluster(
         "technical_trend|agent",
@@ -158,7 +249,12 @@ def test_cross_source_alert_reason_requires_cluster_confidence() -> None:
         "technical_trend|agent",
         [
             make_feed_item(1, "Agent harness launch", source_name="RSS", confidence=0.45),
-            make_feed_item(2, "Agent harness discussion", source_name="Hacker News", confidence=0.45),
+            make_feed_item(
+                2,
+                "Agent harness discussion",
+                source_name="Hacker News",
+                confidence=0.45,
+            ),
         ],
     )
     rule = make_rule(
