@@ -102,3 +102,4 @@ Implementation progress:
 - Enriched event clusters with main summaries, confidence, importance, earliest/latest source timing, and compact timelines in the dashboard.
 - Added source-watchlist registration so followed blogs, repositories, companies, and RSS feeds can be tracked from Source Health, with custom RSS feeds runnable through the existing connector.
 - Added preferred and blocked source preferences so source credibility can influence ranking and noisy sources can be hidden from the feed.
+- Added PRD-aligned daily digest sections for GitHub/Hugging Face highlights and saved items to read later.

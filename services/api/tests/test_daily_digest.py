@@ -18,6 +18,8 @@ def test_daily_digest_sections_group_items() -> None:
         make_item(1, "Research", "research", 0.9, topics=["llm"]),
         make_item(2, "Product", "product", 0.8, products=["Tool"]),
         make_item(3, "Stock", "stock_company_event", 0.7, tickers=["MU"]),
+        make_item(4, "Repo", "technical_trend", 0.6, source_name="GitHub"),
+        make_item(5, "Saved", "technical_trend", 0.5, is_saved=True),
     ]
 
     sections = build_digest_sections(items, limit_per_section=3)
@@ -27,6 +29,8 @@ def test_daily_digest_sections_group_items() -> None:
     assert section_map["research"].items[0].title == "Research"
     assert section_map["products"].items[0].title == "Product"
     assert section_map["stock_watchlist"].items[0].title == "Stock"
+    assert section_map["developer_highlights"].items[0].title == "Repo"
+    assert section_map["read_later"].items[0].title == "Saved"
 
 
 def test_daily_digest_source_coverage_counts_sources() -> None:
@@ -128,6 +132,7 @@ def make_item(
     topics: list[str] | None = None,
     products: list[str] | None = None,
     tickers: list[str] | None = None,
+    is_saved: bool = False,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -152,4 +157,5 @@ def make_item(
         summary_short=None,
         summary_detailed=None,
         why_it_matters=None,
+        is_saved=is_saved,
     )

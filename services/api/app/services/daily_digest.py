@@ -264,6 +264,18 @@ def build_digest_sections(
             "Chinese-language AI signals from configured public sources.",
             lambda item: item.category == "social_trend" or item.language == "zh",
         ),
+        (
+            "developer_highlights",
+            "GitHub and Hugging Face Highlights",
+            "Open-source repositories, models, and developer ecosystem activity.",
+            lambda item: item.source_name in {"GitHub", "Hugging Face"},
+        ),
+        (
+            "read_later",
+            "Items to Read Later",
+            "Saved items from today's collected signals.",
+            lambda item: item.is_saved,
+        ),
     ]
 
     sections: list[DigestSection] = []
