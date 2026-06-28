@@ -40,6 +40,62 @@ def test_create_stock_watchlist_item_assigns_next_display_order() -> None:
     assert created.display_order == 40
 
 
+def test_create_stock_watchlist_item_resolves_seed_metadata_from_ticker() -> None:
+    db = make_db()
+
+    created = create_stock_watchlist_item(
+        db,
+        StockWatchlistItemCreate(ticker="mu"),
+    )
+
+    assert created.ticker == "MU"
+    assert created.company_name == "Micron Technology"
+    assert created.priority == "High"
+    assert created.group_name == "Memory / Storage"
+    assert created.industry == "Semiconductors"
+    assert created.is_pinned is True
+    assert "HBM memory" in created.related_ai_themes
+
+
+def test_create_stock_watchlist_item_resolves_seed_metadata_from_company() -> None:
+    db = make_db()
+
+    created = create_stock_watchlist_item(
+        db,
+        StockWatchlistItemCreate(company_name="Marvell Technology"),
+    )
+
+    assert created.ticker == "MRVL"
+    assert created.company_name == "Marvell Technology"
+    assert created.group_name == "AI Chips"
+    assert "custom silicon" in created.related_ai_themes
+
+
+def test_create_stock_watchlist_item_resolves_alias_company_to_ticker() -> None:
+    db = make_db()
+
+    created = create_stock_watchlist_item(
+        db,
+        StockWatchlistItemCreate(company_name="Broadcom"),
+    )
+
+    assert created.ticker == "AVGO"
+    assert created.company_name == "Broadcom"
+    assert created.exchange == "NASDAQ"
+    assert created.group_name == "Watch Only"
+
+
+def test_create_stock_watchlist_item_requires_ticker_or_known_company() -> None:
+    db = make_db()
+
+    try:
+        create_stock_watchlist_item(db, StockWatchlistItemCreate())
+    except ValueError as exc:
+        assert "ticker or known company name" in str(exc)
+    else:
+        raise AssertionError("Expected empty stock watchlist create payload to fail")
+
+
 def make_db():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

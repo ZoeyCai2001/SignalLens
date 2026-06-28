@@ -1277,8 +1277,8 @@ export function Dashboard() {
   };
 
   const submitStock = async () => {
-    if (!stockTicker.trim() || !stockCompany.trim()) {
-      setError("Stock watchlist entries need a ticker and company name.");
+    if (!stockTicker.trim() && !stockCompany.trim()) {
+      setError("Stock watchlist entries need a ticker or company name.");
       return;
     }
 
@@ -1288,8 +1288,8 @@ export function Dashboard() {
       const created = await fetchJson<StockWatchlistItem>("/api/watchlist/stocks", {
         method: "POST",
         body: JSON.stringify({
-          ticker: stockTicker.trim().toUpperCase(),
-          company_name: stockCompany.trim(),
+          ticker: stockTicker.trim() ? stockTicker.trim().toUpperCase() : null,
+          company_name: stockCompany.trim() || null,
           related_ai_themes: splitTerms(stockThemes),
           related_keywords: splitTerms(stockKeywords),
         }),
@@ -3718,14 +3718,14 @@ function StockTable({
           className="field"
           value={ticker}
           onChange={(event) => onTickerChange(event.target.value)}
-          placeholder="Ticker"
-          aria-label="Stock ticker"
+          placeholder="Ticker or company"
+          aria-label="Stock ticker or company"
         />
         <input
           className="field"
           value={company}
           onChange={(event) => onCompanyChange(event.target.value)}
-          placeholder="Company"
+          placeholder="Company (optional)"
           aria-label="Company name"
         />
         <input

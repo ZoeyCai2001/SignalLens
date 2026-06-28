@@ -1,6 +1,6 @@
+import re
 from collections import Counter
 from datetime import UTC, date, datetime, time, timedelta
-import re
 
 from sqlalchemy import String, case, cast, func, or_
 from sqlalchemy.orm import Session
@@ -24,29 +24,29 @@ from app.schemas.watchlist import (
     ProductWatchlistItemUpdate,
     StockBriefing,
     StockBriefingTimelineItem,
-    StockMarketSnapshot,
     StockMarketImpactEvent,
+    StockMarketSnapshot,
     StockSignalSummary,
     StockThemeBreakdown,
+    StockWatchlistItemCreate,
+    StockWatchlistItemUpdate,
     TopicActivityBucket,
     TopicBriefing,
     TopicSourceCount,
-    StockWatchlistItemCreate,
-    StockWatchlistItemUpdate,
     TopicWatchlistItemCreate,
     TopicWatchlistItemUpdate,
 )
+from app.schemas.watchlist import CompanyWatchlistItem as CompanyWatchlistSchema
+from app.schemas.watchlist import ProductWatchlistItem as ProductWatchlistSchema
 from app.schemas.watchlist import (
     StockPricePoint as StockPricePointSchema,
 )
-from app.schemas.watchlist import ProductWatchlistItem as ProductWatchlistSchema
 from app.schemas.watchlist import StockWatchlistItem as StockWatchlistSchema
-from app.schemas.watchlist import CompanyWatchlistItem as CompanyWatchlistSchema
 from app.schemas.watchlist import (
     TopicWatchlistItem as TopicWatchlistSchema,
 )
 from app.services.feed_actions import LOCAL_USER_ID, normalize_source_names, serialize_feed_item
-from app.services.scoring import TICKER_ALIASES
+from app.services.scoring import TICKER_ALIASES, TICKER_COMPANY_NAMES
 from app.services.seed_data import (
     initial_company_watchlist,
     initial_product_watchlist,
@@ -55,6 +55,11 @@ from app.services.seed_data import (
 )
 
 HIGH_IMPACT_SIGNAL_THRESHOLD = 0.75
+DEFAULT_STOCK_EXCHANGE = "NASDAQ"
+DEFAULT_STOCK_SECTOR = "Technology"
+DEFAULT_STOCK_INDUSTRY = "Technology"
+DEFAULT_STOCK_PRIORITY = "Medium"
+DEFAULT_STOCK_GROUP = "Watch Only"
 
 NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens links AI-related items to watched stocks for research only and does not "
@@ -82,15 +87,164 @@ def list_stock_watchlist(db: Session) -> list[StockWatchlistItem]:
     )
 
 
+def resolve_stock_watchlist_create_payload(
+    payload: StockWatchlistItemCreate,
+) -> dict[str, object]:
+    raw_ticker = (payload.ticker or "").strip()
+    company_name = (payload.company_name or "").strip()
+    ticker_candidate = normalize_ticker(raw_ticker) if looks_like_ticker(raw_ticker) else ""
+    seed = find_stock_seed([ticker_candidate, raw_ticker, company_name])
+    alias_ticker = resolve_stock_alias([company_name, raw_ticker])
+    known_tickers = set(TICKER_COMPANY_NAMES) | {
+        stock.ticker for stock in initial_stock_watchlist()
+    }
+
+    if seed:
+        ticker = seed.ticker
+    elif ticker_candidate in known_tickers:
+        ticker = ticker_candidate
+    elif alias_ticker:
+        ticker = alias_ticker
+    else:
+        ticker = ticker_candidate
+
+    if not seed and ticker:
+        seed = find_stock_seed([ticker])
+
+    resolved_company = (
+        company_name
+        or (seed.company_name if seed else "")
+        or TICKER_COMPANY_NAMES.get(ticker, "")
+        or ticker
+    )
+
+    return {
+        "ticker": ticker,
+        "company_name": resolved_company,
+        "exchange": resolve_stock_text_field(
+            payload,
+            "exchange",
+            DEFAULT_STOCK_EXCHANGE,
+            seed.exchange if seed else None,
+        ).upper(),
+        "sector": resolve_stock_text_field(
+            payload,
+            "sector",
+            DEFAULT_STOCK_SECTOR,
+            seed.sector if seed else None,
+        ),
+        "industry": resolve_stock_text_field(
+            payload,
+            "industry",
+            DEFAULT_STOCK_INDUSTRY,
+            seed.industry if seed else None,
+        ),
+        "priority": resolve_stock_text_field(
+            payload,
+            "priority",
+            DEFAULT_STOCK_PRIORITY,
+            seed.priority if seed else None,
+        ),
+        "group_name": resolve_stock_text_field(
+            payload,
+            "group_name",
+            DEFAULT_STOCK_GROUP,
+            seed.group_name if seed else None,
+        ),
+        "is_pinned": (
+            payload.is_pinned
+            if "is_pinned" in payload.model_fields_set
+            else seed.is_pinned
+            if seed
+            else payload.is_pinned
+        ),
+        "related_keywords": resolve_stock_terms(
+            payload.related_keywords,
+            seed.related_keywords if seed else [],
+        ),
+        "related_companies": [
+            normalize_ticker(value)
+            for value in resolve_stock_terms(
+                payload.related_companies,
+                seed.related_companies if seed else [],
+            )
+        ],
+        "related_ai_themes": resolve_stock_terms(
+            payload.related_ai_themes,
+            seed.related_ai_themes if seed else [],
+        ),
+    }
+
+
+def find_stock_seed(search_terms: list[str]) -> StockWatchlistSchema | None:
+    normalized_terms = {
+        normalize_lookup_text(term)
+        for term in search_terms
+        if term and normalize_lookup_text(term)
+    }
+    ticker_terms = {
+        normalize_ticker(term)
+        for term in search_terms
+        if term and looks_like_ticker(term)
+    }
+    for stock in initial_stock_watchlist():
+        if stock.ticker in ticker_terms:
+            return stock
+        if normalize_lookup_text(stock.company_name) in normalized_terms:
+            return stock
+        aliases = TICKER_ALIASES.get(stock.ticker, [])
+        if any(normalize_lookup_text(alias) in normalized_terms for alias in aliases):
+            return stock
+    return None
+
+
+def resolve_stock_alias(search_terms: list[str]) -> str:
+    normalized_terms = {
+        normalize_lookup_text(term)
+        for term in search_terms
+        if term and normalize_lookup_text(term)
+    }
+    for ticker, aliases in TICKER_ALIASES.items():
+        ticker_name = TICKER_COMPANY_NAMES.get(ticker, "")
+        lookup_values = [ticker_name, *aliases]
+        if any(normalize_lookup_text(value) in normalized_terms for value in lookup_values):
+            return ticker
+    return ""
+
+
+def resolve_stock_text_field(
+    payload: StockWatchlistItemCreate,
+    field_name: str,
+    fallback: str,
+    seed_value: str | None,
+) -> str:
+    raw_value = getattr(payload, field_name)
+    value = raw_value.strip() if raw_value else ""
+    if field_name in payload.model_fields_set and value:
+        return value
+    return seed_value or value or fallback
+
+
+def resolve_stock_terms(payload_terms: list[str], seed_terms: list[str]) -> list[str]:
+    return clean_terms([*seed_terms, *payload_terms])
+
+
+def looks_like_ticker(value: str) -> bool:
+    return bool(re.fullmatch(r"\$?[A-Za-z][A-Za-z0-9.-]{0,14}", value.strip()))
+
+
+def normalize_lookup_text(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.strip().lower()).strip()
+
+
 def create_stock_watchlist_item(
     db: Session,
     payload: StockWatchlistItemCreate,
 ) -> StockWatchlistItem:
-    ticker = normalize_ticker(payload.ticker)
+    resolved = resolve_stock_watchlist_create_payload(payload)
+    ticker = resolved["ticker"]
     if not ticker:
-        raise ValueError("Stock ticker is required.")
-    if not payload.company_name.strip():
-        raise ValueError("Company name is required.")
+        raise ValueError("Stock ticker or known company name is required.")
     existing = get_stock_watchlist_item(db, ticker)
     if existing:
         raise ValueError(f"{ticker} is already in the stock watchlist.")
@@ -98,27 +252,24 @@ def create_stock_watchlist_item(
     item = StockWatchlistItem(
         user_id=LOCAL_USER_ID,
         ticker=ticker,
-        company_name=payload.company_name.strip(),
-        exchange=payload.exchange.strip().upper(),
-        sector=payload.sector.strip(),
-        industry=payload.industry.strip(),
-        priority=payload.priority.strip() or "Medium",
-        group_name=payload.group_name.strip() or "Watch Only",
+        company_name=resolved["company_name"],
+        exchange=resolved["exchange"],
+        sector=resolved["sector"],
+        industry=resolved["industry"],
+        priority=resolved["priority"],
+        group_name=resolved["group_name"],
         display_order=(
             payload.display_order
             if payload.display_order is not None
             else next_stock_display_order(db)
         ),
-        is_pinned=payload.is_pinned,
+        is_pinned=resolved["is_pinned"],
         is_holding=payload.is_holding,
         shares=payload.shares,
         average_cost=payload.average_cost,
-        related_keywords=clean_terms(payload.related_keywords),
-        related_companies=[
-            normalize_ticker(value)
-            for value in clean_terms(payload.related_companies)
-        ],
-        related_ai_themes=clean_terms(payload.related_ai_themes),
+        related_keywords=resolved["related_keywords"],
+        related_companies=resolved["related_companies"],
+        related_ai_themes=resolved["related_ai_themes"],
         notes=payload.notes.strip() if payload.notes else None,
     )
     db.add(item)
@@ -1214,7 +1365,10 @@ def build_stock_briefing_themes(items: list[FeedItem], limit: int = 8) -> list[s
 
 def build_stock_ai_relevance_summary(summary: StockSignalSummary) -> str:
     stock = summary.stock
-    themes = stock.related_ai_themes[:4] or build_stock_briefing_themes(summary.top_signals, limit=4)
+    themes = stock.related_ai_themes[:4] or build_stock_briefing_themes(
+        summary.top_signals,
+        limit=4,
+    )
     theme_text = ", ".join(themes) if themes else "AI-related company and technology signals"
     signal_text = (
         f"{summary.signal_count} recent AI-linked item"

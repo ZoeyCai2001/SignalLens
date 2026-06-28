@@ -176,3 +176,4 @@ Implementation progress:
 - Added visible daily digest snapshot history to the dashboard so saved briefings show dates, headlines, item counts, and markdown size instead of only a saved count.
 - Surfaced latest source-run error text in the Source Health table so ingestion failures can be diagnosed from the dashboard.
 - Promoted Source Health and Settings to first-class dashboard navigation modules with focused main-column views for source operations, readiness, and ranking preferences.
+- Added stock watchlist create-time metadata resolution so users can add seeded or aliased stocks by ticker or company name while preserving a no-paid-API MVP path.

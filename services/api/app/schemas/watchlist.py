@@ -104,8 +104,8 @@ class StockBriefing(BaseModel):
 
 
 class StockWatchlistItemCreate(BaseModel):
-    ticker: str
-    company_name: str
+    ticker: str | None = None
+    company_name: str | None = None
     exchange: str = "NASDAQ"
     sector: str = "Technology"
     industry: str = "Technology"
