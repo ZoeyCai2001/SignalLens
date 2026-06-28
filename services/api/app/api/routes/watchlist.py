@@ -23,12 +23,6 @@ from app.schemas.watchlist import (
     TopicWatchlistItemCreate,
     TopicWatchlistItemUpdate,
 )
-from app.services.seed_data import (
-    initial_company_watchlist,
-    initial_product_watchlist,
-    initial_stock_watchlist,
-    initial_topic_watchlist,
-)
 from app.services.watchlist import (
     build_stock_market_snapshot,
     create_company_watchlist_item,
@@ -68,7 +62,7 @@ router = APIRouter()
 async def list_stock_watchlist(db: DbSession) -> list[StockWatchlistItem]:
     items = list_stock_watchlist_items(db)
     if not items:
-        return initial_stock_watchlist()
+        items = seed_initial_stock_watchlist(db)
     return [StockWatchlistItem.model_validate(item) for item in items]
 
 
@@ -154,7 +148,7 @@ async def delete_stock(ticker: str, db: DbSession) -> None:
 async def list_companies(db: DbSession) -> list[CompanyWatchlistItem]:
     items = list_company_watchlist(db)
     if not items:
-        return initial_company_watchlist()
+        items = seed_initial_company_watchlist(db)
     return [CompanyWatchlistItem.model_validate(item) for item in items]
 
 
@@ -211,7 +205,7 @@ async def delete_company(company_key: str, db: DbSession) -> None:
 async def list_topics(db: DbSession) -> list[TopicWatchlistItem]:
     items = list_topic_watchlist(db)
     if not items:
-        return initial_topic_watchlist()
+        items = seed_initial_topic_watchlist(db)
     return [TopicWatchlistItem.model_validate(item) for item in items]
 
 
@@ -268,7 +262,7 @@ async def delete_topic(topic: str, db: DbSession) -> None:
 async def list_products(db: DbSession) -> list[ProductWatchlistItem]:
     items = list_product_watchlist(db)
     if not items:
-        return initial_product_watchlist()
+        items = seed_initial_product_watchlist(db)
     return [ProductWatchlistItem.model_validate(item) for item in items]
 
 
