@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime
+from urllib.parse import unquote, urlparse
 
 from sqlalchemy.orm import Session
 
@@ -63,14 +64,18 @@ def create_raw_manual_item(
     source: Source,
     request: ManualSubmissionRequest,
 ) -> RawItem:
+    title = resolve_manual_title(request)
     raw_input = RawItemInput(
         source_name=source.name,
         external_id=str(request.url),
         url=str(request.url),
-        raw_title=request.title,
+        raw_title=title,
         raw_text=request.text,
         raw_author=None,
-        raw_metadata={"submission_type": "manual"},
+        raw_metadata={
+            "submission_type": "manual",
+            "title_was_inferred": request.title is None,
+        },
         published_at=datetime.now(UTC),
     )
     content_hash = compute_content_hash(raw_input)
@@ -93,6 +98,21 @@ def create_raw_manual_item(
     db.add(raw)
     db.flush()
     return raw
+
+
+def resolve_manual_title(request: ManualSubmissionRequest) -> str:
+    if request.title:
+        return request.title
+
+    sentence = first_sentence(request.text or "", limit=140)
+    if sentence:
+        return sentence
+
+    parsed = urlparse(str(request.url))
+    path_title = unquote(parsed.path.rstrip("/").rsplit("/", 1)[-1]).replace("-", " ").strip()
+    if path_title:
+        return f"{parsed.netloc}: {path_title[:140]}"
+    return parsed.netloc or "Manual URL submission"
 
 
 def create_manual_normalized_item(raw: RawItem, source: Source) -> NormalizedItem:

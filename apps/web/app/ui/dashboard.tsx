@@ -1206,8 +1206,8 @@ export function Dashboard() {
   };
 
   const submitManualItem = async () => {
-    if (!manualTitle.trim() || !manualUrl.trim()) {
-      setError("Manual submissions need a title and URL.");
+    if (!manualUrl.trim()) {
+      setError("Manual submissions need a URL.");
       return;
     }
 
@@ -1217,7 +1217,7 @@ export function Dashboard() {
       const result = await fetchJson<{ item: FeedItem }>("/api/manual-submissions", {
         method: "POST",
         body: JSON.stringify({
-          title: manualTitle.trim(),
+          title: manualTitle.trim() || null,
           url: manualUrl.trim(),
           text: manualText.trim() || null,
         }),
@@ -3385,14 +3385,14 @@ function ManualSubmissionPanel({
       </div>
       <div className="form-panel">
         <label className="field-label" htmlFor="manual-title">
-          Title
+          Title, optional
         </label>
         <input
           id="manual-title"
           className="field"
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
-          placeholder="Paste an AI item title"
+          placeholder="Paste an AI item title or leave blank"
         />
         <label className="field-label" htmlFor="manual-url">
           URL

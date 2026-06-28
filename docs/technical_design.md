@@ -364,6 +364,8 @@ Company briefings aggregate matched items by source, topic, product, ticker, rec
 
 Manual submissions use deterministic company extraction for watched public tickers and private AI labs, so user-pasted company links can immediately flow into company search, company briefings, and company digest sections before any optional LLM processing.
 
+Manual URL submissions accept a URL without a user-supplied title. The backend infers a stable display title from the optional note text or URL path before storing the item, keeping the feed title contract non-null while reducing first-run submission friction.
+
 Ingestion normalization applies the same deterministic company extraction to provider, RSS, and community items, including ticker-to-company mapping from finance metadata. This lets company search, briefings, and digest sections work before optional LLM classification enriches the item.
 
 Ingestion and manual submission normalization also detect common AI product names such as ChatGPT, Claude, Cursor, Perplexity, Copilot, Sora, and related tools so AI Products modules and product briefings have useful entity data before LLM enrichment.

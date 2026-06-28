@@ -1,8 +1,10 @@
 from app.db.models import RawItem, Source
+from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.manual_submissions import (
     create_manual_normalized_item,
     enrich_manual_normalized_item,
     first_sentence,
+    resolve_manual_title,
 )
 
 
@@ -133,6 +135,32 @@ def test_manual_enrichment_keeps_non_ai_submission_as_manual() -> None:
 
 def test_first_sentence_handles_chinese_punctuation() -> None:
     assert first_sentence("国产大模型应用正在升温。第二句。") == "国产大模型应用正在升温。"
+
+
+def test_manual_submission_title_can_be_inferred_from_text() -> None:
+    request = ManualSubmissionRequest(
+        url="https://example.com/agent-note",
+        text="OpenAI released a new agent workflow. More context follows.",
+    )
+
+    assert resolve_manual_title(request) == "OpenAI released a new agent workflow."
+
+
+def test_manual_submission_title_can_be_inferred_from_url() -> None:
+    request = ManualSubmissionRequest(url="https://example.com/posts/ai-agent-workflow")
+
+    assert resolve_manual_title(request) == "example.com: ai agent workflow"
+
+
+def test_manual_submission_blank_title_is_treated_as_missing() -> None:
+    request = ManualSubmissionRequest(
+        title="  ",
+        url="https://example.com/launch",
+        text="Claude workflow update.",
+    )
+
+    assert request.title is None
+    assert resolve_manual_title(request) == "Claude workflow update."
 
 
 def make_source() -> Source:

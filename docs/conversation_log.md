@@ -140,3 +140,4 @@ Implementation progress:
 - Updated the manual database seed script so first-run setup initializes stock, company, topic, and product watchlists instead of only stock and topic defaults.
 - Added action-level dashboard toolbar busy indicators so only the active ingestion, refresh, cycle, or LLM action shows a spinner.
 - Added setup checklist importance levels so the dashboard distinguishes core, recommended, and optional API configuration.
+- Made manual URL submission title optional, with backend title inference from note text or URL path to reduce first-run capture friction.
