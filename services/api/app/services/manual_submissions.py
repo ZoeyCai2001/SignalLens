@@ -42,6 +42,7 @@ def create_manual_submission(db: Session, request: ManualSubmissionRequest) -> F
     )
     raw = create_raw_manual_item(db=db, source=source, request=request)
     if raw.normalized_item:
+        reset_manual_normalized_item(raw.normalized_item, raw, source)
         enrich_manual_normalized_item(raw.normalized_item, raw)
         db.add(raw.normalized_item)
         db.commit()
@@ -167,32 +168,36 @@ def resolve_manual_title(request: ManualSubmissionRequest) -> str:
 
 
 def create_manual_normalized_item(raw: RawItem, source: Source) -> NormalizedItem:
+    item = NormalizedItem(raw_item_id=raw.id)
+    reset_manual_normalized_item(item, raw, source)
+    return item
+
+
+def reset_manual_normalized_item(item: NormalizedItem, raw: RawItem, source: Source) -> None:
     combined_text = combined_manual_text(raw)
-    return NormalizedItem(
-        raw_item_id=raw.id,
-        title=raw.raw_title,
-        url=raw.url,
-        source_name=source.name,
-        author=raw.raw_author,
-        language=detect_language(combined_text),
-        published_at=raw.published_at,
-        text=raw.raw_text,
-        category="manual_submission",
-        subcategory="user_submitted_url",
-        tickers=[],
-        companies=[],
-        products=[],
-        topics=[],
-        sentiment="neutral",
-        relevance_score=0.3,
-        classification_confidence=0.5,
-        importance_score=0.3,
-        novelty_score=1.0,
-        source_quality_score=0.6,
-        stock_impact_score=0,
-        summary_short=f"Manual submission: {raw.raw_title}",
-        why_it_matters="This item was manually submitted for review.",
-    )
+    item.title = raw.raw_title
+    item.url = raw.url
+    item.source_name = source.name
+    item.author = raw.raw_author
+    item.language = detect_language(combined_text)
+    item.published_at = raw.published_at
+    item.text = raw.raw_text
+    item.category = "manual_submission"
+    item.subcategory = "user_submitted_url"
+    item.tickers = []
+    item.companies = []
+    item.products = []
+    item.topics = []
+    item.sentiment = "neutral"
+    item.relevance_score = 0.3
+    item.classification_confidence = 0.5
+    item.importance_score = 0.3
+    item.novelty_score = 1.0
+    item.source_quality_score = 0.6
+    item.stock_impact_score = 0
+    item.summary_short = build_manual_summary(raw)
+    item.summary_detailed = None
+    item.why_it_matters = "This item was manually submitted for review."
 
 
 def enrich_manual_normalized_item(item: NormalizedItem, raw: RawItem) -> None:

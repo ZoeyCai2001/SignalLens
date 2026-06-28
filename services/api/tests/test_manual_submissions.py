@@ -9,6 +9,7 @@ from app.services.manual_submissions import (
     create_manual_normalized_item,
     enrich_manual_normalized_item,
     first_sentence,
+    reset_manual_normalized_item,
     resolve_manual_title,
 )
 
@@ -36,7 +37,9 @@ def test_manual_fallback_normalization_keeps_user_submission() -> None:
     item = create_manual_normalized_item(raw=raw, source=source)
 
     assert item.category == "manual_submission"
-    assert item.summary_short == "Manual submission: Interesting AI product"
+    assert item.summary_short == (
+        "Manual submission: Interesting AI product - A user-submitted product note."
+    )
     assert item.source_name == "Manual Submission"
 
 
@@ -136,6 +139,42 @@ def test_manual_enrichment_keeps_non_ai_submission_as_manual() -> None:
     assert item.category == "manual_submission"
     assert item.tickers == []
     assert item.topics == []
+
+
+def test_manual_resubmission_resets_stale_ai_metadata() -> None:
+    source = make_source()
+    raw = make_raw(
+        title="MRVL AI data center demand update",
+        text="Marvell discussed AI data center custom silicon revenue and LLM inference demand.",
+    )
+    item = create_manual_normalized_item(raw=raw, source=source)
+    enrich_manual_normalized_item(item, raw)
+
+    assert item.category == "stock_company_event"
+    assert item.tickers == ["MRVL"]
+    assert item.companies == ["Marvell Technology"]
+
+    raw.raw_title = "Personal reading list"
+    raw.raw_text = "A note about weekend reading and travel plans."
+    item.summary_detailed = "Old LLM-generated summary."
+
+    reset_manual_normalized_item(item, raw, source)
+    enrich_manual_normalized_item(item, raw)
+
+    assert item.category == "manual_submission"
+    assert item.subcategory == "user_submitted_url"
+    assert item.tickers == []
+    assert item.companies == []
+    assert item.products == []
+    assert item.topics == []
+    assert item.classification_confidence == 0.5
+    assert item.relevance_score == 0.3
+    assert item.stock_impact_score == 0
+    assert item.summary_short == (
+        "Manual submission: Personal reading list - "
+        "A note about weekend reading and travel plans."
+    )
+    assert item.summary_detailed is None
 
 
 def test_first_sentence_handles_chinese_punctuation() -> None:
