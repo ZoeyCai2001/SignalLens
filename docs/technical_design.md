@@ -218,7 +218,7 @@ stock_attention_score =
 + 0.05 * user_priority_score
 ```
 
-The MVP can compute these as deterministic functions over stored fields. Later versions can learn from save, hide, and mark-important feedback.
+The MVP computes these as deterministic functions over stored fields and explicit local feedback. Hidden items are removed from personal views, marked-important items are ranked first, and saved items receive a lightweight ranking boost so the main feed gradually reflects what the user keeps.
 
 Source quality is deterministic in the MVP. Structured research and official APIs receive the highest baseline credibility; community, RSS, manual, and experimental sources receive lower baseline scores. The stored `source_quality_score` is then used by ranking, importance, and digest selection without requiring an LLM call.
 

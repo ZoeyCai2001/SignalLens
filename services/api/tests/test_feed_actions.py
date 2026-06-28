@@ -97,6 +97,8 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
     assert "matched tickers MU" in detail.score_explanation
     assert "high source credibility" in detail.score_explanation
     assert "high stock-impact score" in detail.score_explanation
+    assert "saved by you" in detail.score_explanation
+    assert "marked important by you" in detail.score_explanation
 
 
 def test_build_score_explanation_flags_lower_confidence_and_source_credibility() -> None:
@@ -129,6 +131,28 @@ def test_rank_feed_items_keeps_important_saved_flags() -> None:
     ranked = rank_feed_items([high_score, important], now=now)
 
     assert [item.title for item in ranked] == ["Important", "High score"]
+
+
+def test_rank_feed_items_uses_saved_feedback_as_soft_boost() -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+    generic = make_feed_item(1, "Generic", relevance_score=0.5, importance_score=0.5)
+    saved = make_feed_item(2, "Saved", relevance_score=0.5, importance_score=0.5)
+    saved.is_saved = True
+
+    ranked = rank_feed_items(
+        [generic, saved],
+        ranking_weights=RankingWeights(
+            relevance=1,
+            importance=0,
+            novelty=0,
+            source_quality=0,
+            stock_impact=0,
+            freshness=0,
+        ),
+        now=now,
+    )
+
+    assert [item.title for item in ranked] == ["Saved", "Generic"]
 
 
 def test_rank_feed_items_uses_configurable_weights() -> None:
@@ -166,6 +190,18 @@ def test_weighted_feed_score_boosts_preferred_sources() -> None:
     baseline = weighted_feed_score(item, RankingWeights(), now=now)
 
     assert score == baseline + 0.08
+
+
+def test_weighted_feed_score_boosts_saved_items() -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+    item = make_feed_item(1, "Saved")
+    item.is_saved = True
+
+    score = weighted_feed_score(item, RankingWeights(), now=now)
+    item.is_saved = False
+    baseline = weighted_feed_score(item, RankingWeights(), now=now)
+
+    assert score == baseline + 0.05
 
 
 def test_weighted_feed_score_boosts_watchlist_interest_matches() -> None:

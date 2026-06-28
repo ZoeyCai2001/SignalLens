@@ -21,6 +21,8 @@ from app.services.seed_data import (
 )
 
 LOCAL_USER_ID = "local"
+SAVED_ITEM_RANKING_BONUS = 0.05
+PREFERRED_SOURCE_RANKING_BONUS = 0.08
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,10 @@ def build_score_explanation(item: FeedItem) -> str:
         reasons.append("high importance score")
     if item.stock_impact_score >= 0.75:
         reasons.append("high stock-impact score")
+    if item.is_saved:
+        reasons.append("saved by you")
+    if item.is_important:
+        reasons.append("marked important by you")
     if not reasons:
         reasons.append("matched the AI relevance prefilter")
     return "Shown because it " + "; ".join(reasons) + "."
@@ -160,7 +166,12 @@ def weighted_feed_score(
     interest_profile: FeedInterestProfile | None = None,
 ) -> float:
     reference_time = now or datetime.now(UTC)
-    source_bonus = 0.08 if preferred_sources and item.source_name in preferred_sources else 0
+    source_bonus = (
+        PREFERRED_SOURCE_RANKING_BONUS
+        if preferred_sources and item.source_name in preferred_sources
+        else 0
+    )
+    saved_bonus = SAVED_ITEM_RANKING_BONUS if item.is_saved else 0
     interest_bonus = feed_interest_bonus(item=item, interest_profile=interest_profile)
     return round(
         weights.relevance * item.relevance_score
@@ -170,6 +181,7 @@ def weighted_feed_score(
         + weights.stock_impact * item.stock_impact_score
         + weights.freshness * freshness_score(item, now=reference_time)
         + source_bonus
+        + saved_bonus
         + interest_bonus,
         4,
     )
