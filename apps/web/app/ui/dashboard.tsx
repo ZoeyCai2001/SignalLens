@@ -92,6 +92,9 @@ type StockDetailDraft = {
   sector: string;
   industry: string;
   group_name: string;
+  related_keywords: string;
+  related_companies: string;
+  related_ai_themes: string;
   is_holding: boolean;
   shares: string;
   average_cost: string;
@@ -3794,6 +3797,9 @@ function StockTable({
       sector: detailDraft.sector.trim(),
       industry: detailDraft.industry.trim(),
       group_name: detailDraft.group_name.trim(),
+      related_keywords: splitTerms(detailDraft.related_keywords),
+      related_companies: splitTerms(detailDraft.related_companies),
+      related_ai_themes: splitTerms(detailDraft.related_ai_themes),
       notes: detailDraft.notes.trim() || null,
     };
     if (portfolioFieldsEnabled) {
@@ -4082,6 +4088,35 @@ function StockDetailEditor({
             className="field"
             value={draft.group_name}
             onChange={(event) => onDraftChange("group_name", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+      </div>
+      <div className="stock-detail-grid">
+        <label className="weight-field">
+          <span className="field-label">AI Themes</span>
+          <input
+            className="field"
+            value={draft.related_ai_themes}
+            onChange={(event) => onDraftChange("related_ai_themes", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Keywords</span>
+          <input
+            className="field"
+            value={draft.related_keywords}
+            onChange={(event) => onDraftChange("related_keywords", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Related Companies</span>
+          <input
+            className="field"
+            value={draft.related_companies}
+            onChange={(event) => onDraftChange("related_companies", event.target.value)}
             disabled={disabled}
           />
         </label>
@@ -5919,6 +5954,9 @@ function stockToDetailDraft(stock: StockWatchlistItem | null): StockDetailDraft 
     sector: stock?.sector ?? "",
     industry: stock?.industry ?? "",
     group_name: stock?.group_name ?? "",
+    related_keywords: stock?.related_keywords.join(", ") ?? "",
+    related_companies: stock?.related_companies.join(", ") ?? "",
+    related_ai_themes: stock?.related_ai_themes.join(", ") ?? "",
     is_holding: stock?.is_holding ?? false,
     shares: stock?.shares === null || stock?.shares === undefined ? "" : String(stock.shares),
     average_cost:
