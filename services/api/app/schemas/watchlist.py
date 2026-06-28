@@ -49,6 +49,7 @@ class StockMarketSnapshot(BaseModel):
 class StockSignalSummary(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
+    today_signal_count: int = 0
     high_impact_count: int = 0
     attention_score: float
     market: StockMarketSnapshot | None = None

@@ -167,3 +167,4 @@ Implementation progress:
 - Added feed-item detail uncertainty notes so expanded item views flag low confidence, lower source credibility, unclear stock linkage, missing summaries, and manual-submission context.
 - Added stock market snapshot volume-change calculations and surfaced the metric in the stock detail dashboard summary.
 - Added stock-summary last-updated timestamps and a dedicated stock table column based on the newest signal or market price date.
+- Added stock-summary AI-news-today counts and changed the stock table count column to show current-day AI activity.

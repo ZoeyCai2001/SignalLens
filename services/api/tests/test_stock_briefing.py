@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Base, StockPricePoint as StockPricePointModel
+from app.db.models import Base, NormalizedItem, StockPricePoint as StockPricePointModel
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import (
     StockMarketSnapshot,
@@ -16,6 +16,7 @@ from app.services.watchlist import (
     build_stock_briefing,
     compute_stock_summary_last_updated_at,
     compute_stock_attention_score,
+    count_stock_signal_rows_for_date,
     infer_stock_price_reaction,
 )
 
@@ -188,6 +189,39 @@ def test_compute_stock_summary_last_updated_prefers_newest_signal_or_market_date
     ) == datetime(2026, 6, 25, 10, 0, tzinfo=UTC)
 
 
+def test_count_stock_signal_rows_for_date_counts_only_matching_day() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    stock = StockWatchlistItem(
+        ticker="MU",
+        company_name="Micron",
+        exchange="NASDAQ",
+        sector="Technology",
+        industry="Semiconductors",
+        priority="High",
+        group_name="Watch Only",
+    )
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_db_item(1, "Micron HBM update", "2026-06-25T10:00:00+00:00", ["MU"]),
+                make_db_item(2, "Micron prior update", "2026-06-24T10:00:00+00:00", ["MU"]),
+                make_db_item(3, "Broadcom update", "2026-06-25T11:00:00+00:00", ["AVGO"]),
+            ]
+        )
+        db.commit()
+
+        count = count_stock_signal_rows_for_date(
+            db=db,
+            stock=stock,
+            signal_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        )
+
+    assert count == 1
+
+
 def test_infer_stock_price_reaction_labels_market_alignment() -> None:
     market = StockMarketSnapshot(
         latest=None,
@@ -280,4 +314,35 @@ def make_price_point(
         close_price=close_price,
         adjusted_close=close_price,
         volume=volume,
+    )
+
+
+def make_db_item(
+    item_id: int,
+    title: str,
+    published_at: str,
+    tickers: list[str],
+) -> NormalizedItem:
+    return NormalizedItem(
+        id=item_id,
+        raw_item_id=item_id,
+        title=title,
+        url=f"https://example.com/db/{item_id}",
+        source_name="Test",
+        author=None,
+        language="en",
+        published_at=datetime.fromisoformat(published_at),
+        text=title,
+        category="stock_company_event",
+        subcategory=None,
+        tickers=tickers,
+        companies=[],
+        products=[],
+        topics=[],
+        sentiment="neutral",
+        relevance_score=0.8,
+        importance_score=0.7,
+        novelty_score=0.4,
+        source_quality_score=0.7,
+        stock_impact_score=0.5,
     )

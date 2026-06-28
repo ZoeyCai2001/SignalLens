@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import UTC, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 import re
 
 from sqlalchemy import String, cast, or_
@@ -986,6 +986,12 @@ def build_stock_signal_summary(
     return StockSignalSummary(
         stock=stock_schema,
         signal_count=signal_count,
+        today_signal_count=count_stock_signal_rows_for_date(
+            db,
+            stock=stock,
+            signal_date=datetime.now(UTC).date(),
+            blocked_sources=blocked_sources,
+        ),
         high_impact_count=count_high_impact_stock_signal_rows(
             db,
             stock=stock,
@@ -1412,6 +1418,24 @@ def count_stock_signal_rows(
     blocked_sources: list[str] | None = None,
 ) -> int:
     return stock_signal_query(db, stock=stock, blocked_sources=blocked_sources).count()
+
+
+def count_stock_signal_rows_for_date(
+    db: Session,
+    stock: StockWatchlistItem | StockWatchlistSchema,
+    signal_date: date,
+    blocked_sources: list[str] | None = None,
+) -> int:
+    start = datetime.combine(signal_date, time.min, tzinfo=UTC)
+    end = start + timedelta(days=1)
+    return (
+        stock_signal_query(db, stock=stock, blocked_sources=blocked_sources)
+        .filter(
+            NormalizedItem.published_at >= start,
+            NormalizedItem.published_at < end,
+        )
+        .count()
+    )
 
 
 def count_high_impact_stock_signal_rows(

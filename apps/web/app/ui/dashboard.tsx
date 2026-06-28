@@ -117,6 +117,7 @@ type StockMarketSnapshot = {
 type StockSignalSummary = {
   stock: StockWatchlistItem;
   signal_count: number;
+  today_signal_count: number;
   high_impact_count: number;
   attention_score: number;
   market: StockMarketSnapshot | null;
@@ -3668,7 +3669,7 @@ function StockTable({
               <th>Price</th>
               <th>Change</th>
               <th>Priority</th>
-              <th>Signals</th>
+              <th>AI Today</th>
               <th>High</th>
               <th>Latest Event</th>
               <th>Sentiment</th>
@@ -3715,7 +3716,7 @@ function StockTable({
                       <option value="Low">Low</option>
                     </select>
                   </td>
-                  <td>{summary?.signal_count ?? 0}</td>
+                  <td>{summary?.today_signal_count ?? 0}</td>
                   <td>{summary?.high_impact_count ?? 0}</td>
                   <td className="table-event-cell">
                     {summary?.latest_event_title ?? "--"}
