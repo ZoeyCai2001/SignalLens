@@ -98,3 +98,4 @@ Implementation progress:
 - Added an inline "Why am I seeing this?" explanation to every feed card using stored relevance notes and deterministic score signals.
 - Added persisted classification confidence for feed items and surfaced it in the dashboard score grid and explanations.
 - Expanded stock briefings into a fuller stock-detail view with AI relevance summary, theme breakdown, market-impact event buckets, notes, timeline, and price context.
+- Added structured stock-event classification details to each stock timeline item, including event type, possible market impact, confidence, time sensitivity, summary, and uncertainties.

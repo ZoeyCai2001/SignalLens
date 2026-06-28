@@ -86,6 +86,13 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
     assert briefing.theme_breakdown[0].theme == "HBM"
     assert briefing.market_impact_events[0].event_type == "demand_signal"
     assert briefing.recent_timeline[0].signal_score == 0.84
+    assert briefing.recent_timeline[0].event_type == "demand_signal"
+    assert briefing.recent_timeline[0].possible_market_impact == "positive"
+    assert briefing.recent_timeline[0].confidence == 0.714
+    assert briefing.recent_timeline[0].time_sensitivity == "high"
+    assert briefing.recent_timeline[0].uncertainties == [
+        "Review the original source before drawing market conclusions."
+    ]
     assert (
         briefing.recent_timeline[0].reason
         == "HBM demand links directly to watched memory names."

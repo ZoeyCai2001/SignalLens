@@ -475,6 +475,12 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
                 item=item,
                 signal_score=compute_stock_signal_score(item),
                 reason=build_stock_signal_reason(item),
+                event_type=infer_stock_event_type(item),
+                possible_market_impact=infer_possible_market_impact(item),
+                confidence=compute_stock_event_confidence(item),
+                time_sensitivity=infer_stock_event_time_sensitivity(item),
+                event_summary=build_stock_event_summary(item),
+                uncertainties=build_stock_event_uncertainties(item),
             )
             for item in summary.top_signals
         ],
@@ -701,6 +707,62 @@ def infer_stock_event_type(item: FeedItem) -> str:
     ):
         return "demand_signal"
     return "stock_signal"
+
+
+def infer_possible_market_impact(item: FeedItem) -> str:
+    if item.sentiment == "positive" and item.stock_impact_score >= 0.45:
+        return "positive"
+    if item.sentiment == "negative" and item.stock_impact_score >= 0.45:
+        return "negative"
+    if item.sentiment == "mixed" or item.stock_impact_score >= 0.35:
+        return "mixed"
+    return "uncertain"
+
+
+def compute_stock_event_confidence(item: FeedItem) -> float:
+    return round(
+        min(
+            1,
+            max(
+                item.classification_confidence,
+                item.relevance_score * 0.7,
+                item.stock_impact_score * 0.85,
+            ),
+        ),
+        3,
+    )
+
+
+def infer_stock_event_time_sensitivity(item: FeedItem) -> str:
+    event_type = infer_stock_event_type(item)
+    if event_type in {"earnings_guidance", "analyst_action", "supply_chain_regulation"}:
+        return "high"
+    if item.stock_impact_score >= 0.75 or item.importance_score >= 0.8:
+        return "high"
+    if item.stock_impact_score >= 0.45 or item.importance_score >= 0.6:
+        return "medium"
+    return "low"
+
+
+def build_stock_event_summary(item: FeedItem) -> str:
+    return (
+        item.summary_short
+        or item.why_it_matters
+        or f"{item.title} may be relevant to watched AI stock themes."
+    )
+
+
+def build_stock_event_uncertainties(item: FeedItem) -> list[str]:
+    uncertainties: list[str] = []
+    if item.stock_impact_score < 0.75:
+        uncertainties.append("Stock impact is inferred from source text and may be indirect.")
+    if not item.tickers:
+        uncertainties.append("No explicit watched ticker was extracted from the item.")
+    if item.sentiment in {"neutral", "mixed"}:
+        uncertainties.append("Market direction is not clear from the available signal.")
+    if not uncertainties:
+        uncertainties.append("Review the original source before drawing market conclusions.")
+    return uncertainties[:3]
 
 
 def compare_feed_item_recency(left: FeedItem, right: FeedItem) -> int:

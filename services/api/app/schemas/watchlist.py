@@ -62,6 +62,12 @@ class StockBriefingTimelineItem(BaseModel):
     item: FeedItem
     signal_score: float
     reason: str
+    event_type: str
+    possible_market_impact: str
+    confidence: float
+    time_sensitivity: str
+    event_summary: str
+    uncertainties: list[str] = Field(default_factory=list)
 
 
 class StockThemeBreakdown(BaseModel):

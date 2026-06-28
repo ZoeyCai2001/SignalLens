@@ -129,6 +129,12 @@ type StockBriefingTimelineItem = {
   item: FeedItem;
   signal_score: number;
   reason: string;
+  event_type: string;
+  possible_market_impact: string;
+  confidence: number;
+  time_sensitivity: string;
+  event_summary: string;
+  uncertainties: string[];
 };
 
 type StockThemeBreakdown = {
@@ -3258,6 +3264,24 @@ function StockBriefingPanel({
                   {entry.item.published_at ? ` · ${formatDate(entry.item.published_at)}` : ""}
                 </div>
                 <div className="timeline-reason">{entry.reason}</div>
+                <div className="timeline-event-classification">
+                  <span className="badge">{formatCategoryLabel(entry.event_type)}</span>
+                  <span
+                    className={`badge ${
+                      entry.possible_market_impact === "positive" ? "success-badge" : ""
+                    }`}
+                  >
+                    Impact: {entry.possible_market_impact}
+                  </span>
+                  <span className="badge">Confidence {Math.round(entry.confidence * 100)}</span>
+                  <span className="badge">Time: {entry.time_sensitivity}</span>
+                </div>
+                <div className="timeline-reason">{entry.event_summary}</div>
+                {entry.uncertainties.length ? (
+                  <div className="small-muted">
+                    Uncertainty: {entry.uncertainties.slice(0, 2).join(" ")}
+                  </div>
+                ) : null}
               </div>
               <div className="timeline-score">{Math.round(entry.signal_score * 100)}</div>
             </a>
