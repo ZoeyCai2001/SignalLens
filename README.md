@@ -114,7 +114,7 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/alerts/{alert_id}/dismiss`
 - `POST http://127.0.0.1:8000/api/llm/smoke-test`
 
-Run database migrations and seed the initial stock watchlist:
+Run database migrations and seed the initial stock, company, topic, and product watchlists:
 
 ```bash
 cd services/api

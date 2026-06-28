@@ -31,7 +31,7 @@ Run migrations:
 alembic upgrade head
 ```
 
-Seed the initial stock watchlist:
+Seed the initial stock, company, topic, and product watchlists:
 
 ```bash
 python scripts/seed_database.py

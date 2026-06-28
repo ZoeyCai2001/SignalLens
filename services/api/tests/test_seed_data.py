@@ -18,6 +18,7 @@ from app.services.watchlist import (
     normalize_ticker,
     normalize_topic,
 )
+from scripts import seed_database as seed_database_script
 
 
 def test_initial_stock_watchlist_contains_prd_tickers() -> None:
@@ -49,6 +50,42 @@ def test_initial_company_watchlist_contains_prd_related_companies_and_ai_labs() 
     assert companies["amd"].ticker == "AMD"
     assert companies["broadcom"].ticker == "AVGO"
     assert companies["openai"].ticker is None
+
+
+def test_seed_database_script_seeds_all_default_watchlists(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = object()
+    calls: list[str] = []
+
+    def fake_seed(name: str, count: int):
+        def run(seed_db):
+            assert seed_db is db
+            calls.append(name)
+            return [object()] * count
+
+        return run
+
+    monkeypatch.setattr(seed_database_script, "seed_initial_stock_watchlist", fake_seed("stock", 3))
+    monkeypatch.setattr(
+        seed_database_script,
+        "seed_initial_company_watchlist",
+        fake_seed("company", 5),
+    )
+    monkeypatch.setattr(seed_database_script, "seed_initial_topic_watchlist", fake_seed("topic", 4))
+    monkeypatch.setattr(
+        seed_database_script,
+        "seed_initial_product_watchlist",
+        fake_seed("product", 2),
+    )
+
+    result = seed_database_script.seed_database(db)
+
+    assert calls == ["stock", "company", "topic", "product"]
+    assert result == {
+        "seeded_stock_watchlist_count": 3,
+        "seeded_company_watchlist_count": 5,
+        "seeded_topic_watchlist_count": 4,
+        "seeded_product_watchlist_count": 2,
+    }
 
 
 def test_stock_match_terms_include_ticker_company_and_related_terms() -> None:

@@ -137,3 +137,4 @@ Implementation progress:
 - Surfaced scheduled-cycle watchlist seed counts in the dashboard Source Health summary after a full ingestion cycle.
 - Hid stock portfolio fields behind an explicit dashboard toggle so shares and average cost remain private unless portfolio notes are enabled.
 - Kept the stock-watchlist non-financial-advice disclaimer visible with a dashboard fallback even when stock signal summaries are empty or still loading.
+- Updated the manual database seed script so first-run setup initializes stock, company, topic, and product watchlists instead of only stock and topic defaults.
