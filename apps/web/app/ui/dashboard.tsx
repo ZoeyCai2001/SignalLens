@@ -426,7 +426,7 @@ type SourceDraft = {
   terms_notes: string;
 };
 
-type SourceHealthFilter = "all" | "attention" | "failed" | "never_run" | "disabled";
+type SourceHealthFilter = "all" | "attention" | "failed" | "never_run" | "disabled" | "blocked";
 
 type DigestSourceCoverage = {
   source_name: string;
@@ -622,6 +622,7 @@ const sourceHealthFilterOptions: { key: SourceHealthFilter; label: string }[] = 
   { key: "failed", label: "Failed" },
   { key: "never_run", label: "Never Run" },
   { key: "disabled", label: "Disabled" },
+  { key: "blocked", label: "Blocked" },
 ];
 
 const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[] = [
@@ -1155,7 +1156,7 @@ export function Dashboard() {
     }
   };
 
-  const blockSourceFromHealth = async (source: SourceHealth) => {
+  const toggleSourceBlockFromHealth = async (source: SourceHealth) => {
     setBusySourceId(source.id);
     setError(null);
     try {
@@ -1164,7 +1165,7 @@ export function Dashboard() {
         (name) => name.toLowerCase() === source.name.toLowerCase(),
       );
       const nextBlockedSources = alreadyBlocked
-        ? currentBlockedSources
+        ? currentBlockedSources.filter((name) => name.toLowerCase() !== source.name.toLowerCase())
         : [...currentBlockedSources, source.name];
       const updated = await fetchJson<UserPreferences>("/api/preferences", {
         method: "PATCH",
@@ -1176,11 +1177,11 @@ export function Dashboard() {
       setBlockedSourcesDraft(updated.blocked_sources.join(", "));
       setLanguagePreferencesDraft(updated.language_preferences.join(", "));
       await refreshAllWithStatus(
-        alreadyBlocked ? `${source.name} is already blocked` : `Blocked source ${source.name}`,
+        alreadyBlocked ? `Unblocked source ${source.name}` : `Blocked source ${source.name}`,
       );
     } catch (err) {
       setError(readError(err));
-      setStatus("Source block failed");
+      setStatus("Source block update failed");
     } finally {
       setBusySourceId(null);
     }
@@ -2258,7 +2259,7 @@ export function Dashboard() {
       onRunSource={runSourceNow}
       onToggleSource={toggleSource}
       onUpdateSource={updateSource}
-      onBlockSource={blockSourceFromHealth}
+      onToggleSourceBlock={toggleSourceBlockFromHealth}
       onDeleteSource={deleteSource}
     />
   );
@@ -6139,7 +6140,7 @@ function SourceTable({
   onRunSource,
   onToggleSource,
   onUpdateSource,
-  onBlockSource,
+  onToggleSourceBlock,
   onDeleteSource,
 }: {
   sources: SourceHealth[];
@@ -6162,7 +6163,7 @@ function SourceTable({
   onRunSource: (source: SourceHealth) => void;
   onToggleSource: (source: SourceHealth) => void;
   onUpdateSource: (source: SourceHealth, payload: SourceUpdatePayload) => void;
-  onBlockSource: (source: SourceHealth) => void;
+  onToggleSourceBlock: (source: SourceHealth) => void;
   onDeleteSource: (source: SourceHealth) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<number, SourceDraft>>({});
@@ -6189,8 +6190,10 @@ function SourceTable({
     (total, item) => total + item.items_stored,
     0,
   );
-  const sourceHealthCounts = buildSourceHealthCounts(sources);
-  const displayedSources = sources.filter((source) => sourceMatchesHealthFilter(source, sourceFilter));
+  const sourceHealthCounts = buildSourceHealthCounts(sources, blockedSources);
+  const displayedSources = sources.filter((source) =>
+    sourceMatchesHealthFilter(source, sourceFilter, blockedSources),
+  );
 
   return (
     <section className="section">
@@ -6287,9 +6290,7 @@ function SourceTable({
               const failureCopy = `${source.failure_count} recent ${
                 source.failure_count === 1 ? "failure" : "failures"
               }`;
-              const blocked = blockedSources.some(
-                (name) => name.toLowerCase() === source.name.toLowerCase(),
-              );
+              const blocked = sourceNameInList(source.name, blockedSources);
               return (
                 <tr key={source.id}>
                   <td>
@@ -6386,9 +6387,13 @@ function SourceTable({
                       </button>
                       <button
                         className={`button icon-button ${blocked ? "active-icon-button" : ""}`}
-                        onClick={() => onBlockSource(source)}
-                        disabled={disabled || saving || blocked}
-                        title={blocked ? "Source already blocked" : "Block source from personal views"}
+                        onClick={() => onToggleSourceBlock(source)}
+                        disabled={disabled || saving}
+                        title={
+                          blocked
+                            ? "Unblock source from personal views"
+                            : "Block source from personal views"
+                        }
                         type="button"
                       >
                         {saving ? <Loader2 className="spin" size={16} /> : <EyeOff size={16} />}
@@ -6504,22 +6509,35 @@ function isSourceDraftChanged(source: SourceHealth, draft: SourceDraft): boolean
   );
 }
 
-function buildSourceHealthCounts(sources: SourceHealth[]): Record<SourceHealthFilter, number> {
+function buildSourceHealthCounts(
+  sources: SourceHealth[],
+  blockedSources: string[],
+): Record<SourceHealthFilter, number> {
   return {
     all: sources.length,
     attention: sources.filter((source) => source.needs_attention).length,
     failed: sources.filter((source) => source.latest_status === "failed").length,
     never_run: sources.filter((source) => source.latest_status === "never_run").length,
     disabled: sources.filter((source) => !source.enabled).length,
+    blocked: sources.filter((source) => sourceNameInList(source.name, blockedSources)).length,
   };
 }
 
-function sourceMatchesHealthFilter(source: SourceHealth, filter: SourceHealthFilter): boolean {
+function sourceMatchesHealthFilter(
+  source: SourceHealth,
+  filter: SourceHealthFilter,
+  blockedSources: string[],
+): boolean {
   if (filter === "attention") return source.needs_attention;
   if (filter === "failed") return source.latest_status === "failed";
   if (filter === "never_run") return source.latest_status === "never_run";
   if (filter === "disabled") return !source.enabled;
+  if (filter === "blocked") return sourceNameInList(source.name, blockedSources);
   return true;
+}
+
+function sourceNameInList(sourceName: string, sourceNames: string[]): boolean {
+  return sourceNames.some((name) => name.toLowerCase() === sourceName.toLowerCase());
 }
 
 function Score({ label, value }: { label: string; value: number }) {

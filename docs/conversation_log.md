@@ -205,3 +205,4 @@ Implementation progress:
 - Added a safe missing `.env` template to System Readiness and a dashboard copy action that uses placeholders only, never stored secret values.
 - Added Source Health triage summary filters for all, attention-needed, failed, never-run, and disabled sources.
 - Added a Source Health quick block action that adds a noisy source to blocked-source preferences and refreshes personal views.
+- Made Source Health source blocking reversible and added a Blocked triage filter.
