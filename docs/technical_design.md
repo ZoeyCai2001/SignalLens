@@ -460,6 +460,7 @@ Recommended UI behavior:
 - Use restrained color for severity, sentiment, and source health.
 - Keep toolbar busy indicators tied to the active ingestion, refresh, cycle, or LLM action so manual operations remain auditable during local MVP use.
 - Label setup checklist items as core, recommended, or optional so missing API keys do not look equally blocking during budget-limited local setup.
+- Expose a placeholder-only missing `.env` template from health readiness data and let the dashboard copy it, so first-run API-key setup is easier without exposing configured secret values.
 - Keep open feed details synchronized with summarize, classify, save, hide, and important actions so item feedback is visible in both the list card and expanded detail panel.
 - Keep saved-item state synchronized with per-item enrichment, manual resubmission, and feedback actions so the Saved Items module reflects updated titles, notes, summaries, classifier scores, and important flags without a manual refresh.
 - Keep open detail panels synchronized after global refreshes, source-preference updates, manual submissions, per-item enrichment, and feed feedback actions so feed details, event clusters, alerts, digest sections, and watchlist briefings do not continue showing hidden, stale, or blocked-source signals.

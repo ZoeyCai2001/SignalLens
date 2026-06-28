@@ -1,6 +1,11 @@
 import pytest
 
-from app.api.routes.health import build_setup_items, has_config_value, health_check
+from app.api.routes.health import (
+    build_missing_env_template,
+    build_setup_items,
+    has_config_value,
+    health_check,
+)
 from app.core.config import Settings
 from app.schemas.health import IntegrationStatus
 
@@ -51,6 +56,8 @@ async def test_health_check_reports_readiness_without_exposing_secrets(monkeypat
     assert next(
         item for item in response.setup_items if item.env_var == "PRODUCT_HUNT_API_TOKEN"
     ).configured is False
+    assert "PRODUCT_HUNT_API_TOKEN=your-product-hunt-token" in response.missing_env_template
+    assert "MOONSHOT_API_KEY" not in response.missing_env_template
     assert next(item for item in response.setup_items if item.key == "kimi_coding_api").importance == "core"
     assert next(item for item in response.setup_items if item.key == "product_hunt_api").importance == "optional"
     assert "moonshot-key" not in response.model_dump_json()
@@ -82,3 +89,40 @@ def test_build_setup_items_reports_safe_env_hints_without_values() -> None:
     assert items[3].importance == "optional"
     assert "moonshot-key" not in " ".join(item.setup_hint for item in items)
     assert "github-key" not in " ".join(item.setup_hint for item in items)
+
+
+def test_build_missing_env_template_uses_only_placeholders() -> None:
+    items = build_setup_items(
+        settings=fake_settings(),
+        integrations=IntegrationStatus(
+            kimi_coding_api=False,
+            github_api=False,
+            product_hunt_api=False,
+            alpha_vantage_api=True,
+            chinese_rss_feeds=True,
+        ),
+    )
+
+    template = build_missing_env_template(items)
+
+    assert "MOONSHOT_API_KEY=sk-..." in template
+    assert "GITHUB_TOKEN=ghp_..." in template
+    assert "PRODUCT_HUNT_API_TOKEN=your-product-hunt-token" in template
+    assert "ALPHA_VANTAGE_API_KEY" not in template
+    assert "moonshot-key" not in template
+    assert "github-key" not in template
+
+
+def test_build_missing_env_template_returns_empty_when_ready() -> None:
+    items = build_setup_items(
+        settings=fake_settings(),
+        integrations=IntegrationStatus(
+            kimi_coding_api=True,
+            github_api=True,
+            product_hunt_api=True,
+            alpha_vantage_api=True,
+            chinese_rss_feeds=True,
+        ),
+    )
+
+    assert build_missing_env_template(items) == ""

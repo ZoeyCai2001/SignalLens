@@ -30,3 +30,4 @@ class HealthResponse(BaseModel):
     llm_configured: bool
     integrations: IntegrationStatus
     setup_items: list[SetupItem]
+    missing_env_template: str = ""

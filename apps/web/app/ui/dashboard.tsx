@@ -398,6 +398,7 @@ type SystemStatus = {
   llm_configured: boolean;
   integrations: IntegrationStatus;
   setup_items: SetupItem[];
+  missing_env_template: string;
 };
 
 type SourceUpdatePayload = {
@@ -690,6 +691,7 @@ export function Dashboard() {
   const [busyDigestGenerate, setBusyDigestGenerate] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
   const [busyDigestSave, setBusyDigestSave] = useState(false);
+  const [busySetupCopy, setBusySetupCopy] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
@@ -1329,6 +1331,26 @@ export function Dashboard() {
       setStatus("Digest copy failed");
     } finally {
       setBusyDigestCopy(false);
+    }
+  };
+
+  const copyMissingEnvTemplate = async () => {
+    setBusySetupCopy(true);
+    setError(null);
+    try {
+      if (!systemStatus?.missing_env_template) {
+        throw new Error("No missing setup values.");
+      }
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable.");
+      }
+      await navigator.clipboard.writeText(systemStatus.missing_env_template);
+      setStatus("Copied missing .env template");
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Setup template copy failed");
+    } finally {
+      setBusySetupCopy(false);
     }
   };
 
@@ -2152,6 +2174,8 @@ export function Dashboard() {
       enabledSourceCount={sources.filter((source) => source.enabled).length}
       alertCount={alerts.length}
       watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
+      busyCopy={busySetupCopy}
+      onCopyMissingEnv={copyMissingEnvTemplate}
     />
   );
   const rankingPreferencesPanel = (
@@ -2812,6 +2836,8 @@ function SystemStatusPanel({
   enabledSourceCount,
   alertCount,
   watchlistCount,
+  busyCopy,
+  onCopyMissingEnv,
 }: {
   status: SystemStatus | null;
   itemCount: number;
@@ -2819,6 +2845,8 @@ function SystemStatusPanel({
   enabledSourceCount: number;
   alertCount: number;
   watchlistCount: number;
+  busyCopy: boolean;
+  onCopyMissingEnv: () => void;
 }) {
   const integrationRows: Array<[string, boolean]> = status
     ? [
@@ -2846,9 +2874,22 @@ function SystemStatusPanel({
                   {status.llm_provider} · {status.llm_model}
                 </div>
               </div>
-              <span className={`badge ${status.llm_configured ? "" : "muted-badge"}`}>
-                {status.llm_configured ? "LLM ready" : "LLM key missing"}
-              </span>
+              <div className="readiness-actions">
+                {status.missing_env_template ? (
+                  <button
+                    className="button"
+                    onClick={onCopyMissingEnv}
+                    disabled={busyCopy}
+                    type="button"
+                  >
+                    {busyCopy ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+                    Copy .env
+                  </button>
+                ) : null}
+                <span className={`badge ${status.llm_configured ? "" : "muted-badge"}`}>
+                  {status.llm_configured ? "LLM ready" : "LLM key missing"}
+                </span>
+              </div>
             </div>
             <div className="readiness-grid">
               <ReadinessMetric label="Items" value={itemCount} />

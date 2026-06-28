@@ -16,6 +16,7 @@ async def health_check() -> HealthResponse:
         alpha_vantage_api=has_config_value(settings.alpha_vantage_api_key),
         chinese_rss_feeds=has_config_value(settings.chinese_rss_feeds),
     )
+    setup_items = build_setup_items(settings=settings, integrations=integrations)
     return HealthResponse(
         status="ok",
         service="signallens-api",
@@ -24,7 +25,8 @@ async def health_check() -> HealthResponse:
         llm_model=settings.moonshot_model,
         llm_configured=has_config_value(settings.moonshot_api_key),
         integrations=integrations,
-        setup_items=build_setup_items(settings=settings, integrations=integrations),
+        setup_items=setup_items,
+        missing_env_template=build_missing_env_template(setup_items),
     )
 
 
@@ -89,3 +91,26 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             ),
         ),
     ]
+
+
+def build_missing_env_template(items: list[SetupItem]) -> str:
+    missing_items = [item for item in items if not item.configured]
+    if not missing_items:
+        return ""
+
+    lines = ["# SignalLens missing optional/core setup values"]
+    for item in missing_items:
+        lines.append(f"# {item.label}: {item.required_for}")
+        lines.append(f"{item.env_var}={placeholder_for_env_var(item.env_var)}")
+    return "\n".join(lines)
+
+
+def placeholder_for_env_var(env_var: str) -> str:
+    placeholders = {
+        "MOONSHOT_API_KEY": "sk-...",
+        "GITHUB_TOKEN": "ghp_...",
+        "ALPHA_VANTAGE_API_KEY": "your-alpha-vantage-key",
+        "PRODUCT_HUNT_API_TOKEN": "your-product-hunt-token",
+        "CHINESE_RSS_FEEDS": "Name|https://example.com/feed.xml",
+    }
+    return placeholders.get(env_var, "replace-me")

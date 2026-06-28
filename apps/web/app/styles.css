@@ -734,6 +734,13 @@ table {
   gap: 10px;
 }
 
+.readiness-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .readiness-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(64px, 1fr));
