@@ -2635,6 +2635,7 @@ function AlertPanel({
           <option value="research">Research</option>
           <option value="product">Product</option>
           <option value="stock_company_event">Stock</option>
+          <option value="stock_price_move">Price move</option>
           <option value="social_trend">Social</option>
           <option value="cross_source_cluster">Cross-source</option>
         </select>

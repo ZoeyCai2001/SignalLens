@@ -161,3 +161,4 @@ Implementation progress:
 - Added conservative stock-briefing price-reaction labels so each stock-linked timeline item can show whether the latest daily price move appears aligned, opposite, muted, or unavailable.
 - Added followed GitHub repository source runs so a custom `github_repository` source with a GitHub URL is fetched through the official GitHub REST API and stored as a first-class signal.
 - Added language preferences to local user settings so the main feed, default search, and daily digest can be filtered to languages such as English or Chinese unless a search explicitly chooses a language.
+- Added large watched-stock price movement alerts that combine recent daily price changes with related AI news and expose the rule in the dashboard alert controls.

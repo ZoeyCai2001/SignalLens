@@ -226,7 +226,7 @@ Daily digest ordering uses a deterministic blended score across importance, rele
 
 Search and event cluster APIs use the same local ranking preferences as the main feed, including configurable weights, preferred sources, and blocked sources. The main feed, default search, and digest generation also honor language preferences when no explicit search language is supplied, keeping English/Chinese views aligned with the user's current reading focus instead of exposing separate global views.
 
-Alert generation applies the same trust posture and local visibility rules. Single-item alerts require enough classification confidence and source quality before a rule can fire, hidden feed items and blocked sources are excluded, and cross-source alerts require enough cluster confidence before a repeated signal is promoted as confirmed. Alert reasons include the trust signals used for the decision so the user can audit why something was surfaced.
+Alert generation applies the same trust posture and local visibility rules. Single-item alerts require enough classification confidence and source quality before a rule can fire, hidden feed items and blocked sources are excluded, and cross-source alerts require enough cluster confidence before a repeated signal is promoted as confirmed. Stock price-move alerts combine the latest daily close-to-close move for watched or rule-matched tickers with a stock-linked AI item, so dashboard urgency can reflect both news relevance and whether the price already reacted while keeping the non-financial-advice posture. Alert reasons include the trust signals used for the decision so the user can audit why something was surfaced.
 
 ## 8. Data Model
 
@@ -403,6 +403,8 @@ Custom followed sources can run through reusable connectors when the access patt
 - `GET /api/alerts`
 - `POST /api/alerts/rules`
 - `PATCH /api/alerts/rules/{rule_id}`
+
+Default alert rules include high-impact stock signals, important AI developments, cross-source confirmations, and large watched-stock price moves with related AI news.
 
 ## 10. Frontend Information Architecture
 

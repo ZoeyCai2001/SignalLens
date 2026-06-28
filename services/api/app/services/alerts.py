@@ -2,7 +2,14 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Alert, AlertRule, NormalizedItem, UserItemAction
+from app.db.models import (
+    Alert,
+    AlertRule,
+    NormalizedItem,
+    StockPricePoint,
+    StockWatchlistItem,
+    UserItemAction,
+)
 from app.schemas.alerts import AlertGenerationResult, AlertItem, AlertRuleCreate, AlertRuleUpdate
 from app.schemas.events import EventCluster
 from app.schemas.feed import FeedItem
@@ -17,9 +24,11 @@ from app.services.preferences import get_user_preferences
 from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER
 
 CROSS_SOURCE_CLUSTER_CATEGORY = "cross_source_cluster"
+STOCK_PRICE_MOVE_CATEGORY = "stock_price_move"
 MIN_ALERT_CLASSIFICATION_CONFIDENCE = 0.55
 MIN_ALERT_SOURCE_QUALITY = 0.55
 MIN_CROSS_SOURCE_CLUSTER_CONFIDENCE = 0.65
+MIN_PRICE_MOVE_ALERT_PERCENT = 5
 
 
 @dataclass(frozen=True)
@@ -57,6 +66,16 @@ DEFAULT_ALERT_RULES = [
         "severity": "high",
         "min_importance_score": 0.7,
         "min_stock_impact_score": 0,
+        "tickers": [],
+        "topics": [],
+    },
+    {
+        "name": "Large price move with AI news",
+        "description": "Watched or rule-matched ticker moved sharply while related AI news is present.",
+        "category": STOCK_PRICE_MOVE_CATEGORY,
+        "severity": "high",
+        "min_importance_score": 0.6,
+        "min_stock_impact_score": 0.25,
         "tickers": [],
         "topics": [],
     },
@@ -243,6 +262,7 @@ def generate_alerts(
         rules=rules,
         items=[serialize_feed_item(item) for item in items],
     )
+    created += generate_price_move_alerts(db=db, rules=rules, items=items)
     if created:
         db.commit()
     return AlertGenerationResult(
@@ -257,7 +277,7 @@ def match_alert_rules(item: NormalizedItem, rules: list[AlertRule]) -> list[Aler
     for rule in rules:
         if not rule.enabled:
             continue
-        if rule.category == CROSS_SOURCE_CLUSTER_CATEGORY:
+        if rule.category in {CROSS_SOURCE_CLUSTER_CATEGORY, STOCK_PRICE_MOVE_CATEGORY}:
             continue
         reason = alert_reason(item, rule)
         if reason is None:
@@ -312,6 +332,136 @@ def generate_cross_source_alerts(
             )
             created += 1
     return created
+
+
+def generate_price_move_alerts(
+    db: Session,
+    rules: list[AlertRule],
+    items: list[NormalizedItem],
+) -> int:
+    price_move_rules = [
+        rule
+        for rule in rules
+        if rule.enabled and rule.category == STOCK_PRICE_MOVE_CATEGORY
+    ]
+    if not price_move_rules:
+        return 0
+
+    created = 0
+    price_moves: dict[str, float | None] = {}
+    for item in items:
+        for rule in price_move_rules:
+            reason = price_move_alert_reason(db=db, item=item, rule=rule, price_moves=price_moves)
+            if reason is None:
+                continue
+            existing = (
+                db.query(Alert)
+                .filter(
+                    Alert.user_id == LOCAL_USER_ID,
+                    Alert.item_id == item.id,
+                    Alert.rule_id == rule.id,
+                )
+                .one_or_none()
+            )
+            if existing:
+                continue
+            db.add(
+                Alert(
+                    user_id=LOCAL_USER_ID,
+                    item_id=item.id,
+                    rule_id=rule.id,
+                    title=item.title,
+                    reason=reason,
+                    severity=rule.severity,
+                    status="active",
+                )
+            )
+            created += 1
+    return created
+
+
+def price_move_alert_reason(
+    db: Session,
+    item: NormalizedItem,
+    rule: AlertRule,
+    price_moves: dict[str, float | None] | None = None,
+) -> str | None:
+    if item.importance_score < rule.min_importance_score:
+        return None
+    if item.classification_confidence < MIN_ALERT_CLASSIFICATION_CONFIDENCE:
+        return None
+    if item.source_quality_score < MIN_ALERT_SOURCE_QUALITY:
+        return None
+    if item.stock_impact_score < rule.min_stock_impact_score:
+        return None
+    item_tickers = normalize_tickers(item.tickers)
+    if not item_tickers:
+        return None
+    rule_tickers = set(normalize_tickers(rule.tickers))
+    if rule_tickers:
+        eligible_tickers = set(item_tickers).intersection(rule_tickers)
+    else:
+        watched_tickers = {
+            ticker
+            for (ticker,) in db.query(StockWatchlistItem.ticker)
+            .filter(StockWatchlistItem.user_id == LOCAL_USER_ID)
+            .all()
+        }
+        eligible_tickers = set(item_tickers).intersection(normalize_tickers(watched_tickers))
+
+    if not eligible_tickers:
+        return None
+    if rule.topics and not set(normalize_list(rule.topics)).intersection(
+        normalize_list(item.topics)
+    ):
+        return None
+
+    cache = price_moves if price_moves is not None else {}
+    matched_moves: list[tuple[str, float]] = []
+    for ticker in sorted(eligible_tickers):
+        ticker_key = ticker.upper()
+        if ticker_key not in cache:
+            cache[ticker_key] = latest_price_change_percent(db=db, ticker=ticker_key)
+        change_percent = cache[ticker_key]
+        if change_percent is None or abs(change_percent) < MIN_PRICE_MOVE_ALERT_PERCENT:
+            continue
+        matched_moves.append((ticker_key, change_percent))
+
+    if not matched_moves:
+        return None
+
+    move_bits = [
+        f"{ticker} {format_signed_percent(change_percent)}"
+        for ticker, change_percent in matched_moves[:4]
+    ]
+    score_bits = [
+        f"price move {', '.join(move_bits)}",
+        f"importance {round(item.importance_score * 100)}",
+        f"stock impact {round(item.stock_impact_score * 100)}",
+        f"confidence {round(item.classification_confidence * 100)}",
+    ]
+    return f"{rule.name}: " + ", ".join(score_bits)
+
+
+def latest_price_change_percent(db: Session, ticker: str) -> float | None:
+    rows = (
+        db.query(StockPricePoint)
+        .filter(StockPricePoint.ticker == ticker.upper())
+        .order_by(StockPricePoint.price_date.desc())
+        .limit(2)
+        .all()
+    )
+    if len(rows) < 2:
+        return None
+    latest, previous = rows[0], rows[1]
+    if not previous.close_price:
+        return None
+    return round(((latest.close_price - previous.close_price) / previous.close_price) * 100, 2)
+
+
+def format_signed_percent(value: float) -> str:
+    sign = "+" if value > 0 else ""
+    return f"{sign}{value:.2f}%"
 
 
 def cross_source_alert_reason(cluster: EventCluster, rule: AlertRule) -> str | None:

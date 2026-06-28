@@ -3,17 +3,29 @@ from datetime import UTC, datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Alert, AlertRule, Base, NormalizedItem, UserItemAction
+from app.db.models import (
+    Alert,
+    AlertRule,
+    Base,
+    NormalizedItem,
+    StockPricePoint,
+    StockWatchlistItem,
+    UserItemAction,
+)
 from app.schemas.feed import FeedItem
 from app.services.alerts import (
     CROSS_SOURCE_CLUSTER_CATEGORY,
+    STOCK_PRICE_MOVE_CATEGORY,
     alert_reason,
     clean_terms,
+    format_signed_percent,
     generate_alerts,
+    latest_price_change_percent,
     list_alerts,
     cross_source_alert_reason,
     match_alert_rules,
     normalize_tickers,
+    price_move_alert_reason,
 )
 from app.services.event_clustering import build_event_cluster
 
@@ -164,6 +176,181 @@ def test_alert_rule_input_helpers_clean_terms_and_tickers() -> None:
     assert normalize_tickers([" mu ", "$avgo"]) == ["MU", "AVGO"]
 
 
+def test_latest_price_change_percent_uses_latest_two_closes() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_price_point("MRVL", "2026-06-24", 100),
+                make_price_point("MRVL", "2026-06-25", 106),
+                make_stock_watchlist_item("MRVL"),
+            ]
+        )
+        db.commit()
+
+        change = latest_price_change_percent(db, "MRVL")
+
+    assert change == 6
+    assert format_signed_percent(change) == "+6.00%"
+
+
+def test_price_move_alert_reason_requires_large_move_and_stock_news() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_price_point("MRVL", "2026-06-24", 100),
+                make_price_point("MRVL", "2026-06-25", 106),
+                make_stock_watchlist_item("MRVL"),
+            ]
+        )
+        db.commit()
+        item = make_item(
+            category="stock_company_event",
+            importance_score=0.72,
+            stock_impact_score=0.42,
+            tickers=["MRVL"],
+        )
+        rule = make_rule(
+            name="Large price move with AI news",
+            category=STOCK_PRICE_MOVE_CATEGORY,
+            min_importance_score=0.6,
+            min_stock_impact_score=0.25,
+        )
+
+        reason = price_move_alert_reason(db=db, item=item, rule=rule)
+
+    assert reason is not None
+    assert "MRVL +6.00%" in reason
+    assert "stock impact 42" in reason
+
+
+def test_price_move_alert_reason_allows_explicit_rule_tickers_without_watchlist() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_price_point("MRVL", "2026-06-24", 100),
+                make_price_point("MRVL", "2026-06-25", 106),
+            ]
+        )
+        db.commit()
+        item = make_item(
+            category="stock_company_event",
+            importance_score=0.72,
+            stock_impact_score=0.42,
+            tickers=["MRVL"],
+        )
+        default_rule = make_rule(
+            name="Large price move with AI news",
+            category=STOCK_PRICE_MOVE_CATEGORY,
+            min_importance_score=0.6,
+            min_stock_impact_score=0.25,
+        )
+        explicit_rule = make_rule(
+            name="MRVL price move",
+            category=STOCK_PRICE_MOVE_CATEGORY,
+            min_importance_score=0.6,
+            min_stock_impact_score=0.25,
+            tickers=["MRVL"],
+        )
+
+        default_reason = price_move_alert_reason(db=db, item=item, rule=default_rule)
+        explicit_reason = price_move_alert_reason(db=db, item=item, rule=explicit_rule)
+
+    assert default_reason is None
+    assert explicit_reason is not None
+    assert "MRVL +6.00%" in explicit_reason
+
+
+def test_price_move_alert_reason_skips_missing_or_small_moves() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_price_point("MRVL", "2026-06-24", 100),
+                make_price_point("MRVL", "2026-06-25", 102),
+                make_stock_watchlist_item("MRVL"),
+            ]
+        )
+        db.commit()
+        item = make_item(
+            category="stock_company_event",
+            importance_score=0.72,
+            stock_impact_score=0.42,
+            tickers=["MRVL"],
+        )
+        rule = make_rule(
+            name="Large price move with AI news",
+            category=STOCK_PRICE_MOVE_CATEGORY,
+            min_importance_score=0.6,
+            min_stock_impact_score=0.25,
+        )
+
+        reason = price_move_alert_reason(db=db, item=item, rule=rule)
+
+    assert reason is None
+
+
+def test_generate_alerts_creates_large_price_move_alert() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_rule(
+                    name="High-impact stock signal",
+                    category="stock_company_event",
+                    enabled=False,
+                ),
+                make_rule(
+                    name="Large price move with AI news",
+                    category=STOCK_PRICE_MOVE_CATEGORY,
+                    min_importance_score=0.6,
+                    min_stock_impact_score=0.25,
+                ),
+            ]
+        )
+        db.add_all(
+            [
+                make_price_point("MRVL", "2026-06-24", 100),
+                make_price_point("MRVL", "2026-06-25", 94),
+                make_stock_watchlist_item("MRVL"),
+                make_item(
+                    item_id=11,
+                    title="Marvell AI custom silicon concern",
+                    category="stock_company_event",
+                    importance_score=0.7,
+                    stock_impact_score=0.5,
+                    tickers=["MRVL"],
+                ),
+            ]
+        )
+        db.commit()
+
+        result = generate_alerts(db)
+        alerts = db.query(Alert).all()
+
+    assert result.alerts_created == 1
+    assert len(alerts) == 1
+    assert alerts[0].title == "Marvell AI custom silicon concern"
+    assert "MRVL -6.00%" in alerts[0].reason
+
+
 def test_generate_alerts_excludes_blocked_and_hidden_items() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -272,7 +459,32 @@ def make_alert(item_id: int, rule_id: int, title: str) -> Alert:
     )
 
 
+def make_price_point(ticker: str, price_date: str, close_price: float) -> StockPricePoint:
+    return StockPricePoint(
+        ticker=ticker,
+        price_date=datetime.fromisoformat(price_date).date(),
+        open_price=close_price,
+        high_price=close_price,
+        low_price=close_price,
+        close_price=close_price,
+        adjusted_close=close_price,
+        volume=1000,
+    )
+
+
+def make_stock_watchlist_item(ticker: str) -> StockWatchlistItem:
+    return StockWatchlistItem(
+        user_id="local",
+        ticker=ticker,
+        company_name=ticker,
+        exchange="NASDAQ",
+        sector="Technology",
+        industry="Semiconductors",
+    )
+
+
 def make_rule(
+    rule_id: int | None = None,
     name: str = "High-impact stock signal",
     category: str = "all",
     severity: str = "high",
@@ -283,7 +495,7 @@ def make_rule(
     enabled: bool = True,
 ) -> AlertRule:
     return AlertRule(
-        id=1,
+        id=rule_id,
         user_id="local",
         name=name,
         category=category,
