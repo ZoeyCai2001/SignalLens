@@ -135,3 +135,4 @@ Implementation progress:
 - Added confidence-based skipping for batch LLM classification so high-confidence items do not consume classification calls by default.
 - Added product-category watchlist seeding to the scheduled ingestion cycle so AI Products defaults are initialized with stock, company, and topic defaults.
 - Surfaced scheduled-cycle watchlist seed counts in the dashboard Source Health summary after a full ingestion cycle.
+- Hid stock portfolio fields behind an explicit dashboard toggle so shares and average cost remain private unless portfolio notes are enabled.

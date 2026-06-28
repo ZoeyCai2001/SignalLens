@@ -314,7 +314,7 @@ Alert generation applies the same trust posture. Single-item alerts require enou
 - `created_at`
 - `updated_at`
 
-For MVP privacy, `shares` and `average_cost` should remain nullable and hidden unless the user explicitly enables portfolio note mode.
+For MVP privacy, `shares` and `average_cost` remain nullable and hidden in the dashboard unless the user explicitly enables portfolio note mode for a selected stock. Saving ordinary stock metadata does not overwrite hidden portfolio fields.
 
 ## 9. API Design
 

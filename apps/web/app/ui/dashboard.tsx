@@ -3391,10 +3391,14 @@ function StockTable({
   const [detailDraft, setDetailDraft] = useState<StockDetailDraft>(() =>
     stockToDetailDraft(selectedStock),
   );
+  const [portfolioFieldsEnabled, setPortfolioFieldsEnabled] = useState(() =>
+    hasPortfolioDetails(selectedStock),
+  );
   const detailBusy = selectedStock ? busyWatchlistKey === `stock:${selectedStock.ticker}` : false;
 
   useEffect(() => {
     setDetailDraft(stockToDetailDraft(selectedStock));
+    setPortfolioFieldsEnabled(hasPortfolioDetails(selectedStock));
   }, [selectedStock]);
 
   const updateDetailDraft = (key: keyof StockDetailDraft, value: string | boolean) => {
@@ -3405,16 +3409,19 @@ function StockTable({
     if (!selectedStock) {
       return;
     }
-    onUpdateStock(selectedStock.ticker, {
+    const payload: Partial<Omit<StockWatchlistItem, "ticker">> = {
       exchange: detailDraft.exchange.trim(),
       sector: detailDraft.sector.trim(),
       industry: detailDraft.industry.trim(),
       group_name: detailDraft.group_name.trim(),
-      is_holding: detailDraft.is_holding,
-      shares: parseOptionalNumber(detailDraft.shares),
-      average_cost: parseOptionalNumber(detailDraft.average_cost),
       notes: detailDraft.notes.trim() || null,
-    });
+    };
+    if (portfolioFieldsEnabled) {
+      payload.is_holding = detailDraft.is_holding;
+      payload.shares = parseOptionalNumber(detailDraft.shares);
+      payload.average_cost = parseOptionalNumber(detailDraft.average_cost);
+    }
+    onUpdateStock(selectedStock.ticker, payload);
   };
 
   return (
@@ -3560,8 +3567,10 @@ function StockTable({
       <StockDetailEditor
         stock={selectedStock}
         draft={detailDraft}
+        portfolioFieldsEnabled={portfolioFieldsEnabled}
         disabled={disabled || detailBusy}
         onDraftChange={updateDetailDraft}
+        onPortfolioFieldsEnabledChange={setPortfolioFieldsEnabled}
         onSave={saveStockDetails}
       />
       <StockBriefingPanel
@@ -3577,14 +3586,18 @@ function StockTable({
 function StockDetailEditor({
   stock,
   draft,
+  portfolioFieldsEnabled,
   disabled,
   onDraftChange,
+  onPortfolioFieldsEnabledChange,
   onSave,
 }: {
   stock: StockWatchlistItem | null;
   draft: StockDetailDraft;
+  portfolioFieldsEnabled: boolean;
   disabled: boolean;
   onDraftChange: (key: keyof StockDetailDraft, value: string | boolean) => void;
+  onPortfolioFieldsEnabledChange: (value: boolean) => void;
   onSave: () => void;
 }) {
   if (!stock) {
@@ -3601,11 +3614,11 @@ function StockDetailEditor({
         <label className="checkbox-row">
           <input
             type="checkbox"
-            checked={draft.is_holding}
-            onChange={(event) => onDraftChange("is_holding", event.target.checked)}
+            checked={portfolioFieldsEnabled}
+            onChange={(event) => onPortfolioFieldsEnabledChange(event.target.checked)}
             disabled={disabled}
           />
-          Holding
+          Portfolio notes
         </label>
       </div>
       <div className="stock-detail-grid">
@@ -3645,33 +3658,46 @@ function StockDetailEditor({
             disabled={disabled}
           />
         </label>
-        <label className="weight-field">
-          <span className="field-label">Shares</span>
-          <input
-            className="field"
-            type="number"
-            min="0"
-            step="any"
-            inputMode="decimal"
-            value={draft.shares}
-            onChange={(event) => onDraftChange("shares", event.target.value)}
-            disabled={disabled}
-          />
-        </label>
-        <label className="weight-field">
-          <span className="field-label">Average Cost</span>
-          <input
-            className="field"
-            type="number"
-            min="0"
-            step="any"
-            inputMode="decimal"
-            value={draft.average_cost}
-            onChange={(event) => onDraftChange("average_cost", event.target.value)}
-            disabled={disabled}
-          />
-        </label>
       </div>
+      {portfolioFieldsEnabled ? (
+        <div className="stock-detail-grid">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={draft.is_holding}
+              onChange={(event) => onDraftChange("is_holding", event.target.checked)}
+              disabled={disabled}
+            />
+            Holding
+          </label>
+          <label className="weight-field">
+            <span className="field-label">Shares</span>
+            <input
+              className="field"
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              value={draft.shares}
+              onChange={(event) => onDraftChange("shares", event.target.value)}
+              disabled={disabled}
+            />
+          </label>
+          <label className="weight-field">
+            <span className="field-label">Average Cost</span>
+            <input
+              className="field"
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              value={draft.average_cost}
+              onChange={(event) => onDraftChange("average_cost", event.target.value)}
+              disabled={disabled}
+            />
+          </label>
+        </div>
+      ) : null}
       <label className="weight-field">
         <span className="field-label">Notes</span>
         <textarea
@@ -5329,6 +5355,13 @@ function stockToDetailDraft(stock: StockWatchlistItem | null): StockDetailDraft 
         : String(stock.average_cost),
     notes: stock?.notes ?? "",
   };
+}
+
+function hasPortfolioDetails(stock: StockWatchlistItem | null): boolean {
+  if (!stock) {
+    return false;
+  }
+  return Boolean(stock?.is_holding || stock?.shares !== null || stock?.average_cost !== null);
 }
 
 function parseOptionalNumber(value: string): number | null {
