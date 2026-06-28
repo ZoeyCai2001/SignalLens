@@ -11,6 +11,9 @@ from app.services.feed_actions import LOCAL_USER_ID, get_action, serialize_feed_
 from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER
 
 CROSS_SOURCE_CLUSTER_CATEGORY = "cross_source_cluster"
+MIN_ALERT_CLASSIFICATION_CONFIDENCE = 0.55
+MIN_ALERT_SOURCE_QUALITY = 0.55
+MIN_CROSS_SOURCE_CLUSTER_CONFIDENCE = 0.65
 
 
 @dataclass(frozen=True)
@@ -288,6 +291,8 @@ def generate_cross_source_alerts(
 def cross_source_alert_reason(cluster: EventCluster, rule: AlertRule) -> str | None:
     if cluster.importance_score < rule.min_importance_score:
         return None
+    if cluster.confidence < MIN_CROSS_SOURCE_CLUSTER_CONFIDENCE:
+        return None
     if rule.tickers and not set(normalize_list(rule.tickers)).intersection(
         normalize_list(cluster.tickers)
     ):
@@ -315,6 +320,10 @@ def alert_reason(item: NormalizedItem, rule: AlertRule) -> str | None:
         return None
     if item.importance_score < rule.min_importance_score:
         return None
+    if item.classification_confidence < MIN_ALERT_CLASSIFICATION_CONFIDENCE:
+        return None
+    if item.source_quality_score < MIN_ALERT_SOURCE_QUALITY:
+        return None
     if item.stock_impact_score < rule.min_stock_impact_score:
         return None
     if rule.tickers and not set(normalize_list(rule.tickers)).intersection(
@@ -326,7 +335,11 @@ def alert_reason(item: NormalizedItem, rule: AlertRule) -> str | None:
     ):
         return None
 
-    score_bits = [f"importance {round(item.importance_score * 100)}"]
+    score_bits = [
+        f"importance {round(item.importance_score * 100)}",
+        f"confidence {round(item.classification_confidence * 100)}",
+        f"source quality {round(item.source_quality_score * 100)}",
+    ]
     if item.stock_impact_score:
         score_bits.append(f"stock impact {round(item.stock_impact_score * 100)}")
     if item.tickers:

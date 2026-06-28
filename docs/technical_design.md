@@ -220,6 +220,8 @@ Source quality is deterministic in the MVP. Structured research and official API
 
 Daily digest ordering uses a deterministic blended score across importance, relevance, source quality, classifier confidence, stock impact, and novelty. This keeps the morning briefing biased toward useful and trustworthy items while preserving high-priority user-marked items at the top.
 
+Alert generation applies the same trust posture. Single-item alerts require enough classification confidence and source quality before a rule can fire, and cross-source alerts require enough cluster confidence before a repeated signal is promoted as confirmed. Alert reasons include the trust signals used for the decision so the user can audit why something was surfaced.
+
 ## 8. Data Model
 
 ### 8.1 Main Tables

@@ -30,6 +30,8 @@ def test_alert_reason_matches_high_impact_stock_signal() -> None:
 
     assert reason is not None
     assert "importance 80" in reason
+    assert "confidence 72" in reason
+    assert "source quality 80" in reason
     assert "stock impact 50" in reason
     assert "AVGO" in reason
 
@@ -37,6 +39,20 @@ def test_alert_reason_matches_high_impact_stock_signal() -> None:
 def test_alert_reason_skips_low_importance_items() -> None:
     item = make_item(importance_score=0.4, stock_impact_score=0.8)
     rule = make_rule(min_importance_score=0.68, min_stock_impact_score=0.35)
+
+    assert alert_reason(item, rule) is None
+
+
+def test_alert_reason_skips_low_confidence_items() -> None:
+    item = make_item(classification_confidence=0.5)
+    rule = make_rule(min_importance_score=0.68)
+
+    assert alert_reason(item, rule) is None
+
+
+def test_alert_reason_skips_low_source_quality_items() -> None:
+    item = make_item(source_quality_score=0.5)
+    rule = make_rule(min_importance_score=0.68)
 
     assert alert_reason(item, rule) is None
 
@@ -120,6 +136,24 @@ def test_cross_source_alert_reason_respects_rule_filters() -> None:
     assert cross_source_alert_reason(cluster=cluster, rule=rule) is None
 
 
+def test_cross_source_alert_reason_requires_cluster_confidence() -> None:
+    cluster = build_event_cluster(
+        "technical_trend|agent",
+        [
+            make_feed_item(1, "Agent harness launch", source_name="RSS", confidence=0.45),
+            make_feed_item(2, "Agent harness discussion", source_name="Hacker News", confidence=0.45),
+        ],
+    )
+    rule = make_rule(
+        name="Cross-source confirmation",
+        category=CROSS_SOURCE_CLUSTER_CATEGORY,
+        min_importance_score=0.7,
+        topics=["agent"],
+    )
+
+    assert cross_source_alert_reason(cluster=cluster, rule=rule) is None
+
+
 def test_alert_rule_input_helpers_clean_terms_and_tickers() -> None:
     assert clean_terms([" inference ", "Inference", "", "agents"]) == ["inference", "agents"]
     assert normalize_tickers([" mu ", "$avgo"]) == ["MU", "AVGO"]
@@ -129,6 +163,8 @@ def make_item(
     category: str = "technical_trend",
     importance_score: float = 0.9,
     stock_impact_score: float = 0,
+    classification_confidence: float = 0.72,
+    source_quality_score: float = 0.8,
     tickers: list[str] | None = None,
     topics: list[str] | None = None,
 ) -> NormalizedItem:
@@ -146,9 +182,10 @@ def make_item(
         topics=topics or [],
         sentiment="neutral",
         relevance_score=0.8,
+        classification_confidence=classification_confidence,
         importance_score=importance_score,
         novelty_score=0.7,
-        source_quality_score=0.8,
+        source_quality_score=source_quality_score,
         stock_impact_score=stock_impact_score,
     )
 
@@ -181,6 +218,7 @@ def make_feed_item(
     item_id: int,
     title: str,
     source_name: str,
+    confidence: float = 0.72,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -198,6 +236,7 @@ def make_feed_item(
         topics=["agent"],
         sentiment="neutral",
         relevance_score=0.8,
+        classification_confidence=confidence,
         importance_score=0.75,
         novelty_score=0.7,
         source_quality_score=0.7,
