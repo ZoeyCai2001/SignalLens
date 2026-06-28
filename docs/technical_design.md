@@ -452,6 +452,7 @@ The product is an operational intelligence dashboard, not a marketing site. The 
 Recommended UI behavior:
 
 - Use compact tables for stock watchlist and source health.
+- Summarize Source Health by all, attention-needed, failed, never-run, and disabled sources so source triage works before the user reads each row.
 - Use feed cards for intelligence items.
 - Prefer short card summaries in feed cards and reserve detailed LLM summaries for expanded item details.
 - Use tabs for stock detail sections.

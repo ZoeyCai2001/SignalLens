@@ -433,6 +433,28 @@ table {
   min-width: 1240px;
 }
 
+.source-health-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.source-health-card {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 8px;
+  text-align: left;
+}
+
+.source-health-card:hover,
+.source-health-card.active {
+  border-color: #b7d8d4;
+  background: #e7f3f0;
+}
+
 .form-panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -1286,6 +1308,7 @@ tr:last-child td {
   .search-row,
   .filter-row,
   .compact-form,
+  .source-health-summary,
   .stock-detail-grid,
   .stock-detail-grid-view {
     grid-template-columns: 1fr;

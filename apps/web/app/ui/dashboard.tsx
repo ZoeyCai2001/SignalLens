@@ -426,6 +426,8 @@ type SourceDraft = {
   terms_notes: string;
 };
 
+type SourceHealthFilter = "all" | "attention" | "failed" | "never_run" | "disabled";
+
 type DigestSourceCoverage = {
   source_name: string;
   item_count: number;
@@ -612,6 +614,14 @@ const rankingWeightFields: { key: keyof RankingWeights; label: string }[] = [
   { key: "social_signal", label: "Social" },
   { key: "stock_impact", label: "Stock" },
   { key: "freshness", label: "Freshness" },
+];
+
+const sourceHealthFilterOptions: { key: SourceHealthFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "attention", label: "Attention" },
+  { key: "failed", label: "Failed" },
+  { key: "never_run", label: "Never Run" },
+  { key: "disabled", label: "Disabled" },
 ];
 
 const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[] = [
@@ -6119,6 +6129,7 @@ function SourceTable({
   onDeleteSource: (source: SourceHealth) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<number, SourceDraft>>({});
+  const [sourceFilter, setSourceFilter] = useState<SourceHealthFilter>("all");
 
   useEffect(() => {
     setDrafts(Object.fromEntries(sources.map((source) => [source.id, buildSourceDraft(source)])));
@@ -6141,6 +6152,8 @@ function SourceTable({
     (total, item) => total + item.items_stored,
     0,
   );
+  const sourceHealthCounts = buildSourceHealthCounts(sources);
+  const displayedSources = sources.filter((source) => sourceMatchesHealthFilter(source, sourceFilter));
 
   return (
     <section className="section">
@@ -6200,6 +6213,19 @@ function SourceTable({
           Follow
         </button>
       </div>
+      <div className="source-health-summary" aria-label="Source health filters">
+        {sourceHealthFilterOptions.map((option) => (
+          <button
+            className={`source-health-card ${sourceFilter === option.key ? "active" : ""}`}
+            key={option.key}
+            onClick={() => setSourceFilter(option.key)}
+            type="button"
+          >
+            <span className="score-label">{option.label}</span>
+            <span className="score-value">{sourceHealthCounts[option.key]}</span>
+          </button>
+        ))}
+      </div>
       <div className="table-wrap">
         <table className="source-table">
           <thead>
@@ -6217,7 +6243,7 @@ function SourceTable({
             </tr>
           </thead>
           <tbody>
-            {sources.map((source) => {
+            {displayedSources.map((source) => {
               const draft = drafts[source.id] ?? buildSourceDraft(source);
               const changed = isSourceDraftChanged(source, draft);
               const saving = busySourceId === source.id;
@@ -6332,6 +6358,13 @@ function SourceTable({
                 </tr>
               );
             })}
+            {!displayedSources.length ? (
+              <tr>
+                <td colSpan={10}>
+                  <div className="empty-state">No sources match this health filter.</div>
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
@@ -6420,6 +6453,24 @@ function isSourceDraftChanged(source: SourceHealth, draft: SourceDraft): boolean
     (source.rate_limit ?? "") !== draft.rate_limit.trim() ||
     (source.terms_notes ?? "") !== draft.terms_notes.trim()
   );
+}
+
+function buildSourceHealthCounts(sources: SourceHealth[]): Record<SourceHealthFilter, number> {
+  return {
+    all: sources.length,
+    attention: sources.filter((source) => source.needs_attention).length,
+    failed: sources.filter((source) => source.latest_status === "failed").length,
+    never_run: sources.filter((source) => source.latest_status === "never_run").length,
+    disabled: sources.filter((source) => !source.enabled).length,
+  };
+}
+
+function sourceMatchesHealthFilter(source: SourceHealth, filter: SourceHealthFilter): boolean {
+  if (filter === "attention") return source.needs_attention;
+  if (filter === "failed") return source.latest_status === "failed";
+  if (filter === "never_run") return source.latest_status === "never_run";
+  if (filter === "disabled") return !source.enabled;
+  return true;
 }
 
 function Score({ label, value }: { label: string; value: number }) {
