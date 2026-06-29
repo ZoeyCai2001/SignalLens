@@ -74,6 +74,7 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/digest/daily/markdown`
 - `GET http://127.0.0.1:8000/api/digest/daily/snapshots`
 - `POST http://127.0.0.1:8000/api/digest/daily/snapshots`
+- `DELETE http://127.0.0.1:8000/api/digest/daily/snapshots/{snapshot_id}`
 - `GET http://127.0.0.1:8000/api/events/clusters`
 - `GET http://127.0.0.1:8000/api/sources`
 - `GET http://127.0.0.1:8000/api/sources/health`

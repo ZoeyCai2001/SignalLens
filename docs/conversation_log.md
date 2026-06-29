@@ -222,3 +222,4 @@ Implementation progress:
 - Added source-specific Source Health run history filtering through the API and dashboard.
 - Added deletion for saved daily digest snapshots so stale saved briefings can be removed from the archive without affecting generated previews.
 - Cleared source-specific run-history filters and rows when a followed source is removed, preventing stale Source Health history views.
+- Turned bounded Hacker News top-comment previews into deterministic discussion summaries, preserving developer signal without extra LLM calls.

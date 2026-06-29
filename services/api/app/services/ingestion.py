@@ -111,7 +111,7 @@ async def run_hacker_news_ingestion(db: Session, limit: int = 30) -> IngestionRe
         polling_interval="30 minutes",
         enabled=True,
         priority=20,
-        terms_notes="Uses public Hacker News Firebase API metadata and URLs.",
+        terms_notes="Uses public Hacker News Firebase API metadata, URLs, and top comment previews.",
     )
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
@@ -930,7 +930,46 @@ def build_initial_detailed_summary(
             parts.append(f"Traction signal: {traction}")
         return "\n".join(parts)
 
+    if source and source.name == "Hacker News":
+        return build_hacker_news_discussion_summary(raw, source_excerpt, topics)
+
     return None
+
+
+def build_hacker_news_discussion_summary(
+    raw: RawItem,
+    source_excerpt: str,
+    topics: list[str],
+) -> str:
+    metadata = raw.raw_metadata or {}
+    score = metadata.get("score")
+    descendants = metadata.get("descendants")
+    top_comments = [
+        comment
+        for comment in metadata.get("top_comments", [])
+        if isinstance(comment, dict) and comment.get("text")
+    ]
+    topic_text = ", ".join(topics[:5]) if topics else "AI technical discussion"
+    signals = []
+    if score is not None:
+        signals.append(f"{score} HN points")
+    if descendants is not None:
+        signals.append(f"{descendants} comments")
+    if top_comments:
+        comment_label = "comment" if len(top_comments) == 1 else "comments"
+        signals.append(f"{len(top_comments)} sampled top {comment_label}")
+
+    lines = [
+        f"Discussion summary: {source_excerpt}",
+        f"Technical relevance: Matched watched topics: {topic_text}.",
+    ]
+    if signals:
+        lines.append(f"Discussion signal: {', '.join(signals)}.")
+    for comment in top_comments[:2]:
+        author = comment.get("by") or "unknown"
+        text = first_sentence(str(comment["text"]), limit=180)
+        lines.append(f"Top comment by {author}: {text}")
+    return "\n".join(lines)
 
 
 def build_social_trend_summary(
