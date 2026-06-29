@@ -475,6 +475,7 @@ Recommended UI behavior:
 - Provide quick topic filters from the watchlist directly in the main ranked feed.
 - Use restrained color for severity, sentiment, and source health.
 - Keep toolbar busy indicators tied to the active ingestion, refresh, cycle, or LLM action so manual operations remain auditable during local MVP use.
+- Back first-class module navigation with `/api/feed?module=...` filters for AI Trends, Research, Products, AI Stocks, and Chinese Social views, while the dashboard keeps the global ranked feed for overview metrics and side panels.
 - Label setup checklist items as core, recommended, or optional so missing API keys do not look equally blocking during budget-limited local setup.
 - Expose a placeholder-only missing `.env` template from health readiness data and let the dashboard copy it, so first-run API-key setup is easier without exposing configured secret values.
 - Keep open feed details synchronized with summarize, classify, save, hide, and important actions so item feedback is visible in both the list card and expanded detail panel.

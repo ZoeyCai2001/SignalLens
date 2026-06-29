@@ -66,6 +66,7 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/watchlist/topics`
 - `GET http://127.0.0.1:8000/api/watchlist/topics/{topic}/briefing`
 - `GET http://127.0.0.1:8000/api/feed`
+- `GET http://127.0.0.1:8000/api/feed?module=research`
 - `GET http://127.0.0.1:8000/api/feed?saved_only=true`
 - `GET http://127.0.0.1:8000/api/feed/{item_id}`
 - `GET http://127.0.0.1:8000/api/search`

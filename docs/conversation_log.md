@@ -234,3 +234,4 @@ Implementation progress:
 - Exposed alert rule severity and minimum stock-impact controls in the dashboard so custom stock-sensitive alert rules can be tuned from the UI.
 - Added polling interval and rate-limit fields to the dashboard followed-source creation form so custom sources can be configured before their first run.
 - Expanded the dashboard Daily Digest preview with source/date metadata, short summaries, and ticker/topic labels so the briefing is scannable before copying or saving markdown.
+- Added backend module filtering for PRD feed modules and made dashboard module navigation load API-ranked AI Trends, Research, Products, AI Stocks, and Chinese Social feeds instead of only slicing the current top feed in the browser.

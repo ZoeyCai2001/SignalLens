@@ -610,6 +610,10 @@ type ModuleKey =
   | "digest"
   | "sources"
   | "settings";
+type FeedModuleKey = Extract<
+  ModuleKey,
+  "trends" | "research" | "products" | "stocks" | "chinese"
+>;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 const STOCK_DISCLAIMER =
@@ -657,8 +661,19 @@ const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[]
   { key: "settings", label: "Settings", icon: SlidersHorizontal },
 ];
 
+const feedModuleKeys = new Set<ModuleKey>([
+  "trends",
+  "research",
+  "products",
+  "stocks",
+  "chinese",
+]);
+
 export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [moduleFeedOverrides, setModuleFeedOverrides] = useState<
+    Partial<Record<FeedModuleKey, FeedItem[]>>
+  >({});
   const [selectedFeedDetail, setSelectedFeedDetail] = useState<FeedItemDetail | null>(null);
   const [savedItems, setSavedItems] = useState<FeedItem[]>([]);
   const [hiddenItems, setHiddenItems] = useState<FeedItem[]>([]);
@@ -878,6 +893,7 @@ export function Dashboard() {
       setAlertRules(nextAlertRules);
       setPreferences(nextPreferences);
       setSystemStatus(nextSystemStatus);
+      setModuleFeedOverrides({});
       setRankingDraft(nextPreferences.ranking_weights);
       setPreferredSourcesDraft(nextPreferences.preferred_sources.join(", "));
       setBlockedSourcesDraft(nextPreferences.blocked_sources.join(", "));
@@ -902,6 +918,37 @@ export function Dashboard() {
   useEffect(() => {
     void refreshAll();
   }, [refreshAll]);
+
+  useEffect(() => {
+    if (!isFeedModuleKey(activeModule)) {
+      return;
+    }
+
+    let cancelled = false;
+    const moduleLabel =
+      moduleNavItems.find((item) => item.key === activeModule)?.label ?? "Module";
+    setError(null);
+    setStatus(`Loading ${moduleLabel} feed`);
+    fetchJson<FeedItem[]>(`/api/feed?limit=30&module=${activeModule}`)
+      .then((results) => {
+        if (cancelled) {
+          return;
+        }
+        setModuleFeedOverrides((current) => ({ ...current, [activeModule]: results }));
+        setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
+        setStatus(`Loaded ${results.length} ${moduleLabel} items`);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(readError(err));
+          setStatus(`${moduleLabel} feed failed`);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeModule, fetchJson, refreshVersion]);
 
   useEffect(() => {
     digestDateDraftRef.current = digestDateDraft;
@@ -2362,12 +2409,12 @@ export function Dashboard() {
   };
 
   const moduleCounts = useMemo(
-    () => buildModuleCounts(feed, digest, savedItems, sources, preferences),
-    [digest, feed, preferences, savedItems, sources],
+    () => buildModuleCounts(feed, digest, savedItems, sources, preferences, moduleFeedOverrides),
+    [digest, feed, moduleFeedOverrides, preferences, savedItems, sources],
   );
   const moduleFeed = useMemo(
-    () => filterFeedByModule(feed, activeModule, digest, savedItems),
-    [activeModule, digest, feed, savedItems],
+    () => filterFeedByModule(feed, activeModule, digest, savedItems, moduleFeedOverrides),
+    [activeModule, digest, feed, moduleFeedOverrides, savedItems],
   );
   const activeAlerts = useMemo(
     () => alerts.filter((alert) => alert.status === "active"),
@@ -7199,6 +7246,7 @@ function buildModuleCounts(
   savedItems: FeedItem[],
   sources: SourceHealth[],
   preferences: UserPreferences | null,
+  moduleFeedOverrides: Partial<Record<FeedModuleKey, FeedItem[]>>,
 ): Record<ModuleKey, number> {
   const settingsCount =
     Object.values(preferences?.ranking_weights ?? DEFAULT_RANKING_WEIGHTS).filter(
@@ -7209,11 +7257,11 @@ function buildModuleCounts(
     (preferences?.language_preferences.length ?? 0);
   return {
     dashboard: feed.length,
-    trends: feed.filter((item) => itemMatchesModule(item, "trends")).length,
-    research: feed.filter((item) => itemMatchesModule(item, "research")).length,
-    products: feed.filter((item) => itemMatchesModule(item, "products")).length,
-    stocks: feed.filter((item) => itemMatchesModule(item, "stocks")).length,
-    chinese: feed.filter((item) => itemMatchesModule(item, "chinese")).length,
+    trends: moduleCount(feed, "trends", moduleFeedOverrides),
+    research: moduleCount(feed, "research", moduleFeedOverrides),
+    products: moduleCount(feed, "products", moduleFeedOverrides),
+    stocks: moduleCount(feed, "stocks", moduleFeedOverrides),
+    chinese: moduleCount(feed, "chinese", moduleFeedOverrides),
     saved: savedItems.length,
     digest: collectDigestFeedItems(digest).length,
     sources: sources.filter((source) => source.needs_attention).length,
@@ -7221,14 +7269,29 @@ function buildModuleCounts(
   };
 }
 
+function moduleCount(
+  feed: FeedItem[],
+  moduleKey: FeedModuleKey,
+  moduleFeedOverrides: Partial<Record<FeedModuleKey, FeedItem[]>>,
+): number {
+  return (
+    moduleFeedOverrides[moduleKey]?.length ??
+    feed.filter((item) => itemMatchesModule(item, moduleKey)).length
+  );
+}
+
 function filterFeedByModule(
   feed: FeedItem[],
   moduleKey: ModuleKey,
   digest: DailyDigest | null,
   savedItems: FeedItem[],
+  moduleFeedOverrides: Partial<Record<FeedModuleKey, FeedItem[]>>,
 ): FeedItem[] {
   if (moduleKey === "dashboard") {
     return feed;
+  }
+  if (isFeedModuleKey(moduleKey) && moduleFeedOverrides[moduleKey]) {
+    return moduleFeedOverrides[moduleKey] ?? [];
   }
   if (moduleKey === "saved") {
     return savedItems;
@@ -7240,6 +7303,10 @@ function filterFeedByModule(
     return [];
   }
   return feed.filter((item) => itemMatchesModule(item, moduleKey));
+}
+
+function isFeedModuleKey(moduleKey: ModuleKey): moduleKey is FeedModuleKey {
+  return feedModuleKeys.has(moduleKey);
 }
 
 function itemMatchesModule(item: FeedItem, moduleKey: ModuleKey): boolean {

@@ -124,10 +124,12 @@ def list_visible_feed_items(
     saved_only: bool = False,
     hidden_only: bool = False,
     topic: str | None = None,
+    module: str | None = None,
 ) -> list[FeedItem]:
     blocked_source_names = normalize_source_names(blocked_sources)
     preferred_languages = normalize_language_codes(language_preferences)
     topic_terms = build_feed_topic_filter_terms(topic)
+    module_filter = normalize_feed_module_filter(module)
     query = (
         db.query(NormalizedItem, UserItemAction)
         .outerjoin(
@@ -136,6 +138,9 @@ def list_visible_feed_items(
             & (UserItemAction.user_id == LOCAL_USER_ID),
         )
     )
+    module_conditions = build_feed_module_conditions(module_filter)
+    if module_conditions:
+        query = query.filter(or_(*module_conditions))
     if hidden_only:
         query = query.filter(UserItemAction.is_hidden.is_(True))
     else:
@@ -338,6 +343,52 @@ def build_feed_topic_filter_terms(value: str | None) -> set[str]:
         if len(words) > 1 and words[-1].endswith("s") and len(words[-1]) > 3:
             terms.add(" ".join([*words[:-1], words[-1][:-1]]))
     return {term for term in terms if term}
+
+
+def normalize_feed_module_filter(value: str | None) -> str | None:
+    normalized = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "ai_trends": "trends",
+        "technical_trend": "trends",
+        "technical_trends": "trends",
+        "ai_research": "research",
+        "ai_products": "products",
+        "product": "products",
+        "ai_stocks": "stocks",
+        "stock": "stocks",
+        "stock_company_event": "stocks",
+        "chinese_social": "chinese",
+        "chinese_social_trends": "chinese",
+        "social_trend": "chinese",
+    }
+    normalized = aliases.get(normalized, normalized)
+    return normalized if normalized in {"trends", "research", "products", "stocks", "chinese"} else None
+
+
+def build_feed_module_conditions(module: str | None) -> list:
+    if module == "trends":
+        return [NormalizedItem.category == "technical_trend"]
+    if module == "research":
+        return [NormalizedItem.category == "research"]
+    if module == "products":
+        return [
+            NormalizedItem.category == "product",
+            cast(NormalizedItem.products, String) != "[]",
+            NormalizedItem.source_name.ilike("%Product Hunt%"),
+        ]
+    if module == "stocks":
+        return [
+            NormalizedItem.category == "stock_company_event",
+            cast(NormalizedItem.tickers, String) != "[]",
+            NormalizedItem.stock_impact_score >= 0.35,
+        ]
+    if module == "chinese":
+        return [
+            NormalizedItem.category == "social_trend",
+            NormalizedItem.language == "zh",
+            NormalizedItem.source_name.ilike("%Chinese%"),
+        ]
+    return []
 
 
 def build_feed_interest_profile(db: Session) -> FeedInterestProfile:

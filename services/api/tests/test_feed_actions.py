@@ -9,12 +9,14 @@ from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
     FeedInterestProfile,
     build_feed_interest_profile,
+    build_feed_module_conditions,
     build_feed_topic_filter_terms,
     build_feed_uncertainty_notes,
     build_score_explanation,
     feed_interest_bonus,
     freshness_score,
     list_visible_feed_items,
+    normalize_feed_module_filter,
     normalize_feed_topic_filter,
     normalize_language_codes,
     normalize_source_names,
@@ -429,6 +431,21 @@ def test_build_feed_topic_filter_terms_adds_conservative_variants() -> None:
     }
 
 
+def test_normalize_feed_module_filter_accepts_prd_module_aliases() -> None:
+    assert normalize_feed_module_filter("trends") == "trends"
+    assert normalize_feed_module_filter("AI Trends") == "trends"
+    assert normalize_feed_module_filter("ai-trends") == "trends"
+    assert normalize_feed_module_filter("stock_company_event") == "stocks"
+    assert normalize_feed_module_filter("Chinese Social") == "chinese"
+    assert normalize_feed_module_filter("chinese-social") == "chinese"
+    assert normalize_feed_module_filter("ignored") is None
+
+
+def test_build_feed_module_conditions_ignores_unknown_modules() -> None:
+    assert build_feed_module_conditions(None) == []
+    assert build_feed_module_conditions("ignored") == []
+
+
 def test_list_visible_feed_items_filters_language_preferences() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -485,6 +502,86 @@ def test_list_visible_feed_items_filters_by_topic() -> None:
         "Agent coding launch",
         "Agent product summary",
     ]
+
+
+def test_list_visible_feed_items_filters_by_research_module() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(1, "Research paper", language="en", category="research"),
+                make_normalized_item(
+                    2,
+                    "Product launch",
+                    language="en",
+                    category="product",
+                    products=["IDE agent"],
+                ),
+            ]
+        )
+        db.commit()
+
+        items = list_visible_feed_items(db, limit=10, module="research")
+
+    assert [item.title for item in items] == ["Research paper"]
+
+
+def test_list_visible_feed_items_filters_by_stock_module_entities() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Micron HBM demand",
+                    language="en",
+                    category="technical_trend",
+                    tickers=["MU"],
+                    stock_impact_score=0.7,
+                ),
+                make_normalized_item(2, "Generic agent item", language="en"),
+            ]
+        )
+        db.commit()
+
+        items = list_visible_feed_items(db, limit=10, module="stocks")
+
+    assert [item.title for item in items] == ["Micron HBM demand"]
+
+
+def test_list_visible_feed_items_filters_by_chinese_module_language() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Chinese AI workflow trend",
+                    language="zh",
+                    category="technical_trend",
+                ),
+                make_normalized_item(
+                    2,
+                    "English product launch",
+                    language="en",
+                    category="product",
+                ),
+            ]
+        )
+        db.commit()
+
+        items = list_visible_feed_items(db, limit=10, module="chinese-social")
+
+    assert [item.title for item in items] == ["Chinese AI workflow trend"]
 
 
 def test_list_visible_feed_items_can_return_hidden_items() -> None:
@@ -603,6 +700,10 @@ def make_normalized_item(
     language: str,
     topics: list[str] | None = None,
     summary_short: str | None = None,
+    category: str = "technical_trend",
+    tickers: list[str] | None = None,
+    products: list[str] | None = None,
+    stock_impact_score: float = 0,
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
@@ -614,11 +715,11 @@ def make_normalized_item(
         language=language,
         published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
         text=title,
-        category="technical_trend",
+        category=category,
         subcategory=None,
-        tickers=[],
+        tickers=tickers or [],
         companies=[],
-        products=[],
+        products=products or [],
         topics=topics if topics is not None else ["agent"],
         sentiment="neutral",
         relevance_score=0.8,
@@ -626,6 +727,6 @@ def make_normalized_item(
         importance_score=0.7,
         novelty_score=0.5,
         source_quality_score=0.7,
-        stock_impact_score=0,
+        stock_impact_score=stock_impact_score,
         summary_short=summary_short,
     )

@@ -8,6 +8,7 @@ from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import (
     get_action,
     list_visible_feed_items,
+    normalize_feed_module_filter,
     serialize_feed_item,
     serialize_feed_item_detail,
     update_item_action,
@@ -26,7 +27,13 @@ async def list_feed_items(
     saved_only: bool = Query(default=False),
     hidden_only: bool = Query(default=False),
     topic: str | None = Query(default=None, max_length=120),
+    module: str | None = Query(default=None, max_length=80),
 ) -> list[FeedItem]:
+    if module and not normalize_feed_module_filter(module):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported feed module. Use trends, research, products, stocks, or chinese.",
+        )
     preferences = get_user_preferences(db)
     return list_visible_feed_items(
         db=db,
@@ -38,6 +45,7 @@ async def list_feed_items(
         saved_only=saved_only,
         hidden_only=hidden_only,
         topic=topic,
+        module=module,
     )
 
 
