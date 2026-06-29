@@ -1392,6 +1392,7 @@ export function Dashboard() {
   };
 
   const clearSearch = async () => {
+    const activeFeedModule = isFeedModuleKey(activeModule) ? activeModule : null;
     setSearchQuery("");
     setSearchSource("");
     setSearchCategory("");
@@ -1406,6 +1407,24 @@ export function Dashboard() {
     setSearchReadStatus("");
     setSearchIntent(null);
     setSavedOnly(false);
+    if (activeFeedModule) {
+      setLoadState("loading");
+      setError(null);
+      try {
+        const results = await fetchJson<FeedItem[]>(
+          `/api/feed?limit=30&module=${activeFeedModule}`,
+        );
+        setModuleFeedOverrides((current) => ({ ...current, [activeFeedModule]: results }));
+        setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
+        setStatus(`Cleared search in ${formatModuleLabel(activeFeedModule)}`);
+      } catch (err) {
+        setError(readError(err));
+        setStatus("Clear search failed");
+      } finally {
+        setLoadState("idle");
+      }
+      return;
+    }
     await refreshAll();
   };
 
