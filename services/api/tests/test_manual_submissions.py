@@ -294,6 +294,27 @@ def test_manual_submission_result_reports_created_and_updated_existing() -> None
         assert second.item.title == "Updated agent note"
 
 
+def test_manual_submission_can_save_item_on_submit() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        result = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="Saved agent note",
+                url="https://example.com/saved-agent-note",
+                text="OpenAI released a new agent workflow.",
+                save_item=True,
+            ),
+        )
+
+        assert result.created is True
+        assert result.item.is_saved is True
+        assert result.item.title == "Saved agent note"
+
+
 async def test_manual_submission_route_skips_llm_enrichment_by_default(monkeypatch) -> None:
     calls: list[str] = []
 

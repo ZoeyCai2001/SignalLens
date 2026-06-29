@@ -131,7 +131,7 @@ Submit a manual URL:
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/manual-submissions" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Manual AI note","url":"https://example.com","text":"Optional context"}'
+  -d '{"title":"Manual AI note","url":"https://example.com","text":"Optional context","save_item":true}'
 ```
 
 Save, hide, or mark a feed item:

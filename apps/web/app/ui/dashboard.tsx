@@ -761,6 +761,7 @@ export function Dashboard() {
   const [manualSourceName, setManualSourceName] = useState("Manual Submission");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [manualSaveItem, setManualSaveItem] = useState(true);
   const [manualClassifyWithLlm, setManualClassifyWithLlm] = useState(false);
   const [manualSummarizeWithLlm, setManualSummarizeWithLlm] = useState(false);
   const [stockTicker, setStockTicker] = useState("");
@@ -1731,6 +1732,7 @@ export function Dashboard() {
           url: manualUrl.trim(),
           text: manualText.trim() || null,
           source_name: manualSourceName.trim() || "Manual Submission",
+          save_item: manualSaveItem,
           classify_with_llm: manualClassifyWithLlm,
           summarize_with_llm: manualSummarizeWithLlm,
         }),
@@ -1742,16 +1744,15 @@ export function Dashboard() {
       setManualTitle("");
       setManualUrl("");
       setManualText("");
-      const completedLlmSteps = [
+      const completedSteps = [
+        result.item.is_saved ? "saved" : null,
         result.classification_status === "succeeded" ? "classified" : null,
         result.summary_status === "succeeded" ? "summarized" : null,
       ].filter((value): value is string => Boolean(value));
       const submissionVerb = result.updated_existing ? "Updated" : "Submitted";
       let statusMessage = `${submissionVerb} item ${result.item.id}`;
-      if (completedLlmSteps.length === 1) {
-        statusMessage = `${submissionVerb} and ${completedLlmSteps[0]} item ${result.item.id}`;
-      } else if (completedLlmSteps.length === 2) {
-        statusMessage = `${submissionVerb}, ${completedLlmSteps[0]}, and ${completedLlmSteps[1]} item ${result.item.id}`;
+      if (completedSteps.length > 0) {
+        statusMessage = `${submissionVerb} item ${result.item.id} (${completedSteps.join(", ")})`;
       }
       await refreshAllWithStatus(statusMessage);
       const llmErrors = [
@@ -2969,6 +2970,7 @@ export function Dashboard() {
               sourceName={manualSourceName}
               url={manualUrl}
               text={manualText}
+              saveItem={manualSaveItem}
               classifyWithLlm={manualClassifyWithLlm}
               summarizeWithLlm={manualSummarizeWithLlm}
               disabled={loadState !== "idle"}
@@ -2976,6 +2978,7 @@ export function Dashboard() {
               onSourceNameChange={setManualSourceName}
               onUrlChange={setManualUrl}
               onTextChange={setManualText}
+              onSaveItemChange={setManualSaveItem}
               onClassifyWithLlmChange={setManualClassifyWithLlm}
               onSummarizeWithLlmChange={setManualSummarizeWithLlm}
               onSubmit={submitManualItem}
@@ -4850,6 +4853,7 @@ function ManualSubmissionPanel({
   sourceName,
   url,
   text,
+  saveItem,
   classifyWithLlm,
   summarizeWithLlm,
   disabled,
@@ -4857,6 +4861,7 @@ function ManualSubmissionPanel({
   onSourceNameChange,
   onUrlChange,
   onTextChange,
+  onSaveItemChange,
   onClassifyWithLlmChange,
   onSummarizeWithLlmChange,
   onSubmit,
@@ -4865,6 +4870,7 @@ function ManualSubmissionPanel({
   sourceName: string;
   url: string;
   text: string;
+  saveItem: boolean;
   classifyWithLlm: boolean;
   summarizeWithLlm: boolean;
   disabled: boolean;
@@ -4872,6 +4878,7 @@ function ManualSubmissionPanel({
   onSourceNameChange: (value: string) => void;
   onUrlChange: (value: string) => void;
   onTextChange: (value: string) => void;
+  onSaveItemChange: (value: boolean) => void;
   onClassifyWithLlmChange: (value: boolean) => void;
   onSummarizeWithLlmChange: (value: boolean) => void;
   onSubmit: () => void;
@@ -4933,6 +4940,15 @@ function ManualSubmissionPanel({
           onChange={(event) => onTextChange(event.target.value)}
           placeholder="Optional context for classification and summary"
         />
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={saveItem}
+            onChange={(event) => onSaveItemChange(event.target.checked)}
+            disabled={disabled}
+          />
+          Save to reading list
+        </label>
         <label className="checkbox-row">
           <input
             type="checkbox"
