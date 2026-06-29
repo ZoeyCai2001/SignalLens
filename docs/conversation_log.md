@@ -225,3 +225,4 @@ Implementation progress:
 - Turned bounded Hacker News top-comment previews into deterministic discussion summaries, preserving developer signal without extra LLM calls.
 - Refined event cluster keys with lightweight event signatures so unrelated same-ticker developments split into separate event cards.
 - Made the stock portfolio-notes toggle clear holding, shares, and average-cost fields when disabled and saved, keeping private position data removable.
+- Made scheduled ingestion cycles resilient to unexpected per-source exceptions so one failed source does not block later sources, alert generation, or digest snapshot saving.

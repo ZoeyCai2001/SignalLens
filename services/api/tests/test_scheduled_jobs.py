@@ -59,6 +59,47 @@ async def test_run_ingestion_cycle_runs_jobs_in_order() -> None:
     assert [item.source_name for item in result.ingestion_results] == ["one", "two"]
 
 
+@pytest.mark.anyio
+async def test_run_ingestion_cycle_continues_after_job_exception() -> None:
+    calls: list[str] = []
+    db = object()
+
+    async def fake_runner(name: str, _db, limit: int) -> IngestionResult:
+        calls.append(f"{name}:{limit}")
+        if name == "broken":
+            raise RuntimeError("source timeout")
+        return IngestionResult(
+            source_name=name,
+            status="success",
+            items_fetched=limit,
+            items_stored=limit,
+        )
+
+    result = await run_ingestion_cycle(
+        db,
+        jobs=[
+            make_job("broken", 3, fake_runner),
+            make_job("healthy", 5, fake_runner),
+        ],
+        seed_watchlists=lambda _db: (0, 0, 0, 0),
+        generate_cycle_alerts_fn=lambda _db: 4,
+        save_digest_snapshot_fn=lambda _db: date(2026, 6, 26),
+        list_custom_sources_fn=lambda _db: [],
+    )
+
+    assert calls == ["broken:3", "healthy:5"]
+    assert result.generated_alert_count == 4
+    assert result.saved_digest_date == date(2026, 6, 26)
+    assert result.ingestion_results[0] == IngestionResult(
+        source_name="broken",
+        status="failed",
+        items_fetched=0,
+        items_stored=0,
+        error_message="source timeout",
+    )
+    assert result.ingestion_results[1].source_name == "healthy"
+
+
 def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
     async def fake_runner(_db, limit: int) -> IngestionResult:
         return IngestionResult(
@@ -252,6 +293,36 @@ async def test_run_ingestion_cycle_records_skipped_custom_source_without_runner(
     assert db.added[0].source_id == 11
     assert db.added[0].status == "skipped"
     assert db.commits == 1
+
+
+@pytest.mark.anyio
+async def test_run_ingestion_cycle_records_failed_custom_source_and_continues() -> None:
+    async def fake_custom_runner(_db, _source_id: int) -> IngestionResult:
+        raise RuntimeError("custom feed failed")
+
+    result = await run_ingestion_cycle(
+        object(),
+        jobs=[],
+        seed_watchlists=lambda _db: (0, 0, 0, 0),
+        generate_cycle_alerts_fn=lambda _db: 1,
+        save_digest_snapshot_fn=lambda _db: date(2026, 6, 26),
+        list_custom_sources_fn=lambda _db: [
+            SimpleNamespace(id=11, name="Custom RSS"),
+        ],
+        run_custom_source_fn=fake_custom_runner,
+    )
+
+    assert result.generated_alert_count == 1
+    assert result.saved_digest_date == date(2026, 6, 26)
+    assert result.ingestion_results == [
+        IngestionResult(
+            source_name="Custom RSS",
+            status="failed",
+            items_fetched=0,
+            items_stored=0,
+            error_message="custom feed failed",
+        )
+    ]
 
 
 @pytest.mark.anyio

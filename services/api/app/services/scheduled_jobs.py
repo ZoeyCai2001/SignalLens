@@ -194,13 +194,14 @@ async def run_ingestion_cycle(
     ingestion_results: list[IngestionResult] = []
 
     for job in DEFAULT_INGESTION_JOBS if jobs is None else jobs:
-        result = await job.runner(db, job.limit)
-        ingestion_results.append(result)
+        ingestion_results.append(await run_scheduled_job(job=job, db=db))
     for source in list_custom_sources_fn(db):
         try:
             result = await run_custom_source_fn(db, source.id)
         except SourceRunnerNotFoundError as exc:
             result = record_skipped_run(db=db, source=source, message=str(exc))
+        except Exception as exc:
+            result = failed_ingestion_result(source_name=source.name, exc=exc)
         ingestion_results.append(result)
     generated_alert_count = generate_cycle_alerts_fn(db)
     saved_digest_date = save_digest_snapshot_fn(db)
@@ -215,6 +216,23 @@ async def run_ingestion_cycle(
         generated_alert_count=generated_alert_count,
         saved_digest_date=saved_digest_date,
         ingestion_results=ingestion_results,
+    )
+
+
+async def run_scheduled_job(job: ScheduledIngestionJob, db: Session) -> IngestionResult:
+    try:
+        return await job.runner(db, job.limit)
+    except Exception as exc:
+        return failed_ingestion_result(source_name=job.name, exc=exc)
+
+
+def failed_ingestion_result(source_name: str, exc: Exception) -> IngestionResult:
+    return IngestionResult(
+        source_name=source_name,
+        status="failed",
+        items_fetched=0,
+        items_stored=0,
+        error_message=str(exc),
     )
 
 
