@@ -744,6 +744,7 @@ export function Dashboard() {
   const [busyDigestSnapshotId, setBusyDigestSnapshotId] = useState<number | null>(null);
   const [digestDateDraft, setDigestDateDraft] = useState("");
   const digestDateDraftRef = useRef("");
+  const previousActiveModuleRef = useRef<ModuleKey>("dashboard");
   const [busySetupCopy, setBusySetupCopy] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualSourceName, setManualSourceName] = useState("Manual Submission");
@@ -920,15 +921,20 @@ export function Dashboard() {
   }, [refreshAll]);
 
   useEffect(() => {
+    const previousActiveModule = previousActiveModuleRef.current;
+    previousActiveModuleRef.current = activeModule;
     if (!isFeedModuleKey(activeModule)) {
       return;
     }
 
     let cancelled = false;
+    const shouldReportStatus = previousActiveModule !== activeModule;
     const moduleLabel =
       moduleNavItems.find((item) => item.key === activeModule)?.label ?? "Module";
-    setError(null);
-    setStatus(`Loading ${moduleLabel} feed`);
+    if (shouldReportStatus) {
+      setError(null);
+      setStatus(`Loading ${moduleLabel} feed`);
+    }
     fetchJson<FeedItem[]>(`/api/feed?limit=30&module=${activeModule}`)
       .then((results) => {
         if (cancelled) {
@@ -936,12 +942,16 @@ export function Dashboard() {
         }
         setModuleFeedOverrides((current) => ({ ...current, [activeModule]: results }));
         setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
-        setStatus(`Loaded ${results.length} ${moduleLabel} items`);
+        if (shouldReportStatus) {
+          setStatus(`Loaded ${results.length} ${moduleLabel} items`);
+        }
       })
       .catch((err) => {
         if (!cancelled) {
           setError(readError(err));
-          setStatus(`${moduleLabel} feed failed`);
+          if (shouldReportStatus) {
+            setStatus(`${moduleLabel} feed failed`);
+          }
         }
       });
 

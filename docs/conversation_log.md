@@ -238,3 +238,4 @@ Implementation progress:
 - Made feed important marks reversible with an unmark-important API action, a dashboard flag toggle, and cached module-feed state synchronization for item actions.
 - Added module-scoped batch LLM processing so dashboard Classify and Summarize actions spend their capped Kimi calls on the active PRD module instead of always using the global top feed.
 - Added module-scoped search for feed modules so searches from AI Trends, Research, Products, AI Stocks, and Chinese Social update the visible module result list instead of being hidden behind cached module feeds.
+- Kept background module feed reloads from overwriting command-specific dashboard status messages after LLM, ingestion, preference, and item-action refreshes.
