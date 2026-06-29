@@ -11,6 +11,8 @@ from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
     LOCAL_USER_ID,
     build_feed_interest_profile,
+    build_feed_module_conditions,
+    normalize_feed_module_filter,
     normalize_language_codes,
     normalize_source_names,
     rank_feed_items,
@@ -53,6 +55,7 @@ def search_feed_items(
     preferred_sources: list[str] | None = None,
     blocked_sources: list[str] | None = None,
     language_preferences: list[str] | None = None,
+    module: str | None = None,
     limit: int = 30,
 ) -> list[FeedItem]:
     intent = infer_search_intent(query)
@@ -85,6 +88,10 @@ def search_feed_items(
     blocked_source_names = normalize_source_names(blocked_sources)
     if blocked_source_names:
         statement = statement.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+    module_filter = normalize_feed_module_filter(module)
+    module_conditions = build_feed_module_conditions(module_filter)
+    if module_conditions:
+        statement = statement.filter(or_(*module_conditions))
 
     normalized_query = normalize_filter_value(effective_query)
     if normalized_query:

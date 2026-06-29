@@ -1294,6 +1294,7 @@ export function Dashboard() {
     setLoadState("loading");
     setError(null);
     try {
+      const activeFeedModule = isFeedModuleKey(activeModule) ? activeModule : null;
       const hasManualFilters = [
         searchSource,
         searchCategory,
@@ -1313,12 +1314,16 @@ export function Dashboard() {
           "/api/search/natural-language",
           {
             method: "POST",
-            body: JSON.stringify({ query: searchQuery.trim(), limit: 30 }),
+            body: JSON.stringify({
+              query: searchQuery.trim(),
+              limit: 30,
+              module: activeFeedModule,
+            }),
           },
         );
-        setFeed(result.items);
+        applySearchResults(result.items, activeFeedModule);
         setSearchIntent(result.intent);
-        setStatus(`Search returned ${result.items.length} items`);
+        setStatus(searchStatusText(result.items.length, activeFeedModule));
         return;
       }
 
@@ -1338,18 +1343,31 @@ export function Dashboard() {
       }
       if (searchReadStatus.trim()) params.set("read_status", searchReadStatus.trim());
       if (savedOnly) params.set("saved_only", "true");
+      if (activeFeedModule) params.set("module", activeFeedModule);
       params.set("limit", "30");
 
       const results = await fetchJson<FeedItem[]>(`/api/search?${params.toString()}`);
-      setFeed(results);
+      applySearchResults(results, activeFeedModule);
       setSearchIntent(null);
-      setStatus(`Search returned ${results.length} items`);
+      setStatus(searchStatusText(results.length, activeFeedModule));
     } catch (err) {
       setError(readError(err));
       setStatus("Search failed");
     } finally {
       setLoadState("idle");
     }
+  };
+
+  const applySearchResults = (results: FeedItem[], activeFeedModule: FeedModuleKey | null) => {
+    if (activeFeedModule) {
+      setModuleFeedOverrides((current) => ({ ...current, [activeFeedModule]: results }));
+    } else {
+      setFeed(results);
+      if (activeModule !== "dashboard") {
+        setActiveModule("dashboard");
+      }
+    }
+    setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
   };
 
   const clearSearch = async () => {
@@ -7375,6 +7393,11 @@ function isFeedModuleKey(moduleKey: ModuleKey): moduleKey is FeedModuleKey {
 
 function formatModuleLabel(moduleKey: FeedModuleKey): string {
   return moduleNavItems.find((item) => item.key === moduleKey)?.label ?? moduleKey;
+}
+
+function searchStatusText(resultCount: number, moduleKey: FeedModuleKey | null): string {
+  const moduleText = moduleKey ? ` in ${formatModuleLabel(moduleKey)}` : "";
+  return `Search returned ${resultCount} items${moduleText}`;
 }
 
 function itemMatchesModule(item: FeedItem, moduleKey: ModuleKey): boolean {

@@ -327,6 +327,50 @@ def test_search_feed_items_filters_by_read_status() -> None:
     }
 
 
+def test_search_feed_items_filters_by_module_before_limit() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "High importance agent overview",
+                    "Agent overview.",
+                    ["agent"],
+                    category="technical_trend",
+                    importance_score=1.0,
+                ),
+                make_search_item(
+                    2,
+                    "Agent benchmark paper",
+                    "Agent benchmark research.",
+                    ["agent"],
+                    category="research",
+                    importance_score=0.9,
+                ),
+                make_search_item(
+                    3,
+                    "Agent evaluation paper",
+                    "Agent evaluation research.",
+                    ["agent"],
+                    category="research",
+                    importance_score=0.8,
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="agent", module="research", limit=2)
+
+    assert [item.title for item in results] == [
+        "Agent benchmark paper",
+        "Agent evaluation paper",
+    ]
+
+
 @pytest.mark.anyio
 async def test_search_route_passes_user_preferences(monkeypatch) -> None:
     preferences = make_preferences()
@@ -341,6 +385,7 @@ async def test_search_route_passes_user_preferences(monkeypatch) -> None:
         assert kwargs["preferred_sources"] == preferences.preferred_sources
         assert kwargs["blocked_sources"] == preferences.blocked_sources
         assert kwargs["language_preferences"] == preferences.language_preferences
+        assert kwargs["module"] == "research"
         return []
 
     monkeypatch.setattr(search_routes, "search_feed_items", fake_search_feed_items)
@@ -349,6 +394,7 @@ async def test_search_route_passes_user_preferences(monkeypatch) -> None:
         db=object(),
         q="agent",
         read_status="unread",
+        module="research",
         limit=5,
     )
 
@@ -368,6 +414,7 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
         assert kwargs["preferred_sources"] == preferences.preferred_sources
         assert kwargs["blocked_sources"] == preferences.blocked_sources
         assert kwargs["language_preferences"] == preferences.language_preferences
+        assert kwargs["module"] == "products"
         return []
 
     monkeypatch.setattr(search_routes, "search_feed_items", fake_search_feed_items)
@@ -376,6 +423,7 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
         payload=search_routes.NaturalLanguageSearchRequest(
             query="latest AI coding products",
             limit=8,
+            module="products",
         ),
         db=object(),
     )
@@ -518,6 +566,8 @@ def make_search_item(
     companies: list[str] | None = None,
     source_name: str = "Test Source",
     language: str = "en",
+    category: str = "technical_trend",
+    importance_score: float = 0.7,
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
@@ -529,7 +579,7 @@ def make_search_item(
         language=language,
         published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
         text=text,
-        category="technical_trend",
+        category=category,
         subcategory=None,
         tickers=[],
         companies=companies or [],
@@ -538,7 +588,7 @@ def make_search_item(
         sentiment="neutral",
         relevance_score=0.8,
         classification_confidence=0.8,
-        importance_score=0.7,
+        importance_score=importance_score,
         novelty_score=0.6,
         source_quality_score=0.7,
         stock_impact_score=0,
