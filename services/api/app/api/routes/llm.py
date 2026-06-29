@@ -11,6 +11,7 @@ from app.schemas.llm import (
 )
 from app.services.llm_processing import process_feed_with_llm
 from app.services.preferences import get_user_preferences
+from app.services.feed_actions import normalize_feed_module_filter
 
 router = APIRouter()
 
@@ -49,6 +50,11 @@ async def process_feed_items(
         raise HTTPException(status_code=400, detail="MOONSHOT_API_KEY is not configured.")
     if not request.summarize and not request.classify:
         raise HTTPException(status_code=400, detail="Enable summarize or classify.")
+    if request.module and not normalize_feed_module_filter(request.module):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported feed module. Use trends, research, products, stocks, or chinese.",
+        )
 
     preferences = get_user_preferences(db)
     return await process_feed_with_llm(
@@ -61,4 +67,5 @@ async def process_feed_items(
         skip_classified=request.skip_classified,
         min_classification_confidence=request.min_classification_confidence,
         blocked_sources=preferences.blocked_sources,
+        module=request.module,
     )

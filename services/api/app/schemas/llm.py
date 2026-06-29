@@ -21,6 +21,7 @@ class FeedProcessingRequest(BaseModel):
     skip_summarized: bool = True
     skip_classified: bool = True
     min_classification_confidence: float = Field(default=0.7, ge=0, le=1)
+    module: str | None = Field(default=None, max_length=80)
 
 
 class FeedProcessingError(BaseModel):

@@ -98,12 +98,75 @@ def test_list_llm_processing_candidates_excludes_blocked_sources_before_limit() 
     assert [item.id for item in candidates] == [2, 3]
 
 
+def test_list_llm_processing_candidates_filters_module_before_limit() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_item(1, importance_score=1.0, category="technical_trend"),
+                make_item(2, importance_score=0.9, category="research"),
+                make_item(3, importance_score=0.8, category="research"),
+            ]
+        )
+        db.commit()
+
+        candidates = list_llm_processing_candidates(
+            db=db,
+            limit=2,
+            summarize=True,
+            classify=False,
+            skip_summarized=True,
+            module="research",
+        )
+
+    assert [item.id for item in candidates] == [2, 3]
+
+
+def test_list_llm_processing_candidates_filters_stock_module_entities() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_item(1, importance_score=1.0, category="technical_trend"),
+                make_item(
+                    2,
+                    importance_score=0.9,
+                    category="technical_trend",
+                    tickers=["MU"],
+                    stock_impact_score=0.6,
+                ),
+            ]
+        )
+        db.commit()
+
+        candidates = list_llm_processing_candidates(
+            db=db,
+            limit=2,
+            summarize=True,
+            classify=False,
+            skip_summarized=True,
+            module="stocks",
+        )
+
+    assert [item.id for item in candidates] == [2]
+
+
 def make_item(
     item_id: int,
     summary_detailed: str | None = None,
     importance_score: float = 0,
     classification_confidence: float = 0.5,
     source_name: str = "Test",
+    category: str = "technical_trend",
+    tickers: list[str] | None = None,
+    products: list[str] | None = None,
+    stock_impact_score: float = 0,
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
@@ -112,8 +175,12 @@ def make_item(
         url=f"https://example.com/{item_id}",
         source_name=source_name,
         text="A relevant AI intelligence item.",
+        category=category,
+        tickers=tickers or [],
+        products=products or [],
         importance_score=importance_score,
         classification_confidence=classification_confidence,
+        stock_impact_score=stock_impact_score,
         summary_detailed=summary_detailed,
     )
 
@@ -276,6 +343,7 @@ async def test_process_feed_route_passes_blocked_sources(monkeypatch) -> None:
 
     async def fake_process_feed_with_llm(**kwargs) -> FeedProcessingResponse:
         assert kwargs["blocked_sources"] == ["Noisy Blog"]
+        assert kwargs["module"] is None
         return FeedProcessingResponse(
             requested_limit=kwargs["limit"],
             candidates_seen=0,
@@ -290,6 +358,41 @@ async def test_process_feed_route_passes_blocked_sources(monkeypatch) -> None:
 
     result = await llm_routes.process_feed_items(
         request=FeedProcessingRequest(limit=3, summarize=True, classify=False),
+        db=object(),
+    )
+
+    assert result.requested_limit == 3
+
+
+@pytest.mark.anyio
+async def test_process_feed_route_passes_module_filter(monkeypatch) -> None:
+    monkeypatch.setattr(
+        llm_routes,
+        "get_settings",
+        lambda: Settings(moonshot_api_key="test-key"),
+    )
+    monkeypatch.setattr(
+        llm_routes,
+        "get_user_preferences",
+        lambda db: type("Preferences", (), {"blocked_sources": []})(),
+    )
+
+    async def fake_process_feed_with_llm(**kwargs) -> FeedProcessingResponse:
+        assert kwargs["module"] == "research"
+        return FeedProcessingResponse(
+            requested_limit=kwargs["limit"],
+            candidates_seen=0,
+            summarized_count=0,
+            classified_count=0,
+            skipped_count=0,
+            item_ids=[],
+            errors=[],
+        )
+
+    monkeypatch.setattr(llm_routes, "process_feed_with_llm", fake_process_feed_with_llm)
+
+    result = await llm_routes.process_feed_items(
+        request=FeedProcessingRequest(limit=3, summarize=True, classify=False, module="research"),
         db=object(),
     )
 

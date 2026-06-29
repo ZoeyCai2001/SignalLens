@@ -7,7 +7,12 @@ from app.core.config import Settings
 from app.db.models import NormalizedItem, UserItemAction
 from app.schemas.llm import FeedProcessingError, FeedProcessingResponse
 from app.services.classification import classify_feed_item
-from app.services.feed_actions import LOCAL_USER_ID, normalize_source_names
+from app.services.feed_actions import (
+    LOCAL_USER_ID,
+    build_feed_module_conditions,
+    normalize_feed_module_filter,
+    normalize_source_names,
+)
 from app.services.preferences import get_user_preferences
 from app.services.summarization import summarize_feed_item
 
@@ -24,6 +29,7 @@ async def process_feed_with_llm(
     skip_classified: bool = True,
     min_classification_confidence: float = 0.7,
     blocked_sources: list[str] | None = None,
+    module: str | None = None,
 ) -> FeedProcessingResponse:
     if blocked_sources is None:
         blocked_sources = get_user_preferences(db).blocked_sources
@@ -36,6 +42,7 @@ async def process_feed_with_llm(
         skip_classified=skip_classified,
         min_classification_confidence=min_classification_confidence,
         blocked_sources=blocked_sources,
+        module=module,
     )
     return await process_llm_batch_items(
         db=db,
@@ -59,8 +66,10 @@ def list_llm_processing_candidates(
     skip_classified: bool = True,
     min_classification_confidence: float = 0.7,
     blocked_sources: list[str] | None = None,
+    module: str | None = None,
 ) -> list[NormalizedItem]:
     blocked_source_names = normalize_source_names(blocked_sources)
+    module_filter = normalize_feed_module_filter(module)
     query = db.query(NormalizedItem).outerjoin(
         UserItemAction,
         (UserItemAction.item_id == NormalizedItem.id)
@@ -69,6 +78,9 @@ def list_llm_processing_candidates(
     query = query.filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
     if blocked_source_names:
         query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+    module_conditions = build_feed_module_conditions(module_filter)
+    if module_conditions:
+        query = query.filter(or_(*module_conditions))
 
     candidate_filters = []
     if summarize and skip_summarized:

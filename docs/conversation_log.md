@@ -236,3 +236,4 @@ Implementation progress:
 - Expanded the dashboard Daily Digest preview with source/date metadata, short summaries, and ticker/topic labels so the briefing is scannable before copying or saving markdown.
 - Added backend module filtering for PRD feed modules and made dashboard module navigation load API-ranked AI Trends, Research, Products, AI Stocks, and Chinese Social feeds instead of only slicing the current top feed in the browser.
 - Made feed important marks reversible with an unmark-important API action, a dashboard flag toggle, and cached module-feed state synchronization for item actions.
+- Added module-scoped batch LLM processing so dashboard Classify and Summarize actions spend their capped Kimi calls on the active PRD module instead of always using the global top feed.

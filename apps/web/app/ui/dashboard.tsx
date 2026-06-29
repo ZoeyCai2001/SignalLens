@@ -1192,6 +1192,7 @@ export function Dashboard() {
     setLoadState("running");
     setError(null);
     try {
+      const activeFeedModule = isFeedModuleKey(activeModule) ? activeModule : null;
       const result = await fetchJson<FeedProcessingResponse>("/api/llm/process-feed", {
         method: "POST",
         body: JSON.stringify({
@@ -1201,12 +1202,16 @@ export function Dashboard() {
           skip_summarized: true,
           skip_classified: true,
           min_classification_confidence: 0.7,
+          module: activeFeedModule,
         }),
       });
       const callText = result.model_call_budget
         ? `, ${result.model_calls_attempted}/${result.model_call_budget} LLM calls attempted`
         : "";
-      const nextStatus = `${label}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped${callText}`;
+      const moduleText = activeFeedModule
+        ? ` for ${formatModuleLabel(activeFeedModule)}`
+        : "";
+      const nextStatus = `${label}${moduleText}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped${callText}`;
       if (result.errors.length) {
         setError(`${result.errors.length} LLM item errors; see API response logs.`);
       }
@@ -7366,6 +7371,10 @@ function filterFeedByModule(
 
 function isFeedModuleKey(moduleKey: ModuleKey): moduleKey is FeedModuleKey {
   return feedModuleKeys.has(moduleKey);
+}
+
+function formatModuleLabel(moduleKey: FeedModuleKey): string {
+  return moduleNavItems.find((item) => item.key === moduleKey)?.label ?? moduleKey;
 }
 
 function itemMatchesModule(item: FeedItem, moduleKey: ModuleKey): boolean {
