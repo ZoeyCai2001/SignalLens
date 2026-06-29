@@ -224,3 +224,4 @@ Implementation progress:
 - Cleared source-specific run-history filters and rows when a followed source is removed, preventing stale Source Health history views.
 - Turned bounded Hacker News top-comment previews into deterministic discussion summaries, preserving developer signal without extra LLM calls.
 - Refined event cluster keys with lightweight event signatures so unrelated same-ticker developments split into separate event cards.
+- Made the stock portfolio-notes toggle clear holding, shares, and average-cost fields when disabled and saved, keeping private position data removable.

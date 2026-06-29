@@ -4768,6 +4768,10 @@ function StockTable({
       payload.is_holding = detailDraft.is_holding;
       payload.shares = parseOptionalNumber(detailDraft.shares);
       payload.average_cost = parseOptionalNumber(detailDraft.average_cost);
+    } else {
+      payload.is_holding = false;
+      payload.shares = null;
+      payload.average_cost = null;
     }
     onUpdateStock(selectedStock.ticker, payload);
   };
