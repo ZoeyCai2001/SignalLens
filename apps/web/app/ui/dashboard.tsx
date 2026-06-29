@@ -759,6 +759,8 @@ export function Dashboard() {
   const [alertRuleTickers, setAlertRuleTickers] = useState("");
   const [alertRuleTopics, setAlertRuleTopics] = useState("");
   const [alertRuleImportance, setAlertRuleImportance] = useState("0.75");
+  const [alertRuleStockImpact, setAlertRuleStockImpact] = useState("0");
+  const [alertRuleSeverity, setAlertRuleSeverity] = useState("medium");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSource, setSearchSource] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
@@ -2230,7 +2232,9 @@ export function Dashboard() {
         body: JSON.stringify({
           name: alertRuleName.trim(),
           category: alertRuleCategory,
+          severity: alertRuleSeverity,
           min_importance_score: Number(alertRuleImportance) || 0.75,
+          min_stock_impact_score: Number(alertRuleStockImpact) || 0,
           tickers: splitTerms(alertRuleTickers),
           topics: splitTerms(alertRuleTopics),
         }),
@@ -2241,6 +2245,8 @@ export function Dashboard() {
       setAlertRuleTickers("");
       setAlertRuleTopics("");
       setAlertRuleImportance("0.75");
+      setAlertRuleStockImpact("0");
+      setAlertRuleSeverity("medium");
       await refreshAllWithStatus(`Added alert rule ${created.name}`);
     } catch (err) {
       setError(readError(err));
@@ -2769,6 +2775,8 @@ export function Dashboard() {
               ruleTickers={alertRuleTickers}
               ruleTopics={alertRuleTopics}
               ruleImportance={alertRuleImportance}
+              ruleStockImpact={alertRuleStockImpact}
+              ruleSeverity={alertRuleSeverity}
               disabled={loadState !== "idle"}
               onDismiss={dismissAlert}
               onGenerate={generateDashboardAlerts}
@@ -2781,6 +2789,8 @@ export function Dashboard() {
               onRuleTickersChange={setAlertRuleTickers}
               onRuleTopicsChange={setAlertRuleTopics}
               onRuleImportanceChange={setAlertRuleImportance}
+              onRuleStockImpactChange={setAlertRuleStockImpact}
+              onRuleSeverityChange={setAlertRuleSeverity}
               onRuleSubmit={submitAlertRule}
             />
             <DailyDigestPanel
@@ -3217,6 +3227,8 @@ function AlertPanel({
   ruleTickers,
   ruleTopics,
   ruleImportance,
+  ruleStockImpact,
+  ruleSeverity,
   disabled,
   onDismiss,
   onGenerate,
@@ -3229,6 +3241,8 @@ function AlertPanel({
   onRuleTickersChange,
   onRuleTopicsChange,
   onRuleImportanceChange,
+  onRuleStockImpactChange,
+  onRuleSeverityChange,
   onRuleSubmit,
 }: {
   alerts: AlertItem[];
@@ -3242,6 +3256,8 @@ function AlertPanel({
   ruleTickers: string;
   ruleTopics: string;
   ruleImportance: string;
+  ruleStockImpact: string;
+  ruleSeverity: string;
   disabled: boolean;
   onDismiss: (alertId: number) => void;
   onGenerate: () => void;
@@ -3254,6 +3270,8 @@ function AlertPanel({
   onRuleTickersChange: (value: string) => void;
   onRuleTopicsChange: (value: string) => void;
   onRuleImportanceChange: (value: string) => void;
+  onRuleStockImpactChange: (value: string) => void;
+  onRuleSeverityChange: (value: string) => void;
   onRuleSubmit: () => void;
 }) {
   return (
@@ -3284,7 +3302,7 @@ function AlertPanel({
           <BellRing size={16} aria-hidden="true" />
         </div>
       </div>
-      <div className="form-panel compact-form">
+      <div className="form-panel compact-form alert-rule-form">
         <input
           className="field"
           value={ruleName}
@@ -3329,9 +3347,26 @@ function AlertPanel({
           className="field"
           value={ruleImportance}
           onChange={(event) => onRuleImportanceChange(event.target.value)}
-          placeholder="Min"
+          placeholder="Min importance"
           aria-label="Alert rule minimum importance"
         />
+        <input
+          className="field"
+          value={ruleStockImpact}
+          onChange={(event) => onRuleStockImpactChange(event.target.value)}
+          placeholder="Stock min"
+          aria-label="Alert rule minimum stock impact"
+        />
+        <select
+          className="field"
+          value={ruleSeverity}
+          onChange={(event) => onRuleSeverityChange(event.target.value)}
+          aria-label="Alert rule severity"
+        >
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
         <button className="button primary" onClick={onRuleSubmit} disabled={disabled}>
           {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
           Add
@@ -3350,6 +3385,9 @@ function AlertPanel({
                 <div className="small-muted">
                   {rule.category} · {rule.severity} · min{" "}
                   {Math.round(rule.min_importance_score * 100)}
+                  {rule.min_stock_impact_score > 0
+                    ? ` · stock ${Math.round(rule.min_stock_impact_score * 100)}`
+                    : ""}
                   {rule.tickers.length ? ` · ${rule.tickers.join(", ")}` : ""}
                   {snoozed && rule.snoozed_until
                     ? ` · snoozed until ${formatDate(rule.snoozed_until)}`
