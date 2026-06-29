@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import unquote, urlparse
 
@@ -26,7 +27,28 @@ from app.services.scoring import (
 from app.sources.base import RawItemInput
 
 
+@dataclass(frozen=True)
+class ManualSubmissionSaveResult:
+    item: FeedItem
+    created: bool
+    updated_existing: bool
+
+
+@dataclass(frozen=True)
+class RawManualItemSaveResult:
+    raw: RawItem
+    created: bool
+    updated_existing: bool
+
+
 def create_manual_submission(db: Session, request: ManualSubmissionRequest) -> FeedItem:
+    return create_manual_submission_result(db=db, request=request).item
+
+
+def create_manual_submission_result(
+    db: Session,
+    request: ManualSubmissionRequest,
+) -> ManualSubmissionSaveResult:
     source = get_or_create_source(
         db,
         name=request.source_name,
@@ -40,14 +62,19 @@ def create_manual_submission(db: Session, request: ManualSubmissionRequest) -> F
         priority=5,
         terms_notes="Stores user-provided URL, title, and optional excerpt.",
     )
-    raw = create_raw_manual_item(db=db, source=source, request=request)
+    raw_result = save_raw_manual_item(db=db, source=source, request=request)
+    raw = raw_result.raw
     if raw.normalized_item:
         reset_manual_normalized_item(raw.normalized_item, raw, source)
         enrich_manual_normalized_item(raw.normalized_item, raw)
         db.add(raw.normalized_item)
         db.commit()
         db.refresh(raw.normalized_item)
-        return serialize_feed_item(raw.normalized_item, get_action(db, raw.normalized_item.id))
+        return ManualSubmissionSaveResult(
+            item=serialize_feed_item(raw.normalized_item, get_action(db, raw.normalized_item.id)),
+            created=raw_result.created,
+            updated_existing=raw_result.updated_existing,
+        )
 
     normalized = normalize_item(raw=raw, source=source) or create_manual_normalized_item(
         raw=raw,
@@ -57,7 +84,11 @@ def create_manual_submission(db: Session, request: ManualSubmissionRequest) -> F
     db.add(normalized)
     db.commit()
     db.refresh(normalized)
-    return serialize_feed_item(normalized)
+    return ManualSubmissionSaveResult(
+        item=serialize_feed_item(normalized),
+        created=raw_result.created,
+        updated_existing=raw_result.updated_existing,
+    )
 
 
 def create_raw_manual_item(
@@ -65,6 +96,14 @@ def create_raw_manual_item(
     source: Source,
     request: ManualSubmissionRequest,
 ) -> RawItem:
+    return save_raw_manual_item(db=db, source=source, request=request).raw
+
+
+def save_raw_manual_item(
+    db: Session,
+    source: Source,
+    request: ManualSubmissionRequest,
+) -> RawManualItemSaveResult:
     title = resolve_manual_title(request)
     raw_input = RawItemInput(
         source_name=source.name,
@@ -91,7 +130,7 @@ def create_raw_manual_item(
         update_existing_manual_raw_item(existing, raw_input=raw_input, content_hash=content_hash)
         db.add(existing)
         db.flush()
-        return existing
+        return RawManualItemSaveResult(raw=existing, created=False, updated_existing=True)
 
     raw = RawItem(
         source_id=source.id,
@@ -106,7 +145,7 @@ def create_raw_manual_item(
     )
     db.add(raw)
     db.flush()
-    return raw
+    return RawManualItemSaveResult(raw=raw, created=True, updated_existing=False)
 
 
 def find_existing_manual_raw_item(

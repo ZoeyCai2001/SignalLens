@@ -22,6 +22,8 @@ class ManualSubmissionRequest(BaseModel):
 
 class ManualSubmissionResponse(BaseModel):
     item: FeedItem
+    created: bool = True
+    updated_existing: bool = False
     classification_status: str = "not_requested"
     classification_error: str | None = None
     summary_status: str = "not_requested"

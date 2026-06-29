@@ -77,6 +77,8 @@ type FeedItemDetail = FeedItem & {
 
 type ManualSubmissionResponse = {
   item: FeedItem;
+  created: boolean;
+  updated_existing: boolean;
   classification_status: "not_requested" | "succeeded" | "failed";
   classification_error: string | null;
   summary_status: "not_requested" | "succeeded" | "failed";
@@ -1624,11 +1626,12 @@ export function Dashboard() {
         result.classification_status === "succeeded" ? "classified" : null,
         result.summary_status === "succeeded" ? "summarized" : null,
       ].filter((value): value is string => Boolean(value));
-      let statusMessage = `Submitted item ${result.item.id}`;
+      const submissionVerb = result.updated_existing ? "Updated" : "Submitted";
+      let statusMessage = `${submissionVerb} item ${result.item.id}`;
       if (completedLlmSteps.length === 1) {
-        statusMessage = `Submitted and ${completedLlmSteps[0]} item ${result.item.id}`;
+        statusMessage = `${submissionVerb} and ${completedLlmSteps[0]} item ${result.item.id}`;
       } else if (completedLlmSteps.length === 2) {
-        statusMessage = `Submitted, ${completedLlmSteps[0]}, and ${completedLlmSteps[1]} item ${result.item.id}`;
+        statusMessage = `${submissionVerb}, ${completedLlmSteps[0]}, and ${completedLlmSteps[1]} item ${result.item.id}`;
       }
       await refreshAllWithStatus(statusMessage);
       const llmErrors = [

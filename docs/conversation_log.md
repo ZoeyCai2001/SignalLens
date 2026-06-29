@@ -230,3 +230,4 @@ Implementation progress:
 - Added SEC User-Agent readiness checks to the health API, dashboard System Readiness badges, tests, and safe `.env.example` setup template.
 - Expanded SEC filings ingestion to resolve user-added public tickers through the official SEC company ticker mapping instead of relying only on the local seed CIK list.
 - Added PRD-style `/api/stocks/*` routes for stock dashboard summaries, stock detail, stock-linked events, and price series while reusing existing watchlist services.
+- Added explicit manual-submission `created` and `updated_existing` response flags and dashboard status text so URL resubmissions are shown as updates instead of ambiguous new submissions.

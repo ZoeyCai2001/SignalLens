@@ -8,8 +8,10 @@ from app.schemas.feed import FeedItem
 from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.classification import ClassificationError
 from app.services.manual_submissions import (
+    ManualSubmissionSaveResult,
     create_raw_manual_item,
     create_manual_normalized_item,
+    create_manual_submission_result,
     enrich_manual_normalized_item,
     first_sentence,
     reset_manual_normalized_item,
@@ -261,6 +263,37 @@ def test_manual_resubmission_updates_existing_url_item() -> None:
         assert raw_items[0].normalized_item.text == "Updated note about OpenAI agents."
 
 
+def test_manual_submission_result_reports_created_and_updated_existing() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        first = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="Original agent note",
+                url="https://example.com/agent-note",
+                text="OpenAI released a new agent workflow.",
+            ),
+        )
+        second = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="Updated agent note",
+                url="https://example.com/agent-note",
+                text="OpenAI released a new agent workflow with more context.",
+            ),
+        )
+
+        assert first.created is True
+        assert first.updated_existing is False
+        assert second.created is False
+        assert second.updated_existing is True
+        assert second.item.id == first.item.id
+        assert second.item.title == "Updated agent note"
+
+
 async def test_manual_submission_route_skips_llm_enrichment_by_default(monkeypatch) -> None:
     calls: list[str] = []
 
@@ -274,8 +307,12 @@ async def test_manual_submission_route_skips_llm_enrichment_by_default(monkeypat
 
     monkeypatch.setattr(
         manual_submission_routes,
-        "create_manual_submission",
-        lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
+        "create_manual_submission_result",
+        lambda **_kwargs: ManualSubmissionSaveResult(
+            item=make_manual_feed_item(summary_short="Manual summary"),
+            created=True,
+            updated_existing=False,
+        ),
     )
     monkeypatch.setattr(manual_submission_routes, "classify_feed_item", fake_classify_feed_item)
     monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
@@ -286,6 +323,8 @@ async def test_manual_submission_route_skips_llm_enrichment_by_default(monkeypat
     )
 
     assert response.item.summary_short == "Manual summary"
+    assert response.created is True
+    assert response.updated_existing is False
     assert response.classification_status == "not_requested"
     assert response.classification_error is None
     assert response.summary_status == "not_requested"
@@ -312,8 +351,12 @@ async def test_manual_submission_route_can_classify_and_summarize_saved_item(mon
 
     monkeypatch.setattr(
         manual_submission_routes,
-        "create_manual_submission",
-        lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
+        "create_manual_submission_result",
+        lambda **_kwargs: ManualSubmissionSaveResult(
+            item=make_manual_feed_item(summary_short="Manual summary"),
+            created=False,
+            updated_existing=True,
+        ),
     )
     monkeypatch.setattr(manual_submission_routes, "classify_feed_item", fake_classify_feed_item)
     monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
@@ -332,6 +375,8 @@ async def test_manual_submission_route_can_classify_and_summarize_saved_item(mon
     assert response.item.category == "product"
     assert response.item.products == ["AgentDesk"]
     assert response.item.summary_short == "Kimi summary"
+    assert response.created is False
+    assert response.updated_existing is True
     assert response.item.summary_detailed == "Kimi detailed summary"
     assert response.item.why_it_matters == "Kimi why it matters"
     assert response.classification_status == "succeeded"
@@ -346,8 +391,12 @@ async def test_manual_submission_route_keeps_item_when_llm_summary_fails(monkeyp
 
     monkeypatch.setattr(
         manual_submission_routes,
-        "create_manual_submission",
-        lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
+        "create_manual_submission_result",
+        lambda **_kwargs: ManualSubmissionSaveResult(
+            item=make_manual_feed_item(summary_short="Manual summary"),
+            created=True,
+            updated_existing=False,
+        ),
     )
     monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)
     monkeypatch.setattr(manual_submission_routes, "get_settings", lambda: object())
@@ -381,8 +430,12 @@ async def test_manual_submission_route_can_summarize_after_llm_classification_fa
 
     monkeypatch.setattr(
         manual_submission_routes,
-        "create_manual_submission",
-        lambda **_kwargs: make_manual_feed_item(summary_short="Manual summary"),
+        "create_manual_submission_result",
+        lambda **_kwargs: ManualSubmissionSaveResult(
+            item=make_manual_feed_item(summary_short="Manual summary"),
+            created=True,
+            updated_existing=False,
+        ),
     )
     monkeypatch.setattr(manual_submission_routes, "classify_feed_item", fake_classify_feed_item)
     monkeypatch.setattr(manual_submission_routes, "summarize_feed_item", fake_summarize_feed_item)

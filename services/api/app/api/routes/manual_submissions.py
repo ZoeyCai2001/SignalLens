@@ -6,7 +6,7 @@ from app.db.models import NormalizedItem
 from app.schemas.manual_submissions import ManualSubmissionRequest, ManualSubmissionResponse
 from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import get_action, serialize_feed_item
-from app.services.manual_submissions import create_manual_submission
+from app.services.manual_submissions import create_manual_submission_result
 from app.services.summarization import SummarizationError, summarize_feed_item
 
 router = APIRouter()
@@ -17,14 +17,21 @@ async def submit_manual_url(
     request: ManualSubmissionRequest,
     db: DbSession,
 ) -> ManualSubmissionResponse:
-    item = create_manual_submission(db=db, request=request)
+    save_result = create_manual_submission_result(db=db, request=request)
+    item = save_result.item
     if not request.classify_with_llm and not request.summarize_with_llm:
-        return ManualSubmissionResponse(item=item)
+        return ManualSubmissionResponse(
+            item=item,
+            created=save_result.created,
+            updated_existing=save_result.updated_existing,
+        )
 
     stored_item = db.get(NormalizedItem, item.id)
     if stored_item is None:
         return ManualSubmissionResponse(
             item=item,
+            created=save_result.created,
+            updated_existing=save_result.updated_existing,
             classification_status="failed" if request.classify_with_llm else "not_requested",
             classification_error=(
                 "Manual item was stored but could not be reloaded for classification."
@@ -72,6 +79,8 @@ async def submit_manual_url(
 
     return ManualSubmissionResponse(
         item=serialize_feed_item(current_item, get_action(db, current_item.id)),
+        created=save_result.created,
+        updated_existing=save_result.updated_existing,
         classification_status=classification_status,
         classification_error=classification_error,
         summary_status=summary_status,
