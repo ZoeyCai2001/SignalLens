@@ -223,3 +223,4 @@ Implementation progress:
 - Added deletion for saved daily digest snapshots so stale saved briefings can be removed from the archive without affecting generated previews.
 - Cleared source-specific run-history filters and rows when a followed source is removed, preventing stale Source Health history views.
 - Turned bounded Hacker News top-comment previews into deterministic discussion summaries, preserving developer signal without extra LLM calls.
+- Refined event cluster keys with lightweight event signatures so unrelated same-ticker developments split into separate event cards.

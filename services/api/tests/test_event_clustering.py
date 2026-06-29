@@ -13,6 +13,7 @@ from app.services.event_clustering import (
     build_event_cluster,
     build_event_cluster_llm_prompt,
     build_event_clusters_from_items,
+    event_signature_term,
     group_items_by_cluster,
     item_tickers,
 )
@@ -21,14 +22,32 @@ from app.services.event_clustering import (
 def test_event_cluster_groups_strong_ticker_terms() -> None:
     item = make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"])
 
-    assert build_cluster_key(item) == "strong|technical_trend|avgo"
+    assert event_signature_term(item, ["AVGO"]) == "chip"
+    assert build_cluster_key(item) == "strong|technical_trend|avgo|event:chip"
 
 
 def test_event_cluster_infers_ticker_aliases_from_title() -> None:
     item = make_item(1, "OpenAI unveils custom chip built by Broadcom")
 
     assert item_tickers(item) == ["AVGO"]
-    assert build_cluster_key(item) == "strong|technical_trend|avgo"
+    assert build_cluster_key(item) == "strong|technical_trend|avgo|event:chip"
+
+
+def test_event_cluster_splits_same_ticker_different_events() -> None:
+    items = [
+        make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
+        make_item(2, "Broadcom chip discussion", tickers=["AVGO"]),
+        make_item(3, "Broadcom earnings guidance mentions AI demand", tickers=["AVGO"]),
+    ]
+
+    grouped = group_items_by_cluster(items)
+
+    assert sorted(grouped) == [
+        "strong|technical_trend|avgo|event:chip",
+        "strong|technical_trend|avgo|event:earnings",
+    ]
+    assert [item.id for item in grouped["strong|technical_trend|avgo|event:chip"]] == [1, 2]
+    assert [item.id for item in grouped["strong|technical_trend|avgo|event:earnings"]] == [3]
 
 
 def test_event_cluster_builds_representative_summary() -> None:
@@ -42,7 +61,7 @@ def test_event_cluster_builds_representative_summary() -> None:
         make_item(2, "Broadcom chip discussion", source_name="Hacker News", tickers=["AVGO"]),
     ]
 
-    cluster = build_event_cluster("strong|technical_trend|avgo", items)
+    cluster = build_event_cluster("strong|technical_trend|avgo|event:chip", items)
 
     assert cluster.item_count == 2
     assert cluster.tickers == ["AVGO"]
@@ -75,7 +94,7 @@ def test_event_cluster_explains_single_source_uncertainties() -> None:
 
 def test_event_cluster_llm_prompt_uses_evidence_and_guardrails() -> None:
     cluster = build_event_cluster(
-        "strong|technical_trend|avgo",
+        "strong|technical_trend|avgo|event:chip",
         [
             make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
             make_item(2, "Broadcom chip discussion", source_name="Hacker News", tickers=["AVGO"]),
@@ -101,12 +120,12 @@ def test_event_clusters_can_be_retrieved_by_cluster_key() -> None:
     grouped = group_items_by_cluster(items)
     clusters = build_event_clusters_from_items(items, min_items=2)
     cluster = build_event_cluster(
-        "strong|technical_trend|avgo",
-        grouped["strong|technical_trend|avgo"],
+        "strong|technical_trend|avgo|event:chip",
+        grouped["strong|technical_trend|avgo|event:chip"],
     )
 
     assert len(clusters) == 1
-    assert clusters[0].cluster_key == "strong|technical_trend|avgo"
+    assert clusters[0].cluster_key == "strong|technical_trend|avgo|event:chip"
     assert cluster.item_count == 2
     assert [item.id for item in cluster.items] == [2, 1]
 
@@ -141,7 +160,7 @@ def test_list_event_clusters_attaches_related_market_context(monkeypatch) -> Non
 async def test_list_clusters_route_passes_user_preferences(monkeypatch) -> None:
     expected = [
         build_event_cluster(
-            "strong|technical_trend|avgo",
+            "strong|technical_trend|avgo|event:chip",
             [
                 make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
                 make_item(2, "Broadcom chip discussion", tickers=["AVGO"]),
@@ -177,7 +196,7 @@ async def test_list_clusters_route_passes_user_preferences(monkeypatch) -> None:
 @pytest.mark.anyio
 async def test_get_cluster_route_returns_detail(monkeypatch) -> None:
     expected = build_event_cluster(
-        "strong|technical_trend|avgo",
+        "strong|technical_trend|avgo|event:chip",
         [
             make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
             make_item(2, "Broadcom chip discussion", tickers=["AVGO"]),
@@ -195,7 +214,7 @@ async def test_get_cluster_route_returns_detail(monkeypatch) -> None:
         preferred_sources=None,
         blocked_sources=None,
     ):
-        assert cluster_key == "strong|technical_trend|avgo"
+        assert cluster_key == "strong|technical_trend|avgo|event:chip"
         assert min_items == 2
         assert ranking_weights == preferences.ranking_weights
         assert preferred_sources == preferences.preferred_sources
@@ -205,7 +224,7 @@ async def test_get_cluster_route_returns_detail(monkeypatch) -> None:
     monkeypatch.setattr(events, "get_event_cluster", fake_get_event_cluster)
 
     result = await events.get_cluster(
-        cluster_key="strong|technical_trend|avgo",
+        cluster_key="strong|technical_trend|avgo|event:chip",
         db=object(),
         min_items=2,
     )
@@ -227,7 +246,7 @@ async def test_get_cluster_route_raises_404_when_missing(monkeypatch) -> None:
 @pytest.mark.anyio
 async def test_explain_cluster_route_uses_kimi_and_preferences(monkeypatch) -> None:
     expected = build_event_cluster(
-        "strong|technical_trend|avgo",
+        "strong|technical_trend|avgo|event:chip",
         [
             make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
             make_item(2, "Broadcom chip discussion", tickers=["AVGO"]),
@@ -277,12 +296,12 @@ async def test_explain_cluster_route_uses_kimi_and_preferences(monkeypatch) -> N
     monkeypatch.setattr(events, "KimiCodingClient", FakeKimiClient)
 
     result = await events.explain_cluster_with_llm(
-        cluster_key="strong|technical_trend|avgo",
+        cluster_key="strong|technical_trend|avgo|event:chip",
         db=object(),
         min_items=2,
     )
 
-    assert result.cluster_key == "strong|technical_trend|avgo"
+    assert result.cluster_key == "strong|technical_trend|avgo|event:chip"
     assert result.model == "kimi-test"
     assert result.explanation.startswith("What happened")
     assert result.total_tokens == 28

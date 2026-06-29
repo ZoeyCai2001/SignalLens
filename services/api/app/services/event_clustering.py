@@ -8,7 +8,7 @@ from app.schemas.events import EventCluster, EventClusterTimelineItem
 from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import list_visible_feed_items
-from app.services.scoring import detect_tickers
+from app.services.scoring import TICKER_ALIASES, detect_tickers
 from app.services.watchlist import build_stock_market_snapshot
 
 STOP_WORDS = {
@@ -25,6 +25,52 @@ STOP_WORDS = {
     "this",
     "with",
     "using",
+}
+
+EVENT_SIGNATURE_TERMS = [
+    "earnings",
+    "guidance",
+    "upgrade",
+    "downgrade",
+    "analyst",
+    "partnership",
+    "deal",
+    "chip",
+    "silicon",
+    "gpu",
+    "memory",
+    "hbm",
+    "datacenter",
+    "data-center",
+    "capex",
+    "launch",
+    "release",
+    "model",
+    "benchmark",
+    "agent",
+    "agents",
+    "inference",
+    "training",
+    "supply",
+    "export",
+]
+
+GENERIC_TITLE_TERMS = {
+    "announces",
+    "announced",
+    "announce",
+    "discuss",
+    "discusses",
+    "discussion",
+    "report",
+    "reports",
+    "says",
+    "show",
+    "shows",
+    "unveil",
+    "unveils",
+    "update",
+    "updates",
 }
 
 
@@ -178,7 +224,11 @@ def attach_market_context(db: Session, cluster: EventCluster) -> EventCluster:
 def build_cluster_key(item: FeedItem) -> str:
     strong_terms = [*item_tickers(item), *item.products]
     if strong_terms:
-        return "|".join(["strong", item.category, *sorted(term.lower() for term in strong_terms)])
+        key_parts = ["strong", item.category, *sorted(term.lower() for term in strong_terms)]
+        signature = event_signature_term(item, strong_terms)
+        if signature:
+            key_parts.append(f"event:{signature}")
+        return "|".join(key_parts)
 
     title_terms = extract_title_terms(item.title)
     topic_terms = [topic.lower() for topic in item.topics[:4]]
@@ -200,6 +250,39 @@ def item_tickers(item: FeedItem) -> list[str]:
 def extract_title_terms(title: str) -> list[str]:
     words = re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{2,}", title.lower())
     return [word for word in words if word not in STOP_WORDS]
+
+
+def event_signature_term(item: FeedItem, entity_terms: list[str]) -> str | None:
+    text = " ".join(
+        part
+        for part in [
+            item.title,
+            item.summary_short or "",
+            item.why_it_matters or "",
+            " ".join(item.topics[:4]),
+        ]
+        if part
+    ).lower()
+    for term in EVENT_SIGNATURE_TERMS:
+        if re.search(rf"\b{re.escape(term)}\b", text):
+            return term
+
+    excluded_terms = entity_title_terms(entity_terms)
+    for term in extract_title_terms(item.title):
+        if term in excluded_terms or term in GENERIC_TITLE_TERMS:
+            continue
+        return term
+    return None
+
+
+def entity_title_terms(entity_terms: list[str]) -> set[str]:
+    excluded: set[str] = set()
+    for entity in entity_terms:
+        normalized = entity.upper()
+        excluded.update(extract_title_terms(entity))
+        for alias in TICKER_ALIASES.get(normalized, []):
+            excluded.update(extract_title_terms(alias))
+    return excluded
 
 
 def most_common_values(values) -> list[str]:
