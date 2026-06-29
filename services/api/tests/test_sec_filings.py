@@ -1,6 +1,16 @@
+import asyncio
+
 from app.db.models import RawItem, Source
 from app.services.ingestion import normalize_item
-from app.sources.sec_filings import SecFilingsConnector, parse_sec_date, sec_filing_url
+from app.sources.sec_filings import (
+    COMPANY_TICKERS_URL,
+    SecFilingsConnector,
+    fetch_company_ticker_ciks,
+    format_cik,
+    parse_company_ticker_ciks,
+    parse_sec_date,
+    sec_filing_url,
+)
 
 
 def test_sec_filings_connector_converts_recent_filings_to_raw_items() -> None:
@@ -38,6 +48,61 @@ def test_sec_filings_connector_converts_recent_filings_to_raw_items() -> None:
     assert items[0].raw_metadata["form"] == "8-K"
     assert "MICRON TECHNOLOGY INC (MU) filed SEC form 8-K." in (items[0].raw_text or "")
     assert items[0].published_at is not None
+
+
+def test_sec_filings_connector_normalizes_injected_ticker_cik_map() -> None:
+    connector = SecFilingsConnector(
+        tickers=[" tsla ", "MU"],
+        limit=2,
+        user_agent="SignalLens test",
+        ticker_cik_map={"tsla": "1318605", "bad": "not-a-cik"},
+    )
+
+    assert connector.tickers == ["TSLA", "MU"]
+    assert connector.ticker_cik_map == {"TSLA": "0001318605"}
+
+
+def test_parse_company_ticker_ciks_reads_official_sec_mapping() -> None:
+    assert parse_company_ticker_ciks(
+        {
+            "0": {"cik_str": 1318605, "ticker": "TSLA", "title": "Tesla, Inc."},
+            "1": {"cik_str": "2488", "ticker": "AMD", "title": "Advanced Micro Devices"},
+            "2": {"cik_str": None, "ticker": "BAD", "title": "Bad Row"},
+            "3": {"cik_str": 0, "ticker": "ZERO", "title": "Zero Row"},
+            "4": "not-a-row",
+        }
+    ) == {
+        "TSLA": "0001318605",
+        "AMD": "0000002488",
+    }
+
+
+def test_fetch_company_ticker_ciks_uses_official_sec_mapping_url() -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, dict[str, object]]:
+            return {"0": {"cik_str": 1318605, "ticker": "TSLA"}}
+
+    class FakeClient:
+        requested_url: str | None = None
+
+        async def get(self, url: str) -> FakeResponse:
+            self.requested_url = url
+            return FakeResponse()
+
+    client = FakeClient()
+
+    assert asyncio.run(fetch_company_ticker_ciks(client)) == {"TSLA": "0001318605"}
+    assert client.requested_url == COMPANY_TICKERS_URL
+
+
+def test_format_cik_rejects_invalid_values() -> None:
+    assert format_cik(1318605) == "0001318605"
+    assert format_cik("0000723125") == "0000723125"
+    assert format_cik("not-a-cik") is None
+    assert format_cik(0) is None
 
 
 def test_sec_filing_url_uses_edgar_archive_path() -> None:

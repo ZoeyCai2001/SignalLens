@@ -1,9 +1,12 @@
+from collections.abc import Mapping
 from datetime import UTC, datetime, time
 from typing import Any
 
 import httpx
 
 from app.sources.base import FetchCursor, FetchResult, RawItemInput, SourceConnector
+
+COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 
 SEC_CIK_BY_TICKER = {
     "MU": "0000723125",
@@ -40,12 +43,14 @@ class SecFilingsConnector(SourceConnector):
         limit: int = 25,
         user_agent: str = "SignalLens/0.1 personal research; configure SEC_USER_AGENT",
         forms: set[str] | None = None,
+        ticker_cik_map: Mapping[str, str] | None = None,
     ) -> None:
         self.tickers = [ticker.strip().upper() for ticker in tickers if ticker.strip().upper()]
         self.limit = limit
         self.user_agent = user_agent
         self.forms = forms or DEFAULT_SEC_FORMS
         self.base_url = "https://data.sec.gov/submissions"
+        self.ticker_cik_map = normalize_ticker_cik_map(ticker_cik_map or SEC_CIK_BY_TICKER)
 
     async def fetch(self, cursor: FetchCursor) -> FetchResult:
         headers = {
@@ -53,9 +58,18 @@ class SecFilingsConnector(SourceConnector):
             "User-Agent": self.user_agent,
         }
         items: list[RawItemInput] = []
+        ticker_ciks = dict(self.ticker_cik_map)
+        missing_tickers = [ticker for ticker in self.tickers if ticker not in ticker_ciks]
+        cik_lookup_failed = False
         async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+            if missing_tickers:
+                try:
+                    ticker_ciks.update(await fetch_company_ticker_ciks(client))
+                except httpx.HTTPError:
+                    cik_lookup_failed = True
+
             for ticker in self.tickers:
-                cik = SEC_CIK_BY_TICKER.get(ticker)
+                cik = ticker_ciks.get(ticker)
                 if not cik:
                     continue
                 response = await client.get(f"{self.base_url}/CIK{cik}.json")
@@ -66,7 +80,15 @@ class SecFilingsConnector(SourceConnector):
 
         return FetchResult(
             items=items[: self.limit],
-            next_cursor=FetchCursor(metadata={"last_limit": self.limit}),
+            next_cursor=FetchCursor(
+                metadata={
+                    "last_limit": self.limit,
+                    "unresolved_tickers": [
+                        ticker for ticker in self.tickers if ticker not in ticker_ciks
+                    ],
+                    "cik_lookup_failed": cik_lookup_failed,
+                }
+            ),
         )
 
     def _payload_to_raw_items(
@@ -128,6 +150,46 @@ class SecFilingsConnector(SourceConnector):
             if len(rows) >= self.limit:
                 break
         return rows
+
+
+async def fetch_company_ticker_ciks(client: httpx.AsyncClient) -> dict[str, str]:
+    response = await client.get(COMPANY_TICKERS_URL)
+    response.raise_for_status()
+    return parse_company_ticker_ciks(response.json())
+
+
+def parse_company_ticker_ciks(payload: dict[str, Any]) -> dict[str, str]:
+    ticker_ciks: dict[str, str] = {}
+    for entry in payload.values():
+        if not isinstance(entry, dict):
+            continue
+        ticker = str(entry.get("ticker") or "").strip().upper()
+        cik = format_cik(entry.get("cik_str"))
+        if ticker and cik:
+            ticker_ciks[ticker] = cik
+    return ticker_ciks
+
+
+def normalize_ticker_cik_map(mapping: Mapping[str, str]) -> dict[str, str]:
+    ticker_ciks: dict[str, str] = {}
+    for ticker, cik_value in mapping.items():
+        normalized_ticker = str(ticker or "").strip().upper()
+        cik = format_cik(cik_value)
+        if normalized_ticker and cik:
+            ticker_ciks[normalized_ticker] = cik
+    return ticker_ciks
+
+
+def format_cik(value: Any) -> str | None:
+    if value is None:
+        return None
+    try:
+        cik_number = int(str(value).strip())
+    except ValueError:
+        return None
+    if cik_number <= 0:
+        return None
+    return f"{cik_number:010d}"
 
 
 def value_at(values: list[Any], index: int) -> str | None:

@@ -228,3 +228,4 @@ Implementation progress:
 - Made scheduled ingestion cycles resilient to unexpected per-source exceptions so one failed source does not block later sources, alert generation, or digest snapshot saving.
 - Added a free official SEC EDGAR filings source for watched public-company tickers, including backend ingestion, scheduled cycle participation, dashboard toolbar access, and documentation for conservative `SEC_USER_AGENT` usage.
 - Added SEC User-Agent readiness checks to the health API, dashboard System Readiness badges, tests, and safe `.env.example` setup template.
+- Expanded SEC filings ingestion to resolve user-added public tickers through the official SEC company ticker mapping instead of relying only on the local seed CIK list.
