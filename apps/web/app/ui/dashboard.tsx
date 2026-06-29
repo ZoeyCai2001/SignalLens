@@ -3622,9 +3622,35 @@ function DailyDigestPanel({
                   <div className="digest-section-title">{section.title}</div>
                   <div className="digest-list">
                     {section.items.slice(0, 3).map((item) => (
-                      <a className="digest-link" href={item.url} target="_blank" key={item.id}>
-                        {item.title}
-                      </a>
+                      <div className="digest-preview-item" key={item.id}>
+                        <a
+                          className="digest-link"
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {item.title}
+                        </a>
+                        <div className="small-muted">
+                          {item.source_name}
+                          {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                        </div>
+                        {digestItemSummary(item) ? (
+                          <div className="digest-item-summary">{digestItemSummary(item)}</div>
+                        ) : null}
+                        {digestItemLabels(item).length ? (
+                          <div className="digest-coverage">
+                            {digestItemLabels(item).map((label) => (
+                              <span
+                                className={`badge ${item.tickers.includes(label) ? "stock" : ""}`}
+                                key={`${item.id}:${label}`}
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -3691,6 +3717,14 @@ function DailyDigestPanel({
 
 function countMarkdownLines(markdown: string): number {
   return markdown.split(/\r?\n/).filter((line) => line.trim()).length;
+}
+
+function digestItemSummary(item: FeedItem): string | null {
+  return item.summary_short || item.why_it_matters || item.summary_detailed || null;
+}
+
+function digestItemLabels(item: FeedItem): string[] {
+  return Array.from(new Set([...item.tickers, ...item.topics])).slice(0, 4);
 }
 
 function SavedItemsPanel({

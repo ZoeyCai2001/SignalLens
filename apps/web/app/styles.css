@@ -919,6 +919,24 @@ table {
   gap: 5px;
 }
 
+.digest-preview-item {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+
+.digest-preview-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.digest-item-summary {
+  color: #4d5c59;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .snapshot-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 36px;
