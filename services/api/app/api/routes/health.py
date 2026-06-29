@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.core.config import Settings, get_settings
+from app.core.config import DEFAULT_SEC_USER_AGENT, Settings, get_settings
 from app.schemas.health import HealthResponse, IntegrationStatus, SetupItem
 
 router = APIRouter()
@@ -14,6 +14,7 @@ async def health_check() -> HealthResponse:
         github_api=has_config_value(settings.github_token),
         product_hunt_api=has_config_value(settings.product_hunt_api_token),
         alpha_vantage_api=has_config_value(settings.alpha_vantage_api_key),
+        sec_user_agent=has_custom_sec_user_agent(settings.sec_user_agent),
         chinese_rss_feeds=has_config_value(settings.chinese_rss_feeds),
     )
     setup_items = build_setup_items(settings=settings, integrations=integrations)
@@ -32,6 +33,13 @@ async def health_check() -> HealthResponse:
 
 def has_config_value(value: str | None) -> bool:
     return bool(value and value.strip())
+
+
+def has_custom_sec_user_agent(value: str | None) -> bool:
+    if not value or not value.strip():
+        return False
+    text = value.strip()
+    return text != DEFAULT_SEC_USER_AGENT and "configure SEC_USER_AGENT" not in text
 
 
 def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> list[SetupItem]:
@@ -68,6 +76,18 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             required_for="watched-stock news and daily price snapshots",
             env_var="ALPHA_VANTAGE_API_KEY",
             setup_hint="Set ALPHA_VANTAGE_API_KEY in .env for stock news and prices.",
+        ),
+        SetupItem(
+            key="sec_user_agent",
+            label="SEC User-Agent",
+            configured=integrations.sec_user_agent,
+            importance="recommended",
+            required_for="official SEC EDGAR filings ingestion",
+            env_var="SEC_USER_AGENT",
+            setup_hint=(
+                "Set SEC_USER_AGENT in .env to a descriptive app/contact string "
+                "for SEC EDGAR requests."
+            ),
         ),
         SetupItem(
             key="product_hunt_api",
@@ -110,6 +130,7 @@ def placeholder_for_env_var(env_var: str) -> str:
         "MOONSHOT_API_KEY": "sk-...",
         "GITHUB_TOKEN": "ghp_...",
         "ALPHA_VANTAGE_API_KEY": "your-alpha-vantage-key",
+        "SEC_USER_AGENT": "SignalLens/0.1 your-email@example.com",
         "PRODUCT_HUNT_API_TOKEN": "your-product-hunt-token",
         "CHINESE_RSS_FEEDS": "Name|https://example.com/feed.xml",
     }

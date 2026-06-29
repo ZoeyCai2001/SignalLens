@@ -389,6 +389,7 @@ type IntegrationStatus = {
   github_api: boolean;
   product_hunt_api: boolean;
   alpha_vantage_api: boolean;
+  sec_user_agent: boolean;
   chinese_rss_feeds: boolean;
 };
 
@@ -3101,6 +3102,7 @@ function SystemStatusPanel({
         ["Kimi", status.integrations.kimi_coding_api],
         ["GitHub", status.integrations.github_api],
         ["Alpha Vantage", status.integrations.alpha_vantage_api],
+        ["SEC", status.integrations.sec_user_agent],
         ["Product Hunt", status.integrations.product_hunt_api],
         ["Chinese RSS", status.integrations.chinese_rss_feeds],
       ]

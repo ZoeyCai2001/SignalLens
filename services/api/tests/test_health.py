@@ -3,10 +3,11 @@ import pytest
 from app.api.routes.health import (
     build_missing_env_template,
     build_setup_items,
+    has_custom_sec_user_agent,
     has_config_value,
     health_check,
 )
-from app.core.config import Settings
+from app.core.config import DEFAULT_SEC_USER_AGENT, Settings
 from app.schemas.health import IntegrationStatus
 
 
@@ -15,6 +16,13 @@ def test_has_config_value_rejects_empty_strings() -> None:
     assert has_config_value("") is False
     assert has_config_value("   ") is False
     assert has_config_value("configured") is True
+
+
+def test_has_custom_sec_user_agent_rejects_default_placeholder() -> None:
+    assert has_custom_sec_user_agent(None) is False
+    assert has_custom_sec_user_agent("") is False
+    assert has_custom_sec_user_agent(DEFAULT_SEC_USER_AGENT) is False
+    assert has_custom_sec_user_agent("SignalLens/0.1 zoey@example.com") is True
 
 
 def fake_settings() -> Settings:
@@ -26,6 +34,7 @@ def fake_settings() -> Settings:
         GITHUB_TOKEN="github-key",
         PRODUCT_HUNT_API_TOKEN="",
         ALPHA_VANTAGE_API_KEY="alpha-key",
+        SEC_USER_AGENT="SignalLens/0.1 zoey@example.com",
         CHINESE_RSS_FEEDS="https://example.com/feed.xml",
     )
 
@@ -45,11 +54,13 @@ async def test_health_check_reports_readiness_without_exposing_secrets(monkeypat
     assert response.integrations.github_api is True
     assert response.integrations.product_hunt_api is False
     assert response.integrations.alpha_vantage_api is True
+    assert response.integrations.sec_user_agent is True
     assert response.integrations.chinese_rss_feeds is True
     assert {item.env_var for item in response.setup_items} == {
         "MOONSHOT_API_KEY",
         "GITHUB_TOKEN",
         "ALPHA_VANTAGE_API_KEY",
+        "SEC_USER_AGENT",
         "PRODUCT_HUNT_API_TOKEN",
         "CHINESE_RSS_FEEDS",
     }
@@ -72,6 +83,7 @@ def test_build_setup_items_reports_safe_env_hints_without_values() -> None:
             github_api=True,
             product_hunt_api=False,
             alpha_vantage_api=True,
+            sec_user_agent=True,
             chinese_rss_feeds=True,
         ),
     )
@@ -80,13 +92,14 @@ def test_build_setup_items_reports_safe_env_hints_without_values() -> None:
         "kimi_coding_api",
         "github_api",
         "alpha_vantage_api",
+        "sec_user_agent",
         "product_hunt_api",
         "chinese_rss_feeds",
     ]
     assert items[0].configured is True
     assert items[0].importance == "core"
-    assert items[3].configured is False
-    assert items[3].importance == "optional"
+    assert items[4].configured is False
+    assert items[4].importance == "optional"
     assert "moonshot-key" not in " ".join(item.setup_hint for item in items)
     assert "github-key" not in " ".join(item.setup_hint for item in items)
 
@@ -99,6 +112,7 @@ def test_build_missing_env_template_uses_only_placeholders() -> None:
             github_api=False,
             product_hunt_api=False,
             alpha_vantage_api=True,
+            sec_user_agent=False,
             chinese_rss_feeds=True,
         ),
     )
@@ -107,6 +121,7 @@ def test_build_missing_env_template_uses_only_placeholders() -> None:
 
     assert "MOONSHOT_API_KEY=sk-..." in template
     assert "GITHUB_TOKEN=ghp_..." in template
+    assert "SEC_USER_AGENT=SignalLens/0.1 your-email@example.com" in template
     assert "PRODUCT_HUNT_API_TOKEN=your-product-hunt-token" in template
     assert "ALPHA_VANTAGE_API_KEY" not in template
     assert "moonshot-key" not in template
@@ -121,6 +136,7 @@ def test_build_missing_env_template_returns_empty_when_ready() -> None:
             github_api=True,
             product_hunt_api=True,
             alpha_vantage_api=True,
+            sec_user_agent=True,
             chinese_rss_feeds=True,
         ),
     )

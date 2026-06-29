@@ -8,6 +8,7 @@ class IntegrationStatus(BaseModel):
     github_api: bool
     product_hunt_api: bool
     alpha_vantage_api: bool
+    sec_user_agent: bool
     chinese_rss_feeds: bool
 
 

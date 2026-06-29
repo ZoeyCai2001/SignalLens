@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_SEC_USER_AGENT = "SignalLens/0.1 personal research; configure SEC_USER_AGENT"
+
 
 class Settings(BaseSettings):
     environment: str = Field(default="local", alias="ENVIRONMENT")
@@ -26,7 +28,7 @@ class Settings(BaseSettings):
     product_hunt_api_token: str | None = Field(default=None, alias="PRODUCT_HUNT_API_TOKEN")
     alpha_vantage_api_key: str | None = Field(default=None, alias="ALPHA_VANTAGE_API_KEY")
     sec_user_agent: str = Field(
-        default="SignalLens/0.1 personal research; configure SEC_USER_AGENT",
+        default=DEFAULT_SEC_USER_AGENT,
         alias="SEC_USER_AGENT",
     )
     chinese_rss_feeds: str | None = Field(default=None, alias="CHINESE_RSS_FEEDS")
