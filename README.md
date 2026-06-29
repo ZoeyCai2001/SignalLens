@@ -59,6 +59,10 @@ Useful endpoints:
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/signals`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/briefing`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/prices`
+- `GET http://127.0.0.1:8000/api/stocks/watchlist-dashboard`
+- `GET http://127.0.0.1:8000/api/stocks/MU`
+- `GET http://127.0.0.1:8000/api/stocks/MU/events`
+- `GET http://127.0.0.1:8000/api/stocks/MU/price-series`
 - `GET http://127.0.0.1:8000/api/watchlist/topics`
 - `GET http://127.0.0.1:8000/api/watchlist/topics/{topic}/briefing`
 - `GET http://127.0.0.1:8000/api/feed`

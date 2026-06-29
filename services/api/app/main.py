@@ -13,6 +13,7 @@ from app.api.routes import (
     preferences,
     search,
     sources,
+    stocks,
     watchlist,
 )
 from app.core.config import get_settings
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(digest.router, prefix="/api/digest", tags=["digest"])
     app.include_router(events.router, prefix="/api/events", tags=["events"])
     app.include_router(sources.router, prefix="/api/sources", tags=["sources"])
+    app.include_router(stocks.router, prefix="/api/stocks", tags=["stocks"])
     app.include_router(watchlist.router, prefix="/api/watchlist", tags=["watchlist"])
     app.include_router(ingestion.router, prefix="/api/ingestion", tags=["ingestion"])
     app.include_router(

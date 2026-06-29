@@ -398,6 +398,8 @@ Ingestion and manual submission normalization also detect common AI product name
 - `GET /api/stocks/{ticker}/events`
 - `GET /api/stocks/{ticker}/price-series`
 
+The `/api/stocks/*` routes are PRD-style aliases over the stock watchlist services: dashboard summaries reuse the same attention scoring as `/api/watchlist/stocks/signals/summary`, stock detail returns the existing briefing shape, events return the briefing timeline, and price-series returns the stored market snapshot. This keeps scripts and future frontend modules aligned with the PRD wording while preserving the richer watchlist CRUD namespace.
+
 ### Sources
 
 - `GET /api/sources`
