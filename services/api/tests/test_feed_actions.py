@@ -626,6 +626,28 @@ def test_update_item_action_can_unhide_item() -> None:
     assert persisted.is_hidden is False
 
 
+def test_update_item_action_can_mark_and_unmark_important() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        item = make_normalized_item(1, "Important signal", language="en")
+        db.add(item)
+        db.commit()
+
+        important_item = update_item_action(db=db, item=item, action_name="mark-important")
+        important_action = db.query(UserItemAction).filter(UserItemAction.item_id == 1).one()
+        assert important_item.is_important is True
+        assert important_action.is_important is True
+
+        normal_item = update_item_action(db=db, item=item, action_name="unmark-important")
+        normal_action = db.query(UserItemAction).filter(UserItemAction.item_id == 1).one()
+
+    assert normal_item.is_important is False
+    assert normal_action.is_important is False
+
+
 def test_update_item_action_can_mark_item_read_and_unread() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

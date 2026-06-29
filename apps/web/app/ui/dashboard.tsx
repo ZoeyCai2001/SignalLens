@@ -1589,6 +1589,7 @@ export function Dashboard() {
         method: "POST",
       });
       setFeed((items) => items.map((item) => (item.id === itemId ? summarized : item)));
+      setModuleFeedOverrides((items) => syncModuleFeedItem(items, summarized));
       setSavedItems((items) => syncSavedFeedItem(items, summarized));
       setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, summarized));
       await refreshAllWithStatus(`Summarized item ${itemId}`);
@@ -1608,6 +1609,7 @@ export function Dashboard() {
         method: "POST",
       });
       setFeed((items) => items.map((item) => (item.id === itemId ? classified : item)));
+      setModuleFeedOverrides((items) => syncModuleFeedItem(items, classified));
       setSavedItems((items) => syncSavedFeedItem(items, classified));
       setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, classified));
       await refreshAllWithStatus(`Classified item ${itemId}`);
@@ -1639,6 +1641,7 @@ export function Dashboard() {
       );
       setSelectedFeedDetail(updated);
       setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+      setModuleFeedOverrides((items) => syncModuleFeedItem(items, updated));
       setSavedItems((items) => syncSavedFeedItem(items, updated));
       setStatus(`Saved note for item ${itemId}`);
     } catch (err) {
@@ -1670,6 +1673,7 @@ export function Dashboard() {
         }),
       });
       setFeed((items) => [result.item, ...items.filter((item) => item.id !== result.item.id)]);
+      setModuleFeedOverrides((items) => syncModuleFeedItem(items, result.item));
       setSavedItems((items) => syncSavedFeedItem(items, result.item));
       setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, result.item));
       setManualTitle("");
@@ -2064,6 +2068,7 @@ export function Dashboard() {
       | "hide"
       | "unhide"
       | "mark-important"
+      | "unmark-important"
       | "mark-read"
       | "mark-unread",
   ) => {
@@ -2075,6 +2080,7 @@ export function Dashboard() {
       });
       if (action === "hide") {
         setFeed((items) => items.filter((item) => item.id !== itemId));
+        setModuleFeedOverrides((items) => removeModuleFeedItem(items, itemId));
         setSavedItems((items) => items.filter((item) => item.id !== itemId));
         setSelectedFeedDetail((detail) => (detail?.id === itemId ? null : detail));
         await refreshAllWithStatus(`Hidden item ${itemId}`);
@@ -2083,23 +2089,26 @@ export function Dashboard() {
         await refreshAllWithStatus(`Restored hidden item ${itemId}`);
       } else if (action === "unsave") {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+        setModuleFeedOverrides((items) => syncModuleFeedItem(items, updated));
         setSavedItems((items) => syncSavedFeedItem(items, updated));
         setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
         await refreshAllWithStatus(`Removed saved item ${itemId}`);
       } else if (action === "mark-read" || action === "mark-unread") {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+        setModuleFeedOverrides((items) => syncModuleFeedItem(items, updated));
         setSavedItems((items) => syncSavedFeedItem(items, updated));
         setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
         await refreshAllWithStatus(
-          action === "mark-read" ? `Marked item ${itemId} read` : `Marked item ${itemId} unread`,
+          action === "mark-read"
+            ? `Marked item ${itemId} read`
+            : `Marked item ${itemId} unread`,
         );
       } else {
         setFeed((items) => items.map((item) => (item.id === itemId ? updated : item)));
+        setModuleFeedOverrides((items) => syncModuleFeedItem(items, updated));
         setSavedItems((items) => syncSavedFeedItem(items, updated));
         setSelectedFeedDetail((detail) => updateSelectedFeedDetail(detail, updated));
-        await refreshAllWithStatus(
-          action === "save" ? `Saved item ${itemId}` : `Marked item ${itemId}`,
-        );
+        await refreshAllWithStatus(feedActionStatus(action, itemId));
       }
     } catch (err) {
       setError(readError(err));
@@ -4322,7 +4331,14 @@ function FeedCard({
   onDetail: (itemId: number) => void;
   onAction: (
     itemId: number,
-    action: "save" | "unsave" | "hide" | "mark-important" | "mark-read" | "mark-unread",
+    action:
+      | "save"
+      | "unsave"
+      | "hide"
+      | "mark-important"
+      | "unmark-important"
+      | "mark-read"
+      | "mark-unread",
   ) => void;
   onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
 }) {
@@ -4396,13 +4412,19 @@ function FeedCard({
             )}
           </button>
           <button
-            className="button icon-button"
-            onClick={() => onAction(item.id, "mark-important")}
-            disabled={busy || item.is_important}
-            title="Mark important"
-            aria-label="Mark important"
+            className={`button icon-button ${item.is_important ? "active-icon-button" : ""}`}
+            onClick={() =>
+              onAction(item.id, item.is_important ? "unmark-important" : "mark-important")
+            }
+            disabled={busy}
+            title={item.is_important ? "Remove important mark" : "Mark important"}
+            aria-label={item.is_important ? "Remove important mark" : "Mark important"}
           >
-            {busy ? <Loader2 className="spin" size={16} /> : <Flag size={16} />}
+            {busy ? (
+              <Loader2 className="spin" size={16} />
+            ) : (
+              <Flag size={16} fill={item.is_important ? "currentColor" : "none"} />
+            )}
           </button>
           <button
             className={`button icon-button ${item.is_read ? "active-icon-button" : ""}`}
@@ -4699,6 +4721,43 @@ function syncSavedFeedItem(items: FeedItem[], updated: FeedItem): FeedItem[] {
     return [updated, ...items];
   }
   return items.map((item) => (item.id === updated.id ? updated : item));
+}
+
+function syncModuleFeedItem(
+  moduleFeeds: Partial<Record<FeedModuleKey, FeedItem[]>>,
+  updated: FeedItem,
+): Partial<Record<FeedModuleKey, FeedItem[]>> {
+  return Object.fromEntries(
+    Object.entries(moduleFeeds).map(([moduleKey, items]) => [
+      moduleKey,
+      items?.map((item) => (item.id === updated.id ? updated : item)) ?? [],
+    ]),
+  ) as Partial<Record<FeedModuleKey, FeedItem[]>>;
+}
+
+function removeModuleFeedItem(
+  moduleFeeds: Partial<Record<FeedModuleKey, FeedItem[]>>,
+  itemId: number,
+): Partial<Record<FeedModuleKey, FeedItem[]>> {
+  return Object.fromEntries(
+    Object.entries(moduleFeeds).map(([moduleKey, items]) => [
+      moduleKey,
+      items?.filter((item) => item.id !== itemId) ?? [],
+    ]),
+  ) as Partial<Record<FeedModuleKey, FeedItem[]>>;
+}
+
+function feedActionStatus(action: string, itemId: number): string {
+  if (action === "save") {
+    return `Saved item ${itemId}`;
+  }
+  if (action === "mark-important") {
+    return `Marked item ${itemId} important`;
+  }
+  if (action === "unmark-important") {
+    return `Removed important mark from item ${itemId}`;
+  }
+  return `Updated item ${itemId}`;
 }
 
 function ManualSubmissionPanel({

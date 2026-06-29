@@ -554,6 +554,8 @@ def update_item_action(
         action.is_hidden = False
     elif action_name == "mark-important":
         action.is_important = True
+    elif action_name == "unmark-important":
+        action.is_important = False
     elif action_name == "mark-read":
         action.is_read = True
         action.read_at = datetime.now(UTC)
