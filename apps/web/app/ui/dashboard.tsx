@@ -432,6 +432,8 @@ type SourceCreatePayload = {
   base_url: string | null;
   enabled: boolean;
   priority: number;
+  rate_limit: string | null;
+  polling_interval: string | null;
   terms_notes: string | null;
 };
 
@@ -753,6 +755,8 @@ export function Dashboard() {
   const [sourceType, setSourceType] = useState("blog");
   const [sourceAccessMethod, setSourceAccessMethod] = useState("rss");
   const [sourceBaseUrl, setSourceBaseUrl] = useState("");
+  const [sourcePollingInterval, setSourcePollingInterval] = useState("");
+  const [sourceRateLimit, setSourceRateLimit] = useState("");
   const [sourceTermsNotes, setSourceTermsNotes] = useState("");
   const [alertRuleName, setAlertRuleName] = useState("");
   const [alertRuleCategory, setAlertRuleCategory] = useState("all");
@@ -2295,6 +2299,8 @@ export function Dashboard() {
           base_url: sourceBaseUrl.trim() || null,
           enabled: true,
           priority: 90,
+          rate_limit: sourceRateLimit.trim() || null,
+          polling_interval: sourcePollingInterval.trim() || null,
           terms_notes: sourceTermsNotes.trim() || null,
         } satisfies SourceCreatePayload),
       });
@@ -2302,6 +2308,8 @@ export function Dashboard() {
       setSourceType("blog");
       setSourceAccessMethod("rss");
       setSourceBaseUrl("");
+      setSourcePollingInterval("");
+      setSourceRateLimit("");
       setSourceTermsNotes("");
       setSources((items) => [...items, created].sort((a, b) => a.priority - b.priority));
       await refreshAllWithStatus(`Following source ${created.name}`);
@@ -2422,12 +2430,16 @@ export function Dashboard() {
       accessMethod={sourceAccessMethod}
       baseUrl={sourceBaseUrl}
       termsNotes={sourceTermsNotes}
+      pollingInterval={sourcePollingInterval}
+      rateLimit={sourceRateLimit}
       disabled={loadState !== "idle"}
       busySourceId={busySourceId}
       onNameChange={setSourceName}
       onTypeChange={setSourceType}
       onAccessMethodChange={setSourceAccessMethod}
       onBaseUrlChange={setSourceBaseUrl}
+      onPollingIntervalChange={setSourcePollingInterval}
+      onRateLimitChange={setSourceRateLimit}
       onTermsNotesChange={setSourceTermsNotes}
       onRunStatusFilterChange={setSourceRunStatusFilter}
       onRunSourceFilterChange={setSourceRunSourceFilter}
@@ -6645,6 +6657,8 @@ function SourceTable({
   type,
   accessMethod,
   baseUrl,
+  pollingInterval,
+  rateLimit,
   termsNotes,
   disabled,
   busySourceId,
@@ -6652,6 +6666,8 @@ function SourceTable({
   onTypeChange,
   onAccessMethodChange,
   onBaseUrlChange,
+  onPollingIntervalChange,
+  onRateLimitChange,
   onTermsNotesChange,
   onRunStatusFilterChange,
   onRunSourceFilterChange,
@@ -6672,6 +6688,8 @@ function SourceTable({
   type: string;
   accessMethod: string;
   baseUrl: string;
+  pollingInterval: string;
+  rateLimit: string;
   termsNotes: string;
   disabled: boolean;
   busySourceId: number | null;
@@ -6679,6 +6697,8 @@ function SourceTable({
   onTypeChange: (value: string) => void;
   onAccessMethodChange: (value: string) => void;
   onBaseUrlChange: (value: string) => void;
+  onPollingIntervalChange: (value: string) => void;
+  onRateLimitChange: (value: string) => void;
   onTermsNotesChange: (value: string) => void;
   onRunStatusFilterChange: (value: "all" | "failed") => void;
   onRunSourceFilterChange: (source: SourceHealth | null) => void;
@@ -6724,7 +6744,7 @@ function SourceTable({
         <h2 className="section-title">Source Health</h2>
         <DatabaseZap size={16} aria-hidden="true" />
       </div>
-      <div className="form-panel compact-form">
+      <div className="form-panel compact-form source-follow-form">
         <input
           className="field"
           placeholder="Source name"
@@ -6762,6 +6782,20 @@ function SourceTable({
           placeholder="URL or feed"
           value={baseUrl}
           onChange={(event) => onBaseUrlChange(event.target.value)}
+          disabled={disabled}
+        />
+        <input
+          className="field"
+          placeholder="Polling"
+          value={pollingInterval}
+          onChange={(event) => onPollingIntervalChange(event.target.value)}
+          disabled={disabled}
+        />
+        <input
+          className="field"
+          placeholder="Rate limit"
+          value={rateLimit}
+          onChange={(event) => onRateLimitChange(event.target.value)}
           disabled={disabled}
         />
         <input

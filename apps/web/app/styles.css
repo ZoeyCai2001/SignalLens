@@ -474,6 +474,10 @@ table {
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
 
+.source-follow-form {
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+}
+
 .digest-date-form {
   grid-template-columns: minmax(0, 1fr);
   margin-bottom: 10px;

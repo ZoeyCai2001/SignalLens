@@ -232,3 +232,4 @@ Implementation progress:
 - Added PRD-style `/api/stocks/*` routes for stock dashboard summaries, stock detail, stock-linked events, and price series while reusing existing watchlist services.
 - Added explicit manual-submission `created` and `updated_existing` response flags and dashboard status text so URL resubmissions are shown as updates instead of ambiguous new submissions.
 - Exposed alert rule severity and minimum stock-impact controls in the dashboard so custom stock-sensitive alert rules can be tuned from the UI.
+- Added polling interval and rate-limit fields to the dashboard followed-source creation form so custom sources can be configured before their first run.
