@@ -34,6 +34,7 @@ from app.sources.hacker_news import HackerNewsConnector
 from app.sources.hugging_face import HuggingFaceConnector
 from app.sources.product_hunt import ProductHuntConnector
 from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector, RssFeedSpec
+from app.sources.sec_filings import SecFilingsConnector
 
 
 @dataclass(frozen=True)
@@ -378,10 +379,38 @@ async def run_alpha_vantage_price_ingestion(
         )
 
 
+async def run_sec_filings_ingestion(
+    db: Session,
+    limit: int = 25,
+    settings: Settings | None = None,
+) -> IngestionResult:
+    resolved_settings = settings or get_settings()
+    source = get_or_create_source(
+        db,
+        name="SEC Filings",
+        source_type="finance_filings",
+        access_method="official_api",
+        base_url="https://data.sec.gov/submissions",
+        auth_required=False,
+        rate_limit="Official SEC submissions API; use descriptive User-Agent and poll daily.",
+        polling_interval="daily",
+        enabled=True,
+        priority=15,
+        terms_notes="Uses SEC EDGAR submissions metadata for recent 8-K, 10-Q, and 10-K filings.",
+    )
+    connector = SecFilingsConnector(
+        tickers=list_price_watchlist_tickers(db),
+        limit=limit,
+        user_agent=resolved_settings.sec_user_agent,
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
 REGISTERED_SOURCE_RUNNERS = (
     RegisteredSourceRunner("Hacker News", run_hacker_news_ingestion, 30),
     RegisteredSourceRunner("Alpha Vantage News", run_alpha_vantage_news_ingestion, 25),
     RegisteredSourceRunner("Alpha Vantage Prices", run_alpha_vantage_price_ingestion, 30),
+    RegisteredSourceRunner("SEC Filings", run_sec_filings_ingestion, 25),
     RegisteredSourceRunner("arXiv", run_arxiv_ingestion, 25),
     RegisteredSourceRunner("Chinese RSS Feeds", run_chinese_rss_ingestion, 25),
     RegisteredSourceRunner("GitHub", run_github_ingestion, 25),
@@ -732,7 +761,7 @@ def compute_content_hash(item: RawItemInput) -> str:
 
 def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
     combined_text = " ".join(part for part in [raw.raw_title, raw.raw_text or ""] if part)
-    if not is_ai_relevant(combined_text):
+    if not is_ai_relevant(combined_text) and source.name != "SEC Filings":
         return None
 
     language = detect_language(combined_text)
@@ -831,6 +860,14 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         summary_prefix = "Stock-linked AI news"
         why_it_matters = (
             "This finance item matched watched AI tickers or AI themes in Alpha Vantage news."
+        )
+    elif source.name == "SEC Filings":
+        category = "stock_company_event"
+        subcategory = "sec_filing"
+        summary_prefix = "SEC filing"
+        why_it_matters = (
+            "This filing matched a watched ticker and may contain company-specific "
+            "financial, risk, or event disclosures."
         )
     elif source.type == "manual":
         category = "manual_submission"
@@ -1106,6 +1143,8 @@ def stock_impact_score_for_source(source: Source, tickers: list[str]) -> float:
         return 0
     if source.name == "Alpha Vantage News":
         return 0.55
+    if source.name == "SEC Filings":
+        return 0.5
     return 0.2
 
 

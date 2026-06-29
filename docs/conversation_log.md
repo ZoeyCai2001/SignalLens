@@ -226,3 +226,4 @@ Implementation progress:
 - Refined event cluster keys with lightweight event signatures so unrelated same-ticker developments split into separate event cards.
 - Made the stock portfolio-notes toggle clear holding, shares, and average-cost fields when disabled and saved, keeping private position data removable.
 - Made scheduled ingestion cycles resilient to unexpected per-source exceptions so one failed source does not block later sources, alert generation, or digest snapshot saving.
+- Added a free official SEC EDGAR filings source for watched public-company tickers, including backend ingestion, scheduled cycle participation, dashboard toolbar access, and documentation for conservative `SEC_USER_AGENT` usage.

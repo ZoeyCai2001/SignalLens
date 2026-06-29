@@ -86,6 +86,7 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/ingestion/hacker-news`
 - `POST http://127.0.0.1:8000/api/ingestion/alpha-vantage-news`
 - `POST http://127.0.0.1:8000/api/ingestion/alpha-vantage-prices`
+- `POST http://127.0.0.1:8000/api/ingestion/sec-filings`
 - `POST http://127.0.0.1:8000/api/ingestion/arxiv`
 - `POST http://127.0.0.1:8000/api/ingestion/chinese-rss`
 - `POST http://127.0.0.1:8000/api/ingestion/github`
@@ -140,6 +141,10 @@ recorded as `skipped`.
 Alpha Vantage stock news ingestion is optional. Set `ALPHA_VANTAGE_API_KEY` in
 `.env` to enable watched-ticker news; without a key the source run is recorded as
 `skipped`.
+
+SEC filings ingestion uses the official SEC submissions API for recent watched-ticker
+8-K, 10-Q, and 10-K metadata. Set `SEC_USER_AGENT` in `.env` to a descriptive
+contact string for compliant SEC access.
 
 Chinese social trend ingestion is configurable through public RSS/Atom feeds. Set
 `CHINESE_RSS_FEEDS` in `.env` as comma-separated `Name|URL` entries; without feeds

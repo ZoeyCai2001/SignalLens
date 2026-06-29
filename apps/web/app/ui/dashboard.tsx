@@ -2520,6 +2520,19 @@ export function Dashboard() {
             </button>
             <button
               className="button"
+              onClick={() => runIngestion("sec-filings")}
+              disabled={loadState !== "idle"}
+              title="Run SEC filings ingestion"
+            >
+              {activeOperation === "ingest:sec-filings" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <FileText size={16} />
+              )}
+              SEC
+            </button>
+            <button
+              className="button"
               onClick={() => runIngestion("arxiv")}
               disabled={loadState !== "idle"}
               title="Run arXiv ingestion"

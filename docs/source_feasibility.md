@@ -15,6 +15,7 @@ This document is the Phase 0 source feasibility deliverable from the PRD. It is 
 | Selected RSS feeds | Include | No | Free | Best source class for company blogs and AI news. Store titles, URLs, publication metadata, and excerpts where provided by the feed; do not crawl full articles unless allowed. | Implemented connector and ingestion route |
 | Product Hunt | Include if token is available | Yes | Free for personal/non-commercial prototype | Product Hunt API is GraphQL, token-gated, public-scope by default, and asks for attribution. Its docs say commercial use requires contacting Product Hunt. | Implemented connector, skipped cleanly without token |
 | Alpha Vantage | Include as initial finance provider | Yes | Free tier is very limited; paid tier starts if volume grows | Free key is enough for light daily news/price polling. Alpha Vantage says most endpoints are free under the standard limit of 25 requests/day; premium plans remove daily limits. | Implemented news and daily price connectors, skipped cleanly without key |
+| SEC EDGAR submissions | Include for watched public companies | No | Free official data | Good fit for 8-K, 10-Q, and 10-K filing metadata. Use a descriptive `SEC_USER_AGENT`, poll conservatively, and link to filings rather than storing full documents. | Implemented watched-ticker filings connector |
 | NewsAPI | Defer | Yes | Free only for development/testing; paid plan required beyond dev use | Useful fallback for broad news, but the free Developer plan is limited to development/testing and 100 requests/day. Not needed while RSS and Alpha Vantage cover MVP. | Not implemented |
 | GDELT | Research candidate | No for public data; BigQuery costs may apply | Potentially free data, but analysis may require BigQuery usage | Strong candidate for broad global news/event discovery, but it is noisy and large. Use only after MVP source quality controls are stronger. | Not implemented |
 | X/Twitter | Defer | Yes | Pay-per-use | High signal but cost-sensitive. X describes pay-per-use API pricing and rate limits by endpoint. Add only after a concrete account/query list and spend cap exist. | Manual URL submission only |
@@ -28,6 +29,7 @@ Required for current optional MVP features:
 - `KIMI_API_KEY`: LLM summarization/classification via Kimi Coding API.
 - `ALPHA_VANTAGE_API_KEY`: stock news and daily price ingestion.
 - `PRODUCT_HUNT_API_TOKEN`: Product Hunt public launch metadata.
+- `SEC_USER_AGENT`: descriptive contact string for SEC EDGAR submissions access.
 
 Optional or future:
 
@@ -66,6 +68,7 @@ Avoid paid social APIs until the dashboard proves daily value from free/low-cost
 - [Product Hunt API documentation](https://api.producthunt.com/v2/docs)
 - [Alpha Vantage documentation](https://www.alphavantage.co/documentation/)
 - [Alpha Vantage premium plans](https://www.alphavantage.co/premium/)
+- [SEC EDGAR APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
 - [NewsAPI pricing](https://newsapi.org/pricing)
 - [GDELT data access](https://www.gdeltproject.org/data.html)
 - [X Developer Platform overview](https://docs.x.com/overview)

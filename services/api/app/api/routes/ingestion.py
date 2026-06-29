@@ -12,6 +12,7 @@ from app.services.ingestion import (
     run_hugging_face_ingestion,
     run_product_hunt_ingestion,
     run_rss_ingestion,
+    run_sec_filings_ingestion,
 )
 from app.services.scheduled_jobs import run_ingestion_cycle
 
@@ -48,6 +49,15 @@ async def ingest_alpha_vantage_prices(
     limit: int = Query(default=30, ge=1, le=100),
 ) -> IngestionRunResponse:
     result = await run_alpha_vantage_price_ingestion(db=db, limit=limit)
+    return IngestionRunResponse.model_validate(result)
+
+
+@router.post("/sec-filings", response_model=IngestionRunResponse)
+async def ingest_sec_filings(
+    db: DbSession,
+    limit: int = Query(default=25, ge=1, le=100),
+) -> IngestionRunResponse:
+    result = await run_sec_filings_ingestion(db=db, limit=limit)
     return IngestionRunResponse.model_validate(result)
 
 

@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     github_token: str | None = Field(default=None, alias="GITHUB_TOKEN")
     product_hunt_api_token: str | None = Field(default=None, alias="PRODUCT_HUNT_API_TOKEN")
     alpha_vantage_api_key: str | None = Field(default=None, alias="ALPHA_VANTAGE_API_KEY")
+    sec_user_agent: str = Field(
+        default="SignalLens/0.1 personal research; configure SEC_USER_AGENT",
+        alias="SEC_USER_AGENT",
+    )
     chinese_rss_feeds: str | None = Field(default=None, alias="CHINESE_RSS_FEEDS")
     cors_origins: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 

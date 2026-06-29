@@ -22,6 +22,7 @@ from app.services.ingestion import (
     run_hugging_face_ingestion,
     run_product_hunt_ingestion,
     run_rss_ingestion,
+    run_sec_filings_ingestion,
     run_source_ingestion_by_id,
 )
 from app.services.watchlist import (
@@ -71,6 +72,7 @@ DEFAULT_INGESTION_JOBS = [
         runner=run_alpha_vantage_price_ingestion,
         limit=30,
     ),
+    ScheduledIngestionJob(name="sec-filings", runner=run_sec_filings_ingestion, limit=25),
     ScheduledIngestionJob(name="arxiv", runner=run_arxiv_ingestion, limit=25),
     ScheduledIngestionJob(name="chinese-rss", runner=run_chinese_rss_ingestion, limit=25),
     ScheduledIngestionJob(name="github", runner=run_github_ingestion, limit=25),

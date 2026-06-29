@@ -21,7 +21,7 @@ This technical design translates the PRD into an implementation plan for the MVP
 ### Must Have
 
 - Web dashboard with ranked feed.
-- Source ingestion from arXiv, Hacker News, GitHub, Product Hunt, Hugging Face, selected RSS feeds, and Finnhub or Alpha Vantage.
+- Source ingestion from arXiv, Hacker News, GitHub, Product Hunt, Hugging Face, selected RSS feeds, Alpha Vantage, and SEC EDGAR filings.
 - Manual URL submission.
 - Topic watchlist.
 - AI Stock Watchlist with MU, SNDK, and MRVL seeded initially.
@@ -144,7 +144,8 @@ Initial connectors:
 - Product Hunt API
 - Hugging Face Hub API
 - RSS feed connector
-- Finnhub or Alpha Vantage connector
+- Alpha Vantage connector
+- SEC EDGAR submissions connector
 - Manual URL connector
 
 Each connector records:
@@ -384,6 +385,8 @@ Manual resubmission of the same URL updates the existing raw and normalized item
 
 Chinese social and social-keyword items receive deterministic English summary scaffolds before any LLM enrichment. The summary records the English social-trend interpretation, original source excerpt, inferred product/use-case names such as AI photo tools or AI agent products, adoption context from the public feed, and an experimental access note for social-keyword sources. The dashboard Chinese Social panel shows these summaries, product/use-case badges, and an experimental marker so the user can monitor Chinese consumer AI signals while preserving the compliant public-RSS posture.
 
+SEC EDGAR ingestion uses the official submissions API for watched public-company tickers and collects recent 8-K, 10-Q, and 10-K metadata with filing links rather than full filing text. The connector uses a descriptive `SEC_USER_AGENT`, stores form, CIK, accession number, filing date, and report date metadata, and classifies filings as `stock_company_event` items even when the filing title itself does not contain an AI keyword. This gives the stock dashboard a free official company-event source while keeping polling conservative and auditable.
+
 Ingestion normalization applies the same deterministic company extraction to provider, RSS, and community items, including ticker-to-company mapping from finance metadata. This lets company search, briefings, and digest sections work before optional LLM classification enriches the item.
 
 Ingestion and manual submission normalization also detect common AI product names such as ChatGPT, Claude, Cursor, Perplexity, Copilot, Sora, and related tools so AI Products modules and product briefings have useful entity data before LLM enrichment.
@@ -405,6 +408,8 @@ Ingestion and manual submission normalization also detect common AI product name
 - `POST /api/sources/{source_id}/run`
 
 Custom followed sources can run through reusable connectors when the access pattern is safe and structured. RSS sources with a `base_url` run through `RssConnector`; `github_repository` sources with a GitHub URL run through the GitHub REST API for that specific repository, enabling the PRD source-watchlist requirement for followed GitHub projects without scraping. `product_topic` sources run through the official Product Hunt GraphQL API when `PRODUCT_HUNT_API_TOKEN` is configured and locally filter launches by configured topic terms, Product Hunt topic URLs, or the followed source name. `social_keyword` sources run only against user-provided public RSS/Atom feeds and locally filter entries by configured keywords, giving the MVP a compliant experimental path for Chinese/Xiaohongshu-style trend monitoring without login-protected scraping. Full ingestion cycles run the built-in sources first and then enabled custom followed sources that are due according to their polling interval, so source-watchlist entries participate in scheduled collection without ignoring user-configured frequency. Unexpected per-source exceptions are converted into failed cycle rows so later sources, alert generation, and daily digest snapshot saving still run. Newly followed sources can be removed before they collect items or run history; after that, disabling preserves historical attribution while stopping future ingestion.
+
+Built-in source routes include manual actions for Hacker News, Alpha Vantage news, Alpha Vantage prices, SEC filings, arXiv, Chinese RSS, GitHub, Hugging Face, Product Hunt, selected RSS feeds, and the full ingestion cycle. The dashboard mirrors those routes in the toolbar so the user can run a free official filings refresh without waiting for the scheduler.
 
 Source Health rows surface the latest run status, recent failure count, and latest error text so ingestion failures can be diagnosed directly from the dashboard instead of requiring terminal logs. Source run history can be filtered to failed runs and scoped to a single source through the API and dashboard so connector issues can be triaged without scanning unrelated successful runs.
 
