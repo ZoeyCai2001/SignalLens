@@ -204,5 +204,6 @@ The web app expects the API at:
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-The dashboard System Readiness panel reads `/api/health` and shows which optional
-integration environment variables are configured without exposing secret values.
+The dashboard System Readiness panel reads `/api/health`, summarizes core/recommended/optional
+setup readiness, and shows which integration environment variables are configured without
+exposing secret values.

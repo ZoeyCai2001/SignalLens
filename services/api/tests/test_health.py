@@ -2,6 +2,7 @@ import pytest
 
 from app.api.routes.health import (
     build_missing_env_template,
+    build_setup_summary,
     build_setup_items,
     has_custom_sec_user_agent,
     has_config_value,
@@ -67,6 +68,13 @@ async def test_health_check_reports_readiness_without_exposing_secrets(monkeypat
     assert next(
         item for item in response.setup_items if item.env_var == "PRODUCT_HUNT_API_TOKEN"
     ).configured is False
+    assert response.setup_summary.total == 6
+    assert response.setup_summary.configured == 5
+    assert response.setup_summary.missing == 1
+    assert response.setup_summary.core_missing == 0
+    assert response.setup_summary.recommended_missing == 0
+    assert response.setup_summary.optional_missing == 1
+    assert response.setup_summary.core_ready is True
     assert "PRODUCT_HUNT_API_TOKEN=your-product-hunt-token" in response.missing_env_template
     assert "MOONSHOT_API_KEY" not in response.missing_env_template
     assert next(item for item in response.setup_items if item.key == "kimi_coding_api").importance == "core"
@@ -102,6 +110,30 @@ def test_build_setup_items_reports_safe_env_hints_without_values() -> None:
     assert items[4].importance == "optional"
     assert "moonshot-key" not in " ".join(item.setup_hint for item in items)
     assert "github-key" not in " ".join(item.setup_hint for item in items)
+
+
+def test_build_setup_summary_counts_missing_items_by_importance() -> None:
+    items = build_setup_items(
+        settings=fake_settings(),
+        integrations=IntegrationStatus(
+            kimi_coding_api=False,
+            github_api=False,
+            product_hunt_api=False,
+            alpha_vantage_api=True,
+            sec_user_agent=True,
+            chinese_rss_feeds=True,
+        ),
+    )
+
+    summary = build_setup_summary(items)
+
+    assert summary.total == 6
+    assert summary.configured == 3
+    assert summary.missing == 3
+    assert summary.core_missing == 1
+    assert summary.recommended_missing == 1
+    assert summary.optional_missing == 1
+    assert summary.core_ready is False
 
 
 def test_build_missing_env_template_uses_only_placeholders() -> None:

@@ -478,6 +478,7 @@ Recommended UI behavior:
 - Keep toolbar busy indicators tied to the active ingestion, refresh, cycle, or LLM action so manual operations remain auditable during local MVP use.
 - Back first-class module navigation with `/api/feed?module=...` filters for AI Trends, Research, Products, AI Stocks, and Chinese Social views, while the dashboard keeps the global ranked feed for overview metrics and side panels.
 - Label setup checklist items as core, recommended, or optional so missing API keys do not look equally blocking during budget-limited local setup.
+- Summarize `/api/health` setup readiness with total configured values, total missing values, missing counts by importance, and a core-ready flag so first-run setup distinguishes blocking LLM configuration from optional integrations.
 - Expose a placeholder-only missing `.env` template from health readiness data and let the dashboard copy it, so first-run API-key setup is easier without exposing configured secret values.
 - Keep open feed details synchronized with summarize, classify, save, hide, and important actions so item feedback is visible in both the list card and expanded detail panel.
 - Keep saved-item state synchronized with per-item enrichment, manual resubmission, and feedback actions so the Saved Items module reflects updated titles, notes, summaries, classifier scores, and important flags without a manual refresh.

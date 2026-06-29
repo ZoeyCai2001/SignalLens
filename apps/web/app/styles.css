@@ -795,6 +795,10 @@ table {
   padding: 7px;
 }
 
+.setup-summary-grid {
+  margin-top: 2px;
+}
+
 .setup-list {
   display: grid;
   gap: 6px;

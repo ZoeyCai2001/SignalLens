@@ -405,6 +405,16 @@ type SetupItem = {
   setup_hint: string;
 };
 
+type SetupSummary = {
+  total: number;
+  configured: number;
+  missing: number;
+  core_missing: number;
+  recommended_missing: number;
+  optional_missing: number;
+  core_ready: boolean;
+};
+
 type SystemStatus = {
   status: string;
   service: string;
@@ -414,6 +424,7 @@ type SystemStatus = {
   llm_configured: boolean;
   integrations: IntegrationStatus;
   setup_items: SetupItem[];
+  setup_summary: SetupSummary;
   missing_env_template: string;
 };
 
@@ -3260,6 +3271,28 @@ function SystemStatusPanel({
               <ReadinessMetric label="Sources" value={`${enabledSourceCount}/${sourceCount}`} />
               <ReadinessMetric label="Alerts" value={alertCount} />
               <ReadinessMetric label="Watchlist" value={watchlistCount} />
+            </div>
+            <div className="readiness-grid setup-summary-grid">
+              <ReadinessMetric
+                label="Core"
+                value={
+                  status.setup_summary.core_ready
+                    ? "ready"
+                    : `${status.setup_summary.core_missing} missing`
+                }
+              />
+              <ReadinessMetric
+                label="Recommended"
+                value={`${status.setup_summary.recommended_missing} missing`}
+              />
+              <ReadinessMetric
+                label="Optional"
+                value={`${status.setup_summary.optional_missing} missing`}
+              />
+              <ReadinessMetric
+                label="Setup"
+                value={`${status.setup_summary.configured}/${status.setup_summary.total}`}
+              />
             </div>
             <div className="badges">
               {integrationRows.map(([label, ready]) => (

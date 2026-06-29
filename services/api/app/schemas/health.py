@@ -22,6 +22,16 @@ class SetupItem(BaseModel):
     setup_hint: str
 
 
+class SetupSummary(BaseModel):
+    total: int
+    configured: int
+    missing: int
+    core_missing: int
+    recommended_missing: int
+    optional_missing: int
+    core_ready: bool
+
+
 class HealthResponse(BaseModel):
     status: str
     service: str
@@ -31,4 +41,5 @@ class HealthResponse(BaseModel):
     llm_configured: bool
     integrations: IntegrationStatus
     setup_items: list[SetupItem]
+    setup_summary: SetupSummary
     missing_env_template: str = ""

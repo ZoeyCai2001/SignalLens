@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.core.config import DEFAULT_SEC_USER_AGENT, Settings, get_settings
-from app.schemas.health import HealthResponse, IntegrationStatus, SetupItem
+from app.schemas.health import HealthResponse, IntegrationStatus, SetupItem, SetupSummary
 
 router = APIRouter()
 
@@ -27,6 +27,7 @@ async def health_check() -> HealthResponse:
         llm_configured=has_config_value(settings.moonshot_api_key),
         integrations=integrations,
         setup_items=setup_items,
+        setup_summary=build_setup_summary(setup_items),
         missing_env_template=build_missing_env_template(setup_items),
     )
 
@@ -123,6 +124,26 @@ def build_missing_env_template(items: list[SetupItem]) -> str:
         lines.append(f"# {item.label}: {item.required_for}")
         lines.append(f"{item.env_var}={placeholder_for_env_var(item.env_var)}")
     return "\n".join(lines)
+
+
+def build_setup_summary(items: list[SetupItem]) -> SetupSummary:
+    missing_items = [item for item in items if not item.configured]
+    return SetupSummary(
+        total=len(items),
+        configured=len(items) - len(missing_items),
+        missing=len(missing_items),
+        core_missing=count_missing_by_importance(missing_items, "core"),
+        recommended_missing=count_missing_by_importance(missing_items, "recommended"),
+        optional_missing=count_missing_by_importance(missing_items, "optional"),
+        core_ready=not any(item.importance == "core" for item in missing_items),
+    )
+
+
+def count_missing_by_importance(
+    items: list[SetupItem],
+    importance: str,
+) -> int:
+    return sum(1 for item in items if item.importance == importance)
 
 
 def placeholder_for_env_var(env_var: str) -> str:
