@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -89,6 +89,7 @@ class QualityMetricsResponse(BaseModel):
     dismissed_alert_count: int
     alert_dismissal_rate: float
     digest_snapshot_count: int
+    latest_digest_snapshot_date: date | None = None
     llm_call_count: int = 0
     llm_input_tokens: int = 0
     llm_output_tokens: int = 0

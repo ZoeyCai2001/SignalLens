@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
@@ -332,6 +332,7 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.dismissed_alert_count == 1
     assert metrics.alert_dismissal_rate == 0.5
     assert metrics.digest_snapshot_count == 1
+    assert metrics.latest_digest_snapshot_date == now.date()
     assert metrics.llm_call_count == 2
     assert metrics.llm_input_tokens == 180
     assert metrics.llm_output_tokens == 30
@@ -362,6 +363,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         summary_coverage=0,
         source_failure_rate=0,
         digest_snapshot_count=0,
+        latest_digest_snapshot_date=None,
         llm_calls_per_recent_item=0,
     )
 
@@ -381,6 +383,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         summary_coverage=0.4,
         source_failure_rate=0.25,
         digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
         llm_calls_per_recent_item=1.6,
     )
 
@@ -400,6 +403,24 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "sources",
         "settings",
     ]
+
+
+def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
+    findings = build_quality_findings(
+        recent_item_count=5,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        source_failure_rate=0,
+        digest_snapshot_count=0,
+        latest_digest_snapshot_date=date(2026, 6, 20),
+        llm_calls_per_recent_item=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Digest snapshot is stale"]
+    assert findings[0].metric == "last saved 2026-06-20"
+    assert findings[0].action_label == "Open Daily Digest"
+    assert findings[0].action_module == "digest"
 
 
 def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:

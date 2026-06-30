@@ -1,5 +1,5 @@
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import TypedDict
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -115,6 +115,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         alert_counts["active"] + alert_counts["dismissed"],
     )
     digest_snapshot_count = count_recent_digest_snapshots(db=db, since=since)
+    latest_digest_snapshot = get_latest_digest_snapshot(db)
     llm_calls_per_recent_item = ratio(llm_usage["call_count"], recent_item_count)
 
     return QualityMetricsResponse(
@@ -134,6 +135,9 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         dismissed_alert_count=alert_counts["dismissed"],
         alert_dismissal_rate=alert_dismissal_rate,
         digest_snapshot_count=digest_snapshot_count,
+        latest_digest_snapshot_date=(
+            latest_digest_snapshot.digest_date if latest_digest_snapshot else None
+        ),
         llm_call_count=llm_usage["call_count"],
         llm_input_tokens=llm_usage["input_tokens"],
         llm_output_tokens=llm_usage["output_tokens"],
@@ -147,6 +151,9 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             summary_coverage=summary_coverage,
             source_failure_rate=source_failure_rate,
             digest_snapshot_count=digest_snapshot_count,
+            latest_digest_snapshot_date=(
+                latest_digest_snapshot.digest_date if latest_digest_snapshot else None
+            ),
             llm_calls_per_recent_item=llm_calls_per_recent_item,
         ),
     )
@@ -216,6 +223,18 @@ def count_recent_digest_snapshots(db: Session, since: datetime) -> int:
             DailyDigestSnapshot.generated_at >= since,
         )
         .count()
+    )
+
+
+def get_latest_digest_snapshot(db: Session) -> DailyDigestSnapshot | None:
+    return (
+        db.query(DailyDigestSnapshot)
+        .filter(DailyDigestSnapshot.user_id == LOCAL_USER_ID)
+        .order_by(
+            DailyDigestSnapshot.digest_date.desc(),
+            DailyDigestSnapshot.generated_at.desc(),
+        )
+        .first()
     )
 
 
@@ -320,6 +339,7 @@ def build_quality_findings(
     summary_coverage: float,
     source_failure_rate: float,
     digest_snapshot_count: int,
+    latest_digest_snapshot_date: date | None,
     llm_calls_per_recent_item: float,
 ) -> list[QualityFinding]:
     findings: list[QualityFinding] = []
@@ -381,7 +401,18 @@ def build_quality_findings(
                 action_source_filter="failed",
             )
         )
-    if digest_snapshot_count == 0:
+    if digest_snapshot_count == 0 and latest_digest_snapshot_date:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Digest snapshot is stale",
+                metric=f"last saved {latest_digest_snapshot_date.isoformat()}",
+                recommendation="Generate and save a fresh daily digest snapshot after ingestion.",
+                action_label="Open Daily Digest",
+                action_module="digest",
+            )
+        )
+    elif digest_snapshot_count == 0:
         findings.append(
             QualityFinding(
                 severity="info",

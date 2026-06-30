@@ -485,6 +485,7 @@ type QualityMetrics = {
   dismissed_alert_count: number;
   alert_dismissal_rate: number;
   digest_snapshot_count: number;
+  latest_digest_snapshot_date: string | null;
   llm_call_count: number;
   llm_input_tokens: number;
   llm_output_tokens: number;
@@ -3740,6 +3741,10 @@ function SystemStatusPanel({
                     value={formatQualityPercent(qualityMetrics.alert_dismissal_rate)}
                   />
                   <ReadinessMetric label="Digests" value={qualityMetrics.digest_snapshot_count} />
+                  <ReadinessMetric
+                    label="Latest Digest"
+                    value={qualityMetrics.latest_digest_snapshot_date ?? "none"}
+                  />
                 </div>
                 <div className="readiness-grid setup-summary-grid">
                   <ReadinessMetric label="LLM Calls" value={qualityMetrics.llm_call_count} />
