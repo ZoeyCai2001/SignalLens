@@ -100,6 +100,42 @@ def test_serialize_feed_item_computes_social_signal_from_raw_metadata() -> None:
     assert social_signal_score_for_item(item) == 1
 
 
+def test_hugging_face_social_signal_uses_downloads_and_likes() -> None:
+    item = NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Popular model",
+        url="https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct",
+        source_name="Hugging Face",
+        language="en",
+        category="research",
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=["llm"],
+        sentiment="neutral",
+        relevance_score=0.5,
+        importance_score=0.4,
+        novelty_score=1.0,
+        source_quality_score=0.78,
+        stock_impact_score=0,
+        raw_item=RawItem(
+            id=1,
+            source_id=1,
+            url="https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct",
+            raw_title="Popular model",
+            raw_metadata={
+                "hf_kind": "model",
+                "downloads": 120000,
+                "likes": 4200,
+            },
+            content_hash="hash",
+        ),
+    )
+
+    assert social_signal_score_for_item(item) == 1
+
+
 def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> None:
     item = NormalizedItem(
         id=1,

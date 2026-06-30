@@ -105,6 +105,7 @@ class HuggingFaceConnector(SourceConnector):
                 f"Tags: {', '.join(tags)}" if tags else None,
                 f"Downloads: {downloads}" if downloads is not None else None,
                 f"Likes: {likes}" if likes is not None else None,
+                hugging_face_traction_signal("model", downloads=downloads, likes=likes),
             ]
             if part
         )
@@ -123,6 +124,11 @@ class HuggingFaceConnector(SourceConnector):
                 "tags": tags,
                 "downloads": downloads,
                 "likes": likes,
+                "traction_signal": hugging_face_traction_signal(
+                    "model",
+                    downloads=downloads,
+                    likes=likes,
+                ),
                 "last_modified": model.get("lastModified"),
                 "library_name": model.get("library_name"),
             },
@@ -147,6 +153,7 @@ class HuggingFaceConnector(SourceConnector):
                 f"Tags: {', '.join(tags)}" if tags else None,
                 f"Downloads: {downloads}" if downloads is not None else None,
                 f"Likes: {likes}" if likes is not None else None,
+                hugging_face_traction_signal("dataset", downloads=downloads, likes=likes),
             ]
             if part
         )
@@ -164,6 +171,11 @@ class HuggingFaceConnector(SourceConnector):
                 "tags": tags,
                 "downloads": downloads,
                 "likes": likes,
+                "traction_signal": hugging_face_traction_signal(
+                    "dataset",
+                    downloads=downloads,
+                    likes=likes,
+                ),
                 "last_modified": dataset.get("lastModified"),
             },
             published_at=last_modified,
@@ -187,6 +199,7 @@ class HuggingFaceConnector(SourceConnector):
                 f"SDK: {sdk}" if sdk else None,
                 f"Tags: {', '.join(tags)}" if tags else None,
                 f"Likes: {likes}" if likes is not None else None,
+                hugging_face_traction_signal("space", likes=likes),
             ]
             if part
         )
@@ -204,6 +217,7 @@ class HuggingFaceConnector(SourceConnector):
                 "sdk": sdk,
                 "tags": tags,
                 "likes": likes,
+                "traction_signal": hugging_face_traction_signal("space", likes=likes),
                 "last_modified": space.get("lastModified"),
             },
             published_at=last_modified,
@@ -223,3 +237,48 @@ def as_payload_list(payload: Any) -> list[dict[str, Any]]:
         if isinstance(items, list):
             return [item for item in items if isinstance(item, dict)]
     return []
+
+
+def hugging_face_traction_signal(
+    kind: str,
+    downloads: object | None = None,
+    likes: object | None = None,
+) -> str | None:
+    signals: list[str] = []
+    download_count = normalize_count(downloads)
+    like_count = normalize_count(likes)
+    if download_count is not None:
+        signals.append(f"{format_count(download_count)} downloads")
+    if like_count is not None:
+        signals.append(f"{format_count(like_count)} likes")
+    if not signals:
+        return None
+    label = {
+        "model": "Hugging Face model traction",
+        "dataset": "Hugging Face dataset traction",
+        "space": "Hugging Face Space traction",
+    }.get(kind, "Hugging Face traction")
+    return f"{label}: {', '.join(signals)}"
+
+
+def normalize_count(value: object | None) -> int | None:
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None
+
+
+def format_count(value: int) -> str:
+    if value >= 1_000_000:
+        return format_compact_count(value, 1_000_000, "M")
+    if value >= 1_000:
+        return format_compact_count(value, 1_000, "K")
+    return str(value)
+
+
+def format_compact_count(value: int, denominator: int, suffix: str) -> str:
+    compact = value / denominator
+    if compact.is_integer():
+        return f"{int(compact)}{suffix}"
+    return f"{compact:.1f}{suffix}".rstrip("0").rstrip(".")

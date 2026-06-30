@@ -288,6 +288,13 @@ def social_signal_score_for_item(item: NormalizedItem) -> float:
             0.70 * scaled_metric(raw_metadata.get("votes_count"), 1000)
             + 0.30 * scaled_metric(raw_metadata.get("comments_count"), 100)
         )
+    if "hugging face" in source_name:
+        if raw_metadata.get("hf_kind") == "space":
+            return bounded_social_score(0.70 * scaled_metric(raw_metadata.get("likes"), 1000))
+        return bounded_social_score(
+            0.55 * scaled_metric(raw_metadata.get("downloads"), 100000)
+            + 0.45 * scaled_metric(raw_metadata.get("likes"), 3000)
+        )
 
     return bounded_social_score(
         0.45 * scaled_metric(raw_metadata.get("likes"), 1000)

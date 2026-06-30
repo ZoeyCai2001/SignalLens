@@ -1,6 +1,10 @@
 from app.db.models import RawItem, Source
 from app.services.ingestion import normalize_item
-from app.sources.hugging_face import HuggingFaceConnector, as_payload_list
+from app.sources.hugging_face import (
+    HuggingFaceConnector,
+    as_payload_list,
+    hugging_face_traction_signal,
+)
 
 
 def test_hugging_face_connector_converts_model_to_raw_item() -> None:
@@ -25,6 +29,10 @@ def test_hugging_face_connector_converts_model_to_raw_item() -> None:
     assert "text-generation" in item.raw_text
     assert item.raw_metadata["hf_kind"] == "model"
     assert item.raw_metadata["downloads"] == 120000
+    assert item.raw_metadata["traction_signal"] == (
+        "Hugging Face model traction: 120K downloads, 4.2K likes"
+    )
+    assert "Hugging Face model traction" in item.raw_text
     assert item.published_at is not None
 
 
@@ -46,6 +54,9 @@ def test_hugging_face_connector_converts_dataset_to_raw_item() -> None:
     assert item.url == "https://huggingface.co/datasets/openai/gsm8k"
     assert item.raw_author == "openai"
     assert item.raw_metadata["hf_kind"] == "dataset"
+    assert item.raw_metadata["traction_signal"] == (
+        "Hugging Face dataset traction: 90K downloads, 1.2K likes"
+    )
     assert "Dataset: openai/gsm8k" in item.raw_text
 
 
@@ -67,6 +78,7 @@ def test_hugging_face_connector_converts_space_to_raw_item() -> None:
     assert item.url == "https://huggingface.co/spaces/demo-org/video-agent"
     assert item.raw_author == "demo-org"
     assert item.raw_metadata["hf_kind"] == "space"
+    assert item.raw_metadata["traction_signal"] == "Hugging Face Space traction: 640 likes"
     assert "Space demo: demo-org/video-agent" in item.raw_text
 
 
@@ -85,7 +97,10 @@ def test_hugging_face_space_normalizes_as_product_demo() -> None:
         url="https://huggingface.co/spaces/demo-org/video-agent",
         raw_title="demo-org/video-agent: Hugging Face Space update",
         raw_text="AI video agent product demo with multimodal workflow automation.",
-        raw_metadata={"hf_kind": "space"},
+        raw_metadata={
+            "hf_kind": "space",
+            "traction_signal": "Hugging Face Space traction: 640 likes",
+        },
         content_hash="abc",
     )
 
@@ -96,6 +111,7 @@ def test_hugging_face_space_normalizes_as_product_demo() -> None:
     assert item.subcategory == "hf_space_demo"
     assert item.source_quality_score == 0.78
     assert item.summary_short == "Hugging Face Space: demo-org/video-agent: Hugging Face Space update"
+    assert "Traction signal: Hugging Face Space traction: 640 likes" in item.summary_detailed
 
 
 def test_hugging_face_dataset_normalizes_as_research_release() -> None:
@@ -107,7 +123,10 @@ def test_hugging_face_dataset_normalizes_as_research_release() -> None:
         url="https://huggingface.co/datasets/openai/gsm8k",
         raw_title="openai/gsm8k: Hugging Face dataset update",
         raw_text="AI reasoning benchmark dataset for LLM evaluation.",
-        raw_metadata={"hf_kind": "dataset"},
+        raw_metadata={
+            "hf_kind": "dataset",
+            "traction_signal": "Hugging Face dataset traction: 90K downloads, 1.2K likes",
+        },
         content_hash="abc",
     )
 
@@ -118,6 +137,17 @@ def test_hugging_face_dataset_normalizes_as_research_release() -> None:
     assert item.subcategory == "dataset_release"
     assert item.source_quality_score == 0.78
     assert item.summary_short == "Hugging Face dataset: openai/gsm8k: Hugging Face dataset update"
+    assert "Engagement signal: Hugging Face dataset traction" in item.summary_detailed
+
+
+def test_hugging_face_traction_signal_formats_counts() -> None:
+    assert hugging_face_traction_signal("model", downloads=1_250_000, likes=4200) == (
+        "Hugging Face model traction: 1.2M downloads, 4.2K likes"
+    )
+    assert hugging_face_traction_signal("space", likes=12) == (
+        "Hugging Face Space traction: 12 likes"
+    )
+    assert hugging_face_traction_signal("dataset") is None
 
 
 def test_as_payload_list_accepts_list_and_wrapped_items() -> None:

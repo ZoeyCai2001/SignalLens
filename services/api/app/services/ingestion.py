@@ -935,16 +935,18 @@ def build_initial_detailed_summary(
     product_names = products or []
 
     if category == "research":
-        return "\n".join(
-            [
-                f"Research contribution: {source_excerpt}",
-                (
-                    "Research method: Not explicit in source metadata; review the source "
-                    "abstract for method and evaluation details."
-                ),
-                f"Technical relevance: Matched watched research topics: {topic_text}.",
-            ]
-        )
+        parts = [
+            f"Research contribution: {source_excerpt}",
+            (
+                "Research method: Not explicit in source metadata; review the source "
+                "abstract for method and evaluation details."
+            ),
+            f"Technical relevance: Matched watched research topics: {topic_text}.",
+        ]
+        traction = build_source_traction_signal(raw.raw_metadata)
+        if traction:
+            parts.append(f"Engagement signal: {traction}")
+        return "\n".join(parts)
 
     if category == "social_trend":
         return build_social_trend_summary(
@@ -958,7 +960,7 @@ def build_initial_detailed_summary(
         )
 
     if category == "product":
-        traction = build_product_traction_signal(raw.raw_metadata)
+        traction = build_source_traction_signal(raw.raw_metadata)
         parts = [
             f"Product use case: {source_excerpt}",
             f"Product audience: {infer_product_audience(raw.raw_text or raw.raw_title)}",
@@ -1070,7 +1072,11 @@ def infer_social_use_case(text: str) -> str:
     return "AI consumer or productivity product"
 
 
-def build_product_traction_signal(metadata: dict) -> str | None:
+def build_source_traction_signal(metadata: dict) -> str | None:
+    explicit_signal = metadata.get("traction_signal")
+    if explicit_signal:
+        return str(explicit_signal)
+
     votes = metadata.get("votes_count")
     comments = metadata.get("comments_count")
     signals = []
@@ -1079,6 +1085,10 @@ def build_product_traction_signal(metadata: dict) -> str | None:
     if comments is not None:
         signals.append(f"{comments} comments")
     return ", ".join(signals) if signals else None
+
+
+def build_product_traction_signal(metadata: dict) -> str | None:
+    return build_source_traction_signal(metadata)
 
 
 def source_quality_score_for_source(source: Source) -> float:
