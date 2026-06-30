@@ -1,9 +1,17 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Base, ProductWatchlistItem, TopicWatchlistItem
-from app.schemas.watchlist import ProductWatchlistItemUpdate, TopicWatchlistItemUpdate
-from app.services.watchlist import update_product_watchlist_item, update_topic_watchlist_item
+from app.db.models import Base, CompanyWatchlistItem, ProductWatchlistItem, TopicWatchlistItem
+from app.schemas.watchlist import (
+    CompanyWatchlistItemUpdate,
+    ProductWatchlistItemUpdate,
+    TopicWatchlistItemUpdate,
+)
+from app.services.watchlist import (
+    update_company_watchlist_item,
+    update_product_watchlist_item,
+    update_topic_watchlist_item,
+)
 
 
 def test_update_topic_watchlist_item_edits_metadata_and_ignores_blank_required_fields() -> None:
@@ -95,4 +103,63 @@ def test_update_product_watchlist_item_edits_metadata_and_ignores_blank_label() 
 
     assert blank_update is not None
     assert blank_update.label == "Agent IDEs"
+    assert blank_update.notes is None
+
+
+def test_update_company_watchlist_item_edits_metadata_and_ignores_blank_required_fields() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            CompanyWatchlistItem(
+                user_id="local",
+                company_key="anthropic",
+                company_name="Anthropic",
+                ticker="ANTH",
+                category="ai_lab",
+                priority="High",
+                include_in_digest=True,
+                related_terms=["claude"],
+                notes="Original company note.",
+            )
+        )
+        db.commit()
+
+        updated = update_company_watchlist_item(
+            db,
+            "anthropic",
+            CompanyWatchlistItemUpdate(
+                company_name="  Anthropic PBC  ",
+                ticker="  ANTH  ",
+                category="  ai_platform  ",
+                related_terms=[" Claude ", "Claude", "constitutional AI"],
+                notes="  Track Claude launches.  ",
+            ),
+        )
+        assert updated is not None
+        assert updated.company_name == "Anthropic PBC"
+        assert updated.ticker == "ANTH"
+        assert updated.category == "ai_platform"
+        assert updated.related_terms == ["Claude", "constitutional AI"]
+        assert updated.notes == "Track Claude launches."
+
+        blank_update = update_company_watchlist_item(
+            db,
+            "anthropic",
+            CompanyWatchlistItemUpdate(
+                company_name="   ",
+                ticker="   ",
+                category="   ",
+                priority="   ",
+                notes="   ",
+            ),
+        )
+
+    assert blank_update is not None
+    assert blank_update.company_name == "Anthropic PBC"
+    assert blank_update.ticker is None
+    assert blank_update.category == "ai_platform"
+    assert blank_update.priority == "High"
     assert blank_update.notes is None

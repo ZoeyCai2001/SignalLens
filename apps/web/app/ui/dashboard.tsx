@@ -230,6 +230,14 @@ type CompanyWatchlistItem = {
   notes: string | null;
 };
 
+type CompanyDetailDraft = {
+  company_name: string;
+  ticker: string;
+  category: string;
+  related_terms: string;
+  notes: string;
+};
+
 type CompanyBriefing = {
   company: CompanyWatchlistItem;
   item_count: number;
@@ -2125,7 +2133,7 @@ export function Dashboard() {
 
   const updateCompany = async (
     companyKey: string,
-    payload: Partial<Pick<CompanyWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+    payload: Partial<Omit<CompanyWatchlistItem, "company_key">>,
   ) => {
     const key = `company:${companyKey}`;
     setBusyWatchlistKey(key);
@@ -6405,11 +6413,37 @@ function CompanyWatchlistPanel({
   onSelect: (companyKey: string) => void;
   onUpdate: (
     companyKey: string,
-    payload: Partial<Pick<CompanyWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+    payload: Partial<Omit<CompanyWatchlistItem, "company_key">>,
   ) => void;
   onDelete: (companyKey: string) => void;
   onSubmit: () => void;
 }) {
+  const selectedCompany = companies.find((item) => item.company_key === selectedCompanyKey) ?? null;
+  const [detailDraft, setDetailDraft] = useState<CompanyDetailDraft>(() =>
+    companyToDetailDraft(selectedCompany),
+  );
+
+  useEffect(() => {
+    setDetailDraft(companyToDetailDraft(selectedCompany));
+  }, [selectedCompany]);
+
+  const updateDetailDraft = (key: keyof CompanyDetailDraft, value: string) => {
+    setDetailDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveCompanyDetails = () => {
+    if (!selectedCompany) {
+      return;
+    }
+    onUpdate(selectedCompany.company_key, {
+      company_name: detailDraft.company_name.trim() || selectedCompany.company_name,
+      ticker: detailDraft.ticker.trim() || null,
+      category: detailDraft.category.trim() || selectedCompany.category,
+      related_terms: splitTerms(detailDraft.related_terms),
+      notes: detailDraft.notes.trim() || null,
+    });
+  };
+
   return (
     <section className="section">
       <div className="section-header">
@@ -6566,12 +6600,113 @@ function CompanyWatchlistPanel({
           </tbody>
         </table>
       </div>
+      <CompanyDetailEditor
+        company={selectedCompany}
+        draft={detailDraft}
+        disabled={
+          disabled ||
+          (selectedCompany
+            ? busyWatchlistKey === `company:${selectedCompany.company_key}`
+            : false)
+        }
+        onDraftChange={updateDetailDraft}
+        onSave={saveCompanyDetails}
+      />
       <CompanyBriefingPanel
         briefing={briefing}
         loading={busyCompanyBriefing === selectedCompanyKey && selectedCompanyKey !== null}
         selectedCompanyKey={selectedCompanyKey}
       />
     </section>
+  );
+}
+
+function CompanyDetailEditor({
+  company,
+  draft,
+  disabled,
+  onDraftChange,
+  onSave,
+}: {
+  company: CompanyWatchlistItem | null;
+  draft: CompanyDetailDraft;
+  disabled: boolean;
+  onDraftChange: (key: keyof CompanyDetailDraft, value: string) => void;
+  onSave: () => void;
+}) {
+  if (!company) {
+    return <div className="empty-state">Select a company to edit watchlist details.</div>;
+  }
+
+  return (
+    <div className="form-panel stock-detail-form">
+      <div className="section-header">
+        <div>
+          <h3 className="section-title">{company.company_name} details</h3>
+          <div className="small-muted">{company.company_key}</div>
+        </div>
+        <span className="badge">{company.include_in_digest ? "digest" : "muted"}</span>
+      </div>
+      <div className="stock-detail-grid">
+        <label className="weight-field">
+          <span className="field-label">Company Name</span>
+          <input
+            className="field"
+            value={draft.company_name}
+            onChange={(event) => onDraftChange("company_name", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Ticker</span>
+          <input
+            className="field"
+            value={draft.ticker}
+            onChange={(event) => onDraftChange("ticker", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Category</span>
+          <select
+            className="field"
+            value={draft.category}
+            onChange={(event) => onDraftChange("category", event.target.value)}
+            disabled={disabled}
+          >
+            <option value="ai_company">AI company</option>
+            <option value="semiconductor">Semiconductor</option>
+            <option value="cloud_ai">Cloud AI</option>
+            <option value="ai_platform">AI platform</option>
+            <option value="ai_lab">AI lab</option>
+          </select>
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Related Terms</span>
+          <input
+            className="field"
+            value={draft.related_terms}
+            onChange={(event) => onDraftChange("related_terms", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+      </div>
+      <label className="weight-field">
+        <span className="field-label">Notes</span>
+        <textarea
+          className="field textarea"
+          value={draft.notes}
+          onChange={(event) => onDraftChange("notes", event.target.value)}
+          disabled={disabled}
+        />
+      </label>
+      <div className="toolbar">
+        <button className="button primary" onClick={onSave} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+          Save
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -8353,6 +8488,16 @@ function stockToDetailDraft(stock: StockWatchlistItem | null): StockDetailDraft 
         ? ""
         : String(stock.average_cost),
     notes: stock?.notes ?? "",
+  };
+}
+
+function companyToDetailDraft(company: CompanyWatchlistItem | null): CompanyDetailDraft {
+  return {
+    company_name: company?.company_name ?? "",
+    ticker: company?.ticker ?? "",
+    category: company?.category ?? "ai_company",
+    related_terms: company?.related_terms.join(", ") ?? "",
+    notes: company?.notes ?? "",
   };
 }
 

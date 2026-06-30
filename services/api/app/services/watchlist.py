@@ -467,6 +467,13 @@ def update_company_watchlist_item(
             value = clean_terms(value)
         elif field_name == "ticker":
             value = normalize_optional_ticker(value)
+        elif field_name in {"company_name", "category", "priority"} and isinstance(value, str):
+            normalized_text = value.strip()
+            if not normalized_text:
+                continue
+            value = normalized_text
+        elif field_name == "notes" and isinstance(value, str):
+            value = value.strip() or None
         elif isinstance(value, str):
             value = value.strip()
         setattr(item, field_name, value)

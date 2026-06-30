@@ -264,3 +264,4 @@ Implementation progress:
 - Added stock watchlist display-name editing in the selected stock detail panel, with backend protection against blank company-name overwrites.
 - Added Topic Watchlist detail editing for labels, categories, related terms, and notes, with backend guards for blank required fields.
 - Added Product Category detail editing for labels, related terms, and notes, with backend guards for blank product labels.
+- Added Company Watchlist detail editing for company names, tickers, categories, related terms, and notes, with backend guards for blank required fields.
