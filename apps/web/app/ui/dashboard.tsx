@@ -481,6 +481,8 @@ type QualityMetrics = {
   window_days: number;
   total_item_count: number;
   recent_item_count: number;
+  recent_module_counts: Record<string, number>;
+  covered_module_count: number;
   high_value_item_count: number;
   high_value_unsummarized_count: number;
   relevance_precision_proxy: number;
@@ -3782,6 +3784,10 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Summaries"
                     value={formatQualityPercent(qualityMetrics.summary_coverage)}
+                  />
+                  <ReadinessMetric
+                    label="Modules"
+                    value={`${qualityMetrics.covered_module_count}/5`}
                   />
                   <ReadinessMetric
                     label="Source Fail"

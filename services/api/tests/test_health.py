@@ -323,6 +323,14 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
 
     assert metrics.total_item_count == 2
     assert metrics.recent_item_count == 2
+    assert metrics.recent_module_counts == {
+        "trends": 2,
+        "research": 0,
+        "products": 0,
+        "stocks": 0,
+        "chinese": 0,
+    }
+    assert metrics.covered_module_count == 1
     assert metrics.high_value_item_count == 1
     assert metrics.high_value_unsummarized_count == 0
     assert metrics.relevance_precision_proxy == 1
@@ -471,6 +479,36 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
     assert findings[0].action_operation == "digest:save-snapshot"
 
 
+def test_build_quality_findings_flags_thin_module_coverage() -> None:
+    findings = build_quality_findings(
+        recent_item_count=8,
+        high_value_item_count=0,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        covered_module_count=1,
+        total_module_count=5,
+    )
+
+    assert [finding.title for finding in findings] == ["Module coverage is thin"]
+    assert findings[0].metric == "1/5 modules active"
+    assert findings[0].action_label == "Run Full Cycle"
+    assert findings[0].action_module == "sources"
+    assert findings[0].action_operation == "cycle"
+    assert findings[0].action_source_filter == "attention"
+
+
 def test_build_quality_findings_flags_thin_digest_snapshot() -> None:
     findings = build_quality_findings(
         recent_item_count=8,
@@ -577,6 +615,72 @@ def test_build_quality_metrics_tracks_latest_watched_stock_price_date() -> None:
         finding.title for finding in metrics.quality_findings
     ]
     assert "Stock prices are stale" not in [finding.title for finding in metrics.quality_findings]
+
+
+def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    now = datetime.now(UTC)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_quality_item(
+                    1,
+                    "Agent routing trend",
+                    url="https://example.com/trend",
+                    published_at=now,
+                    category="technical_trend",
+                ),
+                make_quality_item(
+                    2,
+                    "New benchmark paper",
+                    url="https://example.com/paper",
+                    published_at=now,
+                    category="research",
+                ),
+                make_quality_item(
+                    3,
+                    "New AI product launch",
+                    url="https://example.com/product",
+                    published_at=now,
+                    category="technical_trend",
+                    products=["Agent IDE"],
+                ),
+                make_quality_item(
+                    4,
+                    "MU AI demand update",
+                    url="https://example.com/stock",
+                    published_at=now,
+                    category="technical_trend",
+                    tickers=["MU"],
+                ),
+                make_quality_item(
+                    5,
+                    "Chinese social AI trend",
+                    url="https://example.com/chinese",
+                    published_at=now,
+                    category="technical_trend",
+                    language="zh",
+                ),
+            ]
+        )
+        db.commit()
+
+        metrics = build_quality_metrics(db=db, window_days=7)
+
+    assert metrics.recent_module_counts == {
+        "trends": 4,
+        "research": 1,
+        "products": 1,
+        "stocks": 1,
+        "chinese": 1,
+    }
+    assert metrics.covered_module_count == 5
+    assert "Module coverage is thin" not in [
+        finding.title for finding in metrics.quality_findings
+    ]
 
 
 def test_digest_age_days_tracks_latest_saved_digest_freshness() -> None:
@@ -770,20 +874,25 @@ def make_quality_item(
     relevance_score: float = 0.7,
     importance_score: float = 0.7,
     summary_short: str | None = None,
+    category: str = "technical_trend",
+    language: str = "en",
+    source_name: str = "Test Source",
+    products: list[str] | None = None,
+    tickers: list[str] | None = None,
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
         raw_item_id=item_id,
         title=title,
         url=url,
-        source_name="Test Source",
-        language="en",
+        source_name=source_name,
+        language=language,
         published_at=published_at or datetime.now(UTC),
         text=title,
-        category="technical_trend",
-        tickers=[],
+        category=category,
+        tickers=tickers or [],
         companies=[],
-        products=[],
+        products=products or [],
         topics=["agent"],
         sentiment="neutral",
         relevance_score=relevance_score,

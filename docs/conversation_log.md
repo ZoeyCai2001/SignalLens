@@ -298,3 +298,4 @@ Implementation progress:
 - Added watched-stock price freshness tracking to System Readiness, including missing/stale price findings and a direct Alpha Vantage price refresh action.
 - Added an alert-coverage readiness finding so high-value recent signals with no active alerts can generate dashboard alerts directly from System Readiness.
 - Added saved digest item-count tracking and a thin-digest readiness finding so sparse daily briefing snapshots can be regenerated from System Readiness.
+- Added PRD module coverage counts to quality metrics and a readiness finding for dashboards where recent items cover too few first-class modules.

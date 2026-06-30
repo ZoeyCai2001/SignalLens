@@ -46,6 +46,8 @@ TRACKING_QUERY_PARAMS = {
     "utm_term",
 }
 
+PRD_FEED_MODULES = ("trends", "research", "products", "stocks", "chinese")
+
 
 class LlmUsageSummary(TypedDict):
     call_count: int
@@ -103,6 +105,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
     llm_usage = summarize_recent_llm_usage(db=db, since=since)
     recent_item_count = len(recent_rows)
+    recent_module_counts = build_recent_module_counts(recent_rows)
+    covered_module_count = sum(1 for count in recent_module_counts.values() if count > 0)
     relevance_precision_proxy = ratio(
         sum(1 for item in recent_rows if item.relevance_score >= 0.5),
         recent_item_count,
@@ -148,6 +152,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         window_days=window_days,
         total_item_count=len(total_rows),
         recent_item_count=recent_item_count,
+        recent_module_counts=recent_module_counts,
+        covered_module_count=covered_module_count,
         high_value_item_count=high_value_item_count,
         high_value_unsummarized_count=high_value_unsummarized_count,
         relevance_precision_proxy=relevance_precision_proxy,
@@ -176,6 +182,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         llm_operation_usage=llm_usage["operation_usage"],
         quality_findings=build_quality_findings(
             recent_item_count=recent_item_count,
+            covered_module_count=covered_module_count,
+            total_module_count=len(PRD_FEED_MODULES),
             high_value_item_count=high_value_item_count,
             relevance_precision_proxy=relevance_precision_proxy,
             duplicate_rate=duplicate_rate,
@@ -440,6 +448,38 @@ def ratio(numerator: int, denominator: int) -> float:
     return round(numerator / denominator, 3)
 
 
+def build_recent_module_counts(items: list[NormalizedItem]) -> dict[str, int]:
+    return {
+        module: sum(1 for item in items if quality_item_matches_module(item, module))
+        for module in PRD_FEED_MODULES
+    }
+
+
+def quality_item_matches_module(item: NormalizedItem, module: str) -> bool:
+    source_name = (item.source_name or "").casefold()
+    products = item.products or []
+    tickers = item.tickers or []
+    if module == "trends":
+        return item.category == "technical_trend"
+    if module == "research":
+        return item.category == "research"
+    if module == "products":
+        return item.category == "product" or bool(products) or "product hunt" in source_name
+    if module == "stocks":
+        return (
+            item.category == "stock_company_event"
+            or bool(tickers)
+            or item.stock_impact_score >= 0.35
+        )
+    if module == "chinese":
+        return (
+            item.category == "social_trend"
+            or item.language == "zh"
+            or "chinese" in source_name
+        )
+    return False
+
+
 def build_quality_findings(
     *,
     recent_item_count: int,
@@ -458,6 +498,8 @@ def build_quality_findings(
     latest_digest_snapshot_date: date | None,
     latest_digest_snapshot_item_count: int | None,
     llm_calls_per_recent_item: float,
+    covered_module_count: int | None = None,
+    total_module_count: int = len(PRD_FEED_MODULES),
     latest_stock_price_date: date | None = None,
     stock_watchlist_count: int = 0,
     current_date: date | None = None,
@@ -486,6 +528,27 @@ def build_quality_findings(
                 recommendation="Tune followed sources, blocked sources, and watchlist terms.",
                 action_label="Tune Settings",
                 action_module="settings",
+            )
+        )
+    if (
+        recent_item_count >= 5
+        and covered_module_count is not None
+        and total_module_count > 0
+        and covered_module_count < 3
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Module coverage is thin",
+                metric=f"{covered_module_count}/{total_module_count} modules active",
+                recommendation=(
+                    "Run a full ingestion cycle and review Source Health so the PRD modules "
+                    "do not silently collapse into one feed."
+                ),
+                action_label="Run Full Cycle",
+                action_module="sources",
+                action_operation="cycle",
+                action_source_filter="attention",
             )
         )
     if duplicate_rate >= 0.25:
