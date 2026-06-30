@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.models import RawItem, Source, SourceRun
 from app.schemas.sources import SourceCreate, SourceHealth, SourceRunHistoryItem, SourceUpdate
+from app.services.polling_intervals import parse_polling_interval
 
 SOURCE_ATTENTION_FAILURE_THRESHOLD = 2
 SOURCE_HEALTH_RECENT_RUN_LIMIT = 5
@@ -248,10 +249,11 @@ def unwrap_status(row) -> str:
     return ""
 
 
-def source_needs_attention(latest_status: str, failure_count: int) -> bool:
+def source_needs_attention(latest_status: str, failure_count: int, is_stale: bool = False) -> bool:
     return (
         latest_status in SOURCE_FAILURE_STATUSES
         or failure_count >= SOURCE_ATTENTION_FAILURE_THRESHOLD
+        or is_stale
     )
 
 
@@ -264,6 +266,8 @@ def serialize_source_health(
 ) -> SourceHealth:
     latest_status = run.status if run else "never_run"
     quality = recent_quality or RecentSourceRunQuality()
+    next_run_due_at = source_next_run_due_at(last_success_at, source.polling_interval)
+    is_stale = bool(source.enabled) and source_is_stale(last_success_at, source.polling_interval)
     return SourceHealth(
         id=source.id,
         name=source.name,
@@ -281,16 +285,46 @@ def serialize_source_health(
         last_started_at=run.started_at if run else None,
         last_finished_at=run.finished_at if run else None,
         last_success_at=last_success_at,
+        next_run_due_at=next_run_due_at,
+        is_stale=is_stale,
         items_fetched=run.items_fetched if run else 0,
         items_stored=run.items_stored if run else 0,
         failure_count=failure_count,
-        needs_attention=source_needs_attention(latest_status, failure_count),
+        needs_attention=source_needs_attention(latest_status, failure_count, is_stale),
         recent_run_count=quality.run_count,
         recent_success_rate=quality.success_rate,
         recent_store_rate=quality.store_rate,
         recent_items_fetched=quality.items_fetched,
         recent_items_stored=quality.items_stored,
     )
+
+
+def source_next_run_due_at(
+    last_success_at: datetime | None,
+    polling_interval: str | None,
+) -> datetime | None:
+    interval = parse_polling_interval(polling_interval)
+    if last_success_at is None or interval is None:
+        return None
+    return normalize_source_health_datetime(last_success_at) + interval
+
+
+def source_is_stale(
+    last_success_at: datetime | None,
+    polling_interval: str | None,
+    now: datetime | None = None,
+) -> bool:
+    next_run_due_at = source_next_run_due_at(last_success_at, polling_interval)
+    if next_run_due_at is None:
+        return False
+    reference_time = normalize_source_health_datetime(now or datetime.now(UTC))
+    return reference_time >= next_run_due_at
+
+
+def normalize_source_health_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
 
 
 def serialize_source_run_history_item(

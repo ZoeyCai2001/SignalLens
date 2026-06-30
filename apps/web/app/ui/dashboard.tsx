@@ -318,6 +318,8 @@ type SourceHealth = {
   last_started_at: string | null;
   last_finished_at: string | null;
   last_success_at: string | null;
+  next_run_due_at: string | null;
+  is_stale: boolean;
   items_fetched: number;
   items_stored: number;
   failure_count: number;
@@ -490,7 +492,14 @@ type SourceDraft = {
   terms_notes: string;
 };
 
-type SourceHealthFilter = "all" | "attention" | "failed" | "never_run" | "disabled" | "blocked";
+type SourceHealthFilter =
+  | "all"
+  | "attention"
+  | "failed"
+  | "stale"
+  | "never_run"
+  | "disabled"
+  | "blocked";
 
 type DigestSourceCoverage = {
   source_name: string;
@@ -715,6 +724,7 @@ const sourceHealthFilterOptions: { key: SourceHealthFilter; label: string }[] = 
   { key: "all", label: "All" },
   { key: "attention", label: "Attention" },
   { key: "failed", label: "Failed" },
+  { key: "stale", label: "Stale" },
   { key: "never_run", label: "Never Run" },
   { key: "disabled", label: "Disabled" },
   { key: "blocked", label: "Blocked" },
@@ -7616,6 +7626,11 @@ function SourceTable({
                     {source.last_success_at ? (
                       <div className="small-muted">success {formatDate(source.last_success_at)}</div>
                     ) : null}
+                    {source.next_run_due_at ? (
+                      <div className={source.is_stale ? "small-muted source-attention" : "small-muted"}>
+                        due {formatDate(source.next_run_due_at)}
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <div className="table-actions">
@@ -7816,6 +7831,7 @@ function buildSourceHealthCounts(
     all: sources.length,
     attention: sources.filter((source) => source.needs_attention).length,
     failed: sources.filter((source) => source.latest_status === "failed").length,
+    stale: sources.filter((source) => source.is_stale).length,
     never_run: sources.filter((source) => source.latest_status === "never_run").length,
     disabled: sources.filter((source) => !source.enabled).length,
     blocked: sources.filter((source) => sourceNameInList(source.name, blockedSources)).length,
@@ -7829,6 +7845,7 @@ function sourceMatchesHealthFilter(
 ): boolean {
   if (filter === "attention") return source.needs_attention;
   if (filter === "failed") return source.latest_status === "failed";
+  if (filter === "stale") return source.is_stale;
   if (filter === "never_run") return source.latest_status === "never_run";
   if (filter === "disabled") return !source.enabled;
   if (filter === "blocked") return sourceNameInList(source.name, blockedSources);

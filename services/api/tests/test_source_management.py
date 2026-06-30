@@ -23,7 +23,9 @@ from app.services.source_health import (
     list_source_run_history,
     serialize_source_health,
     serialize_source_run_history_item,
+    source_is_stale,
     source_needs_attention,
+    source_next_run_due_at,
     summarize_recent_source_runs,
     update_source,
 )
@@ -64,6 +66,8 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     assert health.latest_status == "skipped"
     assert health.latest_error == "disabled"
     assert health.last_success_at == last_success_at
+    assert health.next_run_due_at == datetime(2026, 6, 27, 9, 0, tzinfo=UTC)
+    assert health.is_stale is False
     assert health.failure_count == 0
     assert health.needs_attention is False
     assert health.recent_run_count == 0
@@ -98,6 +102,60 @@ def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
 def test_source_attention_uses_recent_failure_count_threshold() -> None:
     assert source_needs_attention("success", 1) is False
     assert source_needs_attention("success", 2) is True
+    assert source_needs_attention("success", 0, is_stale=True) is True
+
+
+def test_source_staleness_uses_polling_interval_and_last_success() -> None:
+    last_success_at = datetime(2026, 6, 28, 6, 0, tzinfo=UTC)
+
+    assert source_next_run_due_at(last_success_at, "6 hours") == datetime(
+        2026,
+        6,
+        28,
+        12,
+        0,
+        tzinfo=UTC,
+    )
+    assert source_is_stale(
+        last_success_at,
+        "6 hours",
+        now=datetime(2026, 6, 28, 11, 59, tzinfo=UTC),
+    ) is False
+    assert source_is_stale(
+        last_success_at,
+        "6 hours",
+        now=datetime(2026, 6, 28, 12, 0, tzinfo=UTC),
+    ) is True
+    assert source_is_stale(None, "6 hours", now=datetime(2026, 6, 28, 12, 0, tzinfo=UTC)) is False
+
+
+def test_serialize_source_health_marks_enabled_overdue_sources_stale() -> None:
+    source = Source(
+        id=3,
+        name="Overdue RSS",
+        type="rss",
+        access_method="rss",
+        enabled=True,
+        polling_interval="daily",
+    )
+    run = SourceRun(
+        source_id=3,
+        status="success",
+        items_fetched=8,
+        items_stored=6,
+        started_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
+        finished_at=datetime(2026, 6, 27, 8, 5, tzinfo=UTC),
+    )
+
+    health = serialize_source_health(
+        source,
+        run,
+        last_success_at=datetime(2026, 6, 27, 8, 5, tzinfo=UTC),
+    )
+
+    assert health.next_run_due_at == datetime(2026, 6, 28, 8, 5, tzinfo=UTC)
+    assert health.is_stale is True
+    assert health.needs_attention is True
 
 
 def test_summarize_recent_source_runs_reports_quality_metrics() -> None:

@@ -260,3 +260,4 @@ Implementation progress:
 - Added a no-service email draft action for Daily Digest markdown, including saved snapshot reuse when a snapshot is open.
 - Added a local Markdown export for saved/read-later items with dashboard copy support, including notes, tags, labels, source/date, read status, and stored summaries.
 - Added browser-side Markdown downloads for Daily Digest and Saved Items so local archives do not require email or another service.
+- Added stale-source detection to Source Health, sharing the scheduler polling-interval parser and adding dashboard due-time/stale filtering.
