@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class IntegrationStatus(BaseModel):
@@ -46,6 +46,14 @@ class HealthResponse(BaseModel):
     missing_env_template: str = ""
 
 
+class LlmOperationUsage(BaseModel):
+    operation: str
+    call_count: int
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
 class QualityMetricsResponse(BaseModel):
     generated_at: datetime
     window_days: int
@@ -68,3 +76,4 @@ class QualityMetricsResponse(BaseModel):
     llm_output_tokens: int = 0
     llm_total_tokens: int = 0
     llm_calls_per_recent_item: float = 0
+    llm_operation_usage: list[LlmOperationUsage] = Field(default_factory=list)

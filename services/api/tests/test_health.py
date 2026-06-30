@@ -336,6 +336,13 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.llm_output_tokens == 30
     assert metrics.llm_total_tokens == 210
     assert metrics.llm_calls_per_recent_item == 1
+    assert [operation.operation for operation in metrics.llm_operation_usage] == [
+        "summarize_item",
+        "classify_item",
+    ]
+    assert metrics.llm_operation_usage[0].call_count == 1
+    assert metrics.llm_operation_usage[0].total_tokens == 120
+    assert metrics.llm_operation_usage[1].total_tokens == 90
 
 
 def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:

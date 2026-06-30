@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime, timedelta
+from typing import TypedDict
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Query
@@ -19,6 +20,7 @@ from app.db.models import (
 from app.schemas.health import (
     HealthResponse,
     IntegrationStatus,
+    LlmOperationUsage,
     QualityMetricsResponse,
     SetupItem,
     SetupSummary,
@@ -40,6 +42,14 @@ TRACKING_QUERY_PARAMS = {
     "utm_source",
     "utm_term",
 }
+
+
+class LlmUsageSummary(TypedDict):
+    call_count: int
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    operation_usage: list[LlmOperationUsage]
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -120,6 +130,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         llm_output_tokens=llm_usage["output_tokens"],
         llm_total_tokens=llm_usage["total_tokens"],
         llm_calls_per_recent_item=ratio(llm_usage["call_count"], len(recent_rows)),
+        llm_operation_usage=llm_usage["operation_usage"],
     )
 
 
@@ -190,17 +201,36 @@ def count_recent_digest_snapshots(db: Session, since: datetime) -> int:
     )
 
 
-def summarize_recent_llm_usage(db: Session, since: datetime) -> dict[str, int]:
+def summarize_recent_llm_usage(db: Session, since: datetime) -> LlmUsageSummary:
     rows = (
         db.query(LlmUsageEvent)
         .filter(LlmUsageEvent.user_id == LOCAL_USER_ID, LlmUsageEvent.created_at >= since)
         .all()
     )
+    operation_totals: dict[str, dict[str, int]] = {}
+    for row in rows:
+        totals = operation_totals.setdefault(
+            row.operation,
+            {"call_count": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
+        totals["call_count"] += 1
+        totals["input_tokens"] += row.input_tokens
+        totals["output_tokens"] += row.output_tokens
+        totals["total_tokens"] += row.total_tokens
+
+    operation_usage = [
+        LlmOperationUsage(operation=operation, **totals)
+        for operation, totals in sorted(
+            operation_totals.items(),
+            key=lambda item: (-item[1]["total_tokens"], item[0]),
+        )
+    ]
     return {
         "call_count": len(rows),
         "input_tokens": sum(row.input_tokens for row in rows),
         "output_tokens": sum(row.output_tokens for row in rows),
         "total_tokens": sum(row.total_tokens for row in rows),
+        "operation_usage": operation_usage,
     }
 
 

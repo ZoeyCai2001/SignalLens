@@ -486,6 +486,15 @@ type QualityMetrics = {
   llm_output_tokens: number;
   llm_total_tokens: number;
   llm_calls_per_recent_item: number;
+  llm_operation_usage: LlmOperationUsage[];
+};
+
+type LlmOperationUsage = {
+  operation: string;
+  call_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
 };
 
 type SourceUpdatePayload = {
@@ -3713,6 +3722,26 @@ function SystemStatusPanel({
                     value={formatCompactNumber(qualityMetrics.llm_total_tokens)}
                   />
                 </div>
+                {qualityMetrics.llm_operation_usage.length ? (
+                  <div className="setup-list">
+                    {qualityMetrics.llm_operation_usage.slice(0, 4).map((operation) => (
+                      <div className="setup-row" key={operation.operation}>
+                        <div>
+                          <div className="digest-section-title">
+                            {formatLlmOperationLabel(operation.operation)}
+                          </div>
+                          <div className="small-muted">
+                            {operation.call_count} calls | {formatCompactNumber(operation.input_tokens)} in |{" "}
+                            {formatCompactNumber(operation.output_tokens)} out
+                          </div>
+                        </div>
+                        <span className="badge">
+                          {formatCompactNumber(operation.total_tokens)} tok
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </>
             ) : null}
             <div className="badges">
@@ -3763,6 +3792,14 @@ function formatCompactNumber(value: number): string {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
+}
+
+function formatLlmOperationLabel(operation: string): string {
+  return operation
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function ReadinessMetric({ label, value }: { label: string; value: number | string }) {

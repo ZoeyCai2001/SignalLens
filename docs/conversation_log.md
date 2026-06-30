@@ -276,3 +276,4 @@ Implementation progress:
 - Added today/yesterday natural-language search date inference with explicit `date_from` and `date_to` intent fields surfaced in the dashboard.
 - Added deterministic relevance, importance, stock-impact, and user-important eligibility gates before batch LLM processing spends model calls.
 - Added LLM usage ledger recording for on-demand stock briefing summaries and event cluster explanations.
+- Added operation-level LLM usage breakdowns to quality metrics and the System Readiness dashboard.
