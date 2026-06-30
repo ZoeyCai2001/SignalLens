@@ -11,6 +11,7 @@ import {
   ChevronUp,
   CircleCheck,
   DatabaseZap,
+  Download,
   EyeOff,
   ExternalLink,
   FileText,
@@ -812,10 +813,12 @@ export function Dashboard() {
   const [busyPreferences, setBusyPreferences] = useState(false);
   const [busyDigestGenerate, setBusyDigestGenerate] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
+  const [busyDigestDownload, setBusyDigestDownload] = useState(false);
   const [busyDigestEmail, setBusyDigestEmail] = useState(false);
   const [busyDigestSave, setBusyDigestSave] = useState(false);
   const [busyDigestSnapshotId, setBusyDigestSnapshotId] = useState<number | null>(null);
   const [busySavedExport, setBusySavedExport] = useState(false);
+  const [busySavedDownload, setBusySavedDownload] = useState(false);
   const [digestDateDraft, setDigestDateDraft] = useState("");
   const digestDateDraftRef = useRef("");
   const previousActiveModuleRef = useRef<ModuleKey>("dashboard");
@@ -1682,6 +1685,49 @@ export function Dashboard() {
       setStatus("Saved items export failed");
     } finally {
       setBusySavedExport(false);
+    }
+  };
+
+  const downloadDailyDigest = async () => {
+    setBusyDigestDownload(true);
+    setError(null);
+    try {
+      const targetDigestDate = digestDateDraft || digest?.digest_date || "";
+      const query = buildDigestDateQuery(targetDigestDate);
+      const result =
+        activeDigestSnapshot?.digest_date === targetDigestDate
+          ? {
+              digest_date: activeDigestSnapshot.digest_date,
+              markdown: activeDigestSnapshot.markdown,
+            }
+          : await fetchJson<DailyDigestMarkdown>(`/api/digest/daily/markdown${query}`);
+      downloadMarkdownFile(
+        `signallens-daily-digest-${safeFilenamePart(result.digest_date || "latest")}.md`,
+        result.markdown,
+      );
+      setStatus(`Downloaded digest ${result.digest_date || "latest"}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Digest download failed");
+    } finally {
+      setBusyDigestDownload(false);
+    }
+  };
+
+  const downloadSavedItemsExport = async () => {
+    setBusySavedDownload(true);
+    setError(null);
+    try {
+      const result = await fetchJson<SavedItemsMarkdownExport>(
+        "/api/feed/saved/export/markdown?limit=100",
+      );
+      downloadMarkdownFile("signallens-saved-items.md", result.markdown);
+      setStatus(`Downloaded ${result.item_count} saved items`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Saved items download failed");
+    } finally {
+      setBusySavedDownload(false);
     }
   };
 
@@ -3090,11 +3136,13 @@ export function Dashboard() {
               busySnapshotId={busyDigestSnapshotId}
               busyGenerate={busyDigestGenerate}
               busyCopy={busyDigestCopy}
+              busyDownload={busyDigestDownload}
               busyEmail={busyDigestEmail}
               busySave={busyDigestSave}
               onDigestDateChange={updateDigestDateDraft}
               onGenerate={generateDailyDigest}
               onCopy={copyDailyDigest}
+              onDownload={downloadDailyDigest}
               onEmail={emailDailyDigest}
               onSave={saveDailyDigestSnapshot}
               onSnapshotOpen={loadDigestSnapshot}
@@ -3104,7 +3152,9 @@ export function Dashboard() {
               items={savedItems.slice(0, 8)}
               busyItemId={busyItemId}
               busyExport={busySavedExport}
+              busyDownload={busySavedDownload}
               onCopyExport={copySavedItemsExport}
+              onDownloadExport={downloadSavedItemsExport}
               onManualTagFilter={applySavedManualTagFilter}
               onReadToggle={(item) =>
                 updateFeedAction(item.id, item.is_read ? "mark-unread" : "mark-read")
@@ -3894,11 +3944,13 @@ function DailyDigestPanel({
   busySnapshotId,
   busyGenerate,
   busyCopy,
+  busyDownload,
   busyEmail,
   busySave,
   onDigestDateChange,
   onGenerate,
   onCopy,
+  onDownload,
   onEmail,
   onSave,
   onSnapshotOpen,
@@ -3911,11 +3963,13 @@ function DailyDigestPanel({
   busySnapshotId: number | null;
   busyGenerate: boolean;
   busyCopy: boolean;
+  busyDownload: boolean;
   busyEmail: boolean;
   busySave: boolean;
   onDigestDateChange: (value: string) => void;
   onGenerate: () => void;
   onCopy: () => void;
+  onDownload: () => void;
   onEmail: () => void;
   onSave: () => void;
   onSnapshotOpen: (snapshot: DailyDigestSnapshot) => void;
@@ -3953,6 +4007,15 @@ function DailyDigestPanel({
             aria-label="Copy digest markdown"
           >
             {busyCopy ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+          </button>
+          <button
+            className="button icon-button"
+            onClick={onDownload}
+            disabled={!digest || busyDownload}
+            title="Download digest markdown"
+            aria-label="Download digest markdown"
+          >
+            {busyDownload ? <Loader2 className="spin" size={16} /> : <Download size={16} />}
           </button>
           <button
             className="button icon-button"
@@ -4148,7 +4211,9 @@ function SavedItemsPanel({
   items,
   busyItemId,
   busyExport,
+  busyDownload,
   onCopyExport,
+  onDownloadExport,
   onManualTagFilter,
   onReadToggle,
   onUnsave,
@@ -4156,7 +4221,9 @@ function SavedItemsPanel({
   items: FeedItem[];
   busyItemId: number | null;
   busyExport: boolean;
+  busyDownload: boolean;
   onCopyExport: () => void;
+  onDownloadExport: () => void;
   onManualTagFilter: (tag: string) => void;
   onReadToggle: (item: FeedItem) => void;
   onUnsave: (itemId: number) => void;
@@ -4184,6 +4251,16 @@ function SavedItemsPanel({
             type="button"
           >
             {busyExport ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+          </button>
+          <button
+            className="button icon-button"
+            onClick={onDownloadExport}
+            disabled={!items.length || busyDownload}
+            title="Download saved items markdown"
+            aria-label="Download saved items markdown"
+            type="button"
+          >
+            {busyDownload ? <Loader2 className="spin" size={16} /> : <Download size={16} />}
           </button>
           <Bookmark size={16} aria-hidden="true" />
         </div>
@@ -7911,6 +7988,28 @@ function buildDigestEmailHref(subject: string, markdown: string): string {
     body: markdown,
   });
   return `mailto:?${params.toString()}`;
+}
+
+function downloadMarkdownFile(filename: string, markdown: string): void {
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function safeFilenamePart(value: string): string {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "latest"
+  );
 }
 
 function buildSourceRunQuery(statusFilter: "all" | "failed", sourceId?: number): string {

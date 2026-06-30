@@ -259,3 +259,4 @@ Implementation progress:
 - Added deterministic natural-language search briefings for summary-style queries, giving the dashboard a no-extra-LLM answer above matching results.
 - Added a no-service email draft action for Daily Digest markdown, including saved snapshot reuse when a snapshot is open.
 - Added a local Markdown export for saved/read-later items with dashboard copy support, including notes, tags, labels, source/date, read status, and stored summaries.
+- Added browser-side Markdown downloads for Daily Digest and Saved Items so local archives do not require email or another service.
