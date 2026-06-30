@@ -416,6 +416,8 @@ Built-in source routes include manual actions for Hacker News, Alpha Vantage new
 
 Source Health rows surface the latest run status, recent failure count, recent success rate, recent stored/fetched ratio, and latest error text so ingestion failures, duplicate-heavy sources, and low-yield sources can be diagnosed directly from the dashboard instead of requiring terminal logs. Source run history can be filtered to failed runs and scoped to a single source through the API and dashboard so connector issues can be triaged without scanning unrelated successful runs.
 
+The dashboard also exposes PRD quality metrics through `GET /api/quality-metrics`, including recent item count, high-value item count, relevance precision proxy, duplicate rate, summary coverage, source failure rate, save/hide ratio, alert dismissal rate, and saved digest count. These metrics are deterministic local proxies over stored items, user actions, alerts, source runs, and digest snapshots, giving the user a low-cost way to judge whether SignalLens is becoming more useful over time without adding analytics tracking or external services.
+
 ### Manual Submission
 
 - `POST /api/manual-submissions`

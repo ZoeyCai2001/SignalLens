@@ -250,3 +250,4 @@ Implementation progress:
 - Added deterministic social-trend alerting for viral AI products, Chinese/social-platform signals, and high-engagement community launches using existing free metadata.
 - Added duplicate-aware batch LLM candidate selection so exact duplicate URLs or titles do not consume capped Kimi processing calls.
 - Added active-alert context to daily digest responses, markdown export, and the dashboard digest preview.
+- Added a local quality-metrics API and Settings dashboard grid for PRD success metrics such as relevance, duplicates, summary coverage, source failures, save/hide ratio, alert dismissal, digest snapshots, and high-value item count.

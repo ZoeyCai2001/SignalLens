@@ -54,6 +54,7 @@ uvicorn app.main:app --reload
 Useful endpoints:
 
 - `GET http://127.0.0.1:8000/api/health`
+- `GET http://127.0.0.1:8000/api/quality-metrics`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/signals/summary`
 - `GET http://127.0.0.1:8000/api/watchlist/stocks/MU/signals`

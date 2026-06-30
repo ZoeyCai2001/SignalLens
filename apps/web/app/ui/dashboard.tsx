@@ -433,6 +433,25 @@ type SystemStatus = {
   missing_env_template: string;
 };
 
+type QualityMetrics = {
+  generated_at: string;
+  window_days: number;
+  total_item_count: number;
+  recent_item_count: number;
+  high_value_item_count: number;
+  relevance_precision_proxy: number;
+  duplicate_rate: number;
+  summary_coverage: number;
+  source_failure_rate: number;
+  save_count: number;
+  hide_count: number;
+  save_hide_ratio: number | null;
+  active_alert_count: number;
+  dismissed_alert_count: number;
+  alert_dismissal_rate: number;
+  digest_snapshot_count: number;
+};
+
 type SourceUpdatePayload = {
   enabled?: boolean;
   priority?: number;
@@ -748,6 +767,7 @@ export function Dashboard() {
   const [alertIncludeDismissed, setAlertIncludeDismissed] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null);
   const [rankingDraft, setRankingDraft] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
   const [preferredSourcesDraft, setPreferredSourcesDraft] = useState("");
   const [blockedSourcesDraft, setBlockedSourcesDraft] = useState("");
@@ -892,6 +912,7 @@ export function Dashboard() {
         nextAlertRules,
         nextPreferences,
         nextSystemStatus,
+        nextQualityMetrics,
       ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
@@ -913,6 +934,7 @@ export function Dashboard() {
           fetchJson<AlertRule[]>("/api/alerts/rules"),
           fetchJson<UserPreferences>("/api/preferences"),
           fetchJson<SystemStatus>("/api/health"),
+          fetchJson<QualityMetrics>("/api/quality-metrics").catch(() => null),
         ]);
       setFeed(nextFeed);
       setSavedItems(nextSavedItems);
@@ -931,6 +953,7 @@ export function Dashboard() {
       setAlertRules(nextAlertRules);
       setPreferences(nextPreferences);
       setSystemStatus(nextSystemStatus);
+      setQualityMetrics(nextQualityMetrics);
       setModuleFeedOverrides({});
       setRankingDraft(nextPreferences.ranking_weights);
       setPreferredSourcesDraft(nextPreferences.preferred_sources.join(", "));
@@ -2575,6 +2598,7 @@ export function Dashboard() {
       enabledSourceCount={sources.filter((source) => source.enabled).length}
       alertCount={activeAlerts.length}
       watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
+      qualityMetrics={qualityMetrics}
       busyCopy={busySetupCopy}
       onCopyMissingEnv={copyMissingEnvTemplate}
     />
@@ -3293,6 +3317,7 @@ function SystemStatusPanel({
   enabledSourceCount,
   alertCount,
   watchlistCount,
+  qualityMetrics,
   busyCopy,
   onCopyMissingEnv,
 }: {
@@ -3302,6 +3327,7 @@ function SystemStatusPanel({
   enabledSourceCount: number;
   alertCount: number;
   watchlistCount: number;
+  qualityMetrics: QualityMetrics | null;
   busyCopy: boolean;
   onCopyMissingEnv: () => void;
 }) {
@@ -3377,6 +3403,47 @@ function SystemStatusPanel({
                 value={`${status.setup_summary.configured}/${status.setup_summary.total}`}
               />
             </div>
+            {qualityMetrics ? (
+              <>
+                <div className="digest-section-title">
+                  Quality Metrics · {qualityMetrics.window_days}d
+                </div>
+                <div className="readiness-grid setup-summary-grid">
+                  <ReadinessMetric
+                    label="Relevant"
+                    value={formatQualityPercent(qualityMetrics.relevance_precision_proxy)}
+                  />
+                  <ReadinessMetric
+                    label="Duplicates"
+                    value={formatQualityPercent(qualityMetrics.duplicate_rate)}
+                  />
+                  <ReadinessMetric
+                    label="Summaries"
+                    value={formatQualityPercent(qualityMetrics.summary_coverage)}
+                  />
+                  <ReadinessMetric
+                    label="Source Fail"
+                    value={formatQualityPercent(qualityMetrics.source_failure_rate)}
+                  />
+                </div>
+                <div className="readiness-grid setup-summary-grid">
+                  <ReadinessMetric label="High Value" value={qualityMetrics.high_value_item_count} />
+                  <ReadinessMetric
+                    label="Save/Hide"
+                    value={
+                      qualityMetrics.save_hide_ratio === null
+                        ? `${qualityMetrics.save_count}/0`
+                        : qualityMetrics.save_hide_ratio.toFixed(2)
+                    }
+                  />
+                  <ReadinessMetric
+                    label="Alert Dismiss"
+                    value={formatQualityPercent(qualityMetrics.alert_dismissal_rate)}
+                  />
+                  <ReadinessMetric label="Digests" value={qualityMetrics.digest_snapshot_count} />
+                </div>
+              </>
+            ) : null}
             <div className="badges">
               {integrationRows.map(([label, ready]) => (
                 <span className={`badge ${ready ? "" : "muted-badge"}`} key={label}>
@@ -3414,6 +3481,10 @@ function SystemStatusPanel({
       </div>
     </section>
   );
+}
+
+function formatQualityPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }
 
 function ReadinessMetric({ label, value }: { label: string; value: number | string }) {

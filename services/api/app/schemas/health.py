@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -43,3 +44,22 @@ class HealthResponse(BaseModel):
     setup_items: list[SetupItem]
     setup_summary: SetupSummary
     missing_env_template: str = ""
+
+
+class QualityMetricsResponse(BaseModel):
+    generated_at: datetime
+    window_days: int
+    total_item_count: int
+    recent_item_count: int
+    high_value_item_count: int
+    relevance_precision_proxy: float
+    duplicate_rate: float
+    summary_coverage: float
+    source_failure_rate: float
+    save_count: int
+    hide_count: int
+    save_hide_ratio: float | None
+    active_alert_count: int
+    dismissed_alert_count: int
+    alert_dismissal_rate: float
+    digest_snapshot_count: int

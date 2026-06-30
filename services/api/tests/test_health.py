@@ -1,14 +1,31 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.api.routes.health import (
     build_missing_env_template,
+    build_quality_metrics,
     build_setup_summary,
     build_setup_items,
+    canonical_quality_url,
+    duplicate_rate_for_items,
     has_custom_sec_user_agent,
     has_config_value,
     health_check,
+    normalize_quality_title,
 )
 from app.core.config import DEFAULT_SEC_USER_AGENT, Settings
+from app.db.models import (
+    Alert,
+    AlertRule,
+    Base,
+    DailyDigestSnapshot,
+    NormalizedItem,
+    SourceRun,
+    UserItemAction,
+)
 from app.schemas.health import IntegrationStatus
 
 
@@ -174,3 +191,191 @@ def test_build_missing_env_template_returns_empty_when_ready() -> None:
     )
 
     assert build_missing_env_template(items) == ""
+
+
+def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    now = datetime.now(UTC)
+
+    with session_factory() as db:
+        rule = AlertRule(
+            id=1,
+            user_id="local",
+            name="High-impact stock signal",
+            category="all",
+            severity="high",
+            min_importance_score=0.7,
+            min_stock_impact_score=0,
+            enabled=True,
+        )
+        db.add(rule)
+        db.add_all(
+            [
+                make_quality_item(
+                    1,
+                    "OpenAI releases a new agent workflow",
+                    url="https://example.com/agent?utm_source=newsletter",
+                    published_at=now - timedelta(days=1),
+                    relevance_score=0.9,
+                    importance_score=0.8,
+                    summary_short="Short summary",
+                ),
+                make_quality_item(
+                    2,
+                    "OpenAI releases a new agent workflow",
+                    url="https://example.com/agent?utm_medium=social",
+                    published_at=now - timedelta(days=1),
+                    relevance_score=0.8,
+                    importance_score=0.7,
+                ),
+                make_quality_item(
+                    3,
+                    "Low relevance market rumor",
+                    url="https://example.com/rumor",
+                    published_at=now - timedelta(days=2),
+                    relevance_score=0.2,
+                    importance_score=0.4,
+                ),
+                make_quality_item(
+                    4,
+                    "Hidden item should not count",
+                    url="https://example.com/hidden",
+                    published_at=now - timedelta(days=1),
+                    relevance_score=1,
+                    importance_score=1,
+                ),
+            ]
+        )
+        db.flush()
+        db.add_all(
+            [
+                make_quality_alert(item_id=1, rule_id=rule.id, status="active"),
+                make_quality_alert(item_id=2, rule_id=rule.id, status="dismissed"),
+                UserItemAction(user_id="local", item_id=1, is_saved=True),
+                UserItemAction(user_id="local", item_id=3, is_hidden=True),
+                UserItemAction(user_id="local", item_id=4, is_hidden=True),
+                SourceRun(
+                    source_id=1,
+                    status="success",
+                    items_fetched=10,
+                    items_stored=8,
+                    started_at=now - timedelta(hours=2),
+                ),
+                SourceRun(
+                    source_id=1,
+                    status="failed",
+                    items_fetched=0,
+                    items_stored=0,
+                    started_at=now - timedelta(hours=1),
+                ),
+                DailyDigestSnapshot(
+                    user_id="local",
+                    digest_date=now.date(),
+                    generated_at=now - timedelta(hours=1),
+                    headline="Digest",
+                    total_items=2,
+                    limit_per_section=5,
+                    payload={
+                        "digest_date": now.date().isoformat(),
+                        "generated_at": now.isoformat(),
+                        "headline": "Digest",
+                        "total_items": 2,
+                        "sections": [],
+                        "source_coverage": [],
+                        "disclaimer": "Informational only.",
+                    },
+                    markdown="# Digest\n",
+                ),
+            ]
+        )
+        db.commit()
+
+        metrics = build_quality_metrics(db=db, window_days=7)
+
+    assert metrics.total_item_count == 2
+    assert metrics.recent_item_count == 2
+    assert metrics.high_value_item_count == 1
+    assert metrics.relevance_precision_proxy == 1
+    assert metrics.duplicate_rate == 0.5
+    assert metrics.summary_coverage == 0.5
+    assert metrics.source_failure_rate == 0.5
+    assert metrics.save_count == 1
+    assert metrics.hide_count == 2
+    assert metrics.save_hide_ratio == 0.5
+    assert metrics.active_alert_count == 1
+    assert metrics.dismissed_alert_count == 1
+    assert metrics.alert_dismissal_rate == 0.5
+    assert metrics.digest_snapshot_count == 1
+
+
+def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:
+    assert (
+        canonical_quality_url("https://Example.com/path/?utm_source=x&b=2&a=1#fragment")
+        == "https://example.com/path?a=1&b=2"
+    )
+    assert normalize_quality_title("  OpenAI   releases   agent workflow  ") == (
+        "openai releases agent workflow"
+    )
+    assert normalize_quality_title("Short") is None
+    items = [
+        make_quality_item(
+            1,
+            "OpenAI releases agent workflow",
+            url="https://example.com/a?utm_source=x",
+        ),
+        make_quality_item(
+            2,
+            "OpenAI releases agent workflow",
+            url="https://example.com/a?utm_medium=y",
+        ),
+        make_quality_item(3, "Different useful item", url="https://example.com/b"),
+    ]
+    assert duplicate_rate_for_items(items) == pytest.approx(1 / 3, abs=0.001)
+
+
+def make_quality_item(
+    item_id: int,
+    title: str,
+    url: str,
+    published_at: datetime | None = None,
+    relevance_score: float = 0.7,
+    importance_score: float = 0.7,
+    summary_short: str | None = None,
+) -> NormalizedItem:
+    return NormalizedItem(
+        id=item_id,
+        raw_item_id=item_id,
+        title=title,
+        url=url,
+        source_name="Test Source",
+        language="en",
+        published_at=published_at or datetime.now(UTC),
+        text=title,
+        category="technical_trend",
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=["agent"],
+        sentiment="neutral",
+        relevance_score=relevance_score,
+        classification_confidence=0.8,
+        importance_score=importance_score,
+        novelty_score=0.6,
+        source_quality_score=0.7,
+        stock_impact_score=0,
+        summary_short=summary_short,
+    )
+
+
+def make_quality_alert(item_id: int, rule_id: int, status: str) -> Alert:
+    return Alert(
+        user_id="local",
+        item_id=item_id,
+        rule_id=rule_id,
+        title=f"Alert {item_id}",
+        reason="Test reason",
+        severity="high",
+        status=status,
+    )
