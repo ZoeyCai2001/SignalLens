@@ -333,6 +333,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.covered_module_count == 1
     assert metrics.recent_source_count == 1
     assert metrics.dominant_source_share == 1
+    assert metrics.trusted_source_coverage == 1
+    assert metrics.low_quality_item_count == 0
     assert metrics.high_value_item_count == 1
     assert metrics.high_value_unsummarized_count == 0
     assert metrics.classification_coverage == 1
@@ -542,6 +544,41 @@ def test_build_quality_findings_flags_thin_source_diversity() -> None:
     assert findings[0].action_label == "Review Sources"
     assert findings[0].action_module == "sources"
     assert findings[0].action_operation == "cycle"
+    assert findings[0].action_source_filter == "attention"
+
+
+def test_build_quality_findings_flags_thin_trusted_source_coverage() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        high_value_item_count=0,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        trusted_source_coverage=0.4,
+        low_quality_item_count=6,
+        recent_source_count=4,
+        dominant_source_share=0.3,
+        covered_module_count=5,
+    )
+
+    assert [finding.title for finding in findings] == [
+        "Trusted source coverage is thin"
+    ]
+    assert findings[0].metric == "40% trusted"
+    assert findings[0].action_label == "Review Sources"
+    assert findings[0].action_module == "sources"
+    assert findings[0].action_operation is None
     assert findings[0].action_source_filter == "attention"
 
 
@@ -980,6 +1017,7 @@ def make_quality_item(
     category: str = "technical_trend",
     language: str = "en",
     source_name: str = "Test Source",
+    source_quality_score: float = 0.7,
     products: list[str] | None = None,
     tickers: list[str] | None = None,
 ) -> NormalizedItem:
@@ -1002,7 +1040,7 @@ def make_quality_item(
         classification_confidence=0.8,
         importance_score=importance_score,
         novelty_score=0.6,
-        source_quality_score=0.7,
+        source_quality_score=source_quality_score,
         stock_impact_score=0,
         summary_short=summary_short,
     )

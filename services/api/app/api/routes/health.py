@@ -115,6 +115,11 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         max(recent_source_counts.values()) if recent_source_counts else 0,
         recent_item_count,
     )
+    trusted_source_item_count = sum(
+        1 for item in recent_rows if (item.source_quality_score or 0) >= 0.7
+    )
+    trusted_source_coverage = ratio(trusted_source_item_count, recent_item_count)
+    low_quality_item_count = recent_item_count - trusted_source_item_count
     relevance_precision_proxy = ratio(
         sum(1 for item in recent_rows if item.relevance_score >= 0.5),
         recent_item_count,
@@ -169,6 +174,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         covered_module_count=covered_module_count,
         recent_source_count=recent_source_count,
         dominant_source_share=dominant_source_share,
+        trusted_source_coverage=trusted_source_coverage,
+        low_quality_item_count=low_quality_item_count,
         high_value_item_count=high_value_item_count,
         high_value_unsummarized_count=high_value_unsummarized_count,
         classification_coverage=classification_coverage,
@@ -204,6 +211,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             total_module_count=len(PRD_FEED_MODULES),
             recent_source_count=recent_source_count,
             dominant_source_share=dominant_source_share,
+            trusted_source_coverage=trusted_source_coverage,
+            low_quality_item_count=low_quality_item_count,
             high_value_item_count=high_value_item_count,
             relevance_precision_proxy=relevance_precision_proxy,
             duplicate_rate=duplicate_rate,
@@ -528,6 +537,8 @@ def build_quality_findings(
     total_module_count: int = len(PRD_FEED_MODULES),
     recent_source_count: int = 0,
     dominant_source_share: float = 0,
+    trusted_source_coverage: float = 0,
+    low_quality_item_count: int = 0,
     latest_stock_price_date: date | None = None,
     stock_watchlist_count: int = 0,
     current_date: date | None = None,
@@ -599,6 +610,25 @@ def build_quality_findings(
                 action_label="Review Sources",
                 action_module="sources",
                 action_operation="cycle",
+                action_source_filter="attention",
+            )
+        )
+    if (
+        recent_item_count >= 5
+        and low_quality_item_count > 0
+        and trusted_source_coverage < 0.6
+    ):
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="Trusted source coverage is thin",
+                metric=f"{format_quality_percent(trusted_source_coverage)} trusted",
+                recommendation=(
+                    "Review Source Health, block noisy sources, and prioritize official, RSS, "
+                    "or API-backed sources before relying on rankings."
+                ),
+                action_label="Review Sources",
+                action_module="sources",
                 action_source_filter="attention",
             )
         )

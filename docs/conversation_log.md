@@ -302,3 +302,4 @@ Implementation progress:
 - Added classification confidence coverage to quality metrics and a readiness action that runs capped LLM classification when recent items are mostly low-confidence.
 - Added recent source-diversity metrics and a readiness finding for feeds dominated by one source, steering recovery back to Source Health and a full ingestion cycle.
 - Added feedback action count and a readiness finding for dashboards with recent items but no save/hide feedback, steering users back to personal ranking training.
+- Added trusted-source coverage and low-quality item counts to quality metrics, plus a readiness finding that steers low-trust feeds back to Source Health.
