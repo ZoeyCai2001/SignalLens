@@ -159,7 +159,7 @@ Each connector records:
 - Failure count and latest error.
 - Terms-of-service notes.
 
-The Source Health dashboard treats followed sources as editable configuration, not static seed data. Operators can update source name, type, access method, URL/feed, authentication-required status, priority, polling interval, rate-limit notes, and terms/scope notes after creation. The backend protects required source names, rejects duplicate renames, clears blank optional fields, and re-applies connector-specific normalization for GitHub repositories, Product Hunt topics, and public social-keyword RSS feeds.
+The Source Health dashboard treats followed sources as editable configuration, not static seed data. Operators can update source name, type, access method, URL/feed, authentication-required status, priority, polling interval, rate-limit notes, and terms/scope notes after creation. The backend protects required source names, rejects duplicate renames, ignores null priority updates, clears blank optional fields, and re-applies connector-specific normalization for GitHub repositories, Product Hunt topics, and public social-keyword RSS feeds.
 
 ### 7.2 Processing Pipeline
 

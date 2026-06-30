@@ -267,6 +267,28 @@ def test_update_source_trims_editable_settings_and_clears_empty_notes() -> None:
     assert db.commits == 1
 
 
+def test_update_source_ignores_null_priority() -> None:
+    source = Source(
+        id=8,
+        name="Configurable Source",
+        type="api",
+        access_method="api",
+        enabled=True,
+        priority=70,
+    )
+    db = FakeSourceDb(source)
+
+    updated = update_source(
+        db,
+        source_id=8,
+        payload=SourceUpdate(priority=None),
+    )
+
+    assert updated is source
+    assert source.priority == 70
+    assert db.commits == 1
+
+
 def test_update_source_edits_identity_and_connector_configuration() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

@@ -269,3 +269,4 @@ Implementation progress:
 - Added personal notes and manual tags to manual URL submission so curated captures can enter saved/read-later, tag search, exports, and digest workflows with private context immediately.
 - Added Alert Rule detail editing for names, descriptions, categories, severities, score thresholds, tickers, and topics, with backend guards for blank required fields and bounded thresholds.
 - Hardened stock watchlist metadata edits so blank exchange, sector, industry, priority, and group updates cannot erase required stock profile fields, while optional notes remain clearable.
+- Hardened Source Health edits so explicit null priority updates cannot erase the non-null source ordering field.

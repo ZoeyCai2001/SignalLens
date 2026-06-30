@@ -123,6 +123,8 @@ def update_source(db: Session, source_id: int, payload: SourceUpdate) -> Source 
     source.polling_interval = polling_interval
 
     for field_name, value in updates.items():
+        if field_name == "priority" and value is None:
+            continue
         if isinstance(value, str):
             value = value.strip() or None
         setattr(source, field_name, value)
