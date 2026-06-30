@@ -272,3 +272,4 @@ Implementation progress:
 - Hardened Source Health edits so explicit null priority updates cannot erase the non-null source ordering field.
 - Added canonical URL hashing to raw ingestion storage so tracking-parameter variants and source-specific ids do not create duplicate persisted items.
 - Made manual URL resubmission use canonical URL identity so tracking-parameter variants refresh the existing captured item.
+- Extended raw ingestion deduplication to skip same canonical-URL items even when a later fetch changes the title or excerpt.

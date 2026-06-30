@@ -681,12 +681,14 @@ def get_or_create_source(
 def store_raw_items(db: Session, source: Source, items: list[RawItemInput]) -> int:
     stored_count = 0
     for item in items:
+        canonical_url = canonical_ingestion_url(item.url)
         content_hash = compute_content_hash(item)
         if raw_item_exists(
             db,
             source_id=source.id,
             external_id=item.external_id,
             content_hash=content_hash,
+            canonical_url=canonical_url,
         ):
             continue
 
@@ -748,9 +750,12 @@ def raw_item_exists(
     source_id: int,
     external_id: str | None,
     content_hash: str,
+    canonical_url: str | None = None,
 ) -> bool:
     query = db.query(RawItem).filter(RawItem.content_hash == content_hash)
     if db.query(query.exists()).scalar():
+        return True
+    if canonical_url and raw_item_canonical_url_exists(db, canonical_url):
         return True
     if external_id:
         external_query = db.query(RawItem).filter(
@@ -759,6 +764,10 @@ def raw_item_exists(
         )
         return bool(db.query(external_query.exists()).scalar())
     return False
+
+
+def raw_item_canonical_url_exists(db: Session, canonical_url: str) -> bool:
+    return any(canonical_ingestion_url(raw.url) == canonical_url for raw in db.query(RawItem).all())
 
 
 def compute_content_hash(item: RawItemInput) -> str:
