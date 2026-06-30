@@ -497,6 +497,7 @@ type QualityMetrics = {
   alert_dismissal_rate: number;
   digest_snapshot_count: number;
   latest_digest_snapshot_date: string | null;
+  latest_digest_age_days: number | null;
   llm_call_count: number;
   llm_input_tokens: number;
   llm_output_tokens: number;
@@ -3779,6 +3780,14 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Latest Digest"
                     value={qualityMetrics.latest_digest_snapshot_date ?? "none"}
+                  />
+                  <ReadinessMetric
+                    label="Digest Age"
+                    value={
+                      qualityMetrics.latest_digest_age_days === null
+                        ? "none"
+                        : `${qualityMetrics.latest_digest_age_days}d`
+                    }
                   />
                 </div>
                 <div className="readiness-grid setup-summary-grid">

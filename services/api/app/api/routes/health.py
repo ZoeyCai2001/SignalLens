@@ -123,6 +123,13 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     )
     digest_snapshot_count = count_recent_digest_snapshots(db=db, since=since)
     latest_digest_snapshot = get_latest_digest_snapshot(db)
+    latest_digest_snapshot_date = (
+        latest_digest_snapshot.digest_date if latest_digest_snapshot else None
+    )
+    latest_digest_age_days = digest_age_days(
+        latest_digest_snapshot_date=latest_digest_snapshot_date,
+        current_date=generated_at.date(),
+    )
     llm_calls_per_recent_item = ratio(llm_usage["call_count"], recent_item_count)
 
     return QualityMetricsResponse(
@@ -145,9 +152,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         dismissed_alert_count=alert_counts["dismissed"],
         alert_dismissal_rate=alert_dismissal_rate,
         digest_snapshot_count=digest_snapshot_count,
-        latest_digest_snapshot_date=(
-            latest_digest_snapshot.digest_date if latest_digest_snapshot else None
-        ),
+        latest_digest_snapshot_date=latest_digest_snapshot_date,
+        latest_digest_age_days=latest_digest_age_days,
         llm_call_count=llm_usage["call_count"],
         llm_input_tokens=llm_usage["input_tokens"],
         llm_output_tokens=llm_usage["output_tokens"],
@@ -167,9 +173,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             dismissed_alert_count=alert_counts["dismissed"],
             alert_dismissal_rate=alert_dismissal_rate,
             digest_snapshot_count=digest_snapshot_count,
-            latest_digest_snapshot_date=(
-                latest_digest_snapshot.digest_date if latest_digest_snapshot else None
-            ),
+            latest_digest_snapshot_date=latest_digest_snapshot_date,
+            current_date=generated_at.date(),
             llm_calls_per_recent_item=llm_calls_per_recent_item,
         ),
     )
@@ -282,6 +287,15 @@ def get_latest_digest_snapshot(db: Session) -> DailyDigestSnapshot | None:
     )
 
 
+def digest_age_days(
+    latest_digest_snapshot_date: date | None,
+    current_date: date,
+) -> int | None:
+    if latest_digest_snapshot_date is None:
+        return None
+    return max(0, (current_date - latest_digest_snapshot_date).days)
+
+
 def summarize_recent_llm_usage(db: Session, since: datetime) -> LlmUsageSummary:
     rows = (
         db.query(LlmUsageEvent)
@@ -391,8 +405,10 @@ def build_quality_findings(
     digest_snapshot_count: int,
     latest_digest_snapshot_date: date | None,
     llm_calls_per_recent_item: float,
+    current_date: date | None = None,
 ) -> list[QualityFinding]:
     findings: list[QualityFinding] = []
+    today = current_date or datetime.now(UTC).date()
     if recent_item_count == 0:
         findings.append(
             QualityFinding(
@@ -489,7 +505,7 @@ def build_quality_findings(
                 action_source_filter="failed",
             )
         )
-    if digest_snapshot_count == 0 and latest_digest_snapshot_date:
+    if latest_digest_snapshot_date and latest_digest_snapshot_date < today:
         findings.append(
             QualityFinding(
                 severity="info",
@@ -500,7 +516,7 @@ def build_quality_findings(
                 action_module="digest",
             )
         )
-    elif digest_snapshot_count == 0:
+    elif latest_digest_snapshot_date is None:
         findings.append(
             QualityFinding(
                 severity="info",

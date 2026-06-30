@@ -12,6 +12,7 @@ from app.api.routes.health import (
     build_setup_items,
     canonical_quality_url,
     duplicate_rate_for_items,
+    digest_age_days,
     has_custom_sec_user_agent,
     has_config_value,
     health_check,
@@ -336,6 +337,7 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.alert_dismissal_rate == 0.5
     assert metrics.digest_snapshot_count == 1
     assert metrics.latest_digest_snapshot_date == now.date()
+    assert metrics.latest_digest_age_days == 0
     assert metrics.llm_call_count == 2
     assert metrics.llm_input_tokens == 180
     assert metrics.llm_output_tokens == 30
@@ -442,15 +444,22 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
         active_alert_count=0,
         dismissed_alert_count=0,
         alert_dismissal_rate=0,
-        digest_snapshot_count=0,
-        latest_digest_snapshot_date=date(2026, 6, 20),
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 29),
         llm_calls_per_recent_item=0,
+        current_date=date(2026, 6, 30),
     )
 
     assert [finding.title for finding in findings] == ["Digest snapshot is stale"]
-    assert findings[0].metric == "last saved 2026-06-20"
+    assert findings[0].metric == "last saved 2026-06-29"
     assert findings[0].action_label == "Open Daily Digest"
     assert findings[0].action_module == "digest"
+
+
+def test_digest_age_days_tracks_latest_saved_digest_freshness() -> None:
+    assert digest_age_days(date(2026, 6, 30), date(2026, 6, 30)) == 0
+    assert digest_age_days(date(2026, 6, 28), date(2026, 6, 30)) == 2
+    assert digest_age_days(None, date(2026, 6, 30)) is None
 
 
 def test_build_quality_findings_flags_high_value_summary_gap() -> None:
