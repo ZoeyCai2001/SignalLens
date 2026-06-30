@@ -101,6 +101,7 @@ class QualityMetricsResponse(BaseModel):
     digest_snapshot_count: int
     latest_digest_snapshot_date: date | None = None
     latest_digest_age_days: int | None = None
+    latest_digest_snapshot_item_count: int | None = None
     latest_stock_price_date: date | None = None
     latest_stock_price_age_days: int | None = None
     llm_call_count: int = 0

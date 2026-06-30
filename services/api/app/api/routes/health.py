@@ -128,6 +128,9 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     latest_digest_snapshot_date = (
         latest_digest_snapshot.digest_date if latest_digest_snapshot else None
     )
+    latest_digest_snapshot_item_count = (
+        latest_digest_snapshot.total_items if latest_digest_snapshot else None
+    )
     latest_digest_age_days = digest_age_days(
         latest_digest_snapshot_date=latest_digest_snapshot_date,
         current_date=generated_at.date(),
@@ -162,6 +165,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         digest_snapshot_count=digest_snapshot_count,
         latest_digest_snapshot_date=latest_digest_snapshot_date,
         latest_digest_age_days=latest_digest_age_days,
+        latest_digest_snapshot_item_count=latest_digest_snapshot_item_count,
         latest_stock_price_date=latest_stock_price_date,
         latest_stock_price_age_days=latest_stock_price_age_days,
         llm_call_count=llm_usage["call_count"],
@@ -185,6 +189,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             alert_dismissal_rate=alert_dismissal_rate,
             digest_snapshot_count=digest_snapshot_count,
             latest_digest_snapshot_date=latest_digest_snapshot_date,
+            latest_digest_snapshot_item_count=latest_digest_snapshot_item_count,
             latest_stock_price_date=latest_stock_price_date,
             stock_watchlist_count=stock_watchlist_count,
             current_date=generated_at.date(),
@@ -451,6 +456,7 @@ def build_quality_findings(
     alert_dismissal_rate: float,
     digest_snapshot_count: int,
     latest_digest_snapshot_date: date | None,
+    latest_digest_snapshot_item_count: int | None,
     llm_calls_per_recent_item: float,
     latest_stock_price_date: date | None = None,
     stock_watchlist_count: int = 0,
@@ -618,6 +624,21 @@ def build_quality_findings(
                 title="No saved digest snapshot",
                 metric="0 saved digests",
                 recommendation="Generate and save a daily digest snapshot after ingestion.",
+                action_label="Save Digest",
+                action_module="digest",
+                action_operation="digest:save-snapshot",
+            )
+        )
+    elif recent_item_count >= 5 and (latest_digest_snapshot_item_count or 0) < 3:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Digest snapshot is thin",
+                metric=f"{latest_digest_snapshot_item_count or 0} saved digest items",
+                recommendation=(
+                    "Regenerate and save the daily digest after the latest ingestion so the "
+                    "morning briefing reflects the available feed."
+                ),
                 action_label="Save Digest",
                 action_module="digest",
                 action_operation="digest:save-snapshot",

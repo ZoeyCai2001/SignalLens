@@ -340,6 +340,7 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.digest_snapshot_count == 1
     assert metrics.latest_digest_snapshot_date == now.date()
     assert metrics.latest_digest_age_days == 0
+    assert metrics.latest_digest_snapshot_item_count == 2
     assert metrics.latest_stock_price_date is None
     assert metrics.latest_stock_price_age_days is None
     assert metrics.llm_call_count == 2
@@ -380,6 +381,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         alert_dismissal_rate=0,
         digest_snapshot_count=0,
         latest_digest_snapshot_date=None,
+        latest_digest_snapshot_item_count=None,
         llm_calls_per_recent_item=0,
     )
 
@@ -410,6 +412,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         alert_dismissal_rate=0.833,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=1.6,
     )
 
@@ -456,12 +459,41 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
         alert_dismissal_rate=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 29),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=0,
         current_date=date(2026, 6, 30),
     )
 
     assert [finding.title for finding in findings] == ["Digest snapshot is stale"]
     assert findings[0].metric == "last saved 2026-06-29"
+    assert findings[0].action_label == "Save Digest"
+    assert findings[0].action_module == "digest"
+    assert findings[0].action_operation == "digest:save-snapshot"
+
+
+def test_build_quality_findings_flags_thin_digest_snapshot() -> None:
+    findings = build_quality_findings(
+        recent_item_count=8,
+        high_value_item_count=0,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=1,
+        llm_calls_per_recent_item=0,
+        current_date=date(2026, 6, 30),
+    )
+
+    assert [finding.title for finding in findings] == ["Digest snapshot is thin"]
+    assert findings[0].metric == "1 saved digest items"
     assert findings[0].action_label == "Save Digest"
     assert findings[0].action_module == "digest"
     assert findings[0].action_operation == "digest:save-snapshot"
@@ -507,6 +539,7 @@ def test_build_quality_findings_flags_stale_stock_prices() -> None:
         alert_dismissal_rate=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=0,
         latest_stock_price_date=date(2026, 6, 27),
         stock_watchlist_count=2,
@@ -568,6 +601,7 @@ def test_build_quality_findings_flags_high_value_summary_gap() -> None:
         alert_dismissal_rate=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=0,
     )
 
@@ -594,6 +628,7 @@ def test_build_quality_findings_flags_read_later_backlog() -> None:
         alert_dismissal_rate=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=0,
     )
 
@@ -619,6 +654,7 @@ def test_build_quality_findings_ignores_small_read_later_queue() -> None:
         alert_dismissal_rate=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=0,
     )
 
@@ -641,6 +677,7 @@ def test_build_quality_findings_flags_empty_alert_coverage_for_high_value_items(
         alert_dismissal_rate=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=0,
     )
 
@@ -667,6 +704,7 @@ def test_build_quality_findings_flags_noisy_alert_rules() -> None:
         alert_dismissal_rate=0.833,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=0,
     )
 
@@ -692,6 +730,7 @@ def test_build_quality_findings_ignores_tiny_alert_samples() -> None:
         alert_dismissal_rate=1,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
         llm_calls_per_recent_item=0,
     )
 

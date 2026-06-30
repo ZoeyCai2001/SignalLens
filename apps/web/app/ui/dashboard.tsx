@@ -498,6 +498,7 @@ type QualityMetrics = {
   digest_snapshot_count: number;
   latest_digest_snapshot_date: string | null;
   latest_digest_age_days: number | null;
+  latest_digest_snapshot_item_count: number | null;
   latest_stock_price_date: string | null;
   latest_stock_price_age_days: number | null;
   llm_call_count: number;
@@ -3821,6 +3822,10 @@ function SystemStatusPanel({
                         ? "none"
                         : `${qualityMetrics.latest_digest_age_days}d`
                     }
+                  />
+                  <ReadinessMetric
+                    label="Digest Items"
+                    value={qualityMetrics.latest_digest_snapshot_item_count ?? "none"}
                   />
                   <ReadinessMetric
                     label="Latest Price"
