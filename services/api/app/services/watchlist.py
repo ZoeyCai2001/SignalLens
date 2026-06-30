@@ -295,6 +295,11 @@ def update_stock_watchlist_item(
             value = clean_terms(value)
         elif field_name == "related_companies" and value is not None:
             value = [normalize_ticker(term) for term in clean_terms(value)]
+        elif field_name == "company_name" and isinstance(value, str):
+            normalized_name = value.strip()
+            if not normalized_name:
+                continue
+            value = normalized_name
         elif isinstance(value, str):
             value = value.strip()
         setattr(item, field_name, value)

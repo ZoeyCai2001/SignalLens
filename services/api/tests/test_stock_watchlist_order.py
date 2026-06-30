@@ -2,8 +2,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import Base, StockWatchlistItem
-from app.schemas.watchlist import StockWatchlistItemCreate
-from app.services.watchlist import create_stock_watchlist_item, list_stock_watchlist
+from app.schemas.watchlist import StockWatchlistItemCreate, StockWatchlistItemUpdate
+from app.services.watchlist import (
+    create_stock_watchlist_item,
+    list_stock_watchlist,
+    update_stock_watchlist_item,
+)
 
 
 def test_list_stock_watchlist_uses_pin_then_display_order_then_priority() -> None:
@@ -94,6 +98,28 @@ def test_create_stock_watchlist_item_requires_ticker_or_known_company() -> None:
         assert "ticker or known company name" in str(exc)
     else:
         raise AssertionError("Expected empty stock watchlist create payload to fail")
+
+
+def test_update_stock_watchlist_item_can_change_display_name_without_blank_overwrite() -> None:
+    db = make_db()
+    db.add(make_stock("MU", display_order=10))
+    db.commit()
+
+    updated = update_stock_watchlist_item(
+        db,
+        "MU",
+        StockWatchlistItemUpdate(company_name="  Micron AI Memory  "),
+    )
+    blank_update = update_stock_watchlist_item(
+        db,
+        "MU",
+        StockWatchlistItemUpdate(company_name="   "),
+    )
+
+    assert updated is not None
+    assert updated.company_name == "Micron AI Memory"
+    assert blank_update is not None
+    assert blank_update.company_name == "Micron AI Memory"
 
 
 def make_db():

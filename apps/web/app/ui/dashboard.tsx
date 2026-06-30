@@ -114,6 +114,7 @@ type StockWatchlistItem = {
 };
 
 type StockDetailDraft = {
+  company_name: string;
   exchange: string;
   sector: string;
   industry: string;
@@ -5512,6 +5513,7 @@ function StockTable({
       return;
     }
     const payload: Partial<Omit<StockWatchlistItem, "ticker">> = {
+      company_name: detailDraft.company_name.trim() || selectedStock.company_name,
       exchange: detailDraft.exchange.trim(),
       sector: detailDraft.sector.trim(),
       industry: detailDraft.industry.trim(),
@@ -5808,6 +5810,15 @@ function StockDetailEditor({
         </label>
       </div>
       <div className="stock-detail-grid">
+        <label className="weight-field">
+          <span className="field-label">Display Name</span>
+          <input
+            className="field"
+            value={draft.company_name}
+            onChange={(event) => onDraftChange("company_name", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
         <label className="weight-field">
           <span className="field-label">Exchange</span>
           <input
@@ -8096,6 +8107,7 @@ function buildSearchIntentChips(intent: SearchIntent | null): string[] {
 
 function stockToDetailDraft(stock: StockWatchlistItem | null): StockDetailDraft {
   return {
+    company_name: stock?.company_name ?? "",
     exchange: stock?.exchange ?? "",
     sector: stock?.sector ?? "",
     industry: stock?.industry ?? "",
