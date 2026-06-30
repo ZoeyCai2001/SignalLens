@@ -267,6 +267,64 @@ def test_update_source_trims_editable_settings_and_clears_empty_notes() -> None:
     assert db.commits == 1
 
 
+def test_update_source_edits_identity_and_connector_configuration() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        source = Source(
+            name="Old Repo Source",
+            type="blog",
+            access_method="rss",
+            base_url="https://example.com/feed.xml",
+            auth_required=False,
+            priority=80,
+        )
+        db.add(source)
+        db.commit()
+
+        updated = update_source(
+            db,
+            source_id=source.id,
+            payload=SourceUpdate(
+                name="  LangChain Repo  ",
+                type="github_repository",
+                access_method="rss",
+                base_url=" https://github.com/langchain-ai/langchain ",
+                auth_required=True,
+                priority=25,
+            ),
+        )
+
+    assert updated is not None
+    assert updated.name == "LangChain Repo"
+    assert updated.type == "github_repository"
+    assert updated.access_method == "official_api"
+    assert updated.base_url == "https://github.com/langchain-ai/langchain"
+    assert updated.auth_required is True
+    assert updated.priority == 25
+
+
+def test_update_source_rejects_duplicate_renames() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        first = Source(name="First Source", type="blog", access_method="rss")
+        second = Source(name="Second Source", type="blog", access_method="rss")
+        db.add_all([first, second])
+        db.commit()
+
+        with pytest.raises(ValueError):
+            update_source(
+                db,
+                source_id=second.id,
+                payload=SourceUpdate(name=" First Source "),
+            )
+
+
 def test_create_source_registers_followed_rss_source() -> None:
     db = FakeCreateSourceDb()
 

@@ -59,6 +59,11 @@ class SourceCreate(BaseModel):
 
 
 class SourceUpdate(BaseModel):
+    name: str | None = None
+    type: str | None = None
+    access_method: str | None = None
+    base_url: str | None = None
+    auth_required: bool | None = None
     enabled: bool | None = None
     priority: int | None = None
     rate_limit: str | None = None

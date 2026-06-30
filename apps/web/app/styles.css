@@ -521,6 +521,15 @@ table {
   width: 76px;
 }
 
+.source-name-field {
+  width: 180px;
+}
+
+.source-url-field {
+  margin-top: 6px;
+  width: 220px;
+}
+
 .source-short-field {
   width: 132px;
 }

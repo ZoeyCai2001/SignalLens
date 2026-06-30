@@ -488,6 +488,11 @@ type QualityMetrics = {
 };
 
 type SourceUpdatePayload = {
+  name?: string;
+  type?: string;
+  access_method?: string;
+  base_url?: string | null;
+  auth_required?: boolean;
   enabled?: boolean;
   priority?: number;
   rate_limit?: string | null;
@@ -508,6 +513,11 @@ type SourceCreatePayload = {
 };
 
 type SourceDraft = {
+  name: string;
+  type: string;
+  access_method: string;
+  base_url: string;
+  auth_required: boolean;
   priority: string;
   polling_interval: string;
   rate_limit: string;
@@ -750,6 +760,24 @@ const sourceHealthFilterOptions: { key: SourceHealthFilter; label: string }[] = 
   { key: "never_run", label: "Never Run" },
   { key: "disabled", label: "Disabled" },
   { key: "blocked", label: "Blocked" },
+];
+
+const sourceTypeOptions: { value: string; label: string }[] = [
+  { value: "blog", label: "Blog" },
+  { value: "company", label: "Company" },
+  { value: "community", label: "Community" },
+  { value: "developer", label: "Developer" },
+  { value: "research", label: "Research" },
+  { value: "model_hub", label: "Model hub" },
+  { value: "rss", label: "RSS" },
+  { value: "github_repository", label: "GitHub repository" },
+  { value: "product_launch", label: "Product launch" },
+  { value: "product_topic", label: "Product topic" },
+  { value: "social_keyword", label: "Social keyword" },
+  { value: "chinese_social", label: "Chinese social" },
+  { value: "finance_news", label: "Finance news" },
+  { value: "stock_prices", label: "Stock prices" },
+  { value: "finance_filings", label: "Finance filings" },
 ];
 
 const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[] = [
@@ -7790,7 +7818,11 @@ function SourceTable({
     setDrafts(Object.fromEntries(sources.map((source) => [source.id, buildSourceDraft(source)])));
   }, [sources]);
 
-  const setDraftValue = (sourceId: number, field: keyof SourceDraft, value: string) => {
+  const setDraftValue = (
+    sourceId: number,
+    field: keyof SourceDraft,
+    value: SourceDraft[keyof SourceDraft],
+  ) => {
     setDrafts((current) => ({
       ...current,
       [sourceId]: {
@@ -7833,12 +7865,11 @@ function SourceTable({
           disabled={disabled}
           aria-label="Source type"
         >
-          <option value="blog">Blog</option>
-          <option value="company">Company</option>
-          <option value="github_repository">GitHub repository</option>
-          <option value="product_topic">Product topic</option>
-          <option value="social_keyword">Social keyword</option>
-          <option value="rss">RSS</option>
+          {sourceTypeOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <select
           className="field"
@@ -7902,6 +7933,9 @@ function SourceTable({
           <thead>
             <tr>
               <th>Source</th>
+              <th>Type</th>
+              <th>Access</th>
+              <th>Auth</th>
               <th>Enabled</th>
               <th>Priority</th>
               <th>Polling</th>
@@ -7926,11 +7960,54 @@ function SourceTable({
               return (
                 <tr key={source.id}>
                   <td>
-                    <div className="table-event-cell">{source.name}</div>
-                    <div className="small-muted">
-                      {source.type} · {source.access_method}
-                      {source.auth_required ? " · key required" : ""}
-                    </div>
+                    <input
+                      className="field table-field source-name-field"
+                      value={draft.name}
+                      onChange={(event) => setDraftValue(source.id, "name", event.target.value)}
+                    />
+                    <input
+                      className="field table-field source-url-field"
+                      value={draft.base_url}
+                      onChange={(event) => setDraftValue(source.id, "base_url", event.target.value)}
+                      placeholder="URL or feed"
+                    />
+                  </td>
+                  <td>
+                    <select
+                      className="field table-field source-short-field"
+                      value={draft.type}
+                      onChange={(event) => setDraftValue(source.id, "type", event.target.value)}
+                    >
+                      {sourceTypeOptions.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      className="field table-field source-short-field"
+                      value={draft.access_method}
+                      onChange={(event) =>
+                        setDraftValue(source.id, "access_method", event.target.value)
+                      }
+                    >
+                      <option value="rss">RSS</option>
+                      <option value="official_api">Official API</option>
+                      <option value="official_graphql_api">Official GraphQL API</option>
+                      <option value="manual_watch">Manual watch</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={draft.auth_required}
+                      onChange={(event) =>
+                        setDraftValue(source.id, "auth_required", event.target.checked)
+                      }
+                      aria-label={`Authentication required for ${source.name}`}
+                    />
                   </td>
                   <td>{source.enabled ? "Yes" : "No"}</td>
                   <td>
@@ -8078,7 +8155,7 @@ function SourceTable({
             })}
             {!displayedSources.length ? (
               <tr>
-                <td colSpan={11}>
+                <td colSpan={14}>
                   <div className="empty-state">No sources match this health filter.</div>
                 </td>
               </tr>
@@ -8173,6 +8250,11 @@ function SourceTable({
 
 function buildSourceDraft(source: SourceHealth): SourceDraft {
   return {
+    name: source.name,
+    type: source.type,
+    access_method: source.access_method,
+    base_url: source.base_url ?? "",
+    auth_required: source.auth_required,
     priority: String(source.priority),
     polling_interval: source.polling_interval ?? "",
     rate_limit: source.rate_limit ?? "",
@@ -8184,6 +8266,11 @@ function buildSourcePayload(draft: SourceDraft): SourceUpdatePayload {
   const priority = Number(draft.priority);
 
   return {
+    name: draft.name.trim(),
+    type: draft.type.trim() || "rss",
+    access_method: draft.access_method.trim() || "rss",
+    base_url: draft.base_url.trim() || null,
+    auth_required: draft.auth_required,
     priority: Number.isFinite(priority) && priority >= 0 ? priority : 100,
     polling_interval: draft.polling_interval.trim() || null,
     rate_limit: draft.rate_limit.trim() || null,
@@ -8193,6 +8280,11 @@ function buildSourcePayload(draft: SourceDraft): SourceUpdatePayload {
 
 function isSourceDraftChanged(source: SourceHealth, draft: SourceDraft): boolean {
   return (
+    source.name !== draft.name.trim() ||
+    source.type !== draft.type.trim() ||
+    source.access_method !== draft.access_method.trim() ||
+    (source.base_url ?? "") !== draft.base_url.trim() ||
+    source.auth_required !== draft.auth_required ||
     String(source.priority) !== draft.priority.trim() ||
     (source.polling_interval ?? "") !== draft.polling_interval.trim() ||
     (source.rate_limit ?? "") !== draft.rate_limit.trim() ||

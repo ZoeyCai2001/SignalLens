@@ -84,7 +84,10 @@ async def patch_source(
     payload: SourceUpdate,
     db: DbSession,
 ) -> SourceHealth:
-    source = update_source(db, source_id=source_id, payload=payload)
+    try:
+        source = update_source(db, source_id=source_id, payload=payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
     return serialize_source_health(

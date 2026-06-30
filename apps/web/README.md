@@ -27,7 +27,7 @@ http://127.0.0.1:8000
 
 - Ranked feed
 - AI Stock Watchlist
-- Source health
+- Editable Source health and followed-source configuration
 - Hacker News ingestion action
 - arXiv ingestion action
 - GitHub ingestion action

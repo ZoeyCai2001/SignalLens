@@ -265,3 +265,4 @@ Implementation progress:
 - Added Topic Watchlist detail editing for labels, categories, related terms, and notes, with backend guards for blank required fields.
 - Added Product Category detail editing for labels, related terms, and notes, with backend guards for blank product labels.
 - Added Company Watchlist detail editing for company names, tickers, categories, related terms, and notes, with backend guards for blank required fields.
+- Expanded Source Health editing so followed sources can update identity, connector configuration, URL/feed, authentication-required status, schedule, limits, and terms notes after creation.

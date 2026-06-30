@@ -62,38 +62,25 @@ def create_source(db: Session, payload: SourceCreate) -> Source:
     if existing is not None:
         raise ValueError(f"{name} is already registered.")
 
-    source_type = normalize_optional_text(payload.type) or "rss"
-    access_method = normalize_optional_text(payload.access_method) or "rss"
-    if source_type == "github_repository":
-        access_method = "official_api"
-    if source_type == "product_topic":
-        access_method = "official_graphql_api"
-    if source_type == "social_keyword" and normalize_optional_text(payload.base_url):
-        access_method = "rss"
+    source_type, access_method, base_url, auth_required, rate_limit, polling_interval = (
+        normalize_source_configuration(
+            source_type=payload.type,
+            access_method=payload.access_method,
+            base_url=payload.base_url,
+            auth_required=payload.auth_required,
+            rate_limit=payload.rate_limit,
+            polling_interval=payload.polling_interval,
+        )
+    )
 
     source = Source(
         name=name,
         type=source_type,
         access_method=access_method,
-        base_url=normalize_optional_text(payload.base_url),
-        auth_required=payload.auth_required or source_type == "product_topic",
-        rate_limit=normalize_optional_text(payload.rate_limit)
-        or (
-            "Product Hunt API token required; keep topic polling conservative."
-            if source_type == "product_topic"
-            else None
-        )
-        or (
-            "Public RSS/Atom metadata only; no login-protected social scraping."
-            if source_type == "social_keyword"
-            else None
-        ),
-        polling_interval=normalize_optional_text(payload.polling_interval)
-        or (
-            "6 hours"
-            if source_type in {"product_topic", "social_keyword"}
-            else None
-        ),
+        base_url=base_url,
+        auth_required=auth_required,
+        rate_limit=rate_limit,
+        polling_interval=polling_interval,
         enabled=payload.enabled,
         priority=payload.priority,
         terms_notes=normalize_optional_text(payload.terms_notes),
@@ -110,6 +97,31 @@ def update_source(db: Session, source_id: int, payload: SourceUpdate) -> Source 
         return None
 
     updates = payload.model_dump(exclude_unset=True)
+    if "name" in updates:
+        name = normalize_optional_text(updates.pop("name"))
+        if name:
+            existing = db.query(Source).filter(Source.name == name, Source.id != source.id).one_or_none()
+            if existing is not None:
+                raise ValueError(f"{name} is already registered.")
+            source.name = name
+
+    source_type, access_method, base_url, auth_required, rate_limit, polling_interval = (
+        normalize_source_configuration(
+            source_type=updates.pop("type", source.type),
+            access_method=updates.pop("access_method", source.access_method),
+            base_url=updates.pop("base_url", source.base_url),
+            auth_required=updates.pop("auth_required", source.auth_required),
+            rate_limit=updates.pop("rate_limit", source.rate_limit),
+            polling_interval=updates.pop("polling_interval", source.polling_interval),
+        )
+    )
+    source.type = source_type
+    source.access_method = access_method
+    source.base_url = base_url
+    source.auth_required = auth_required
+    source.rate_limit = rate_limit
+    source.polling_interval = polling_interval
+
     for field_name, value in updates.items():
         if isinstance(value, str):
             value = value.strip() or None
@@ -154,6 +166,56 @@ def normalize_optional_text(value: str | None) -> str | None:
     if value is None:
         return None
     return value.strip() or None
+
+
+def normalize_source_configuration(
+    *,
+    source_type: str | None,
+    access_method: str | None,
+    base_url: str | None,
+    auth_required: bool | None,
+    rate_limit: str | None,
+    polling_interval: str | None,
+) -> tuple[str, str, str | None, bool, str | None, str | None]:
+    normalized_type = normalize_optional_text(source_type) or "rss"
+    normalized_access_method = normalize_optional_text(access_method) or "rss"
+    normalized_base_url = normalize_optional_text(base_url)
+    normalized_rate_limit = normalize_optional_text(rate_limit)
+    normalized_polling_interval = normalize_optional_text(polling_interval)
+
+    if normalized_type == "github_repository":
+        normalized_access_method = "official_api"
+    if normalized_type == "product_topic":
+        normalized_access_method = "official_graphql_api"
+    if normalized_type == "social_keyword" and normalized_base_url:
+        normalized_access_method = "rss"
+
+    normalized_auth_required = bool(auth_required) or normalized_type == "product_topic"
+    normalized_rate_limit = (
+        normalized_rate_limit
+        or (
+            "Product Hunt API token required; keep topic polling conservative."
+            if normalized_type == "product_topic"
+            else None
+        )
+        or (
+            "Public RSS/Atom metadata only; no login-protected social scraping."
+            if normalized_type == "social_keyword"
+            else None
+        )
+    )
+    normalized_polling_interval = normalized_polling_interval or (
+        "6 hours" if normalized_type in {"product_topic", "social_keyword"} else None
+    )
+
+    return (
+        normalized_type,
+        normalized_access_method,
+        normalized_base_url,
+        normalized_auth_required,
+        normalized_rate_limit,
+        normalized_polling_interval,
+    )
 
 
 def list_source_run_history(
