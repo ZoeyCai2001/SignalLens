@@ -262,3 +262,4 @@ Implementation progress:
 - Added browser-side Markdown downloads for Daily Digest and Saved Items so local archives do not require email or another service.
 - Added stale-source detection to Source Health, sharing the scheduler polling-interval parser and adding dashboard due-time/stale filtering.
 - Added stock watchlist display-name editing in the selected stock detail panel, with backend protection against blank company-name overwrites.
+- Added Topic Watchlist detail editing for labels, categories, related terms, and notes, with backend guards for blank required fields.

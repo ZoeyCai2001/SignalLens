@@ -254,6 +254,13 @@ type TopicWatchlistItem = {
   notes: string | null;
 };
 
+type TopicDetailDraft = {
+  label: string;
+  category: string;
+  related_terms: string;
+  notes: string;
+};
+
 type ProductWatchlistItem = {
   category: string;
   label: string;
@@ -2221,7 +2228,7 @@ export function Dashboard() {
 
   const updateTopic = async (
     topic: string,
-    payload: Partial<Pick<TopicWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+    payload: Partial<Omit<TopicWatchlistItem, "topic">>,
   ) => {
     const key = `topic:${topic}`;
     setBusyWatchlistKey(key);
@@ -6712,11 +6719,36 @@ function TopicTable({
   onSelectTopic: (topic: string) => void;
   onUpdateTopic: (
     topic: string,
-    payload: Partial<Pick<TopicWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+    payload: Partial<Omit<TopicWatchlistItem, "topic">>,
   ) => void;
   onDeleteTopic: (topic: string) => void;
   onSubmit: () => void;
 }) {
+  const selectedTopicItem = topics.find((item) => item.topic === selectedTopic) ?? null;
+  const [detailDraft, setDetailDraft] = useState<TopicDetailDraft>(() =>
+    topicToDetailDraft(selectedTopicItem),
+  );
+
+  useEffect(() => {
+    setDetailDraft(topicToDetailDraft(selectedTopicItem));
+  }, [selectedTopicItem]);
+
+  const updateDetailDraft = (key: keyof TopicDetailDraft, value: string) => {
+    setDetailDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveTopicDetails = () => {
+    if (!selectedTopicItem) {
+      return;
+    }
+    onUpdateTopic(selectedTopicItem.topic, {
+      label: detailDraft.label.trim() || selectedTopicItem.label,
+      category: detailDraft.category.trim() || selectedTopicItem.category,
+      related_terms: splitTerms(detailDraft.related_terms),
+      notes: detailDraft.notes.trim() || null,
+    });
+  };
+
   return (
     <section className="section">
       <div className="section-header">
@@ -6860,12 +6892,104 @@ function TopicTable({
           </tbody>
         </table>
       </div>
+      <TopicDetailEditor
+        topic={selectedTopicItem}
+        draft={detailDraft}
+        disabled={
+          disabled ||
+          (selectedTopicItem
+            ? busyWatchlistKey === `topic:${selectedTopicItem.topic}`
+            : false)
+        }
+        onDraftChange={updateDetailDraft}
+        onSave={saveTopicDetails}
+      />
       <TopicBriefingPanel
         briefing={topicBriefing}
         loading={busyTopicBriefing === selectedTopic && selectedTopic !== null}
         selectedTopic={selectedTopic}
       />
     </section>
+  );
+}
+
+function TopicDetailEditor({
+  topic,
+  draft,
+  disabled,
+  onDraftChange,
+  onSave,
+}: {
+  topic: TopicWatchlistItem | null;
+  draft: TopicDetailDraft;
+  disabled: boolean;
+  onDraftChange: (key: keyof TopicDetailDraft, value: string) => void;
+  onSave: () => void;
+}) {
+  if (!topic) {
+    return <div className="empty-state">Select a topic to edit watchlist details.</div>;
+  }
+
+  return (
+    <div className="form-panel stock-detail-form">
+      <div className="section-header">
+        <div>
+          <h3 className="section-title">{topic.label} details</h3>
+          <div className="small-muted">{topic.topic}</div>
+        </div>
+        <span className="badge">{topic.include_in_digest ? "digest" : "muted"}</span>
+      </div>
+      <div className="stock-detail-grid">
+        <label className="weight-field">
+          <span className="field-label">Label</span>
+          <input
+            className="field"
+            value={draft.label}
+            onChange={(event) => onDraftChange("label", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Category</span>
+          <select
+            className="field"
+            value={draft.category}
+            onChange={(event) => onDraftChange("category", event.target.value)}
+            disabled={disabled}
+          >
+            <option value="technical_trend">Trend</option>
+            <option value="research">Research</option>
+            <option value="product">Product</option>
+            <option value="stock_company_event">Stock</option>
+            <option value="social_trend">Social</option>
+          </select>
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Related Terms</span>
+          <input
+            className="field"
+            value={draft.related_terms}
+            onChange={(event) => onDraftChange("related_terms", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+      </div>
+      <label className="weight-field">
+        <span className="field-label">Notes</span>
+        <textarea
+          className="field textarea"
+          value={draft.notes}
+          onChange={(event) => onDraftChange("notes", event.target.value)}
+          disabled={disabled}
+        />
+      </label>
+      <div className="toolbar">
+        <button className="button primary" onClick={onSave} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+          Save
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -8122,6 +8246,15 @@ function stockToDetailDraft(stock: StockWatchlistItem | null): StockDetailDraft 
         ? ""
         : String(stock.average_cost),
     notes: stock?.notes ?? "",
+  };
+}
+
+function topicToDetailDraft(topic: TopicWatchlistItem | null): TopicDetailDraft {
+  return {
+    label: topic?.label ?? "",
+    category: topic?.category ?? "technical_trend",
+    related_terms: topic?.related_terms.join(", ") ?? "",
+    notes: topic?.notes ?? "",
   };
 }
 
