@@ -9,6 +9,8 @@ class ManualSubmissionRequest(BaseModel):
     text: str | None = Field(default=None, max_length=12000)
     source_name: str = Field(default="Manual Submission", min_length=2, max_length=120)
     save_item: bool = False
+    personal_note: str | None = Field(default=None, max_length=4000)
+    manual_tags: list[str] | None = Field(default=None, max_length=12)
     classify_with_llm: bool = False
     summarize_with_llm: bool = False
 

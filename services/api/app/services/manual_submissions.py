@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 from app.db.models import NormalizedItem, RawItem, Source
 from app.schemas.feed import FeedItem
 from app.schemas.manual_submissions import ManualSubmissionRequest
-from app.services.feed_actions import get_action, serialize_feed_item, update_item_action
+from app.services.feed_actions import (
+    get_action,
+    get_or_create_action,
+    normalize_manual_tags,
+    serialize_feed_item,
+    update_item_action,
+)
 from app.services.ingestion import (
     compute_content_hash,
     detect_language,
@@ -71,10 +77,10 @@ def create_manual_submission_result(
         db.commit()
         db.refresh(raw.normalized_item)
         return ManualSubmissionSaveResult(
-            item=serialize_saved_manual_item_if_requested(
+            item=serialize_manual_item_with_requested_actions(
                 db=db,
                 item=raw.normalized_item,
-                save_item=request.save_item,
+                request=request,
             ),
             created=raw_result.created,
             updated_existing=raw_result.updated_existing,
@@ -89,23 +95,40 @@ def create_manual_submission_result(
     db.commit()
     db.refresh(normalized)
     return ManualSubmissionSaveResult(
-        item=serialize_saved_manual_item_if_requested(
+        item=serialize_manual_item_with_requested_actions(
             db=db,
             item=normalized,
-            save_item=request.save_item,
+            request=request,
         ),
         created=raw_result.created,
         updated_existing=raw_result.updated_existing,
     )
 
 
-def serialize_saved_manual_item_if_requested(
+def serialize_manual_item_with_requested_actions(
     db: Session,
     item: NormalizedItem,
-    save_item: bool,
+    request: ManualSubmissionRequest,
 ) -> FeedItem:
-    if save_item:
+    note_was_supplied = "personal_note" in request.model_fields_set
+    tags_were_supplied = "manual_tags" in request.model_fields_set
+    if request.save_item and not note_was_supplied and not tags_were_supplied:
         return update_item_action(db=db, item=item, action_name="save")
+
+    if request.save_item or note_was_supplied or tags_were_supplied:
+        action = get_or_create_action(db, item.id)
+        if request.save_item:
+            action.is_saved = True
+        if note_was_supplied:
+            normalized_note = str(request.personal_note or "").strip()
+            action.personal_note = normalized_note or None
+        if tags_were_supplied:
+            action.manual_tags = normalize_manual_tags(request.manual_tags)
+        db.add(action)
+        db.commit()
+        db.refresh(action)
+        return serialize_feed_item(item, action)
+
     return serialize_feed_item(item, get_action(db, item.id))
 
 

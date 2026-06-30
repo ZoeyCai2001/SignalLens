@@ -887,6 +887,8 @@ export function Dashboard() {
   const [manualSourceName, setManualSourceName] = useState("Manual Submission");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [manualPersonalNote, setManualPersonalNote] = useState("");
+  const [manualTags, setManualTags] = useState("");
   const [manualSaveItem, setManualSaveItem] = useState(true);
   const [manualClassifyWithLlm, setManualClassifyWithLlm] = useState(false);
   const [manualSummarizeWithLlm, setManualSummarizeWithLlm] = useState(false);
@@ -1992,6 +1994,8 @@ export function Dashboard() {
           text: manualText.trim() || null,
           source_name: manualSourceName.trim() || "Manual Submission",
           save_item: manualSaveItem,
+          personal_note: manualPersonalNote.trim() || null,
+          manual_tags: splitTerms(manualTags),
           classify_with_llm: manualClassifyWithLlm,
           summarize_with_llm: manualSummarizeWithLlm,
         }),
@@ -2003,6 +2007,8 @@ export function Dashboard() {
       setManualTitle("");
       setManualUrl("");
       setManualText("");
+      setManualPersonalNote("");
+      setManualTags("");
       const completedSteps = [
         result.item.is_saved ? "saved" : null,
         result.classification_status === "succeeded" ? "classified" : null,
@@ -3241,6 +3247,8 @@ export function Dashboard() {
               sourceName={manualSourceName}
               url={manualUrl}
               text={manualText}
+              personalNote={manualPersonalNote}
+              manualTags={manualTags}
               saveItem={manualSaveItem}
               classifyWithLlm={manualClassifyWithLlm}
               summarizeWithLlm={manualSummarizeWithLlm}
@@ -3249,6 +3257,8 @@ export function Dashboard() {
               onSourceNameChange={setManualSourceName}
               onUrlChange={setManualUrl}
               onTextChange={setManualText}
+              onPersonalNoteChange={setManualPersonalNote}
+              onManualTagsChange={setManualTags}
               onSaveItemChange={setManualSaveItem}
               onClassifyWithLlmChange={setManualClassifyWithLlm}
               onSummarizeWithLlmChange={setManualSummarizeWithLlm}
@@ -5351,6 +5361,8 @@ function ManualSubmissionPanel({
   sourceName,
   url,
   text,
+  personalNote,
+  manualTags,
   saveItem,
   classifyWithLlm,
   summarizeWithLlm,
@@ -5359,6 +5371,8 @@ function ManualSubmissionPanel({
   onSourceNameChange,
   onUrlChange,
   onTextChange,
+  onPersonalNoteChange,
+  onManualTagsChange,
   onSaveItemChange,
   onClassifyWithLlmChange,
   onSummarizeWithLlmChange,
@@ -5368,6 +5382,8 @@ function ManualSubmissionPanel({
   sourceName: string;
   url: string;
   text: string;
+  personalNote: string;
+  manualTags: string;
   saveItem: boolean;
   classifyWithLlm: boolean;
   summarizeWithLlm: boolean;
@@ -5376,6 +5392,8 @@ function ManualSubmissionPanel({
   onSourceNameChange: (value: string) => void;
   onUrlChange: (value: string) => void;
   onTextChange: (value: string) => void;
+  onPersonalNoteChange: (value: string) => void;
+  onManualTagsChange: (value: string) => void;
   onSaveItemChange: (value: boolean) => void;
   onClassifyWithLlmChange: (value: boolean) => void;
   onSummarizeWithLlmChange: (value: boolean) => void;
@@ -5437,6 +5455,26 @@ function ManualSubmissionPanel({
           value={text}
           onChange={(event) => onTextChange(event.target.value)}
           placeholder="Optional context for classification and summary"
+        />
+        <label className="field-label" htmlFor="manual-personal-note">
+          Personal note
+        </label>
+        <textarea
+          id="manual-personal-note"
+          className="field textarea"
+          value={personalNote}
+          onChange={(event) => onPersonalNoteChange(event.target.value)}
+          placeholder="Private note for your reading list"
+        />
+        <label className="field-label" htmlFor="manual-tags">
+          Manual tags
+        </label>
+        <input
+          id="manual-tags"
+          className="field"
+          value={manualTags}
+          onChange={(event) => onManualTagsChange(event.target.value)}
+          placeholder="agent, market impact"
         />
         <label className="checkbox-row">
           <input

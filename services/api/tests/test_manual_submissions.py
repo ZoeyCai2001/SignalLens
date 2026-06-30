@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import pytest
+
 from app.api.routes import manual_submissions as manual_submission_routes
 from app.db.models import Base, NormalizedItem
 from app.db.models import RawItem, Source
@@ -315,6 +317,31 @@ def test_manual_submission_can_save_item_on_submit() -> None:
         assert result.item.title == "Saved agent note"
 
 
+def test_manual_submission_can_save_note_and_tags_on_submit() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        result = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="Tagged agent note",
+                url="https://example.com/tagged-agent-note",
+                text="OpenAI released a new agent workflow.",
+                save_item=True,
+                personal_note="  Read before weekend digest.  ",
+                manual_tags=[" Agent ", "agent", "market impact", ""],
+            ),
+        )
+
+        assert result.created is True
+        assert result.item.is_saved is True
+        assert result.item.personal_note == "Read before weekend digest."
+        assert result.item.manual_tags == ["Agent", "market impact"]
+
+
+@pytest.mark.anyio
 async def test_manual_submission_route_skips_llm_enrichment_by_default(monkeypatch) -> None:
     calls: list[str] = []
 
@@ -353,6 +380,7 @@ async def test_manual_submission_route_skips_llm_enrichment_by_default(monkeypat
     assert calls == []
 
 
+@pytest.mark.anyio
 async def test_manual_submission_route_can_classify_and_summarize_saved_item(monkeypatch) -> None:
     async def fake_classify_feed_item(**kwargs) -> NormalizedItem:
         item = kwargs["item"]
@@ -406,6 +434,7 @@ async def test_manual_submission_route_can_classify_and_summarize_saved_item(mon
     assert response.summary_error is None
 
 
+@pytest.mark.anyio
 async def test_manual_submission_route_keeps_item_when_llm_summary_fails(monkeypatch) -> None:
     async def fake_summarize_feed_item(**_kwargs) -> NormalizedItem:
         raise SummarizationError("Kimi unavailable")
@@ -438,6 +467,7 @@ async def test_manual_submission_route_keeps_item_when_llm_summary_fails(monkeyp
     assert response.summary_error == "Kimi unavailable"
 
 
+@pytest.mark.anyio
 async def test_manual_submission_route_can_summarize_after_llm_classification_fails(
     monkeypatch,
 ) -> None:

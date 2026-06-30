@@ -266,3 +266,4 @@ Implementation progress:
 - Added Product Category detail editing for labels, related terms, and notes, with backend guards for blank product labels.
 - Added Company Watchlist detail editing for company names, tickers, categories, related terms, and notes, with backend guards for blank required fields.
 - Expanded Source Health editing so followed sources can update identity, connector configuration, URL/feed, authentication-required status, schedule, limits, and terms notes after creation.
+- Added personal notes and manual tags to manual URL submission so curated captures can enter saved/read-later, tag search, exports, and digest workflows with private context immediately.
