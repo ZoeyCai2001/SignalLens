@@ -296,3 +296,4 @@ Implementation progress:
 - Added a direct full-ingestion-cycle action to no-recent-items System Readiness findings so empty dashboards can recover from the readiness panel.
 - Added recovery hints and store-rate status to single-source Source Health runs so individual connector retries expose the same triage guidance as full-cycle runs.
 - Added watched-stock price freshness tracking to System Readiness, including missing/stale price findings and a direct Alpha Vantage price refresh action.
+- Added an alert-coverage readiness finding so high-value recent signals with no active alerts can generate dashboard alerts directly from System Readiness.

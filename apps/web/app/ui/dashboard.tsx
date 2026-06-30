@@ -518,7 +518,11 @@ type QualityFinding = {
   action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings" | "stocks"> | null;
   action_operation: Extract<
     DashboardOperation,
-    "cycle" | "digest:save-snapshot" | "llm:summarize" | "stock-prices:refresh"
+    | "cycle"
+    | "digest:save-snapshot"
+    | "llm:summarize"
+    | "stock-prices:refresh"
+    | "alerts:generate"
   > | null;
   action_source_filter: SourceHealthFilter | null;
 };
@@ -766,6 +770,7 @@ type DashboardOperation =
   | "cycle"
   | "digest:save-snapshot"
   | "stock-prices:refresh"
+  | "alerts:generate"
   | "llm:classify"
   | "llm:summarize"
   | `ingest:${IngestionSource}`;
@@ -2891,6 +2896,10 @@ export function Dashboard() {
     }
     if (finding.action_operation === "stock-prices:refresh") {
       await runIngestion("alpha-vantage-prices");
+      return;
+    }
+    if (finding.action_operation === "alerts:generate") {
+      await generateDashboardAlerts();
       return;
     }
     setStatus(`${finding.action_label ?? "Opened"}: ${finding.title}`);

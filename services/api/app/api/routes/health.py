@@ -172,6 +172,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         llm_operation_usage=llm_usage["operation_usage"],
         quality_findings=build_quality_findings(
             recent_item_count=recent_item_count,
+            high_value_item_count=high_value_item_count,
             relevance_precision_proxy=relevance_precision_proxy,
             duplicate_rate=duplicate_rate,
             summary_coverage=summary_coverage,
@@ -437,6 +438,7 @@ def ratio(numerator: int, denominator: int) -> float:
 def build_quality_findings(
     *,
     recent_item_count: int,
+    high_value_item_count: int,
     relevance_precision_proxy: float,
     duplicate_rate: float,
     summary_coverage: float,
@@ -525,6 +527,21 @@ def build_quality_findings(
                 recommendation="Use the Daily Digest read-later section to clear saved items.",
                 action_label="Open Daily Digest",
                 action_module="digest",
+            )
+        )
+    if recent_item_count > 0 and high_value_item_count > 0 and active_alert_count == 0:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Alert coverage is empty",
+                metric=f"{high_value_item_count} high-value recent signals",
+                recommendation=(
+                    "Generate dashboard alerts so urgent stock, product, and cross-source signals "
+                    "are visible before the daily digest."
+                ),
+                action_label="Generate Alerts",
+                action_module="dashboard",
+                action_operation="alerts:generate",
             )
         )
     if dismissed_alert_count >= 5 and alert_dismissal_rate >= 0.8:

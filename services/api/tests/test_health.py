@@ -367,6 +367,7 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
 def test_build_quality_findings_recommends_local_actions() -> None:
     findings = build_quality_findings(
         recent_item_count=0,
+        high_value_item_count=0,
         relevance_precision_proxy=0,
         duplicate_rate=0,
         summary_coverage=0,
@@ -396,6 +397,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
 
     findings = build_quality_findings(
         recent_item_count=10,
+        high_value_item_count=0,
         relevance_precision_proxy=0.5,
         duplicate_rate=0.3,
         summary_coverage=0.4,
@@ -441,6 +443,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
 def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
     findings = build_quality_findings(
         recent_item_count=5,
+        high_value_item_count=0,
         relevance_precision_proxy=0.8,
         duplicate_rate=0,
         summary_coverage=0.8,
@@ -491,6 +494,7 @@ def test_build_quality_metrics_flags_missing_stock_prices_for_watchlist() -> Non
 def test_build_quality_findings_flags_stale_stock_prices() -> None:
     findings = build_quality_findings(
         recent_item_count=5,
+        high_value_item_count=0,
         relevance_precision_proxy=0.8,
         duplicate_rate=0,
         summary_coverage=0.8,
@@ -551,6 +555,7 @@ def test_digest_age_days_tracks_latest_saved_digest_freshness() -> None:
 def test_build_quality_findings_flags_high_value_summary_gap() -> None:
     findings = build_quality_findings(
         recent_item_count=5,
+        high_value_item_count=0,
         relevance_precision_proxy=0.8,
         duplicate_rate=0,
         summary_coverage=0.8,
@@ -576,6 +581,7 @@ def test_build_quality_findings_flags_high_value_summary_gap() -> None:
 def test_build_quality_findings_flags_read_later_backlog() -> None:
     findings = build_quality_findings(
         recent_item_count=10,
+        high_value_item_count=0,
         relevance_precision_proxy=0.8,
         duplicate_rate=0,
         summary_coverage=0.8,
@@ -600,6 +606,7 @@ def test_build_quality_findings_flags_read_later_backlog() -> None:
 def test_build_quality_findings_ignores_small_read_later_queue() -> None:
     findings = build_quality_findings(
         recent_item_count=10,
+        high_value_item_count=0,
         relevance_precision_proxy=0.8,
         duplicate_rate=0,
         summary_coverage=0.8,
@@ -618,9 +625,36 @@ def test_build_quality_findings_ignores_small_read_later_queue() -> None:
     assert findings == []
 
 
+def test_build_quality_findings_flags_empty_alert_coverage_for_high_value_items() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        high_value_item_count=3,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        llm_calls_per_recent_item=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Alert coverage is empty"]
+    assert findings[0].metric == "3 high-value recent signals"
+    assert findings[0].action_label == "Generate Alerts"
+    assert findings[0].action_module == "dashboard"
+    assert findings[0].action_operation == "alerts:generate"
+
+
 def test_build_quality_findings_flags_noisy_alert_rules() -> None:
     findings = build_quality_findings(
         recent_item_count=10,
+        high_value_item_count=0,
         relevance_precision_proxy=0.8,
         duplicate_rate=0,
         summary_coverage=0.8,
@@ -645,6 +679,7 @@ def test_build_quality_findings_flags_noisy_alert_rules() -> None:
 def test_build_quality_findings_ignores_tiny_alert_samples() -> None:
     findings = build_quality_findings(
         recent_item_count=10,
+        high_value_item_count=0,
         relevance_precision_proxy=0.8,
         duplicate_rate=0,
         summary_coverage=0.8,
