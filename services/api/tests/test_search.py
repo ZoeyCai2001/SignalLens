@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -127,6 +127,22 @@ def test_infer_search_intent_treats_read_later_as_saved_unread() -> None:
     assert intent.read_status == "unread"
 
 
+def test_infer_search_intent_handles_today_and_yesterday_dates() -> None:
+    today_intent = infer_search_intent(
+        "Show today's AI coding updates.",
+        today=date(2026, 6, 26),
+    )
+    yesterday_intent = infer_search_intent(
+        "Summarize yesterday's semiconductor AI news.",
+        today=date(2026, 6, 26),
+    )
+
+    assert today_intent.date_from == date(2026, 6, 26)
+    assert today_intent.date_to == date(2026, 6, 26)
+    assert yesterday_intent.date_from == date(2026, 6, 25)
+    assert yesterday_intent.date_to == date(2026, 6, 25)
+
+
 def test_search_intent_response_serializes_inferred_filters() -> None:
     intent = infer_search_intent(
         "Show me recent news about MRVL and AI data centers.",
@@ -142,6 +158,7 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     assert response.manual_tag is None
     assert response.query == "AI data center"
     assert response.date_from == date(2026, 6, 19)
+    assert response.date_to is None
     assert response.read_status is None
 
 
@@ -520,6 +537,39 @@ def test_search_feed_items_filters_by_language_preferences() -> None:
     assert [item.title for item in results] == ["Chinese agent signal"]
 
 
+def test_search_feed_items_applies_inferred_yesterday_date_range() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    today = datetime.now(UTC).date()
+    yesterday = today - timedelta(days=1)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "Yesterday agent signal",
+                    "Agent launch.",
+                    ["agent"],
+                    published_at=datetime.combine(yesterday, datetime.min.time(), tzinfo=UTC),
+                ),
+                make_search_item(
+                    2,
+                    "Today agent signal",
+                    "Agent launch.",
+                    ["agent"],
+                    published_at=datetime.combine(today, datetime.min.time(), tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="yesterday agent")
+
+    assert [item.title for item in results] == ["Yesterday agent signal"]
+
+
 def test_search_feed_items_explicit_language_overrides_preferences() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -628,6 +678,7 @@ def make_search_item(
     language: str = "en",
     category: str = "technical_trend",
     importance_score: float = 0.7,
+    published_at: datetime | None = None,
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
@@ -637,7 +688,7 @@ def make_search_item(
         source_name=source_name,
         author=None,
         language=language,
-        published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+        published_at=published_at or datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
         text=text,
         category=category,
         subcategory=None,

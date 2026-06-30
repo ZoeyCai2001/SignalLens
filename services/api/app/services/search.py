@@ -31,6 +31,7 @@ class SearchIntent:
     manual_tag: str | None = None
     language: str | None = None
     date_from: date | None = None
+    date_to: date | None = None
     min_importance_score: float | None = None
     saved_only: bool = False
     read_status: str | None = None
@@ -73,6 +74,7 @@ def search_feed_items(
     effective_manual_tag = manual_tag or intent.manual_tag
     effective_language = language or intent.language
     effective_date_from = date_from or intent.date_from
+    effective_date_to = date_to or intent.date_to
     effective_min_importance = (
         min_importance_score
         if min_importance_score is not None
@@ -170,8 +172,8 @@ def search_feed_items(
             )
         )
 
-    if date_to:
-        next_day = start_of_day(date_to) + timedelta(days=1)
+    if effective_date_to:
+        next_day = start_of_day(effective_date_to) + timedelta(days=1)
         statement = statement.filter(
             or_(
                 NormalizedItem.published_at < next_day,
@@ -284,6 +286,7 @@ def has_structured_intent(intent: SearchIntent) -> bool:
         or intent.manual_tag
         or intent.language
         or intent.date_from
+        or intent.date_to
         or intent.min_importance_score is not None
         or intent.saved_only
         or intent.read_status
@@ -310,11 +313,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         )
         else None
     )
-    date_from = (
-        today - timedelta(days=7)
-        if re.search(r"\b(recent|latest|this week|past week)\b", lowered)
-        else None
-    )
+    date_from, date_to = infer_date_range(lowered, today)
     read_status = infer_read_status(lowered)
     saved_only = infer_saved_only(lowered)
     topic = infer_topic(lowered)
@@ -328,10 +327,22 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         manual_tag=manual_tag,
         language=language,
         date_from=date_from,
+        date_to=date_to,
         min_importance_score=min_importance_score,
         saved_only=saved_only,
         read_status=read_status,
     )
+
+
+def infer_date_range(lowered_query: str, today: date) -> tuple[date | None, date | None]:
+    if re.search(r"\byesterday\b", lowered_query):
+        target = today - timedelta(days=1)
+        return target, target
+    if re.search(r"\btoday\b", lowered_query):
+        return today, today
+    if re.search(r"\b(recent|latest|this week|past week)\b", lowered_query):
+        return today - timedelta(days=7), None
+    return None, None
 
 
 def infer_saved_only(lowered_query: str) -> bool:

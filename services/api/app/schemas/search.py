@@ -14,6 +14,7 @@ class SearchIntentResponse(BaseModel):
     manual_tag: str | None = None
     language: str | None = None
     date_from: date | None = None
+    date_to: date | None = None
     min_importance_score: float | None = None
     saved_only: bool = False
     read_status: str | None = None
