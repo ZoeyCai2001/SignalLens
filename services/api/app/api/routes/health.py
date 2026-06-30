@@ -4,7 +4,7 @@ from typing import TypedDict
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Query
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import DbSession
@@ -15,6 +15,8 @@ from app.db.models import (
     LlmUsageEvent,
     NormalizedItem,
     SourceRun,
+    StockPricePoint,
+    StockWatchlistItem,
     UserItemAction,
 )
 from app.schemas.health import (
@@ -130,6 +132,12 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         latest_digest_snapshot_date=latest_digest_snapshot_date,
         current_date=generated_at.date(),
     )
+    stock_watchlist_count = count_stock_watchlist_items(db)
+    latest_stock_price_date = get_latest_stock_price_date(db)
+    latest_stock_price_age_days = stock_price_age_days(
+        latest_stock_price_date=latest_stock_price_date,
+        current_date=generated_at.date(),
+    )
     llm_calls_per_recent_item = ratio(llm_usage["call_count"], recent_item_count)
 
     return QualityMetricsResponse(
@@ -154,6 +162,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         digest_snapshot_count=digest_snapshot_count,
         latest_digest_snapshot_date=latest_digest_snapshot_date,
         latest_digest_age_days=latest_digest_age_days,
+        latest_stock_price_date=latest_stock_price_date,
+        latest_stock_price_age_days=latest_stock_price_age_days,
         llm_call_count=llm_usage["call_count"],
         llm_input_tokens=llm_usage["input_tokens"],
         llm_output_tokens=llm_usage["output_tokens"],
@@ -174,6 +184,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             alert_dismissal_rate=alert_dismissal_rate,
             digest_snapshot_count=digest_snapshot_count,
             latest_digest_snapshot_date=latest_digest_snapshot_date,
+            latest_stock_price_date=latest_stock_price_date,
+            stock_watchlist_count=stock_watchlist_count,
             current_date=generated_at.date(),
             llm_calls_per_recent_item=llm_calls_per_recent_item,
         ),
@@ -296,6 +308,39 @@ def digest_age_days(
     return max(0, (current_date - latest_digest_snapshot_date).days)
 
 
+def count_stock_watchlist_items(db: Session) -> int:
+    return (
+        db.query(StockWatchlistItem)
+        .filter(StockWatchlistItem.user_id == LOCAL_USER_ID)
+        .count()
+    )
+
+
+def get_latest_stock_price_date(db: Session) -> date | None:
+    tickers = [
+        row[0]
+        for row in db.query(StockWatchlistItem.ticker)
+        .filter(StockWatchlistItem.user_id == LOCAL_USER_ID)
+        .all()
+    ]
+    if not tickers:
+        return None
+    return (
+        db.query(func.max(StockPricePoint.price_date))
+        .filter(StockPricePoint.ticker.in_(tickers))
+        .scalar()
+    )
+
+
+def stock_price_age_days(
+    latest_stock_price_date: date | None,
+    current_date: date,
+) -> int | None:
+    if latest_stock_price_date is None:
+        return None
+    return max(0, (current_date - latest_stock_price_date).days)
+
+
 def summarize_recent_llm_usage(db: Session, since: datetime) -> LlmUsageSummary:
     rows = (
         db.query(LlmUsageEvent)
@@ -405,6 +450,8 @@ def build_quality_findings(
     digest_snapshot_count: int,
     latest_digest_snapshot_date: date | None,
     llm_calls_per_recent_item: float,
+    latest_stock_price_date: date | None = None,
+    stock_watchlist_count: int = 0,
     current_date: date | None = None,
 ) -> list[QualityFinding]:
     findings: list[QualityFinding] = []
@@ -504,6 +551,35 @@ def build_quality_findings(
                 action_label="Show Failed Runs",
                 action_module="sources",
                 action_source_filter="failed",
+            )
+        )
+    if stock_watchlist_count > 0 and latest_stock_price_date is None:
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="Stock prices are missing",
+                metric=f"{stock_watchlist_count} watched tickers need price data",
+                recommendation=(
+                    "Refresh Alpha Vantage price snapshots so stock alerts and briefings "
+                    "can compare AI signals with market moves."
+                ),
+                action_label="Refresh Prices",
+                action_module="stocks",
+                action_operation="stock-prices:refresh",
+            )
+        )
+    elif latest_stock_price_date and latest_stock_price_date < today - timedelta(days=1):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Stock prices are stale",
+                metric=f"latest close {latest_stock_price_date.isoformat()}",
+                recommendation=(
+                    "Refresh Alpha Vantage price snapshots before reviewing stock-sensitive alerts."
+                ),
+                action_label="Refresh Prices",
+                action_module="stocks",
+                action_operation="stock-prices:refresh",
             )
         )
     if latest_digest_snapshot_date and latest_digest_snapshot_date < today:

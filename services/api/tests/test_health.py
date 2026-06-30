@@ -27,6 +27,8 @@ from app.db.models import (
     LlmUsageEvent,
     NormalizedItem,
     SourceRun,
+    StockPricePoint,
+    StockWatchlistItem,
     UserItemAction,
 )
 from app.schemas.health import IntegrationStatus
@@ -338,6 +340,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.digest_snapshot_count == 1
     assert metrics.latest_digest_snapshot_date == now.date()
     assert metrics.latest_digest_age_days == 0
+    assert metrics.latest_stock_price_date is None
+    assert metrics.latest_stock_price_age_days is None
     assert metrics.llm_call_count == 2
     assert metrics.llm_input_tokens == 180
     assert metrics.llm_output_tokens == 30
@@ -458,6 +462,84 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
     assert findings[0].action_label == "Save Digest"
     assert findings[0].action_module == "digest"
     assert findings[0].action_operation == "digest:save-snapshot"
+
+
+def test_build_quality_metrics_flags_missing_stock_prices_for_watchlist() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(make_stock_watchlist_item("MU"))
+        db.commit()
+
+        metrics = build_quality_metrics(db=db, window_days=7)
+
+    assert metrics.latest_stock_price_date is None
+    assert metrics.latest_stock_price_age_days is None
+    assert [finding.title for finding in metrics.quality_findings] == [
+        "No recent items",
+        "Stock prices are missing",
+        "No saved digest snapshot",
+    ]
+    assert metrics.quality_findings[1].metric == "1 watched tickers need price data"
+    assert metrics.quality_findings[1].action_label == "Refresh Prices"
+    assert metrics.quality_findings[1].action_module == "stocks"
+    assert metrics.quality_findings[1].action_operation == "stock-prices:refresh"
+
+
+def test_build_quality_findings_flags_stale_stock_prices() -> None:
+    findings = build_quality_findings(
+        recent_item_count=5,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        llm_calls_per_recent_item=0,
+        latest_stock_price_date=date(2026, 6, 27),
+        stock_watchlist_count=2,
+        current_date=date(2026, 6, 30),
+    )
+
+    assert [finding.title for finding in findings] == ["Stock prices are stale"]
+    assert findings[0].metric == "latest close 2026-06-27"
+    assert findings[0].action_label == "Refresh Prices"
+    assert findings[0].action_module == "stocks"
+    assert findings[0].action_operation == "stock-prices:refresh"
+
+
+def test_build_quality_metrics_tracks_latest_watched_stock_price_date() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    today = datetime.now(UTC).date()
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_stock_watchlist_item("MU"),
+                make_stock_price_point("MU", today - timedelta(days=1)),
+                make_stock_price_point("UNWATCHED", today),
+            ]
+        )
+        db.commit()
+
+        metrics = build_quality_metrics(db=db, window_days=7)
+
+    assert metrics.latest_stock_price_date == today - timedelta(days=1)
+    assert metrics.latest_stock_price_age_days == 1
+    assert "Stock prices are missing" not in [
+        finding.title for finding in metrics.quality_findings
+    ]
+    assert "Stock prices are stale" not in [finding.title for finding in metrics.quality_findings]
 
 
 def test_digest_age_days_tracks_latest_saved_digest_freshness() -> None:
@@ -649,4 +731,28 @@ def make_quality_alert(item_id: int, rule_id: int, status: str) -> Alert:
         reason="Test reason",
         severity="high",
         status=status,
+    )
+
+
+def make_stock_watchlist_item(ticker: str) -> StockWatchlistItem:
+    return StockWatchlistItem(
+        user_id="local",
+        ticker=ticker,
+        company_name=f"{ticker} Inc.",
+        exchange="NASDAQ",
+        sector="Technology",
+        industry="Semiconductors",
+    )
+
+
+def make_stock_price_point(ticker: str, price_date: date) -> StockPricePoint:
+    return StockPricePoint(
+        ticker=ticker,
+        price_date=price_date,
+        open_price=100,
+        high_price=101,
+        low_price=99,
+        close_price=100,
+        adjusted_close=100,
+        volume=1_000,
     )

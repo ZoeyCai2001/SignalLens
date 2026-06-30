@@ -498,6 +498,8 @@ type QualityMetrics = {
   digest_snapshot_count: number;
   latest_digest_snapshot_date: string | null;
   latest_digest_age_days: number | null;
+  latest_stock_price_date: string | null;
+  latest_stock_price_age_days: number | null;
   llm_call_count: number;
   llm_input_tokens: number;
   llm_output_tokens: number;
@@ -513,10 +515,10 @@ type QualityFinding = {
   metric: string;
   recommendation: string;
   action_label: string | null;
-  action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings"> | null;
+  action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings" | "stocks"> | null;
   action_operation: Extract<
     DashboardOperation,
-    "cycle" | "digest:save-snapshot" | "llm:summarize"
+    "cycle" | "digest:save-snapshot" | "llm:summarize" | "stock-prices:refresh"
   > | null;
   action_source_filter: SourceHealthFilter | null;
 };
@@ -763,6 +765,7 @@ type DashboardOperation =
   | "refresh"
   | "cycle"
   | "digest:save-snapshot"
+  | "stock-prices:refresh"
   | "llm:classify"
   | "llm:summarize"
   | `ingest:${IngestionSource}`;
@@ -2886,6 +2889,10 @@ export function Dashboard() {
       setActiveOperation(null);
       return;
     }
+    if (finding.action_operation === "stock-prices:refresh") {
+      await runIngestion("alpha-vantage-prices");
+      return;
+    }
     setStatus(`${finding.action_label ?? "Opened"}: ${finding.title}`);
   };
 
@@ -3804,6 +3811,18 @@ function SystemStatusPanel({
                       qualityMetrics.latest_digest_age_days === null
                         ? "none"
                         : `${qualityMetrics.latest_digest_age_days}d`
+                    }
+                  />
+                  <ReadinessMetric
+                    label="Latest Price"
+                    value={qualityMetrics.latest_stock_price_date ?? "none"}
+                  />
+                  <ReadinessMetric
+                    label="Price Age"
+                    value={
+                      qualityMetrics.latest_stock_price_age_days === null
+                        ? "none"
+                        : `${qualityMetrics.latest_stock_price_age_days}d`
                     }
                   />
                 </div>

@@ -60,8 +60,13 @@ class QualityFinding(BaseModel):
     metric: str
     recommendation: str
     action_label: str | None = None
-    action_module: Literal["dashboard", "digest", "sources", "settings"] | None = None
-    action_operation: Literal["cycle", "llm:summarize", "digest:save-snapshot"] | None = None
+    action_module: Literal["dashboard", "digest", "sources", "settings", "stocks"] | None = None
+    action_operation: Literal[
+        "cycle",
+        "llm:summarize",
+        "digest:save-snapshot",
+        "stock-prices:refresh",
+    ] | None = None
     action_source_filter: Literal[
         "all",
         "attention",
@@ -95,6 +100,8 @@ class QualityMetricsResponse(BaseModel):
     digest_snapshot_count: int
     latest_digest_snapshot_date: date | None = None
     latest_digest_age_days: int | None = None
+    latest_stock_price_date: date | None = None
+    latest_stock_price_age_days: int | None = None
     llm_call_count: int = 0
     llm_input_tokens: int = 0
     llm_output_tokens: int = 0
