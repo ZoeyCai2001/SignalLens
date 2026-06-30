@@ -72,6 +72,7 @@ type FeedItemDetail = FeedItem & {
   text: string | null;
   score_explanation: string;
   uncertainty_notes: string[];
+  personalization_notes: string[];
   action_state: Record<string, boolean>;
 };
 
@@ -4954,6 +4955,11 @@ function FeedDetailPanel({
       <div className="summary">
         <strong>Uncertainty:</strong> {detail.uncertainty_notes.join(" ")}
       </div>
+      {detail.personalization_notes.length ? (
+        <div className="summary">
+          <strong>Personalization:</strong> {detail.personalization_notes.join(" ")}
+        </div>
+      ) : null}
       {detail.text ? <div className="detail-text">{detail.text}</div> : null}
     </div>
   );
@@ -5025,6 +5031,7 @@ function updateSelectedFeedDetail(
     text: detail.text,
     score_explanation: detail.score_explanation,
     uncertainty_notes: detail.uncertainty_notes,
+    personalization_notes: detail.personalization_notes,
     action_state: {
       ...detail.action_state,
       is_saved: updated.is_saved,

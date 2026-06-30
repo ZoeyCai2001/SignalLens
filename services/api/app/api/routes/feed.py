@@ -6,6 +6,7 @@ from app.db.models import NormalizedItem
 from app.schemas.feed import FeedItem, FeedItemDetail, FeedItemPersonalMetadataUpdate
 from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import (
+    build_feed_interest_profile,
     get_action,
     list_visible_feed_items,
     normalize_feed_module_filter,
@@ -52,7 +53,11 @@ async def list_feed_items(
 @router.get("/{item_id}", response_model=FeedItemDetail)
 async def get_feed_item_detail(item_id: int, db: DbSession) -> FeedItemDetail:
     item = get_feed_item_or_404(db, item_id)
-    return serialize_feed_item_detail(item, get_action(db, item_id))
+    return serialize_feed_item_detail(
+        item,
+        get_action(db, item_id),
+        interest_profile=build_feed_interest_profile(db),
+    )
 
 
 @router.post("/{item_id}/summarize", response_model=FeedItem)

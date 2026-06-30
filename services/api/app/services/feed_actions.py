@@ -62,6 +62,7 @@ def serialize_feed_item(
 def serialize_feed_item_detail(
     item: NormalizedItem,
     action: UserItemAction | None = None,
+    interest_profile: FeedInterestProfile | None = None,
 ) -> FeedItemDetail:
     base = serialize_feed_item(item, action)
     return FeedItemDetail(
@@ -69,6 +70,7 @@ def serialize_feed_item_detail(
         text=item.text,
         score_explanation=build_score_explanation(base),
         uncertainty_notes=build_feed_uncertainty_notes(base),
+        personalization_notes=build_personalization_notes(base, interest_profile),
         action_state={
             "is_saved": base.is_saved,
             "is_hidden": base.is_hidden,
@@ -122,6 +124,57 @@ def build_feed_uncertainty_notes(item: FeedItem) -> list[str]:
     if item.source_name == "Manual Submission":
         notes.append("Manual submissions depend on the supplied URL and note context.")
     return notes or ["No major uncertainty flags from the stored item signals."]
+
+
+def build_personalization_notes(
+    item: FeedItem,
+    interest_profile: FeedInterestProfile | None,
+) -> list[str]:
+    if not interest_profile:
+        return []
+
+    notes: list[str] = []
+    item_source = normalize_interest_source(item.source_name)
+    item_symbols = {
+        normalize_interest_symbol(value)
+        for value in [*item.tickers, *item.companies]
+        if normalize_interest_symbol(value)
+    }
+    searchable_text = build_interest_search_text(item)
+    positive_terms = matching_terms(searchable_text, interest_profile.liked_terms)
+    negative_terms = matching_terms(searchable_text, interest_profile.disliked_terms)
+    positive_symbols = sorted(item_symbols & interest_profile.liked_symbols)
+    negative_symbols = sorted(item_symbols & interest_profile.disliked_symbols)
+
+    if item_source and item_source in interest_profile.liked_sources:
+        notes.append(f"Source matches items you saved or marked important: {item.source_name}.")
+    if positive_symbols:
+        notes.append(
+            "Entity matches items you saved or marked important: "
+            + ", ".join(positive_symbols[:4])
+            + "."
+        )
+    if positive_terms:
+        notes.append(
+            "Topic/product matches items you saved or marked important: "
+            + ", ".join(positive_terms[:4])
+            + "."
+        )
+    if item_source and item_source in interest_profile.disliked_sources:
+        notes.append(f"Source matches items you previously hid: {item.source_name}.")
+    if negative_symbols:
+        notes.append(
+            "Entity matches items you previously hid: "
+            + ", ".join(negative_symbols[:4])
+            + "."
+        )
+    if negative_terms:
+        notes.append(
+            "Topic/product matches items you previously hid: "
+            + ", ".join(negative_terms[:4])
+            + "."
+        )
+    return notes[:4]
 
 
 def list_visible_feed_items(
@@ -607,6 +660,10 @@ def count_feedback_matches(
     return matches
 
 
+def matching_terms(text: str, terms: frozenset[str]) -> list[str]:
+    return sorted(term for term in terms if term in text)
+
+
 def feedback_symbols_for_item(item: NormalizedItem) -> set[str]:
     return {
         normalize_interest_symbol(value)
@@ -736,7 +793,11 @@ def update_item_personal_metadata(
     db.add(action)
     db.commit()
     db.refresh(action)
-    return serialize_feed_item_detail(item, action)
+    return serialize_feed_item_detail(
+        item,
+        action,
+        interest_profile=build_feed_interest_profile(db),
+    )
 
 
 def normalize_manual_tags(values: list[str] | None) -> list[str]:

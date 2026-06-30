@@ -12,6 +12,7 @@ from app.services.feed_actions import (
     build_feed_module_conditions,
     build_feed_topic_filter_terms,
     build_feed_uncertainty_notes,
+    build_personalization_notes,
     build_score_explanation,
     feed_interest_bonus,
     feedback_interest_adjustment,
@@ -187,6 +188,47 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
     assert "saved by you" in detail.score_explanation
     assert "marked important by you" in detail.score_explanation
     assert detail.uncertainty_notes == ["No major uncertainty flags from the stored item signals."]
+    assert detail.personalization_notes == []
+
+
+def test_serialize_feed_item_detail_includes_personalization_notes() -> None:
+    item = make_normalized_item(
+        1,
+        "Future coding agent",
+        language="en",
+        topics=["coding agent"],
+        products=["IDE agent"],
+        source_name="GitHub",
+    )
+    profile = FeedInterestProfile(
+        liked_terms=frozenset({"coding agent", "ide agent"}),
+        liked_sources=frozenset({"github"}),
+        disliked_terms=frozenset({"crypto trading bot"}),
+    )
+
+    detail = serialize_feed_item_detail(item, interest_profile=profile)
+
+    assert detail.personalization_notes == [
+        "Source matches items you saved or marked important: GitHub.",
+        "Topic/product matches items you saved or marked important: coding agent, ide agent.",
+    ]
+
+
+def test_build_personalization_notes_reports_hidden_feedback_matches() -> None:
+    item = make_feed_item(1, "Noisy crypto bot")
+    item.source_name = "Noisy RSS"
+    item.topics = ["crypto trading bot"]
+    profile = FeedInterestProfile(
+        disliked_terms=frozenset({"crypto trading bot"}),
+        disliked_sources=frozenset({"noisy rss"}),
+    )
+
+    notes = build_personalization_notes(item, profile)
+
+    assert notes == [
+        "Source matches items you previously hid: Noisy RSS.",
+        "Topic/product matches items you previously hid: crypto trading bot.",
+    ]
 
 
 def test_update_item_personal_metadata_saves_note_and_normalized_tags() -> None:

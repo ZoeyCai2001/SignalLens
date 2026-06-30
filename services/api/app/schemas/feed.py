@@ -48,6 +48,7 @@ class FeedItemDetail(FeedItem):
     text: str | None = None
     score_explanation: str
     uncertainty_notes: list[str]
+    personalization_notes: list[str] = Field(default_factory=list)
     action_state: dict[str, bool]
 
 

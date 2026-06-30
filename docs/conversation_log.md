@@ -255,3 +255,4 @@ Implementation progress:
 - Added a local LLM usage ledger for successful Kimi classification and summarization calls, plus System Readiness metrics for recent calls and token totals.
 - Added Hugging Face downloads/likes traction signals to model, dataset, and Space summaries and social-signal scoring.
 - Added lightweight feedback learning so saved/important and hidden items softly adjust future feed ranking by source, topic, product, company, or ticker matches.
+- Added personalization notes to expanded feed details so learned ranking boosts or dampening from prior feedback are visible in the dashboard.
