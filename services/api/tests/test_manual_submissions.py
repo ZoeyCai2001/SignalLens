@@ -296,6 +296,37 @@ def test_manual_submission_result_reports_created_and_updated_existing() -> None
         assert second.item.title == "Updated agent note"
 
 
+def test_manual_submission_resubmits_tracking_url_variant_as_update() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        first = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="Original agent note",
+                url="https://example.com/agent-note?utm_source=newsletter",
+                text="OpenAI released a new agent workflow.",
+            ),
+        )
+        second = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="Updated agent note",
+                url="https://example.com/agent-note?utm_medium=social",
+                text="OpenAI released a new agent workflow with more context.",
+            ),
+        )
+
+        assert first.created is True
+        assert first.updated_existing is False
+        assert second.created is False
+        assert second.updated_existing is True
+        assert second.item.id == first.item.id
+        assert db.query(RawItem).count() == 1
+
+
 def test_manual_submission_can_save_item_on_submit() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

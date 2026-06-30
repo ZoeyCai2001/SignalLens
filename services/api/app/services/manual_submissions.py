@@ -16,6 +16,7 @@ from app.services.feed_actions import (
     update_item_action,
 )
 from app.services.ingestion import (
+    canonical_ingestion_url,
     compute_content_hash,
     detect_language,
     get_or_create_source,
@@ -146,9 +147,10 @@ def save_raw_manual_item(
     request: ManualSubmissionRequest,
 ) -> RawManualItemSaveResult:
     title = resolve_manual_title(request)
+    canonical_url = canonical_ingestion_url(str(request.url))
     raw_input = RawItemInput(
         source_name=source.name,
-        external_id=str(request.url),
+        external_id=canonical_url,
         url=str(request.url),
         raw_title=title,
         raw_text=request.text,
