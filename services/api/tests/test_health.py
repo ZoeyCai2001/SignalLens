@@ -348,6 +348,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
         "Duplicate pressure",
         "Source failures need review",
     ]
+    assert metrics.quality_findings[0].action_module == "sources"
+    assert metrics.quality_findings[1].action_label == "Show Failed Runs"
 
 
 def test_build_quality_findings_recommends_local_actions() -> None:
@@ -366,6 +368,8 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "No saved digest snapshot",
     ]
     assert findings[0].severity == "warning"
+    assert findings[0].action_label == "Open Source Health"
+    assert findings[1].action_module == "digest"
 
     findings = build_quality_findings(
         recent_item_count=10,
@@ -386,6 +390,13 @@ def test_build_quality_findings_recommends_local_actions() -> None:
     ]
     assert findings[0].metric == "50% relevant"
     assert findings[-1].metric == "1.60 calls per recent item"
+    assert [finding.action_module for finding in findings] == [
+        "settings",
+        "sources",
+        "dashboard",
+        "sources",
+        "settings",
+    ]
 
 
 def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:

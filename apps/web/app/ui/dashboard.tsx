@@ -499,6 +499,8 @@ type QualityFinding = {
   title: string;
   metric: string;
   recommendation: string;
+  action_label: string | null;
+  action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings"> | null;
 };
 
 type LlmOperationUsage = {
@@ -2826,6 +2828,20 @@ export function Dashboard() {
     }
   };
 
+  const openQualityFindingAction = (finding: QualityFinding) => {
+    if (!finding.action_module) {
+      return;
+    }
+    if (finding.action_module === "sources") {
+      setSourceRunSourceFilter(null);
+      if (finding.title === "Source failures need review") {
+        setSourceRunStatusFilter("failed");
+      }
+    }
+    setActiveModule(finding.action_module);
+    setStatus(`${finding.action_label ?? "Opened"}: ${finding.title}`);
+  };
+
   const moduleCounts = useMemo(
     () => buildModuleCounts(feed, digest, savedItems, sources, preferences, moduleFeedOverrides),
     [digest, feed, moduleFeedOverrides, preferences, savedItems, sources],
@@ -2864,6 +2880,7 @@ export function Dashboard() {
       qualityMetrics={qualityMetrics}
       busyCopy={busySetupCopy}
       onCopyMissingEnv={copyMissingEnvTemplate}
+      onQualityFindingAction={openQualityFindingAction}
     />
   );
   const rankingPreferencesPanel = (
@@ -3597,6 +3614,7 @@ function SystemStatusPanel({
   qualityMetrics,
   busyCopy,
   onCopyMissingEnv,
+  onQualityFindingAction,
 }: {
   status: SystemStatus | null;
   itemCount: number;
@@ -3607,6 +3625,7 @@ function SystemStatusPanel({
   qualityMetrics: QualityMetrics | null;
   busyCopy: boolean;
   onCopyMissingEnv: () => void;
+  onQualityFindingAction: (finding: QualityFinding) => void;
 }) {
   const integrationRows: Array<[string, boolean]> = status
     ? [
@@ -3748,6 +3767,15 @@ function SystemStatusPanel({
                             </span>
                           </div>
                           <div className="small-muted">{finding.recommendation}</div>
+                          {finding.action_label && finding.action_module ? (
+                            <button
+                              className="button"
+                              onClick={() => onQualityFindingAction(finding)}
+                              type="button"
+                            >
+                              {finding.action_label}
+                            </button>
+                          ) : null}
                         </div>
                         <span className="badge muted-badge">{finding.metric}</span>
                       </div>

@@ -59,6 +59,8 @@ class QualityFinding(BaseModel):
     title: str
     metric: str
     recommendation: str
+    action_label: str | None = None
+    action_module: Literal["dashboard", "digest", "sources", "settings"] | None = None
 
 
 class QualityMetricsResponse(BaseModel):

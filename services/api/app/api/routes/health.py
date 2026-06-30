@@ -330,6 +330,8 @@ def build_quality_findings(
                 title="No recent items",
                 metric="0 recent items",
                 recommendation="Run a full ingestion cycle or check source credentials.",
+                action_label="Open Source Health",
+                action_module="sources",
             )
         )
     elif relevance_precision_proxy < 0.6:
@@ -339,6 +341,8 @@ def build_quality_findings(
                 title="Low relevance precision",
                 metric=f"{format_quality_percent(relevance_precision_proxy)} relevant",
                 recommendation="Tune followed sources, blocked sources, and watchlist terms.",
+                action_label="Tune Settings",
+                action_module="settings",
             )
         )
     if duplicate_rate >= 0.25:
@@ -348,6 +352,8 @@ def build_quality_findings(
                 title="Duplicate pressure",
                 metric=f"{format_quality_percent(duplicate_rate)} duplicate rate",
                 recommendation="Review noisy sources and canonical URL handling before LLM batches.",
+                action_label="Open Source Health",
+                action_module="sources",
             )
         )
     if recent_item_count > 0 and summary_coverage < 0.5:
@@ -357,6 +363,8 @@ def build_quality_findings(
                 title="Summary coverage is thin",
                 metric=f"{format_quality_percent(summary_coverage)} summarized",
                 recommendation="Run capped LLM summarization for high-signal unsummarized items.",
+                action_label="Open Dashboard",
+                action_module="dashboard",
             )
         )
     if source_failure_rate >= 0.25:
@@ -366,6 +374,8 @@ def build_quality_findings(
                 title="Source failures need review",
                 metric=f"{format_quality_percent(source_failure_rate)} failure rate",
                 recommendation="Open Source Health, filter failed runs, and update credentials or feeds.",
+                action_label="Show Failed Runs",
+                action_module="sources",
             )
         )
     if digest_snapshot_count == 0:
@@ -375,6 +385,8 @@ def build_quality_findings(
                 title="No saved digest snapshot",
                 metric="0 saved digests",
                 recommendation="Generate and save a daily digest snapshot after ingestion.",
+                action_label="Open Daily Digest",
+                action_module="digest",
             )
         )
     if llm_calls_per_recent_item > 1.5:
@@ -384,6 +396,8 @@ def build_quality_findings(
                 title="LLM spend is high",
                 metric=f"{llm_calls_per_recent_item:.2f} calls per recent item",
                 recommendation="Use module-scoped batches and skip already enriched items.",
+                action_label="Review Settings",
+                action_module="settings",
             )
         )
     return findings
