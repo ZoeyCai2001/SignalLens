@@ -491,6 +491,14 @@ type QualityMetrics = {
   llm_total_tokens: number;
   llm_calls_per_recent_item: number;
   llm_operation_usage: LlmOperationUsage[];
+  quality_findings: QualityFinding[];
+};
+
+type QualityFinding = {
+  severity: "info" | "warning" | "critical";
+  title: string;
+  metric: string;
+  recommendation: string;
 };
 
 type LlmOperationUsage = {
@@ -3726,6 +3734,26 @@ function SystemStatusPanel({
                     value={formatCompactNumber(qualityMetrics.llm_total_tokens)}
                   />
                 </div>
+                {qualityMetrics.quality_findings.length ? (
+                  <div className="setup-list">
+                    {qualityMetrics.quality_findings.slice(0, 5).map((finding) => (
+                      <div className="setup-row" key={`${finding.title}:${finding.metric}`}>
+                        <div>
+                          <div className="setup-title-row">
+                            <div className="digest-section-title">{finding.title}</div>
+                            <span
+                              className={`badge ${qualityFindingBadgeClass(finding.severity)}`}
+                            >
+                              {finding.severity}
+                            </span>
+                          </div>
+                          <div className="small-muted">{finding.recommendation}</div>
+                        </div>
+                        <span className="badge muted-badge">{finding.metric}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {qualityMetrics.llm_operation_usage.length ? (
                   <div className="setup-list">
                     {qualityMetrics.llm_operation_usage.slice(0, 4).map((operation) => (
@@ -3816,6 +3844,13 @@ function formatLlmOperationLabel(operation: string): string {
     .filter(Boolean)
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function qualityFindingBadgeClass(severity: QualityFinding["severity"]): string {
+  if (severity === "critical" || severity === "warning") {
+    return "alert-badge";
+  }
+  return "muted-badge";
 }
 
 function ReadinessMetric({ label, value }: { label: string; value: number | string }) {

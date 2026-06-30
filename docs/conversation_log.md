@@ -278,3 +278,4 @@ Implementation progress:
 - Added LLM usage ledger recording for on-demand stock briefing summaries and event cluster explanations.
 - Added operation-level LLM usage breakdowns to quality metrics and the System Readiness dashboard.
 - Added full-ingestion-cycle duration and source status summaries to the API response and Source Health dashboard.
+- Added deterministic quality findings and recommendations to System Readiness for ingestion, duplicates, summaries, sources, digest snapshots, and LLM spend.

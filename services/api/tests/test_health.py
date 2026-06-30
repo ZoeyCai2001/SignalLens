@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.routes.health import (
+    build_quality_findings,
     build_missing_env_template,
     build_quality_metrics,
     build_setup_summary,
@@ -343,6 +344,48 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.llm_operation_usage[0].call_count == 1
     assert metrics.llm_operation_usage[0].total_tokens == 120
     assert metrics.llm_operation_usage[1].total_tokens == 90
+    assert [finding.title for finding in metrics.quality_findings] == [
+        "Duplicate pressure",
+        "Source failures need review",
+    ]
+
+
+def test_build_quality_findings_recommends_local_actions() -> None:
+    findings = build_quality_findings(
+        recent_item_count=0,
+        relevance_precision_proxy=0,
+        duplicate_rate=0,
+        summary_coverage=0,
+        source_failure_rate=0,
+        digest_snapshot_count=0,
+        llm_calls_per_recent_item=0,
+    )
+
+    assert [finding.title for finding in findings] == [
+        "No recent items",
+        "No saved digest snapshot",
+    ]
+    assert findings[0].severity == "warning"
+
+    findings = build_quality_findings(
+        recent_item_count=10,
+        relevance_precision_proxy=0.5,
+        duplicate_rate=0.3,
+        summary_coverage=0.4,
+        source_failure_rate=0.25,
+        digest_snapshot_count=1,
+        llm_calls_per_recent_item=1.6,
+    )
+
+    assert [finding.title for finding in findings] == [
+        "Low relevance precision",
+        "Duplicate pressure",
+        "Summary coverage is thin",
+        "Source failures need review",
+        "LLM spend is high",
+    ]
+    assert findings[0].metric == "50% relevant"
+    assert findings[-1].metric == "1.60 calls per recent item"
 
 
 def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:

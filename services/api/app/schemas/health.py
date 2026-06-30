@@ -54,6 +54,13 @@ class LlmOperationUsage(BaseModel):
     total_tokens: int
 
 
+class QualityFinding(BaseModel):
+    severity: Literal["info", "warning", "critical"]
+    title: str
+    metric: str
+    recommendation: str
+
+
 class QualityMetricsResponse(BaseModel):
     generated_at: datetime
     window_days: int
@@ -77,3 +84,4 @@ class QualityMetricsResponse(BaseModel):
     llm_total_tokens: int = 0
     llm_calls_per_recent_item: float = 0
     llm_operation_usage: list[LlmOperationUsage] = Field(default_factory=list)
+    quality_findings: list[QualityFinding] = Field(default_factory=list)

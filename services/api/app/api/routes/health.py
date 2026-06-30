@@ -21,6 +21,7 @@ from app.schemas.health import (
     HealthResponse,
     IntegrationStatus,
     LlmOperationUsage,
+    QualityFinding,
     QualityMetricsResponse,
     SetupItem,
     SetupSummary,
@@ -98,39 +99,56 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     alert_counts = count_alerts_by_status(db)
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
     llm_usage = summarize_recent_llm_usage(db=db, since=since)
+    recent_item_count = len(recent_rows)
+    relevance_precision_proxy = ratio(
+        sum(1 for item in recent_rows if item.relevance_score >= 0.5),
+        recent_item_count,
+    )
+    duplicate_rate = duplicate_rate_for_items(recent_rows)
+    summary_coverage = ratio(
+        sum(1 for item in recent_rows if item.summary_short or item.summary_detailed),
+        recent_item_count,
+    )
+    source_failure_rate = ratio(source_failure_count, source_run_count)
+    alert_dismissal_rate = ratio(
+        alert_counts["dismissed"],
+        alert_counts["active"] + alert_counts["dismissed"],
+    )
+    digest_snapshot_count = count_recent_digest_snapshots(db=db, since=since)
+    llm_calls_per_recent_item = ratio(llm_usage["call_count"], recent_item_count)
 
     return QualityMetricsResponse(
         generated_at=generated_at,
         window_days=window_days,
         total_item_count=len(total_rows),
-        recent_item_count=len(recent_rows),
+        recent_item_count=recent_item_count,
         high_value_item_count=sum(1 for item in recent_rows if item.importance_score >= 0.75),
-        relevance_precision_proxy=ratio(
-            sum(1 for item in recent_rows if item.relevance_score >= 0.5),
-            len(recent_rows),
-        ),
-        duplicate_rate=duplicate_rate_for_items(recent_rows),
-        summary_coverage=ratio(
-            sum(1 for item in recent_rows if item.summary_short or item.summary_detailed),
-            len(recent_rows),
-        ),
-        source_failure_rate=ratio(source_failure_count, source_run_count),
+        relevance_precision_proxy=relevance_precision_proxy,
+        duplicate_rate=duplicate_rate,
+        summary_coverage=summary_coverage,
+        source_failure_rate=source_failure_rate,
         save_count=save_count,
         hide_count=hide_count,
         save_hide_ratio=round(save_count / hide_count, 3) if hide_count else None,
         active_alert_count=alert_counts["active"],
         dismissed_alert_count=alert_counts["dismissed"],
-        alert_dismissal_rate=ratio(
-            alert_counts["dismissed"],
-            alert_counts["active"] + alert_counts["dismissed"],
-        ),
-        digest_snapshot_count=count_recent_digest_snapshots(db=db, since=since),
+        alert_dismissal_rate=alert_dismissal_rate,
+        digest_snapshot_count=digest_snapshot_count,
         llm_call_count=llm_usage["call_count"],
         llm_input_tokens=llm_usage["input_tokens"],
         llm_output_tokens=llm_usage["output_tokens"],
         llm_total_tokens=llm_usage["total_tokens"],
-        llm_calls_per_recent_item=ratio(llm_usage["call_count"], len(recent_rows)),
+        llm_calls_per_recent_item=llm_calls_per_recent_item,
         llm_operation_usage=llm_usage["operation_usage"],
+        quality_findings=build_quality_findings(
+            recent_item_count=recent_item_count,
+            relevance_precision_proxy=relevance_precision_proxy,
+            duplicate_rate=duplicate_rate,
+            summary_coverage=summary_coverage,
+            source_failure_rate=source_failure_rate,
+            digest_snapshot_count=digest_snapshot_count,
+            llm_calls_per_recent_item=llm_calls_per_recent_item,
+        ),
     )
 
 
@@ -292,19 +310,87 @@ def ratio(numerator: int, denominator: int) -> float:
     if denominator <= 0:
         return 0
     return round(numerator / denominator, 3)
-    setup_items = build_setup_items(settings=settings, integrations=integrations)
-    return HealthResponse(
-        status="ok",
-        service="signallens-api",
-        environment=settings.environment,
-        llm_provider=settings.llm_provider,
-        llm_model=settings.moonshot_model,
-        llm_configured=has_config_value(settings.moonshot_api_key),
-        integrations=integrations,
-        setup_items=setup_items,
-        setup_summary=build_setup_summary(setup_items),
-        missing_env_template=build_missing_env_template(setup_items),
-    )
+
+
+def build_quality_findings(
+    *,
+    recent_item_count: int,
+    relevance_precision_proxy: float,
+    duplicate_rate: float,
+    summary_coverage: float,
+    source_failure_rate: float,
+    digest_snapshot_count: int,
+    llm_calls_per_recent_item: float,
+) -> list[QualityFinding]:
+    findings: list[QualityFinding] = []
+    if recent_item_count == 0:
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="No recent items",
+                metric="0 recent items",
+                recommendation="Run a full ingestion cycle or check source credentials.",
+            )
+        )
+    elif relevance_precision_proxy < 0.6:
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="Low relevance precision",
+                metric=f"{format_quality_percent(relevance_precision_proxy)} relevant",
+                recommendation="Tune followed sources, blocked sources, and watchlist terms.",
+            )
+        )
+    if duplicate_rate >= 0.25:
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="Duplicate pressure",
+                metric=f"{format_quality_percent(duplicate_rate)} duplicate rate",
+                recommendation="Review noisy sources and canonical URL handling before LLM batches.",
+            )
+        )
+    if recent_item_count > 0 and summary_coverage < 0.5:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Summary coverage is thin",
+                metric=f"{format_quality_percent(summary_coverage)} summarized",
+                recommendation="Run capped LLM summarization for high-signal unsummarized items.",
+            )
+        )
+    if source_failure_rate >= 0.25:
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="Source failures need review",
+                metric=f"{format_quality_percent(source_failure_rate)} failure rate",
+                recommendation="Open Source Health, filter failed runs, and update credentials or feeds.",
+            )
+        )
+    if digest_snapshot_count == 0:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="No saved digest snapshot",
+                metric="0 saved digests",
+                recommendation="Generate and save a daily digest snapshot after ingestion.",
+            )
+        )
+    if llm_calls_per_recent_item > 1.5:
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="LLM spend is high",
+                metric=f"{llm_calls_per_recent_item:.2f} calls per recent item",
+                recommendation="Use module-scoped batches and skip already enriched items.",
+            )
+        )
+    return findings
+
+
+def format_quality_percent(value: float) -> str:
+    return f"{round(value * 100)}%"
 
 
 def has_config_value(value: str | None) -> bool:
