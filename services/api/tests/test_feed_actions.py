@@ -14,6 +14,7 @@ from app.services.feed_actions import (
     build_feed_uncertainty_notes,
     build_score_explanation,
     feed_interest_bonus,
+    feedback_interest_adjustment,
     freshness_score,
     list_visible_feed_items,
     normalize_feed_module_filter,
@@ -431,6 +432,68 @@ def test_feed_interest_bonus_caps_multiple_matches() -> None:
     assert feed_interest_bonus(item, profile) == 0.12
 
 
+def test_feedback_interest_adjustment_uses_positive_and_negative_feedback() -> None:
+    liked = make_feed_item(1, "Future coding agent")
+    liked.source_name = "GitHub"
+    liked.topics = ["coding agent"]
+    disliked = make_feed_item(2, "Noisy crypto bot")
+    disliked.source_name = "Noisy RSS"
+    disliked.topics = ["crypto trading bot"]
+    profile = FeedInterestProfile(
+        liked_terms=frozenset({"coding agent"}),
+        liked_sources=frozenset({"github"}),
+        disliked_terms=frozenset({"crypto trading bot"}),
+        disliked_sources=frozenset({"noisy rss"}),
+    )
+
+    assert feedback_interest_adjustment(liked, profile) == 0.07
+    assert feedback_interest_adjustment(disliked, profile) == -0.08
+
+
+def test_build_feed_interest_profile_includes_saved_and_hidden_feedback() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Saved coding agent",
+                    language="en",
+                    topics=["coding agent"],
+                    products=["IDE agent"],
+                    source_name="GitHub",
+                ),
+                make_normalized_item(
+                    2,
+                    "Hidden crypto bot",
+                    language="en",
+                    topics=["crypto trading bot"],
+                    products=["trading bot"],
+                    source_name="Noisy RSS",
+                ),
+            ]
+        )
+        db.add_all(
+            [
+                UserItemAction(user_id="local", item_id=1, is_saved=True),
+                UserItemAction(user_id="local", item_id=2, is_hidden=True),
+            ]
+        )
+        db.commit()
+
+        profile = build_feed_interest_profile(db)
+
+    assert "coding agent" in profile.liked_terms
+    assert "ide agent" in profile.liked_terms
+    assert "github" in profile.liked_sources
+    assert "crypto trading bot" in profile.disliked_terms
+    assert "trading bot" in profile.disliked_terms
+    assert "noisy rss" in profile.disliked_sources
+
+
 def test_build_feed_interest_profile_includes_default_company_watchlist() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -761,6 +824,7 @@ def make_normalized_item(
     category: str = "technical_trend",
     tickers: list[str] | None = None,
     products: list[str] | None = None,
+    source_name: str = "Test",
     stock_impact_score: float = 0,
 ) -> NormalizedItem:
     return NormalizedItem(
@@ -768,7 +832,7 @@ def make_normalized_item(
         raw_item_id=item_id,
         title=title,
         url=f"https://example.com/{item_id}",
-        source_name="Test",
+        source_name=source_name,
         author=None,
         language=language,
         published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),

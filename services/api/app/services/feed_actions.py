@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from sqlalchemy import String, cast, or_
@@ -24,12 +24,22 @@ from app.services.seed_data import (
 LOCAL_USER_ID = "local"
 SAVED_ITEM_RANKING_BONUS = 0.05
 PREFERRED_SOURCE_RANKING_BONUS = 0.08
+FEEDBACK_INTEREST_MATCH_BONUS = 0.035
+FEEDBACK_INTEREST_MATCH_PENALTY = 0.04
+MAX_FEEDBACK_INTEREST_BONUS = 0.10
+MAX_FEEDBACK_INTEREST_PENALTY = 0.12
 
 
 @dataclass(frozen=True)
 class FeedInterestProfile:
-    symbols: frozenset[str]
-    terms: frozenset[str]
+    symbols: frozenset[str] = field(default_factory=frozenset)
+    terms: frozenset[str] = field(default_factory=frozenset)
+    liked_symbols: frozenset[str] = field(default_factory=frozenset)
+    liked_terms: frozenset[str] = field(default_factory=frozenset)
+    liked_sources: frozenset[str] = field(default_factory=frozenset)
+    disliked_symbols: frozenset[str] = field(default_factory=frozenset)
+    disliked_terms: frozenset[str] = field(default_factory=frozenset)
+    disliked_sources: frozenset[str] = field(default_factory=frozenset)
 
 
 def serialize_feed_item(
@@ -233,6 +243,10 @@ def weighted_feed_score(
     )
     saved_bonus = SAVED_ITEM_RANKING_BONUS if item.is_saved else 0
     interest_bonus = feed_interest_bonus(item=item, interest_profile=interest_profile)
+    feedback_adjustment = feedback_interest_adjustment(
+        item=item,
+        interest_profile=interest_profile,
+    )
     return round(
         weights.relevance * item.relevance_score
         + weights.importance * item.importance_score
@@ -243,7 +257,8 @@ def weighted_feed_score(
         + weights.freshness * freshness_score(item, now=reference_time)
         + source_bonus
         + saved_bonus
-        + interest_bonus,
+        + interest_bonus
+        + feedback_adjustment,
         4,
     )
 
@@ -401,6 +416,12 @@ def build_feed_module_conditions(module: str | None) -> list:
 def build_feed_interest_profile(db: Session) -> FeedInterestProfile:
     symbols: set[str] = set()
     terms: set[str] = set()
+    liked_symbols: set[str] = set()
+    liked_terms: set[str] = set()
+    liked_sources: set[str] = set()
+    disliked_symbols: set[str] = set()
+    disliked_terms: set[str] = set()
+    disliked_sources: set[str] = set()
 
     stocks = db.query(StockWatchlistItem).filter(StockWatchlistItem.user_id == LOCAL_USER_ID).all()
     stock_items = stocks or initial_stock_watchlist()
@@ -457,9 +478,44 @@ def build_feed_interest_profile(db: Session) -> FeedInterestProfile:
             ]
         )
 
+    feedback_rows = (
+        db.query(NormalizedItem, UserItemAction)
+        .join(
+            UserItemAction,
+            (UserItemAction.item_id == NormalizedItem.id)
+            & (UserItemAction.user_id == LOCAL_USER_ID),
+        )
+        .filter(
+            (UserItemAction.is_saved.is_(True))
+            | (UserItemAction.is_important.is_(True))
+            | (UserItemAction.is_hidden.is_(True))
+        )
+        .all()
+    )
+    for item, action in feedback_rows:
+        feedback_symbols = feedback_symbols_for_item(item)
+        feedback_terms = feedback_terms_for_item(item)
+        source_name = normalize_interest_source(item.source_name)
+        if action.is_saved or action.is_important:
+            liked_symbols.update(feedback_symbols)
+            liked_terms.update(feedback_terms)
+            if source_name:
+                liked_sources.add(source_name)
+        if action.is_hidden:
+            disliked_symbols.update(feedback_symbols)
+            disliked_terms.update(feedback_terms)
+            if source_name:
+                disliked_sources.add(source_name)
+
     return FeedInterestProfile(
         symbols=frozenset(symbol for symbol in symbols if symbol),
         terms=frozenset(term for term in terms if term),
+        liked_symbols=frozenset(symbol for symbol in liked_symbols if symbol),
+        liked_terms=frozenset(term for term in liked_terms if term),
+        liked_sources=frozenset(source for source in liked_sources if source),
+        disliked_symbols=frozenset(symbol for symbol in disliked_symbols if symbol),
+        disliked_terms=frozenset(term for term in disliked_terms if term),
+        disliked_sources=frozenset(source for source in disliked_sources if source),
     )
 
 
@@ -489,6 +545,90 @@ def feed_interest_bonus(
     return round(min(0.12, matches * 0.04), 4)
 
 
+def feedback_interest_adjustment(
+    item: FeedItem,
+    interest_profile: FeedInterestProfile | None,
+) -> float:
+    if not interest_profile:
+        return 0
+
+    item_source = normalize_interest_source(item.source_name)
+    item_symbols = {
+        normalize_interest_symbol(value)
+        for value in [*item.tickers, *item.companies]
+        if normalize_interest_symbol(value)
+    }
+    searchable_text = build_interest_search_text(item)
+    positive_matches = count_feedback_matches(
+        source=item_source,
+        symbols=item_symbols,
+        text=searchable_text,
+        profile_sources=interest_profile.liked_sources,
+        profile_symbols=interest_profile.liked_symbols,
+        profile_terms=interest_profile.liked_terms,
+    )
+    negative_matches = count_feedback_matches(
+        source=item_source,
+        symbols=item_symbols,
+        text=searchable_text,
+        profile_sources=interest_profile.disliked_sources,
+        profile_symbols=interest_profile.disliked_symbols,
+        profile_terms=interest_profile.disliked_terms,
+    )
+    positive_adjustment = min(
+        MAX_FEEDBACK_INTEREST_BONUS,
+        positive_matches * FEEDBACK_INTEREST_MATCH_BONUS,
+    )
+    negative_adjustment = min(
+        MAX_FEEDBACK_INTEREST_PENALTY,
+        negative_matches * FEEDBACK_INTEREST_MATCH_PENALTY,
+    )
+    return round(positive_adjustment - negative_adjustment, 4)
+
+
+def count_feedback_matches(
+    source: str,
+    symbols: set[str],
+    text: str,
+    profile_sources: frozenset[str],
+    profile_symbols: frozenset[str],
+    profile_terms: frozenset[str],
+) -> int:
+    matches = 0
+    if source and source in profile_sources:
+        matches += 1
+    if symbols & profile_symbols:
+        matches += 1
+    for term in profile_terms:
+        if term in text:
+            matches += 1
+            if matches >= 4:
+                break
+    return matches
+
+
+def feedback_symbols_for_item(item: NormalizedItem) -> set[str]:
+    return {
+        normalize_interest_symbol(value)
+        for value in [*(item.tickers or []), *(item.companies or [])]
+        if normalize_interest_symbol(value)
+    }
+
+
+def feedback_terms_for_item(item: NormalizedItem) -> set[str]:
+    return {
+        normalize_interest_term(value)
+        for value in [
+            item.category,
+            item.subcategory or "",
+            *(item.topics or []),
+            *(item.products or []),
+            *(item.companies or []),
+        ]
+        if normalize_interest_term(value)
+    }
+
+
 def build_interest_search_text(item: FeedItem) -> str:
     parts = [
         item.title,
@@ -507,6 +647,10 @@ def build_interest_search_text(item: FeedItem) -> str:
 
 def normalize_interest_symbol(value: str) -> str:
     return value.strip().upper().removeprefix("$")
+
+
+def normalize_interest_source(value: str) -> str:
+    return " ".join(value.strip().lower().split())
 
 
 def normalize_interest_term(value: str) -> str:

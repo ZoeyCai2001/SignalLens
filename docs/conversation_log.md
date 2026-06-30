@@ -254,3 +254,4 @@ Implementation progress:
 - Added event-date price movement context to stock briefing timeline items so stock-linked news can show the first stored trading-day move around the signal timestamp.
 - Added a local LLM usage ledger for successful Kimi classification and summarization calls, plus System Readiness metrics for recent calls and token totals.
 - Added Hugging Face downloads/likes traction signals to model, dataset, and Space summaries and social-signal scoring.
+- Added lightweight feedback learning so saved/important and hidden items softly adjust future feed ranking by source, topic, product, company, or ticker matches.
