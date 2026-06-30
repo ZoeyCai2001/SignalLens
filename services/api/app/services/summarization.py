@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.db.models import NormalizedItem
 from app.llm.kimi_coding import KimiCodingClient, KimiCodingError
+from app.services.llm_usage import record_llm_usage
 
 
 class SummarizationError(RuntimeError):
@@ -46,6 +47,13 @@ async def summarize_feed_item(
     item.summary_detailed = format_detailed_summary(summary)
     item.why_it_matters = summary.why_it_matters
     db.add(item)
+    record_llm_usage(
+        db=db,
+        operation="summarize_item",
+        provider=settings.llm_provider,
+        result=result,
+        item_id=item.id,
+    )
     db.commit()
     db.refresh(item)
     return item

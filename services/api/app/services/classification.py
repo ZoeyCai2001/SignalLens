@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.db.models import NormalizedItem
 from app.llm.kimi_coding import KimiCodingClient, KimiCodingError
+from app.services.llm_usage import record_llm_usage
 from app.services.scoring import detect_tickers, detect_topics
 
 
@@ -69,6 +70,13 @@ async def classify_feed_item(
     item.stock_impact_score = classification.stock_impact_score
     item.why_it_matters = classification.why_it_matters
     db.add(item)
+    record_llm_usage(
+        db=db,
+        operation="classify_item",
+        provider=settings.llm_provider,
+        result=result,
+        item_id=item.id,
+    )
     db.commit()
     db.refresh(item)
     return item

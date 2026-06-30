@@ -8,7 +8,14 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import DbSession
 from app.core.config import DEFAULT_SEC_USER_AGENT, Settings, get_settings
-from app.db.models import Alert, DailyDigestSnapshot, NormalizedItem, SourceRun, UserItemAction
+from app.db.models import (
+    Alert,
+    DailyDigestSnapshot,
+    LlmUsageEvent,
+    NormalizedItem,
+    SourceRun,
+    UserItemAction,
+)
 from app.schemas.health import (
     HealthResponse,
     IntegrationStatus,
@@ -80,6 +87,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     hide_count = count_user_actions(db=db, field_name="is_hidden")
     alert_counts = count_alerts_by_status(db)
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
+    llm_usage = summarize_recent_llm_usage(db=db, since=since)
 
     return QualityMetricsResponse(
         generated_at=generated_at,
@@ -107,6 +115,11 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             alert_counts["active"] + alert_counts["dismissed"],
         ),
         digest_snapshot_count=count_recent_digest_snapshots(db=db, since=since),
+        llm_call_count=llm_usage["call_count"],
+        llm_input_tokens=llm_usage["input_tokens"],
+        llm_output_tokens=llm_usage["output_tokens"],
+        llm_total_tokens=llm_usage["total_tokens"],
+        llm_calls_per_recent_item=ratio(llm_usage["call_count"], len(recent_rows)),
     )
 
 
@@ -175,6 +188,20 @@ def count_recent_digest_snapshots(db: Session, since: datetime) -> int:
         )
         .count()
     )
+
+
+def summarize_recent_llm_usage(db: Session, since: datetime) -> dict[str, int]:
+    rows = (
+        db.query(LlmUsageEvent)
+        .filter(LlmUsageEvent.user_id == LOCAL_USER_ID, LlmUsageEvent.created_at >= since)
+        .all()
+    )
+    return {
+        "call_count": len(rows),
+        "input_tokens": sum(row.input_tokens for row in rows),
+        "output_tokens": sum(row.output_tokens for row in rows),
+        "total_tokens": sum(row.total_tokens for row in rows),
+    }
 
 
 def duplicate_rate_for_items(items: list[NormalizedItem]) -> float:

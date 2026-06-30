@@ -1,6 +1,11 @@
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-from app.db.models import NormalizedItem
+from app.core.config import Settings
+from app.db.models import Base, LlmUsageEvent, NormalizedItem
+from app.llm.kimi_coding import KimiMessageResult
+from app.services import classification
 from app.services.classification import ClassificationError, parse_classification
 
 
@@ -53,6 +58,63 @@ def test_parse_classification_rejects_unknown_category() -> None:
             """,
             make_item(),
         )
+
+
+@pytest.mark.anyio
+async def test_classify_feed_item_records_llm_usage(monkeypatch) -> None:
+    class FakeKimiClient:
+        def __init__(self, settings: Settings) -> None:
+            self.settings = settings
+
+        async def create_message(self, prompt: str, max_tokens: int = 64) -> KimiMessageResult:
+            return KimiMessageResult(
+                model="kimi-for-coding",
+                text="""
+                {
+                  "category": "stock_company_event",
+                  "subcategory": "chip_partnership",
+                  "topics": ["ai", "inference"],
+                  "tickers": ["mrvl"],
+                  "companies": ["Marvell"],
+                  "products": ["AI accelerator"],
+                  "sentiment": "mixed",
+                  "relevance_score": 0.9,
+                  "confidence_score": 0.8,
+                  "importance_score": 0.75,
+                  "stock_impact_score": 0.6,
+                  "why_it_matters": "The source links AI infrastructure demand to a watched chip name."
+                }
+                """,
+                input_tokens=90,
+                output_tokens=30,
+                total_tokens=120,
+            )
+
+    monkeypatch.setattr(classification, "KimiCodingClient", FakeKimiClient)
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        item = make_item()
+        db.add(item)
+        db.commit()
+        classified = await classification.classify_feed_item(
+            db=db,
+            item=item,
+            settings=Settings(MOONSHOT_API_KEY="test-key"),
+        )
+        usage = db.query(LlmUsageEvent).one()
+
+    assert classified.category == "stock_company_event"
+    assert classified.tickers == ["MRVL"]
+    assert usage.operation == "classify_item"
+    assert usage.provider == "kimi_coding"
+    assert usage.model == "kimi-for-coding"
+    assert usage.item_id == 1
+    assert usage.input_tokens == 90
+    assert usage.output_tokens == 30
+    assert usage.total_tokens == 120
 
 
 def make_item() -> NormalizedItem:

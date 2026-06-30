@@ -22,6 +22,7 @@ from app.db.models import (
     AlertRule,
     Base,
     DailyDigestSnapshot,
+    LlmUsageEvent,
     NormalizedItem,
     SourceRun,
     UserItemAction,
@@ -288,6 +289,28 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
                     },
                     markdown="# Digest\n",
                 ),
+                LlmUsageEvent(
+                    user_id="local",
+                    operation="summarize_item",
+                    provider="kimi_coding",
+                    model="kimi-for-coding",
+                    item_id=1,
+                    input_tokens=100,
+                    output_tokens=20,
+                    total_tokens=120,
+                    created_at=now - timedelta(hours=1),
+                ),
+                LlmUsageEvent(
+                    user_id="local",
+                    operation="classify_item",
+                    provider="kimi_coding",
+                    model="kimi-for-coding",
+                    item_id=2,
+                    input_tokens=80,
+                    output_tokens=10,
+                    total_tokens=90,
+                    created_at=now - timedelta(hours=1),
+                ),
             ]
         )
         db.commit()
@@ -308,6 +331,11 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.dismissed_alert_count == 1
     assert metrics.alert_dismissal_rate == 0.5
     assert metrics.digest_snapshot_count == 1
+    assert metrics.llm_call_count == 2
+    assert metrics.llm_input_tokens == 180
+    assert metrics.llm_output_tokens == 30
+    assert metrics.llm_total_tokens == 210
+    assert metrics.llm_calls_per_recent_item == 1
 
 
 def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:

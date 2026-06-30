@@ -452,6 +452,11 @@ type QualityMetrics = {
   dismissed_alert_count: number;
   alert_dismissal_rate: number;
   digest_snapshot_count: number;
+  llm_call_count: number;
+  llm_input_tokens: number;
+  llm_output_tokens: number;
+  llm_total_tokens: number;
+  llm_calls_per_recent_item: number;
 };
 
 type SourceUpdatePayload = {
@@ -3444,6 +3449,21 @@ function SystemStatusPanel({
                   />
                   <ReadinessMetric label="Digests" value={qualityMetrics.digest_snapshot_count} />
                 </div>
+                <div className="readiness-grid setup-summary-grid">
+                  <ReadinessMetric label="LLM Calls" value={qualityMetrics.llm_call_count} />
+                  <ReadinessMetric
+                    label="Calls/Item"
+                    value={qualityMetrics.llm_calls_per_recent_item.toFixed(2)}
+                  />
+                  <ReadinessMetric
+                    label="Input Tok"
+                    value={formatCompactNumber(qualityMetrics.llm_input_tokens)}
+                  />
+                  <ReadinessMetric
+                    label="Total Tok"
+                    value={formatCompactNumber(qualityMetrics.llm_total_tokens)}
+                  />
+                </div>
               </>
             ) : null}
             <div className="badges">
@@ -3487,6 +3507,13 @@ function SystemStatusPanel({
 
 function formatQualityPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
+}
+
+function formatCompactNumber(value: number): string {
+  return new Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function ReadinessMetric({ label, value }: { label: string; value: number | string }) {

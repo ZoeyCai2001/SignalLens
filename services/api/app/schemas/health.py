@@ -63,3 +63,8 @@ class QualityMetricsResponse(BaseModel):
     dismissed_alert_count: int
     alert_dismissal_rate: float
     digest_snapshot_count: int
+    llm_call_count: int = 0
+    llm_input_tokens: int = 0
+    llm_output_tokens: int = 0
+    llm_total_tokens: int = 0
+    llm_calls_per_recent_item: float = 0
