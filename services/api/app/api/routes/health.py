@@ -96,6 +96,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     ]
     save_count = count_user_actions(db=db, field_name="is_saved")
     hide_count = count_user_actions(db=db, field_name="is_hidden")
+    saved_read_count, saved_read_later_count = count_saved_read_statuses(db)
     alert_counts = count_alerts_by_status(db)
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
     llm_usage = summarize_recent_llm_usage(db=db, since=since)
@@ -137,6 +138,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         source_failure_rate=source_failure_rate,
         save_count=save_count,
         hide_count=hide_count,
+        saved_read_count=saved_read_count,
+        saved_read_later_count=saved_read_later_count,
         save_hide_ratio=round(save_count / hide_count, 3) if hide_count else None,
         active_alert_count=alert_counts["active"],
         dismissed_alert_count=alert_counts["dismissed"],
@@ -158,6 +161,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             summary_coverage=summary_coverage,
             high_value_unsummarized_count=high_value_unsummarized_count,
             source_failure_rate=source_failure_rate,
+            saved_read_later_count=saved_read_later_count,
+            save_count=save_count,
             digest_snapshot_count=digest_snapshot_count,
             latest_digest_snapshot_date=(
                 latest_digest_snapshot.digest_date if latest_digest_snapshot else None
@@ -195,6 +200,34 @@ def count_user_actions(db: Session, field_name: str) -> int:
         .filter(UserItemAction.user_id == LOCAL_USER_ID, field.is_(True))
         .count()
     )
+
+
+def count_saved_read_statuses(db: Session) -> tuple[int, int]:
+    rows = (
+        db.query(UserItemAction.is_read)
+        .filter(
+            UserItemAction.user_id == LOCAL_USER_ID,
+            UserItemAction.is_saved.is_(True),
+            UserItemAction.is_hidden.is_(False),
+        )
+        .all()
+    )
+    read_count = sum(1 for row in rows if unwrap_bool(row))
+    return read_count, len(rows) - read_count
+
+
+def unwrap_bool(row) -> bool:
+    if isinstance(row, bool):
+        return row
+    if hasattr(row, "is_read"):
+        return bool(row.is_read)
+    if isinstance(row, tuple) and row:
+        return bool(row[0])
+    try:
+        return bool(row[0])
+    except (IndexError, KeyError, TypeError):
+        return False
+    return False
 
 
 def count_alerts_by_status(db: Session) -> dict[str, int]:
@@ -347,6 +380,8 @@ def build_quality_findings(
     summary_coverage: float,
     high_value_unsummarized_count: int,
     source_failure_rate: float,
+    saved_read_later_count: int,
+    save_count: int,
     digest_snapshot_count: int,
     latest_digest_snapshot_date: date | None,
     llm_calls_per_recent_item: float,
@@ -407,6 +442,17 @@ def build_quality_findings(
                 recommendation="Run capped LLM summarization before relying on the daily digest.",
                 action_label="Open Dashboard",
                 action_module="dashboard",
+            )
+        )
+    if saved_read_later_count >= 5 and ratio(saved_read_later_count, save_count) >= 0.8:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Read-later backlog is high",
+                metric=f"{saved_read_later_count} saved unread",
+                recommendation="Use the Daily Digest read-later section to clear saved items.",
+                action_label="Open Daily Digest",
+                action_module="digest",
             )
         )
     if source_failure_rate >= 0.25:

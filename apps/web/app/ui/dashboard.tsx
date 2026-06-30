@@ -484,6 +484,8 @@ type QualityMetrics = {
   source_failure_rate: number;
   save_count: number;
   hide_count: number;
+  saved_read_count: number;
+  saved_read_later_count: number;
   save_hide_ratio: number | null;
   active_alert_count: number;
   dismissed_alert_count: number;
@@ -3743,6 +3745,10 @@ function SystemStatusPanel({
                         ? `${qualityMetrics.save_count}/0`
                         : qualityMetrics.save_hide_ratio.toFixed(2)
                     }
+                  />
+                  <ReadinessMetric
+                    label="Read Later"
+                    value={qualityMetrics.saved_read_later_count}
                   />
                   <ReadinessMetric
                     label="Alert Dismiss"

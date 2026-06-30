@@ -255,7 +255,7 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
             [
                 make_quality_alert(item_id=1, rule_id=rule.id, status="active"),
                 make_quality_alert(item_id=2, rule_id=rule.id, status="dismissed"),
-                UserItemAction(user_id="local", item_id=1, is_saved=True),
+                UserItemAction(user_id="local", item_id=1, is_saved=True, is_read=True),
                 UserItemAction(user_id="local", item_id=3, is_hidden=True),
                 UserItemAction(user_id="local", item_id=4, is_hidden=True),
                 SourceRun(
@@ -328,6 +328,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.source_failure_rate == 0.5
     assert metrics.save_count == 1
     assert metrics.hide_count == 2
+    assert metrics.saved_read_count == 1
+    assert metrics.saved_read_later_count == 0
     assert metrics.save_hide_ratio == 0.5
     assert metrics.active_alert_count == 1
     assert metrics.dismissed_alert_count == 1
@@ -364,6 +366,8 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         summary_coverage=0,
         high_value_unsummarized_count=0,
         source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
         digest_snapshot_count=0,
         latest_digest_snapshot_date=None,
         llm_calls_per_recent_item=0,
@@ -385,6 +389,8 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         summary_coverage=0.4,
         high_value_unsummarized_count=2,
         source_failure_rate=0.25,
+        saved_read_later_count=5,
+        save_count=6,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
         llm_calls_per_recent_item=1.6,
@@ -395,6 +401,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "Duplicate pressure",
         "Summary coverage is thin",
         "High-value summaries missing",
+        "Read-later backlog is high",
         "Source failures need review",
         "LLM spend is high",
     ]
@@ -405,6 +412,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "sources",
         "dashboard",
         "dashboard",
+        "digest",
         "sources",
         "settings",
     ]
@@ -418,6 +426,8 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
         summary_coverage=0.8,
         high_value_unsummarized_count=0,
         source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
         digest_snapshot_count=0,
         latest_digest_snapshot_date=date(2026, 6, 20),
         llm_calls_per_recent_item=0,
@@ -437,6 +447,8 @@ def test_build_quality_findings_flags_high_value_summary_gap() -> None:
         summary_coverage=0.8,
         high_value_unsummarized_count=3,
         source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
         llm_calls_per_recent_item=0,
@@ -446,6 +458,45 @@ def test_build_quality_findings_flags_high_value_summary_gap() -> None:
     assert findings[0].metric == "3 high-value unsummarized"
     assert findings[0].action_label == "Open Dashboard"
     assert findings[0].action_module == "dashboard"
+
+
+def test_build_quality_findings_flags_read_later_backlog() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=5,
+        save_count=6,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        llm_calls_per_recent_item=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Read-later backlog is high"]
+    assert findings[0].metric == "5 saved unread"
+    assert findings[0].action_label == "Open Daily Digest"
+    assert findings[0].action_module == "digest"
+
+
+def test_build_quality_findings_ignores_small_read_later_queue() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=4,
+        save_count=4,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        llm_calls_per_recent_item=0,
+    )
+
+    assert findings == []
 
 
 def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:

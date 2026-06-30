@@ -85,6 +85,8 @@ class QualityMetricsResponse(BaseModel):
     source_failure_rate: float
     save_count: int
     hide_count: int
+    saved_read_count: int = 0
+    saved_read_later_count: int = 0
     save_hide_ratio: float | None
     active_alert_count: int
     dismissed_alert_count: int

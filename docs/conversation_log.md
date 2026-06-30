@@ -285,3 +285,4 @@ Implementation progress:
 - Added derived raw-content storage policy and failure-handling guidance to Source Health so each connector is easier to audit against the PRD source requirements.
 - Added source inference to natural-language search so queries such as arXiv papers, GitHub repos, Hacker News posts, Product Hunt launches, or Hugging Face items apply the matching source filter and show it in dashboard chips.
 - Added high-value unsummarized item tracking to quality metrics so System Readiness can prioritize capped LLM summarization for the most important signals.
+- Added saved read/read-later counts and a backlog finding to quality metrics so System Readiness can steer large saved-unread queues back into the Daily Digest workflow.
