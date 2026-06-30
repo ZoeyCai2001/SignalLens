@@ -20,6 +20,9 @@ LlmItemProcessor = Callable[[Session, NormalizedItem, Settings], Awaitable[Norma
 
 LLM_CANDIDATE_OVERFETCH_MULTIPLIER = 4
 MAX_LLM_CANDIDATE_PREFETCH = 80
+MIN_LLM_CANDIDATE_RELEVANCE = 0.35
+MIN_LLM_CANDIDATE_IMPORTANCE = 0.5
+MIN_LLM_CANDIDATE_STOCK_IMPACT = 0.5
 TRACKING_QUERY_PARAMS = {
     "fbclid",
     "gclid",
@@ -97,6 +100,14 @@ def list_llm_processing_candidates(
     module_conditions = build_feed_module_conditions(module_filter)
     if module_conditions:
         query = query.filter(or_(*module_conditions))
+    query = query.filter(
+        or_(
+            NormalizedItem.relevance_score >= MIN_LLM_CANDIDATE_RELEVANCE,
+            NormalizedItem.importance_score >= MIN_LLM_CANDIDATE_IMPORTANCE,
+            NormalizedItem.stock_impact_score >= MIN_LLM_CANDIDATE_STOCK_IMPACT,
+            UserItemAction.is_important.is_(True),
+        )
+    )
 
     candidate_filters = []
     if summarize and skip_summarized:

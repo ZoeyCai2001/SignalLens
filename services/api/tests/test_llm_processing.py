@@ -201,6 +201,35 @@ def test_list_llm_processing_candidates_deduplicates_before_limit() -> None:
     assert [item.id for item in candidates] == [1, 3]
 
 
+def test_list_llm_processing_candidates_filters_low_signal_items_before_limit() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_item(1, importance_score=0.8, relevance_score=0.2),
+                make_item(2, importance_score=0.1, relevance_score=0.8),
+                make_item(3, importance_score=0.1, relevance_score=0.1),
+                make_item(4, importance_score=0.1, relevance_score=0.1),
+                make_item(5, importance_score=0.1, relevance_score=0.1, stock_impact_score=0.7),
+            ]
+        )
+        db.add(UserItemAction(item_id=4, user_id="local", is_important=True))
+        db.commit()
+
+        candidates = list_llm_processing_candidates(
+            db=db,
+            limit=5,
+            summarize=True,
+            classify=False,
+            skip_summarized=True,
+        )
+
+    assert [item.id for item in candidates] == [4, 1, 2, 5]
+
+
 def test_dedupe_llm_processing_candidates_keeps_distinct_related_items() -> None:
     items = [
         make_item(
@@ -239,6 +268,7 @@ def make_item(
     url: str | None = None,
     summary_detailed: str | None = None,
     importance_score: float = 0,
+    relevance_score: float = 0.8,
     classification_confidence: float = 0.5,
     source_name: str = "Test",
     category: str = "technical_trend",
@@ -257,6 +287,7 @@ def make_item(
         tickers=tickers or [],
         products=products or [],
         importance_score=importance_score,
+        relevance_score=relevance_score,
         classification_confidence=classification_confidence,
         stock_impact_score=stock_impact_score,
         summary_detailed=summary_detailed,
