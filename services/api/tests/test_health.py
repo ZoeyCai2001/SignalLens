@@ -386,6 +386,8 @@ def test_build_quality_findings_recommends_local_actions() -> None:
     assert findings[0].action_label == "Open Source Health"
     assert findings[0].action_source_filter == "attention"
     assert findings[1].action_module == "digest"
+    assert findings[1].action_label == "Save Digest"
+    assert findings[1].action_operation == "digest:save-snapshot"
 
     findings = build_quality_findings(
         recent_item_count=10,
@@ -452,8 +454,9 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
 
     assert [finding.title for finding in findings] == ["Digest snapshot is stale"]
     assert findings[0].metric == "last saved 2026-06-29"
-    assert findings[0].action_label == "Open Daily Digest"
+    assert findings[0].action_label == "Save Digest"
     assert findings[0].action_module == "digest"
+    assert findings[0].action_operation == "digest:save-snapshot"
 
 
 def test_digest_age_days_tracks_latest_saved_digest_freshness() -> None:

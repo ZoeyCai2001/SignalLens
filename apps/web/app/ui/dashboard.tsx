@@ -514,7 +514,7 @@ type QualityFinding = {
   recommendation: string;
   action_label: string | null;
   action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings"> | null;
-  action_operation: Extract<DashboardOperation, "llm:summarize"> | null;
+  action_operation: Extract<DashboardOperation, "digest:save-snapshot" | "llm:summarize"> | null;
   action_source_filter: SourceHealthFilter | null;
 };
 
@@ -759,6 +759,7 @@ type LoadState = "idle" | "loading" | "running";
 type DashboardOperation =
   | "refresh"
   | "cycle"
+  | "digest:save-snapshot"
   | "llm:classify"
   | "llm:summarize"
   | `ingest:${IngestionSource}`;
@@ -1914,11 +1915,12 @@ export function Dashboard() {
     }
   };
 
-  const saveDailyDigestSnapshot = async () => {
+  const saveDailyDigestSnapshot = async (targetDate?: string) => {
     setBusyDigestSave(true);
     setError(null);
     try {
-      const query = buildDigestDateQuery(digestDateDraft || digest?.digest_date || "");
+      const snapshotDate = targetDate ?? (digestDateDraft || digest?.digest_date || "");
+      const query = buildDigestDateQuery(snapshotDate);
       const snapshot = await fetchJson<DailyDigestSnapshot>(`/api/digest/daily/snapshots${query}`, {
         method: "POST",
       });
@@ -1929,6 +1931,10 @@ export function Dashboard() {
         snapshot,
         ...items.filter((item) => item.digest_date !== snapshot.digest_date),
       ].slice(0, 5));
+      const nextQualityMetrics = await fetchJson<QualityMetrics>("/api/quality-metrics").catch(
+        () => null,
+      );
+      setQualityMetrics(nextQualityMetrics);
       setStatus(`Saved digest snapshot ${snapshot.digest_date}`);
     } catch (err) {
       setError(readError(err));
@@ -2867,6 +2873,12 @@ export function Dashboard() {
         operation: "llm:summarize",
         moduleOverride: finding.action_module === "dashboard" ? null : undefined,
       });
+      return;
+    }
+    if (finding.action_operation === "digest:save-snapshot") {
+      setActiveOperation("digest:save-snapshot");
+      await saveDailyDigestSnapshot("");
+      setActiveOperation(null);
       return;
     }
     setStatus(`${finding.action_label ?? "Opened"}: ${finding.title}`);

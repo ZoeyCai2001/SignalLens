@@ -61,7 +61,7 @@ class QualityFinding(BaseModel):
     recommendation: str
     action_label: str | None = None
     action_module: Literal["dashboard", "digest", "sources", "settings"] | None = None
-    action_operation: Literal["llm:summarize"] | None = None
+    action_operation: Literal["llm:summarize", "digest:save-snapshot"] | None = None
     action_source_filter: Literal[
         "all",
         "attention",

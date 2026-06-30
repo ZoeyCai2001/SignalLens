@@ -512,8 +512,9 @@ def build_quality_findings(
                 title="Digest snapshot is stale",
                 metric=f"last saved {latest_digest_snapshot_date.isoformat()}",
                 recommendation="Generate and save a fresh daily digest snapshot after ingestion.",
-                action_label="Open Daily Digest",
+                action_label="Save Digest",
                 action_module="digest",
+                action_operation="digest:save-snapshot",
             )
         )
     elif latest_digest_snapshot_date is None:
@@ -523,8 +524,9 @@ def build_quality_findings(
                 title="No saved digest snapshot",
                 metric="0 saved digests",
                 recommendation="Generate and save a daily digest snapshot after ingestion.",
-                action_label="Open Daily Digest",
+                action_label="Save Digest",
                 action_module="digest",
+                action_operation="digest:save-snapshot",
             )
         )
     if llm_calls_per_recent_item > 1.5:
