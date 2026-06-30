@@ -271,6 +271,12 @@ type ProductWatchlistItem = {
   notes: string | null;
 };
 
+type ProductDetailDraft = {
+  label: string;
+  related_terms: string;
+  notes: string;
+};
+
 type ProductBriefing = {
   product: ProductWatchlistItem;
   item_count: number;
@@ -7225,11 +7231,35 @@ function ProductWatchlistPanel({
   onSelect: (category: string) => void;
   onUpdate: (
     category: string,
-    payload: Partial<Pick<ProductWatchlistItem, "priority" | "is_pinned" | "include_in_digest">>,
+    payload: Partial<Omit<ProductWatchlistItem, "category">>,
   ) => void;
   onDelete: (category: string) => void;
   onSubmit: () => void;
 }) {
+  const selectedProduct = items.find((item) => item.category === selectedCategory) ?? null;
+  const [detailDraft, setDetailDraft] = useState<ProductDetailDraft>(() =>
+    productToDetailDraft(selectedProduct),
+  );
+
+  useEffect(() => {
+    setDetailDraft(productToDetailDraft(selectedProduct));
+  }, [selectedProduct]);
+
+  const updateDetailDraft = (key: keyof ProductDetailDraft, value: string) => {
+    setDetailDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveProductDetails = () => {
+    if (!selectedProduct) {
+      return;
+    }
+    onUpdate(selectedProduct.category, {
+      label: detailDraft.label.trim() || selectedProduct.label,
+      related_terms: splitTerms(detailDraft.related_terms),
+      notes: detailDraft.notes.trim() || null,
+    });
+  };
+
   return (
     <section className="section">
       <div className="section-header">
@@ -7361,12 +7391,89 @@ function ProductWatchlistPanel({
           </tbody>
         </table>
       </div>
+      <ProductDetailEditor
+        product={selectedProduct}
+        draft={detailDraft}
+        disabled={
+          disabled ||
+          (selectedProduct
+            ? busyWatchlistKey === `product:${selectedProduct.category}`
+            : false)
+        }
+        onDraftChange={updateDetailDraft}
+        onSave={saveProductDetails}
+      />
       <ProductBriefingPanel
         briefing={briefing}
         loading={busyProductBriefing === selectedCategory && selectedCategory !== null}
         selectedCategory={selectedCategory}
       />
     </section>
+  );
+}
+
+function ProductDetailEditor({
+  product,
+  draft,
+  disabled,
+  onDraftChange,
+  onSave,
+}: {
+  product: ProductWatchlistItem | null;
+  draft: ProductDetailDraft;
+  disabled: boolean;
+  onDraftChange: (key: keyof ProductDetailDraft, value: string) => void;
+  onSave: () => void;
+}) {
+  if (!product) {
+    return <div className="empty-state">Select a product category to edit details.</div>;
+  }
+
+  return (
+    <div className="form-panel stock-detail-form">
+      <div className="section-header">
+        <div>
+          <h3 className="section-title">{product.label} details</h3>
+          <div className="small-muted">{product.category}</div>
+        </div>
+        <span className="badge">{product.include_in_digest ? "digest" : "muted"}</span>
+      </div>
+      <div className="stock-detail-grid">
+        <label className="weight-field">
+          <span className="field-label">Label</span>
+          <input
+            className="field"
+            value={draft.label}
+            onChange={(event) => onDraftChange("label", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Related Terms</span>
+          <input
+            className="field"
+            value={draft.related_terms}
+            onChange={(event) => onDraftChange("related_terms", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+      </div>
+      <label className="weight-field">
+        <span className="field-label">Notes</span>
+        <textarea
+          className="field textarea"
+          value={draft.notes}
+          onChange={(event) => onDraftChange("notes", event.target.value)}
+          disabled={disabled}
+        />
+      </label>
+      <div className="toolbar">
+        <button className="button primary" onClick={onSave} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+          Save
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -8255,6 +8362,14 @@ function topicToDetailDraft(topic: TopicWatchlistItem | null): TopicDetailDraft 
     category: topic?.category ?? "technical_trend",
     related_terms: topic?.related_terms.join(", ") ?? "",
     notes: topic?.notes ?? "",
+  };
+}
+
+function productToDetailDraft(product: ProductWatchlistItem | null): ProductDetailDraft {
+  return {
+    label: product?.label ?? "",
+    related_terms: product?.related_terms.join(", ") ?? "",
+    notes: product?.notes ?? "",
   };
 }
 

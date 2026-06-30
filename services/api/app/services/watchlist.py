@@ -684,6 +684,13 @@ def update_product_watchlist_item(
     for field_name, value in updates.items():
         if field_name == "related_terms" and value is not None:
             value = clean_terms(value)
+        elif field_name in {"label", "priority"} and isinstance(value, str):
+            normalized_text = value.strip()
+            if not normalized_text:
+                continue
+            value = normalized_text
+        elif field_name == "notes" and isinstance(value, str):
+            value = value.strip() or None
         elif isinstance(value, str):
             value = value.strip()
         setattr(item, field_name, value)
