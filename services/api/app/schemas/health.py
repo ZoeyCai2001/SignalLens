@@ -63,6 +63,7 @@ class QualityFinding(BaseModel):
     action_module: Literal["dashboard", "digest", "sources", "settings", "stocks"] | None = None
     action_operation: Literal[
         "cycle",
+        "llm:classify",
         "llm:summarize",
         "digest:save-snapshot",
         "stock-prices:refresh",
@@ -88,6 +89,8 @@ class QualityMetricsResponse(BaseModel):
     covered_module_count: int = 0
     high_value_item_count: int
     high_value_unsummarized_count: int = 0
+    classification_coverage: float = 0
+    low_confidence_item_count: int = 0
     relevance_precision_proxy: float
     duplicate_rate: float
     summary_coverage: float

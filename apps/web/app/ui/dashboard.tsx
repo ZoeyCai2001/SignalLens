@@ -485,6 +485,8 @@ type QualityMetrics = {
   covered_module_count: number;
   high_value_item_count: number;
   high_value_unsummarized_count: number;
+  classification_coverage: number;
+  low_confidence_item_count: number;
   relevance_precision_proxy: number;
   duplicate_rate: number;
   summary_coverage: number;
@@ -523,6 +525,7 @@ type QualityFinding = {
     DashboardOperation,
     | "cycle"
     | "digest:save-snapshot"
+    | "llm:classify"
     | "llm:summarize"
     | "stock-prices:refresh"
     | "alerts:generate"
@@ -2891,6 +2894,16 @@ export function Dashboard() {
       });
       return;
     }
+    if (finding.action_operation === "llm:classify") {
+      await processTopItemsWithLlm({
+        summarize: false,
+        classify: true,
+        label: finding.title,
+        operation: "llm:classify",
+        moduleOverride: finding.action_module === "dashboard" ? null : undefined,
+      });
+      return;
+    }
     if (finding.action_operation === "digest:save-snapshot") {
       setActiveOperation("digest:save-snapshot");
       await saveDailyDigestSnapshot("");
@@ -3788,6 +3801,10 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Modules"
                     value={`${qualityMetrics.covered_module_count}/5`}
+                  />
+                  <ReadinessMetric
+                    label="Classified"
+                    value={formatQualityPercent(qualityMetrics.classification_coverage)}
                   />
                   <ReadinessMetric
                     label="Source Fail"

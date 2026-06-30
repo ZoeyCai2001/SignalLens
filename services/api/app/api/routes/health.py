@@ -112,6 +112,11 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         recent_item_count,
     )
     duplicate_rate = duplicate_rate_for_items(recent_rows)
+    high_confidence_item_count = sum(
+        1 for item in recent_rows if (item.classification_confidence or 0) >= 0.7
+    )
+    classification_coverage = ratio(high_confidence_item_count, recent_item_count)
+    low_confidence_item_count = recent_item_count - high_confidence_item_count
     high_value_item_count = sum(1 for item in recent_rows if item.importance_score >= 0.75)
     high_value_unsummarized_count = sum(
         1
@@ -156,6 +161,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         covered_module_count=covered_module_count,
         high_value_item_count=high_value_item_count,
         high_value_unsummarized_count=high_value_unsummarized_count,
+        classification_coverage=classification_coverage,
+        low_confidence_item_count=low_confidence_item_count,
         relevance_precision_proxy=relevance_precision_proxy,
         duplicate_rate=duplicate_rate,
         summary_coverage=summary_coverage,
@@ -188,6 +195,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             relevance_precision_proxy=relevance_precision_proxy,
             duplicate_rate=duplicate_rate,
             summary_coverage=summary_coverage,
+            classification_coverage=classification_coverage,
+            low_confidence_item_count=low_confidence_item_count,
             high_value_unsummarized_count=high_value_unsummarized_count,
             source_failure_rate=source_failure_rate,
             saved_read_later_count=saved_read_later_count,
@@ -498,6 +507,8 @@ def build_quality_findings(
     latest_digest_snapshot_date: date | None,
     latest_digest_snapshot_item_count: int | None,
     llm_calls_per_recent_item: float,
+    classification_coverage: float = 0,
+    low_confidence_item_count: int = 0,
     covered_module_count: int | None = None,
     total_module_count: int = len(PRD_FEED_MODULES),
     latest_stock_price_date: date | None = None,
@@ -573,6 +584,25 @@ def build_quality_findings(
                 action_label="Run Summaries",
                 action_module="dashboard",
                 action_operation="llm:summarize",
+            )
+        )
+    if (
+        recent_item_count >= 5
+        and low_confidence_item_count > 0
+        and classification_coverage < 0.6
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Classification confidence is thin",
+                metric=f"{round(classification_coverage * 100)}% high-confidence",
+                recommendation=(
+                    "Run capped LLM classification so ranking, alerts, digest sections, "
+                    "and uncertainty notes have stronger labels."
+                ),
+                action_label="Run Classification",
+                action_module="dashboard",
+                action_operation="llm:classify",
             )
         )
     if high_value_unsummarized_count > 0:

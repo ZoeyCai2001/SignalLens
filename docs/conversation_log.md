@@ -299,3 +299,4 @@ Implementation progress:
 - Added an alert-coverage readiness finding so high-value recent signals with no active alerts can generate dashboard alerts directly from System Readiness.
 - Added saved digest item-count tracking and a thin-digest readiness finding so sparse daily briefing snapshots can be regenerated from System Readiness.
 - Added PRD module coverage counts to quality metrics and a readiness finding for dashboards where recent items cover too few first-class modules.
+- Added classification confidence coverage to quality metrics and a readiness action that runs capped LLM classification when recent items are mostly low-confidence.
