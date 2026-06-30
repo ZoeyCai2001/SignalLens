@@ -245,3 +245,4 @@ Implementation progress:
 - Added recent source-run quality metrics to Source Health, including success rate and stored/fetched ratio for spotting failing or duplicate-heavy sources.
 - Added explicit event-cluster confirmation metadata and dashboard source badges so duplicate or cross-source coverage is easier to audit.
 - Improved the Saved Items panel as a read-later queue with unread-first ordering, read/read-later counts, and source/date context.
+- Added Daily Digest overview metrics for high-impact items, stock-linked signals, read-later items, and source diversity.

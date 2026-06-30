@@ -22,6 +22,10 @@ class DailyDigest(BaseModel):
     generated_at: datetime
     headline: str
     total_items: int
+    high_impact_count: int = 0
+    stock_signal_count: int = 0
+    read_later_count: int = 0
+    source_count: int = 0
     sections: list[DigestSection]
     source_coverage: list[DigestSourceCoverage]
     watchlist_tickers: list[str] = Field(default_factory=list)

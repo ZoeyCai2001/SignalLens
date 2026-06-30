@@ -72,12 +72,17 @@ def generate_daily_digest(
     coverage = build_source_coverage(feed_items)
     tickers = list_watchlist_tickers(db)
     companies = list_watchlist_companies(db)
+    metrics = build_digest_overview_metrics(feed_items, coverage)
 
     return DailyDigest(
         digest_date=selected_date,
         generated_at=datetime.now(UTC),
         headline=build_headline(feed_items, selected_date),
         total_items=len(feed_items),
+        high_impact_count=metrics["high_impact_count"],
+        stock_signal_count=metrics["stock_signal_count"],
+        read_later_count=metrics["read_later_count"],
+        source_count=metrics["source_count"],
         sections=sections,
         source_coverage=coverage,
         watchlist_tickers=tickers,
@@ -432,6 +437,20 @@ def build_source_coverage(items: list[FeedItem]) -> list[DigestSourceCoverage]:
         DigestSourceCoverage(source_name=source_name, item_count=count)
         for source_name, count in counts.most_common()
     ]
+
+
+def build_digest_overview_metrics(
+    items: list[FeedItem],
+    coverage: list[DigestSourceCoverage],
+) -> dict[str, int]:
+    return {
+        "high_impact_count": sum(1 for item in items if item.importance_score >= 0.75),
+        "stock_signal_count": sum(
+            1 for item in items if item.category == "stock_company_event" or bool(item.tickers)
+        ),
+        "read_later_count": sum(1 for item in items if item.is_saved and not item.is_read),
+        "source_count": len(coverage),
+    }
 
 
 def build_headline(items: list[FeedItem], digest_date: date) -> str:

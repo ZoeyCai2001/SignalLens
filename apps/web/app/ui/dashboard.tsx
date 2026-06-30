@@ -479,6 +479,10 @@ type DailyDigest = {
   generated_at: string;
   headline: string;
   total_items: number;
+  high_impact_count: number;
+  stock_signal_count: number;
+  read_later_count: number;
+  source_count: number;
   sections: DigestSection[];
   source_coverage: DigestSourceCoverage[];
   watchlist_tickers: string[];
@@ -3749,6 +3753,12 @@ function DailyDigestPanel({
             </span>
           </div>
           <div className="digest-headline">{digest.headline}</div>
+          <div className="digest-coverage">
+            <span className="badge">{digest.high_impact_count} high impact</span>
+            <span className="badge stock">{digest.stock_signal_count} stock-linked</span>
+            <span className="badge">{digest.read_later_count} read later</span>
+            <span className="badge muted-badge">{digest.source_count} sources</span>
+          </div>
           <div className="digest-coverage">
             {digest.watchlist_tickers.slice(0, 4).map((ticker) => (
               <span className="badge stock" key={`ticker:${ticker}`}>

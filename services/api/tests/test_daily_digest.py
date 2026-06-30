@@ -10,6 +10,7 @@ from app.db.models import DailyDigestSnapshot as DailyDigestSnapshotModel
 from app.schemas.digest import DailyDigest
 from app.schemas.feed import FeedItem
 from app.services.daily_digest import (
+    build_digest_overview_metrics,
     build_digest_sections,
     build_headline,
     build_source_coverage,
@@ -63,6 +64,32 @@ def test_daily_digest_source_coverage_counts_sources() -> None:
     assert coverage[0].source_name == "arXiv"
     assert coverage[0].item_count == 2
     assert coverage[1].source_name == "Hacker News"
+
+
+def test_daily_digest_overview_metrics_count_key_triage_groups() -> None:
+    items = [
+        make_item(1, "Research", "research", 0.9, source_name="arXiv"),
+        make_item(2, "Stock", "stock_company_event", 0.8, source_name="Finance", tickers=["MU"]),
+        make_item(3, "Saved", "technical_trend", 0.6, source_name="Hacker News", is_saved=True),
+        make_item(
+            4,
+            "Read saved",
+            "technical_trend",
+            0.5,
+            source_name="Hacker News",
+            is_saved=True,
+            is_read=True,
+        ),
+    ]
+
+    metrics = build_digest_overview_metrics(items, build_source_coverage(items))
+
+    assert metrics == {
+        "high_impact_count": 2,
+        "stock_signal_count": 1,
+        "read_later_count": 1,
+        "source_count": 3,
+    }
 
 
 def test_sort_for_digest_uses_source_quality_and_confidence() -> None:
