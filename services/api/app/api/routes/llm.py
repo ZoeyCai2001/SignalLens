@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.deps import DbSession
 from app.core.config import get_settings
-from app.llm.kimi_coding import KimiCodingClient, KimiCodingError
 from app.schemas.llm import (
     FeedProcessingRequest,
     FeedProcessingResponse,
@@ -21,6 +20,8 @@ async def smoke_test(request: SmokeTestRequest) -> SmokeTestResponse:
     settings = get_settings()
     if not settings.moonshot_api_key:
         raise HTTPException(status_code=400, detail="MOONSHOT_API_KEY is not configured.")
+
+    from app.llm.kimi_coding import KimiCodingClient, KimiCodingError
 
     client = KimiCodingClient(settings=settings)
     try:

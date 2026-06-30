@@ -248,3 +248,4 @@ Implementation progress:
 - Added Daily Digest overview metrics for high-impact items, stock-linked signals, read-later items, and source diversity.
 - Added watched-stock ticker quick filters to the dashboard search panel so stock-specific feeds can be opened from the main ranked feed.
 - Added deterministic social-trend alerting for viral AI products, Chinese/social-platform signals, and high-engagement community launches using existing free metadata.
+- Added duplicate-aware batch LLM candidate selection so exact duplicate URLs or titles do not consume capped Kimi processing calls.

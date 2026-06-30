@@ -7,7 +7,10 @@ from app.core.config import Settings
 from app.db.models import Base, NormalizedItem, UserItemAction
 from app.schemas.llm import FeedProcessingRequest, FeedProcessingResponse
 from app.services.llm_processing import (
+    canonical_llm_candidate_url,
+    dedupe_llm_processing_candidates,
     list_llm_processing_candidates,
+    normalize_llm_candidate_title,
     process_llm_batch_items,
     should_classify_item,
     should_summarize_item,
@@ -157,8 +160,83 @@ def test_list_llm_processing_candidates_filters_stock_module_entities() -> None:
     assert [item.id for item in candidates] == [2]
 
 
+def test_list_llm_processing_candidates_deduplicates_before_limit() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_item(
+                    1,
+                    title="OpenAI releases a new agent workflow for developers",
+                    url="https://example.com/agent-workflow?utm_source=newsletter",
+                    importance_score=1.0,
+                ),
+                make_item(
+                    2,
+                    title="OpenAI releases a new agent workflow for developers",
+                    url="https://example.com/agent-workflow?utm_medium=social",
+                    importance_score=0.95,
+                ),
+                make_item(
+                    3,
+                    title="Anthropic publishes a model routing benchmark",
+                    url="https://example.com/model-routing",
+                    importance_score=0.8,
+                ),
+            ]
+        )
+        db.commit()
+
+        candidates = list_llm_processing_candidates(
+            db=db,
+            limit=2,
+            summarize=True,
+            classify=False,
+            skip_summarized=True,
+        )
+
+    assert [item.id for item in candidates] == [1, 3]
+
+
+def test_dedupe_llm_processing_candidates_keeps_distinct_related_items() -> None:
+    items = [
+        make_item(
+            1,
+            title="OpenAI releases a new agent workflow for developers",
+            url="https://example.com/openai-agent",
+        ),
+        make_item(
+            2,
+            title="Developers debate OpenAI agent workflows on Hacker News",
+            url="https://news.ycombinator.com/item?id=123",
+        ),
+    ]
+
+    candidates = dedupe_llm_processing_candidates(items, limit=2)
+
+    assert [item.id for item in candidates] == [1, 2]
+
+
+def test_llm_candidate_deduplication_helpers_normalize_tracking_noise() -> None:
+    assert (
+        canonical_llm_candidate_url(
+            "https://Example.com/path/?utm_source=newsletter&b=2&a=1#section"
+        )
+        == "https://example.com/path?a=1&b=2"
+    )
+    assert normalize_llm_candidate_title("  OpenAI   launches   agent workflows  ") == (
+        "openai launches agent workflows"
+    )
+    assert normalize_llm_candidate_title("Short") is None
+
+
 def make_item(
     item_id: int,
+    title: str | None = None,
+    url: str | None = None,
     summary_detailed: str | None = None,
     importance_score: float = 0,
     classification_confidence: float = 0.5,
@@ -171,8 +249,8 @@ def make_item(
     return NormalizedItem(
         id=item_id,
         raw_item_id=item_id,
-        title=f"Item {item_id}",
-        url=f"https://example.com/{item_id}",
+        title=title or f"Item {item_id}",
+        url=url or f"https://example.com/{item_id}",
         source_name=source_name,
         text="A relevant AI intelligence item.",
         category=category,
