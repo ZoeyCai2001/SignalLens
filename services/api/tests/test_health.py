@@ -424,6 +424,9 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "sources",
         "settings",
     ]
+    assert findings[2].action_label == "Run Summaries"
+    assert findings[2].action_operation == "llm:summarize"
+    assert findings[3].action_operation == "llm:summarize"
 
 
 def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
@@ -470,8 +473,9 @@ def test_build_quality_findings_flags_high_value_summary_gap() -> None:
 
     assert [finding.title for finding in findings] == ["High-value summaries missing"]
     assert findings[0].metric == "3 high-value unsummarized"
-    assert findings[0].action_label == "Open Dashboard"
+    assert findings[0].action_label == "Run Summaries"
     assert findings[0].action_module == "dashboard"
+    assert findings[0].action_operation == "llm:summarize"
 
 
 def test_build_quality_findings_flags_read_later_backlog() -> None:

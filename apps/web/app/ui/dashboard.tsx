@@ -513,6 +513,7 @@ type QualityFinding = {
   recommendation: string;
   action_label: string | null;
   action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings"> | null;
+  action_operation: Extract<DashboardOperation, "llm:summarize"> | null;
   action_source_filter: SourceHealthFilter | null;
 };
 
@@ -1404,17 +1405,24 @@ export function Dashboard() {
     classify,
     label,
     operation,
+    moduleOverride,
   }: {
     summarize: boolean;
     classify: boolean;
     label: string;
     operation: DashboardOperation;
+    moduleOverride?: FeedModuleKey | null;
   }) => {
     setActiveOperation(operation);
     setLoadState("running");
     setError(null);
     try {
-      const activeFeedModule = isFeedModuleKey(activeModule) ? activeModule : null;
+      const activeFeedModule =
+        moduleOverride !== undefined
+          ? moduleOverride
+          : isFeedModuleKey(activeModule)
+            ? activeModule
+            : null;
       const result = await fetchJson<FeedProcessingResponse>("/api/llm/process-feed", {
         method: "POST",
         body: JSON.stringify({
@@ -2840,7 +2848,7 @@ export function Dashboard() {
     }
   };
 
-  const openQualityFindingAction = (finding: QualityFinding) => {
+  const openQualityFindingAction = async (finding: QualityFinding) => {
     if (!finding.action_module) {
       return;
     }
@@ -2850,6 +2858,16 @@ export function Dashboard() {
       setSourceRunStatusFilter(finding.action_source_filter === "failed" ? "failed" : "all");
     }
     setActiveModule(finding.action_module);
+    if (finding.action_operation === "llm:summarize") {
+      await processTopItemsWithLlm({
+        summarize: true,
+        classify: false,
+        label: finding.title,
+        operation: "llm:summarize",
+        moduleOverride: finding.action_module === "dashboard" ? null : undefined,
+      });
+      return;
+    }
     setStatus(`${finding.action_label ?? "Opened"}: ${finding.title}`);
   };
 

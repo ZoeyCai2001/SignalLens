@@ -290,3 +290,4 @@ Implementation progress:
 - Added URL-based source-name inference for manual submissions and cross-manual-source URL deduplication so pasted links keep useful attribution without extra typing.
 - Added stock attention reason fields to stock summaries and briefings, with dashboard table/detail rendering so ranked watchlist rows explain their score inputs.
 - Added full-cycle ingestion store rates, attention flags, recovery hints, and visible Source Health cycle rows so failed or zero-store sources are easier to triage from the dashboard.
+- Added a direct capped summarization action to summary-related System Readiness findings so high-value summary gaps can be handled from the readiness panel.

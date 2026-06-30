@@ -435,8 +435,9 @@ def build_quality_findings(
                 title="Summary coverage is thin",
                 metric=f"{format_quality_percent(summary_coverage)} summarized",
                 recommendation="Run capped LLM summarization for high-signal unsummarized items.",
-                action_label="Open Dashboard",
+                action_label="Run Summaries",
                 action_module="dashboard",
+                action_operation="llm:summarize",
             )
         )
     if high_value_unsummarized_count > 0:
@@ -446,8 +447,9 @@ def build_quality_findings(
                 title="High-value summaries missing",
                 metric=f"{high_value_unsummarized_count} high-value unsummarized",
                 recommendation="Run capped LLM summarization before relying on the daily digest.",
-                action_label="Open Dashboard",
+                action_label="Run Summaries",
                 action_module="dashboard",
+                action_operation="llm:summarize",
             )
         )
     if saved_read_later_count >= 5 and ratio(saved_read_later_count, save_count) >= 0.8:
