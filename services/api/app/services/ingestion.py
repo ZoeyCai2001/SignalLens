@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy.orm import Session
 
@@ -82,6 +83,20 @@ SOURCE_QUALITY_BY_ACCESS_METHOD = {
     "rss": 0.65,
     "manual": 0.55,
     "manual watch": 0.55,
+}
+
+TRACKING_QUERY_PARAMS = {
+    "fbclid",
+    "gclid",
+    "igshid",
+    "mc_cid",
+    "mc_eid",
+    "ref",
+    "utm_campaign",
+    "utm_content",
+    "utm_medium",
+    "utm_source",
+    "utm_term",
 }
 
 SOURCE_QUALITY_BY_TYPE = {
@@ -749,14 +764,35 @@ def raw_item_exists(
 def compute_content_hash(item: RawItemInput) -> str:
     hash_input = "|".join(
         [
-            item.source_name,
-            item.external_id or "",
-            item.url,
+            canonical_ingestion_url(item.url),
             item.raw_title,
             item.raw_text or "",
         ]
     )
     return sha256(hash_input.encode("utf-8")).hexdigest()
+
+
+def canonical_ingestion_url(url: str) -> str:
+    try:
+        parsed = urlsplit(url.strip())
+    except ValueError:
+        return url.strip()
+    query = urlencode(
+        sorted(
+            (key, value)
+            for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+            if key.casefold() not in TRACKING_QUERY_PARAMS
+        )
+    )
+    return urlunsplit(
+        (
+            parsed.scheme.lower(),
+            parsed.netloc.lower(),
+            parsed.path.rstrip("/") or parsed.path,
+            query,
+            "",
+        )
+    )
 
 
 def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
