@@ -349,7 +349,9 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
         "Source failures need review",
     ]
     assert metrics.quality_findings[0].action_module == "sources"
+    assert metrics.quality_findings[0].action_source_filter == "attention"
     assert metrics.quality_findings[1].action_label == "Show Failed Runs"
+    assert metrics.quality_findings[1].action_source_filter == "failed"
 
 
 def test_build_quality_findings_recommends_local_actions() -> None:
@@ -369,6 +371,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
     ]
     assert findings[0].severity == "warning"
     assert findings[0].action_label == "Open Source Health"
+    assert findings[0].action_source_filter == "attention"
     assert findings[1].action_module == "digest"
 
     findings = build_quality_findings(

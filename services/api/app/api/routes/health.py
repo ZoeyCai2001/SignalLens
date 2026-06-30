@@ -332,6 +332,7 @@ def build_quality_findings(
                 recommendation="Run a full ingestion cycle or check source credentials.",
                 action_label="Open Source Health",
                 action_module="sources",
+                action_source_filter="attention",
             )
         )
     elif relevance_precision_proxy < 0.6:
@@ -354,6 +355,7 @@ def build_quality_findings(
                 recommendation="Review noisy sources and canonical URL handling before LLM batches.",
                 action_label="Open Source Health",
                 action_module="sources",
+                action_source_filter="attention",
             )
         )
     if recent_item_count > 0 and summary_coverage < 0.5:
@@ -376,6 +378,7 @@ def build_quality_findings(
                 recommendation="Open Source Health, filter failed runs, and update credentials or feeds.",
                 action_label="Show Failed Runs",
                 action_module="sources",
+                action_source_filter="failed",
             )
         )
     if digest_snapshot_count == 0:

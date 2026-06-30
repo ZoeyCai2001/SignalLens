@@ -501,6 +501,7 @@ type QualityFinding = {
   recommendation: string;
   action_label: string | null;
   action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings"> | null;
+  action_source_filter: SourceHealthFilter | null;
 };
 
 type LlmOperationUsage = {
@@ -884,6 +885,7 @@ export function Dashboard() {
   const [topicBriefing, setTopicBriefing] = useState<TopicBriefing | null>(null);
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [sourceRuns, setSourceRuns] = useState<SourceRunHistoryItem[]>([]);
+  const [sourceHealthFilter, setSourceHealthFilter] = useState<SourceHealthFilter>("all");
   const [sourceRunStatusFilter, setSourceRunStatusFilter] = useState<"all" | "failed">("all");
   const [sourceRunSourceFilter, setSourceRunSourceFilter] = useState<SourceHealth | null>(null);
   const [lastCycleResult, setLastCycleResult] = useState<ScheduledCycleResponse | null>(null);
@@ -2834,9 +2836,8 @@ export function Dashboard() {
     }
     if (finding.action_module === "sources") {
       setSourceRunSourceFilter(null);
-      if (finding.title === "Source failures need review") {
-        setSourceRunStatusFilter("failed");
-      }
+      setSourceHealthFilter(finding.action_source_filter ?? "all");
+      setSourceRunStatusFilter(finding.action_source_filter === "failed" ? "failed" : "all");
     }
     setActiveModule(finding.action_module);
     setStatus(`${finding.action_label ?? "Opened"}: ${finding.title}`);
@@ -2904,6 +2905,7 @@ export function Dashboard() {
     <SourceTable
       sources={sources}
       runs={sourceRuns}
+      sourceFilter={sourceHealthFilter}
       runStatusFilter={sourceRunStatusFilter}
       runSourceFilter={sourceRunSourceFilter}
       lastCycleResult={lastCycleResult}
@@ -2924,6 +2926,7 @@ export function Dashboard() {
       onPollingIntervalChange={setSourcePollingInterval}
       onRateLimitChange={setSourceRateLimit}
       onTermsNotesChange={setSourceTermsNotes}
+      onSourceFilterChange={setSourceHealthFilter}
       onRunStatusFilterChange={setSourceRunStatusFilter}
       onRunSourceFilterChange={setSourceRunSourceFilter}
       onSubmit={submitSource}
@@ -8136,6 +8139,7 @@ function ProductBriefingPanel({
 function SourceTable({
   sources,
   runs,
+  sourceFilter,
   runStatusFilter,
   runSourceFilter,
   lastCycleResult,
@@ -8156,6 +8160,7 @@ function SourceTable({
   onPollingIntervalChange,
   onRateLimitChange,
   onTermsNotesChange,
+  onSourceFilterChange,
   onRunStatusFilterChange,
   onRunSourceFilterChange,
   onSubmit,
@@ -8167,6 +8172,7 @@ function SourceTable({
 }: {
   sources: SourceHealth[];
   runs: SourceRunHistoryItem[];
+  sourceFilter: SourceHealthFilter;
   runStatusFilter: "all" | "failed";
   runSourceFilter: SourceHealth | null;
   lastCycleResult: ScheduledCycleResponse | null;
@@ -8187,6 +8193,7 @@ function SourceTable({
   onPollingIntervalChange: (value: string) => void;
   onRateLimitChange: (value: string) => void;
   onTermsNotesChange: (value: string) => void;
+  onSourceFilterChange: (value: SourceHealthFilter) => void;
   onRunStatusFilterChange: (value: "all" | "failed") => void;
   onRunSourceFilterChange: (source: SourceHealth | null) => void;
   onSubmit: () => void;
@@ -8197,7 +8204,6 @@ function SourceTable({
   onDeleteSource: (source: SourceHealth) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<number, SourceDraft>>({});
-  const [sourceFilter, setSourceFilter] = useState<SourceHealthFilter>("all");
 
   useEffect(() => {
     setDrafts(Object.fromEntries(sources.map((source) => [source.id, buildSourceDraft(source)])));
@@ -8305,7 +8311,7 @@ function SourceTable({
           <button
             className={`source-health-card ${sourceFilter === option.key ? "active" : ""}`}
             key={option.key}
-            onClick={() => setSourceFilter(option.key)}
+            onClick={() => onSourceFilterChange(option.key)}
             type="button"
           >
             <span className="score-label">{option.label}</span>

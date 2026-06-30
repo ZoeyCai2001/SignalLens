@@ -61,6 +61,15 @@ class QualityFinding(BaseModel):
     recommendation: str
     action_label: str | None = None
     action_module: Literal["dashboard", "digest", "sources", "settings"] | None = None
+    action_source_filter: Literal[
+        "all",
+        "attention",
+        "failed",
+        "stale",
+        "never_run",
+        "disabled",
+        "blocked",
+    ] | None = None
 
 
 class QualityMetricsResponse(BaseModel):

@@ -280,3 +280,4 @@ Implementation progress:
 - Added full-ingestion-cycle duration and source status summaries to the API response and Source Health dashboard.
 - Added deterministic quality findings and recommendations to System Readiness for ingestion, duplicates, summaries, sources, digest snapshots, and LLM spend.
 - Added action targets and dashboard buttons for quality findings so System Readiness can jump to Source Health, Daily Digest, Dashboard, or Settings workflows.
+- Added Source Health triage filter targets to quality findings so readiness actions can open attention or failed-source views directly.
