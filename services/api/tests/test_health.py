@@ -368,6 +368,9 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         source_failure_rate=0,
         saved_read_later_count=0,
         save_count=0,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
         digest_snapshot_count=0,
         latest_digest_snapshot_date=None,
         llm_calls_per_recent_item=0,
@@ -391,6 +394,9 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         source_failure_rate=0.25,
         saved_read_later_count=5,
         save_count=6,
+        active_alert_count=1,
+        dismissed_alert_count=5,
+        alert_dismissal_rate=0.833,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
         llm_calls_per_recent_item=1.6,
@@ -402,6 +408,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "Summary coverage is thin",
         "High-value summaries missing",
         "Read-later backlog is high",
+        "Alerts may be noisy",
         "Source failures need review",
         "LLM spend is high",
     ]
@@ -413,6 +420,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "dashboard",
         "dashboard",
         "digest",
+        "settings",
         "sources",
         "settings",
     ]
@@ -428,6 +436,9 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
         source_failure_rate=0,
         saved_read_later_count=0,
         save_count=0,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
         digest_snapshot_count=0,
         latest_digest_snapshot_date=date(2026, 6, 20),
         llm_calls_per_recent_item=0,
@@ -449,6 +460,9 @@ def test_build_quality_findings_flags_high_value_summary_gap() -> None:
         source_failure_rate=0,
         saved_read_later_count=0,
         save_count=0,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
         llm_calls_per_recent_item=0,
@@ -470,6 +484,9 @@ def test_build_quality_findings_flags_read_later_backlog() -> None:
         source_failure_rate=0,
         saved_read_later_count=5,
         save_count=6,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
         llm_calls_per_recent_item=0,
@@ -491,6 +508,54 @@ def test_build_quality_findings_ignores_small_read_later_queue() -> None:
         source_failure_rate=0,
         saved_read_later_count=4,
         save_count=4,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        llm_calls_per_recent_item=0,
+    )
+
+    assert findings == []
+
+
+def test_build_quality_findings_flags_noisy_alert_rules() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=5,
+        alert_dismissal_rate=0.833,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        llm_calls_per_recent_item=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Alerts may be noisy"]
+    assert findings[0].metric == "83% dismissed across 6 alerts"
+    assert findings[0].action_label == "Review Settings"
+    assert findings[0].action_module == "settings"
+
+
+def test_build_quality_findings_ignores_tiny_alert_samples() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=0,
+        dismissed_alert_count=4,
+        alert_dismissal_rate=1,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
         llm_calls_per_recent_item=0,

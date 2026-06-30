@@ -163,6 +163,9 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             source_failure_rate=source_failure_rate,
             saved_read_later_count=saved_read_later_count,
             save_count=save_count,
+            active_alert_count=alert_counts["active"],
+            dismissed_alert_count=alert_counts["dismissed"],
+            alert_dismissal_rate=alert_dismissal_rate,
             digest_snapshot_count=digest_snapshot_count,
             latest_digest_snapshot_date=(
                 latest_digest_snapshot.digest_date if latest_digest_snapshot else None
@@ -382,6 +385,9 @@ def build_quality_findings(
     source_failure_rate: float,
     saved_read_later_count: int,
     save_count: int,
+    active_alert_count: int,
+    dismissed_alert_count: int,
+    alert_dismissal_rate: float,
     digest_snapshot_count: int,
     latest_digest_snapshot_date: date | None,
     llm_calls_per_recent_item: float,
@@ -453,6 +459,20 @@ def build_quality_findings(
                 recommendation="Use the Daily Digest read-later section to clear saved items.",
                 action_label="Open Daily Digest",
                 action_module="digest",
+            )
+        )
+    if dismissed_alert_count >= 5 and alert_dismissal_rate >= 0.8:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Alerts may be noisy",
+                metric=(
+                    f"{format_quality_percent(alert_dismissal_rate)} dismissed "
+                    f"across {active_alert_count + dismissed_alert_count} alerts"
+                ),
+                recommendation="Tune alert rules, watched tickers, and minimum importance thresholds.",
+                action_label="Review Settings",
+                action_module="settings",
             )
         )
     if source_failure_rate >= 0.25:
