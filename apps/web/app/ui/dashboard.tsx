@@ -3893,21 +3893,36 @@ function SavedItemsPanel({
   onReadToggle: (item: FeedItem) => void;
   onUnsave: (itemId: number) => void;
 }) {
+  const readLaterItems = items.filter((item) => !item.is_read);
+  const readItems = items.filter((item) => item.is_read);
+  const orderedItems = orderSavedItemsForReadingQueue(items);
   return (
     <section className="section">
       <div className="section-header">
-        <h2 className="section-title">Saved Items</h2>
-        <Bookmark size={16} aria-hidden="true" />
+        <div>
+          <h2 className="section-title">Saved Items</h2>
+          <div className="small-muted">
+            {readLaterItems.length} read later · {readItems.length} read
+          </div>
+        </div>
+        <div className="table-actions">
+          <span className="badge">{items.length} saved</span>
+          <Bookmark size={16} aria-hidden="true" />
+        </div>
       </div>
       <div className="digest-panel">
         {items.length ? (
           <div className="digest-list">
-            {items.map((item) => (
+            {orderedItems.map((item) => (
               <div className="saved-row" key={item.id}>
                 <div className="saved-row-main">
                   <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
                     {item.title}
                   </a>
+                  <div className="small-muted">
+                    {item.source_name}
+                    {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                  </div>
                   <div className="badges">
                     {item.is_read ? <span className="badge muted-badge">read</span> : null}
                     {!item.is_read ? <span className="badge">read later</span> : null}
@@ -3972,6 +3987,22 @@ function SavedItemsPanel({
       </div>
     </section>
   );
+}
+
+function orderSavedItemsForReadingQueue(items: FeedItem[]): FeedItem[] {
+  return [...items].sort((left, right) => {
+    if (left.is_read !== right.is_read) {
+      return left.is_read ? 1 : -1;
+    }
+    return savedItemTimestamp(right) - savedItemTimestamp(left);
+  });
+}
+
+function savedItemTimestamp(item: FeedItem): number {
+  const value = item.is_read
+    ? item.read_at ?? item.published_at
+    : item.published_at ?? item.read_at;
+  return value ? new Date(value).getTime() : 0;
 }
 
 function HiddenItemsPanel({

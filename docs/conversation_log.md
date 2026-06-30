@@ -244,3 +244,4 @@ Implementation progress:
 - Added save-on-submit for manual URL submissions so curated links can enter Saved Items and digest read-later views during capture.
 - Added recent source-run quality metrics to Source Health, including success rate and stored/fetched ratio for spotting failing or duplicate-heavy sources.
 - Added explicit event-cluster confirmation metadata and dashboard source badges so duplicate or cross-source coverage is easier to audit.
+- Improved the Saved Items panel as a read-later queue with unread-first ordering, read/read-later counts, and source/date context.
