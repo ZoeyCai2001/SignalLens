@@ -675,6 +675,17 @@ type AlertRule = {
   snoozed_until: string | null;
 };
 
+type AlertRuleDraft = {
+  name: string;
+  description: string;
+  category: string;
+  severity: string;
+  min_importance_score: string;
+  min_stock_impact_score: string;
+  tickers: string;
+  topics: string;
+};
+
 type RankingWeights = {
   relevance: number;
   importance: number;
@@ -778,6 +789,27 @@ const sourceTypeOptions: { value: string; label: string }[] = [
   { value: "finance_news", label: "Finance news" },
   { value: "stock_prices", label: "Stock prices" },
   { value: "finance_filings", label: "Finance filings" },
+];
+
+const alertCategoryOptions: { value: string; label: string }[] = [
+  { value: "all", label: "Any" },
+  { value: "technical_trend", label: "Trend" },
+  { value: "research", label: "Research" },
+  { value: "product", label: "Product" },
+  { value: "stock_company_event", label: "Stock" },
+  { value: "stock_price_move", label: "Price move" },
+  { value: "earnings_guidance", label: "Earnings/guidance" },
+  { value: "analyst_action", label: "Analyst action" },
+  { value: "supply_chain_signal", label: "Supply chain" },
+  { value: "theme_breakout", label: "Theme breakout" },
+  { value: "social_trend", label: "Social" },
+  { value: "cross_source_cluster", label: "Cross-source" },
+];
+
+const alertSeverityOptions: { value: string; label: string }[] = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
 ];
 
 const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[] = [
@@ -2527,6 +2559,32 @@ export function Dashboard() {
     }
   };
 
+  const updateAlertRuleDetails = async (
+    rule: AlertRule,
+    payload: Partial<Omit<AlertRule, "id">>,
+  ) => {
+    setBusyAlertRuleId(rule.id);
+    setError(null);
+    try {
+      const updated = await fetchJson<AlertRule>(`/api/alerts/rules/${rule.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      setAlertRules((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      setAlerts((items) =>
+        items.map((item) =>
+          item.rule.id === updated.id ? { ...item, rule: updated } : item,
+        ),
+      );
+      await refreshAllWithStatus(`Updated alert rule ${updated.name}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert rule update failed");
+    } finally {
+      setBusyAlertRuleId(null);
+    }
+  };
+
   const deleteAlertRule = async (ruleId: number) => {
     setBusyAlertRuleId(ruleId);
     setError(null);
@@ -3184,6 +3242,7 @@ export function Dashboard() {
               onIncludeDismissedChange={setAlertIncludeDismissed}
               onRuleToggle={toggleAlertRule}
               onRuleSnooze={snoozeAlertRule}
+              onRuleUpdate={updateAlertRuleDetails}
               onRuleDelete={deleteAlertRule}
               onRuleNameChange={setAlertRuleName}
               onRuleCategoryChange={setAlertRuleCategory}
@@ -3741,6 +3800,7 @@ function AlertPanel({
   onIncludeDismissedChange,
   onRuleToggle,
   onRuleSnooze,
+  onRuleUpdate,
   onRuleDelete,
   onRuleNameChange,
   onRuleCategoryChange,
@@ -3770,6 +3830,7 @@ function AlertPanel({
   onIncludeDismissedChange: (value: boolean) => void;
   onRuleToggle: (rule: AlertRule) => void;
   onRuleSnooze: (rule: AlertRule) => void;
+  onRuleUpdate: (rule: AlertRule, payload: Partial<Omit<AlertRule, "id">>) => void;
   onRuleDelete: (ruleId: number) => void;
   onRuleNameChange: (value: string) => void;
   onRuleCategoryChange: (value: string) => void;
@@ -3780,6 +3841,42 @@ function AlertPanel({
   onRuleSeverityChange: (value: string) => void;
   onRuleSubmit: () => void;
 }) {
+  const [selectedRuleId, setSelectedRuleId] = useState<number | null>(null);
+  const selectedRule = rules.find((rule) => rule.id === selectedRuleId) ?? rules[0] ?? null;
+  const [ruleDraft, setRuleDraft] = useState<AlertRuleDraft>(() =>
+    alertRuleToDraft(selectedRule),
+  );
+
+  useEffect(() => {
+    setRuleDraft(alertRuleToDraft(selectedRule));
+  }, [selectedRule]);
+
+  const updateRuleDraft = (key: keyof AlertRuleDraft, value: string) => {
+    setRuleDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveSelectedRule = () => {
+    if (!selectedRule) {
+      return;
+    }
+    onRuleUpdate(selectedRule, {
+      name: ruleDraft.name.trim() || selectedRule.name,
+      description: ruleDraft.description.trim() || null,
+      category: ruleDraft.category.trim() || selectedRule.category,
+      severity: ruleDraft.severity.trim() || selectedRule.severity,
+      min_importance_score: parseBoundedScore(
+        ruleDraft.min_importance_score,
+        selectedRule.min_importance_score,
+      ),
+      min_stock_impact_score: parseBoundedScore(
+        ruleDraft.min_stock_impact_score,
+        selectedRule.min_stock_impact_score,
+      ),
+      tickers: splitTerms(ruleDraft.tickers),
+      topics: splitTerms(ruleDraft.topics),
+    });
+  };
+
   return (
     <section className="section">
       <div className="section-header">
@@ -3822,18 +3919,11 @@ function AlertPanel({
           onChange={(event) => onRuleCategoryChange(event.target.value)}
           aria-label="Alert rule category"
         >
-          <option value="all">Any</option>
-          <option value="technical_trend">Trend</option>
-          <option value="research">Research</option>
-          <option value="product">Product</option>
-          <option value="stock_company_event">Stock</option>
-          <option value="stock_price_move">Price move</option>
-          <option value="earnings_guidance">Earnings/guidance</option>
-          <option value="analyst_action">Analyst action</option>
-          <option value="supply_chain_signal">Supply chain</option>
-          <option value="theme_breakout">Theme breakout</option>
-          <option value="social_trend">Social</option>
-          <option value="cross_source_cluster">Cross-source</option>
+          {alertCategoryOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <input
           className="field"
@@ -3869,9 +3959,11 @@ function AlertPanel({
           onChange={(event) => onRuleSeverityChange(event.target.value)}
           aria-label="Alert rule severity"
         >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
+          {alertSeverityOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <button className="button primary" onClick={onRuleSubmit} disabled={disabled}>
           {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
@@ -3887,7 +3979,13 @@ function AlertPanel({
               key={rule.id}
             >
               <div>
-                <div className="digest-link">{rule.name}</div>
+                <button
+                  className={`ticker-button ${selectedRule?.id === rule.id ? "active" : ""}`}
+                  onClick={() => setSelectedRuleId(rule.id)}
+                  type="button"
+                >
+                  {rule.name}
+                </button>
                 <div className="small-muted">
                   {rule.category} · {rule.severity} · min{" "}
                   {Math.round(rule.min_importance_score * 100)}
@@ -3952,6 +4050,13 @@ function AlertPanel({
           );
         })}
       </div>
+      <AlertRuleDetailEditor
+        rule={selectedRule}
+        draft={ruleDraft}
+        disabled={disabled || (selectedRule ? busyAlertRuleId === selectedRule.id : false)}
+        onDraftChange={updateRuleDraft}
+        onSave={saveSelectedRule}
+      />
       <div className="alert-list">
         {alerts.length ? (
           alerts.map((alert) => (
@@ -4003,6 +4108,131 @@ function AlertPanel({
         )}
       </div>
     </section>
+  );
+}
+
+function AlertRuleDetailEditor({
+  rule,
+  draft,
+  disabled,
+  onDraftChange,
+  onSave,
+}: {
+  rule: AlertRule | null;
+  draft: AlertRuleDraft;
+  disabled: boolean;
+  onDraftChange: (key: keyof AlertRuleDraft, value: string) => void;
+  onSave: () => void;
+}) {
+  if (!rule) {
+    return <div className="empty-state">Select an alert rule to edit thresholds.</div>;
+  }
+
+  return (
+    <div className="form-panel stock-detail-form">
+      <div className="section-header">
+        <div>
+          <h3 className="section-title">{rule.name} details</h3>
+          <div className="small-muted">
+            {rule.enabled ? "enabled" : "disabled"}
+            {rule.snoozed_until ? ` · snoozed until ${formatDate(rule.snoozed_until)}` : ""}
+          </div>
+        </div>
+        <span className={`badge severity-${rule.severity}`}>{rule.severity}</span>
+      </div>
+      <div className="stock-detail-grid">
+        <label className="weight-field">
+          <span className="field-label">Name</span>
+          <input
+            className="field"
+            value={draft.name}
+            onChange={(event) => onDraftChange("name", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Category</span>
+          <select
+            className="field"
+            value={draft.category}
+            onChange={(event) => onDraftChange("category", event.target.value)}
+            disabled={disabled}
+          >
+            {alertCategoryOptions.map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Severity</span>
+          <select
+            className="field"
+            value={draft.severity}
+            onChange={(event) => onDraftChange("severity", event.target.value)}
+            disabled={disabled}
+          >
+            {alertSeverityOptions.map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Min Importance</span>
+          <input
+            className="field"
+            value={draft.min_importance_score}
+            onChange={(event) => onDraftChange("min_importance_score", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Min Stock Impact</span>
+          <input
+            className="field"
+            value={draft.min_stock_impact_score}
+            onChange={(event) => onDraftChange("min_stock_impact_score", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Tickers</span>
+          <input
+            className="field"
+            value={draft.tickers}
+            onChange={(event) => onDraftChange("tickers", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Topics</span>
+          <input
+            className="field"
+            value={draft.topics}
+            onChange={(event) => onDraftChange("topics", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+      </div>
+      <label className="weight-field">
+        <span className="field-label">Description</span>
+        <textarea
+          className="field textarea"
+          value={draft.description}
+          onChange={(event) => onDraftChange("description", event.target.value)}
+          disabled={disabled}
+        />
+      </label>
+      <div className="toolbar">
+        <button className="button primary" onClick={onSave} disabled={disabled}>
+          {disabled ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+          Save
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -8646,6 +8876,29 @@ function productToDetailDraft(product: ProductWatchlistItem | null): ProductDeta
     related_terms: product?.related_terms.join(", ") ?? "",
     notes: product?.notes ?? "",
   };
+}
+
+function alertRuleToDraft(rule: AlertRule | null): AlertRuleDraft {
+  return {
+    name: rule?.name ?? "",
+    description: rule?.description ?? "",
+    category: rule?.category ?? "all",
+    severity: rule?.severity ?? "medium",
+    min_importance_score:
+      rule?.min_importance_score === undefined ? "0.75" : String(rule.min_importance_score),
+    min_stock_impact_score:
+      rule?.min_stock_impact_score === undefined ? "0" : String(rule.min_stock_impact_score),
+    tickers: rule?.tickers.join(", ") ?? "",
+    topics: rule?.topics.join(", ") ?? "",
+  };
+}
+
+function parseBoundedScore(value: string, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(1, parsed));
 }
 
 function hasPortfolioDetails(stock: StockWatchlistItem | null): boolean {

@@ -38,6 +38,7 @@ http://127.0.0.1:8000
 - Manual URL submission with saved notes and tags
 - Save, hide, and mark-important item actions
 - Search and filters over stored feed items
+- Editable alert rules and alert history
 - Daily digest panel generated from stored feed items
 - Event cluster panel
 - Topic watchlist display

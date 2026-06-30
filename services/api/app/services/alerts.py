@@ -225,8 +225,8 @@ def create_alert_rule(db: Session, payload: AlertRuleCreate) -> AlertRule:
         description=payload.description.strip() if payload.description else None,
         category=payload.category.strip() or "all",
         severity=payload.severity.strip() or "medium",
-        min_importance_score=payload.min_importance_score,
-        min_stock_impact_score=payload.min_stock_impact_score,
+        min_importance_score=clamp_alert_score(payload.min_importance_score),
+        min_stock_impact_score=clamp_alert_score(payload.min_stock_impact_score),
         tickers=normalize_tickers(payload.tickers),
         topics=clean_terms(payload.topics),
         enabled=payload.enabled,
@@ -258,6 +258,15 @@ def update_alert_rule(db: Session, rule_id: int, payload: AlertRuleUpdate) -> Al
             value = normalize_tickers(value)
         elif field_name == "topics" and value is not None:
             value = clean_terms(value)
+        elif field_name in {"category", "severity"} and isinstance(value, str):
+            normalized_text = value.strip()
+            if not normalized_text:
+                continue
+            value = normalized_text
+        elif field_name == "description" and isinstance(value, str):
+            value = value.strip() or None
+        elif field_name in {"min_importance_score", "min_stock_impact_score"} and value is not None:
+            value = clamp_alert_score(value)
         elif isinstance(value, str):
             value = value.strip()
         setattr(rule, field_name, value)
@@ -281,6 +290,10 @@ def delete_alert_rule(db: Session, rule_id: int) -> bool:
     db.delete(rule)
     db.commit()
     return True
+
+
+def clamp_alert_score(value: float) -> float:
+    return min(max(float(value), 0), 1)
 
 
 def get_alert_rule(db: Session, rule_id: int) -> AlertRule | None:

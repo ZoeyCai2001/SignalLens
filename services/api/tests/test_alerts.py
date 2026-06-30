@@ -629,6 +629,61 @@ def test_update_alert_rule_snooze_dismisses_active_rule_alerts() -> None:
         assert alert.status == "dismissed"
 
 
+def test_update_alert_rule_edits_metadata_and_guards_required_fields() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        rule = AlertRule(
+            user_id="local",
+            name="AI infra",
+            description="Original description.",
+            category="technical_trend",
+            severity="medium",
+            min_importance_score=0.7,
+            min_stock_impact_score=0.2,
+            tickers=["NVDA"],
+            topics=["inference"],
+        )
+        db.add(rule)
+        db.commit()
+
+        updated = update_alert_rule(
+            db,
+            rule_id=rule.id,
+            payload=AlertRuleUpdate(
+                name="  AI infra watch  ",
+                description="   ",
+                category="  stock_company_event  ",
+                severity="  high  ",
+                min_importance_score=1.4,
+                min_stock_impact_score=-0.2,
+                tickers=[" nvda ", "NVDA", "mu"],
+                topics=[" inference ", "inference", "HBM"],
+            ),
+        )
+        assert updated is not None
+        assert updated.name == "AI infra watch"
+        assert updated.description is None
+        assert updated.category == "stock_company_event"
+        assert updated.severity == "high"
+        assert updated.min_importance_score == 1
+        assert updated.min_stock_impact_score == 0
+        assert updated.tickers == ["NVDA", "MU"]
+        assert updated.topics == ["inference", "HBM"]
+
+        blank_update = update_alert_rule(
+            db,
+            rule_id=rule.id,
+            payload=AlertRuleUpdate(category="   ", severity="   "),
+        )
+
+    assert blank_update is not None
+    assert blank_update.category == "stock_company_event"
+    assert blank_update.severity == "high"
+
+
 def test_list_alerts_excludes_blocked_and_hidden_items() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
