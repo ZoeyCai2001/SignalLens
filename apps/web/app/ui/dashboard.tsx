@@ -537,6 +537,12 @@ type DailyDigestMarkdown = {
   markdown: string;
 };
 
+type SavedItemsMarkdownExport = {
+  generated_at: string;
+  item_count: number;
+  markdown: string;
+};
+
 type DailyDigestSnapshot = {
   id: number;
   digest_date: string;
@@ -809,6 +815,7 @@ export function Dashboard() {
   const [busyDigestEmail, setBusyDigestEmail] = useState(false);
   const [busyDigestSave, setBusyDigestSave] = useState(false);
   const [busyDigestSnapshotId, setBusyDigestSnapshotId] = useState<number | null>(null);
+  const [busySavedExport, setBusySavedExport] = useState(false);
   const [digestDateDraft, setDigestDateDraft] = useState("");
   const digestDateDraftRef = useRef("");
   const previousActiveModuleRef = useRef<ModuleKey>("dashboard");
@@ -1655,6 +1662,26 @@ export function Dashboard() {
       setStatus("Digest copy failed");
     } finally {
       setBusyDigestCopy(false);
+    }
+  };
+
+  const copySavedItemsExport = async () => {
+    setBusySavedExport(true);
+    setError(null);
+    try {
+      const result = await fetchJson<SavedItemsMarkdownExport>(
+        "/api/feed/saved/export/markdown?limit=100",
+      );
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable.");
+      }
+      await navigator.clipboard.writeText(result.markdown);
+      setStatus(`Copied ${result.item_count} saved items`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Saved items export failed");
+    } finally {
+      setBusySavedExport(false);
     }
   };
 
@@ -3076,6 +3103,8 @@ export function Dashboard() {
             <SavedItemsPanel
               items={savedItems.slice(0, 8)}
               busyItemId={busyItemId}
+              busyExport={busySavedExport}
+              onCopyExport={copySavedItemsExport}
               onManualTagFilter={applySavedManualTagFilter}
               onReadToggle={(item) =>
                 updateFeedAction(item.id, item.is_read ? "mark-unread" : "mark-read")
@@ -4118,12 +4147,16 @@ function digestItemLabels(item: FeedItem): string[] {
 function SavedItemsPanel({
   items,
   busyItemId,
+  busyExport,
+  onCopyExport,
   onManualTagFilter,
   onReadToggle,
   onUnsave,
 }: {
   items: FeedItem[];
   busyItemId: number | null;
+  busyExport: boolean;
+  onCopyExport: () => void;
   onManualTagFilter: (tag: string) => void;
   onReadToggle: (item: FeedItem) => void;
   onUnsave: (itemId: number) => void;
@@ -4142,6 +4175,16 @@ function SavedItemsPanel({
         </div>
         <div className="table-actions">
           <span className="badge">{items.length} saved</span>
+          <button
+            className="button icon-button"
+            onClick={onCopyExport}
+            disabled={!items.length || busyExport}
+            title="Copy saved items markdown"
+            aria-label="Copy saved items markdown"
+            type="button"
+          >
+            {busyExport ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+          </button>
           <Bookmark size={16} aria-hidden="true" />
         </div>
       </div>

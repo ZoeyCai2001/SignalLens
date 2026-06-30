@@ -3,10 +3,16 @@ from fastapi import APIRouter, HTTPException, Query
 from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.db.models import NormalizedItem
-from app.schemas.feed import FeedItem, FeedItemDetail, FeedItemPersonalMetadataUpdate
+from app.schemas.feed import (
+    FeedItem,
+    FeedItemDetail,
+    FeedItemPersonalMetadataUpdate,
+    SavedItemsMarkdownExport,
+)
 from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import (
     build_feed_interest_profile,
+    export_saved_items_markdown,
     get_action,
     list_visible_feed_items,
     normalize_feed_module_filter,
@@ -47,6 +53,19 @@ async def list_feed_items(
         hidden_only=hidden_only,
         topic=topic,
         module=module,
+    )
+
+
+@router.get("/saved/export/markdown", response_model=SavedItemsMarkdownExport)
+async def export_saved_items_markdown_route(
+    db: DbSession,
+    include_read: bool = Query(default=True),
+    limit: int = Query(default=100, ge=1, le=200),
+) -> SavedItemsMarkdownExport:
+    return export_saved_items_markdown(
+        db=db,
+        include_read=include_read,
+        limit=limit,
     )
 
 

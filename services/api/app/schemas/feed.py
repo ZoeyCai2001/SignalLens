@@ -55,3 +55,9 @@ class FeedItemDetail(FeedItem):
 class FeedItemPersonalMetadataUpdate(BaseModel):
     personal_note: str | None = None
     manual_tags: list[str] = Field(default_factory=list)
+
+
+class SavedItemsMarkdownExport(BaseModel):
+    generated_at: datetime
+    item_count: int
+    markdown: str

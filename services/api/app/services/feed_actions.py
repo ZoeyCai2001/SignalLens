@@ -12,7 +12,7 @@ from app.db.models import (
     TopicWatchlistItem,
     UserItemAction,
 )
-from app.schemas.feed import FeedItem, FeedItemDetail
+from app.schemas.feed import FeedItem, FeedItemDetail, SavedItemsMarkdownExport
 from app.schemas.preferences import RankingWeights
 from app.services.seed_data import (
     initial_company_watchlist,
@@ -252,6 +252,104 @@ def list_visible_feed_items(
         preferred_sources=preferred_sources,
         interest_profile=build_feed_interest_profile(db),
     )[:limit]
+
+
+def export_saved_items_markdown(
+    db: Session,
+    include_read: bool = True,
+    limit: int = 100,
+) -> SavedItemsMarkdownExport:
+    items = list_visible_feed_items(
+        db=db,
+        limit=limit,
+        saved_only=True,
+    )
+    if not include_read:
+        items = [item for item in items if not item.is_read]
+
+    generated_at = datetime.now(UTC)
+    lines = [
+        "# SignalLens Saved Items",
+        "",
+        f"Generated: {generated_at.isoformat()}",
+        f"Items: {len(items)}",
+        "",
+    ]
+    if not items:
+        lines.append("_No saved items matched this export._")
+    for index, item in enumerate(order_saved_items_for_export(items), start=1):
+        summary = item.summary_short or item.why_it_matters or item.summary_detailed
+        status = "read" if item.is_read else "read later"
+        metadata = [
+            item.source_name,
+            format_export_datetime(item.published_at),
+            status,
+        ]
+        metadata = [value for value in metadata if value]
+        labels = export_item_labels(item)
+
+        lines.extend(
+            [
+                f"## {index}. [{item.title}]({item.url})",
+                "",
+                f"- Source: {' | '.join(metadata)}",
+            ]
+        )
+        if labels:
+            lines.append(f"- Labels: {', '.join(labels)}")
+        if item.manual_tags:
+            lines.append(f"- Manual tags: {', '.join(item.manual_tags)}")
+        if item.personal_note:
+            lines.append(f"- Personal note: {item.personal_note}")
+        if summary:
+            lines.append(f"- Summary: {summary}")
+        lines.append("")
+
+    return SavedItemsMarkdownExport(
+        generated_at=generated_at,
+        item_count=len(items),
+        markdown="\n".join(lines).rstrip() + "\n",
+    )
+
+
+def order_saved_items_for_export(items: list[FeedItem]) -> list[FeedItem]:
+    return sorted(
+        items,
+        key=lambda item: (
+            item.is_read,
+            export_sort_timestamp(item.published_at or item.read_at),
+        ),
+        reverse=False,
+    )
+
+
+def export_item_labels(item: FeedItem) -> list[str]:
+    labels = [*item.tickers, *item.companies, *item.products, *item.topics]
+    seen = set()
+    result = []
+    for label in labels:
+        normalized = " ".join(str(label).strip().split())
+        key = normalized.lower()
+        if normalized and key not in seen:
+            result.append(normalized)
+            seen.add(key)
+    return result[:12]
+
+
+def format_export_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.isoformat()
+
+
+def export_sort_timestamp(value: datetime | None) -> datetime:
+    if value is None:
+        return datetime.min.replace(tzinfo=UTC)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
 
 
 def rank_feed_items(

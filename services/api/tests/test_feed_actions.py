@@ -14,6 +14,7 @@ from app.services.feed_actions import (
     build_feed_uncertainty_notes,
     build_personalization_notes,
     build_score_explanation,
+    export_saved_items_markdown,
     feed_interest_bonus,
     feedback_interest_adjustment,
     freshness_score,
@@ -256,6 +257,78 @@ def test_update_item_personal_metadata_saves_note_and_normalized_tags() -> None:
         "is_important": False,
         "is_read": False,
     }
+
+
+def test_export_saved_items_markdown_includes_notes_tags_and_read_status() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        saved = make_normalized_item(
+            1,
+            "Agent framework launch",
+            language="en",
+            topics=["coding agent"],
+            summary_short="New local coding agent framework.",
+            products=["IDE agent"],
+            source_name="GitHub",
+        )
+        read = make_normalized_item(
+            2,
+            "Read research note",
+            language="en",
+            topics=["research"],
+        )
+        hidden = make_normalized_item(
+            3,
+            "Hidden saved item",
+            language="en",
+            topics=["hidden"],
+        )
+        db.add_all([saved, read, hidden])
+        db.add_all(
+            [
+                UserItemAction(
+                    user_id="local",
+                    item_id=1,
+                    is_saved=True,
+                    personal_note="Follow up before Monday.",
+                    manual_tags=["Agent", "Weekend"],
+                ),
+                UserItemAction(
+                    user_id="local",
+                    item_id=2,
+                    is_saved=True,
+                    is_read=True,
+                    read_at=datetime(2026, 6, 26, 9, 0, tzinfo=UTC),
+                ),
+                UserItemAction(
+                    user_id="local",
+                    item_id=3,
+                    is_saved=True,
+                    is_hidden=True,
+                ),
+            ]
+        )
+        db.commit()
+
+        export = export_saved_items_markdown(db=db, limit=10)
+        unread_export = export_saved_items_markdown(db=db, include_read=False, limit=10)
+
+    assert export.item_count == 2
+    assert "# SignalLens Saved Items" in export.markdown
+    assert "Agent framework launch" in export.markdown
+    assert "- Source: GitHub | 2026-06-25T12:00:00+00:00 | read later" in export.markdown
+    assert "- Labels: IDE agent, coding agent" in export.markdown
+    assert "- Manual tags: Agent, Weekend" in export.markdown
+    assert "- Personal note: Follow up before Monday." in export.markdown
+    assert "- Summary: New local coding agent framework." in export.markdown
+    assert "Read research note" in export.markdown
+    assert "Hidden saved item" not in export.markdown
+    assert unread_export.item_count == 1
+    assert "Agent framework launch" in unread_export.markdown
+    assert "Read research note" not in unread_export.markdown
 
 
 def test_build_score_explanation_flags_lower_confidence_and_source_credibility() -> None:

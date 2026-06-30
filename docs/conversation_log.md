@@ -258,3 +258,4 @@ Implementation progress:
 - Added personalization notes to expanded feed details so learned ranking boosts or dampening from prior feedback are visible in the dashboard.
 - Added deterministic natural-language search briefings for summary-style queries, giving the dashboard a no-extra-LLM answer above matching results.
 - Added a no-service email draft action for Daily Digest markdown, including saved snapshot reuse when a snapshot is open.
+- Added a local Markdown export for saved/read-later items with dashboard copy support, including notes, tags, labels, source/date, read status, and stored summaries.
