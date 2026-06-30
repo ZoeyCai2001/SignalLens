@@ -392,6 +392,7 @@ type SearchIntent = {
 type NaturalLanguageSearchResponse = {
   intent: SearchIntent;
   items: FeedItem[];
+  summary: string | null;
 };
 
 type IntegrationStatus = {
@@ -859,6 +860,7 @@ export function Dashboard() {
   const [searchMinImportance, setSearchMinImportance] = useState("");
   const [searchReadStatus, setSearchReadStatus] = useState("");
   const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
+  const [searchSummary, setSearchSummary] = useState<string | null>(null);
   const [savedOnly, setSavedOnly] = useState(false);
 
   const fetchJson = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
@@ -1401,6 +1403,7 @@ export function Dashboard() {
         );
         applySearchResults(result.items, activeFeedModule);
         setSearchIntent(result.intent);
+        setSearchSummary(result.summary);
         setStatus(searchStatusText(result.items.length, activeFeedModule));
         return;
       }
@@ -1427,6 +1430,7 @@ export function Dashboard() {
       const results = await fetchJson<FeedItem[]>(`/api/search?${params.toString()}`);
       applySearchResults(results, activeFeedModule);
       setSearchIntent(null);
+      setSearchSummary(null);
       setStatus(searchStatusText(results.length, activeFeedModule));
     } catch (err) {
       setError(readError(err));
@@ -1463,6 +1467,7 @@ export function Dashboard() {
     setSearchMinImportance("");
     setSearchReadStatus("");
     setSearchIntent(null);
+    setSearchSummary(null);
     setSavedOnly(false);
     if (activeFeedModule) {
       setLoadState("loading");
@@ -1488,11 +1493,13 @@ export function Dashboard() {
   const updateSearchField = (setter: (value: string) => void, value: string) => {
     setter(value);
     setSearchIntent(null);
+    setSearchSummary(null);
   };
 
   const updateSavedOnlySearchFilter = (value: boolean) => {
     setSavedOnly(value);
     setSearchIntent(null);
+    setSearchSummary(null);
   };
 
   const applyTopicFeedFilter = async (topic: TopicWatchlistItem) => {
@@ -1519,6 +1526,7 @@ export function Dashboard() {
       setSearchReadStatus("");
       setSavedOnly(false);
       setSearchIntent(null);
+      setSearchSummary(null);
       setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
       setStatus(`Filtered feed by topic ${topic.label}`);
     } catch (err) {
@@ -1553,6 +1561,7 @@ export function Dashboard() {
       setSearchReadStatus("");
       setSavedOnly(false);
       setSearchIntent(null);
+      setSearchSummary(null);
       setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
       setStatus(`Filtered feed by ticker ${stock.ticker}`);
     } catch (err) {
@@ -1588,6 +1597,7 @@ export function Dashboard() {
       setSearchReadStatus("");
       setSavedOnly(true);
       setSearchIntent(null);
+      setSearchSummary(null);
       setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
       setStatus(`Filtered saved items by tag ${tag}`);
     } catch (err) {
@@ -2941,6 +2951,7 @@ export function Dashboard() {
                 minImportance={searchMinImportance}
                 readStatus={searchReadStatus}
                 intent={searchIntent}
+                summary={searchSummary}
                 savedOnly={savedOnly}
                 disabled={loadState !== "idle"}
                 onQueryChange={(value) => updateSearchField(setSearchQuery, value)}
@@ -4433,6 +4444,7 @@ function SearchPanel({
   minImportance,
   readStatus,
   intent,
+  summary,
   savedOnly,
   disabled,
   onQueryChange,
@@ -4468,6 +4480,7 @@ function SearchPanel({
   minImportance: string;
   readStatus: string;
   intent: SearchIntent | null;
+  summary: string | null;
   savedOnly: boolean;
   disabled: boolean;
   onQueryChange: (value: string) => void;
@@ -4650,6 +4663,7 @@ function SearchPanel({
           ))}
         </div>
       ) : null}
+      {summary ? <div className="summary search-summary">{summary}</div> : null}
     </div>
   );
 }

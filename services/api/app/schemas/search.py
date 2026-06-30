@@ -30,3 +30,4 @@ class NaturalLanguageSearchRequest(BaseModel):
 class NaturalLanguageSearchResponse(BaseModel):
     intent: SearchIntentResponse
     items: list[FeedItem]
+    summary: str | None = None

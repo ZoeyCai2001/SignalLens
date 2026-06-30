@@ -36,6 +36,12 @@ class SearchIntent:
     read_status: str | None = None
 
 
+SUMMARY_QUERY_PATTERN = re.compile(
+    r"\b(summarize|summary|brief|briefing|what matters|most important|top)\b",
+    flags=re.IGNORECASE,
+)
+
+
 def search_feed_items(
     db: Session,
     query: str | None = None,
@@ -209,6 +215,54 @@ def search_feed_items(
         preferred_sources=preferred_sources,
         interest_profile=build_feed_interest_profile(db),
     )[:limit]
+
+
+def build_search_summary(
+    query: str,
+    intent: SearchIntent,
+    items: list[FeedItem],
+    max_items: int = 5,
+) -> str | None:
+    if not should_summarize_search(query, intent):
+        return None
+    if not items:
+        return "No matching SignalLens items were found for this natural-language search."
+
+    leading_items = items[:max_items]
+    topic = intent.topic or intent.query or intent.company or intent.ticker or "the requested search"
+    lines = [
+        f"Found {len(items)} matching SignalLens items for {topic}.",
+        "Top signals:",
+    ]
+    for index, item in enumerate(leading_items, start=1):
+        context = search_summary_item_context(item)
+        lines.append(f"{index}. {item.title} ({item.source_name}){context}")
+
+    if len(items) > len(leading_items):
+        lines.append(f"{len(items) - len(leading_items)} additional matching items are available.")
+    return "\n".join(lines)
+
+
+def should_summarize_search(query: str, intent: SearchIntent) -> bool:
+    return bool(
+        SUMMARY_QUERY_PATTERN.search(query)
+        or intent.min_importance_score is not None
+        or re.search(r"\b(this week|latest|recent)\b", query, flags=re.IGNORECASE)
+    )
+
+
+def search_summary_item_context(item: FeedItem) -> str:
+    parts = []
+    if item.summary_short:
+        parts.append(item.summary_short.replace("\n", " "))
+    elif item.why_it_matters:
+        parts.append(item.why_it_matters.replace("\n", " "))
+    if item.tickers:
+        parts.append(f"Tickers: {', '.join(item.tickers[:4])}.")
+    if item.topics:
+        parts.append(f"Topics: {', '.join(item.topics[:4])}.")
+    parts.append(f"Importance {round(item.importance_score * 100)}.")
+    return f": {' '.join(parts)}" if parts else "."
 
 
 def resolve_effective_query(query: str | None, intent: SearchIntent) -> str | None:

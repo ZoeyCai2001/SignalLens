@@ -256,3 +256,4 @@ Implementation progress:
 - Added Hugging Face downloads/likes traction signals to model, dataset, and Space summaries and social-signal scoring.
 - Added lightweight feedback learning so saved/important and hidden items softly adjust future feed ranking by source, topic, product, company, or ticker matches.
 - Added personalization notes to expanded feed details so learned ranking boosts or dampening from prior feedback are visible in the dashboard.
+- Added deterministic natural-language search briefings for summary-style queries, giving the dashboard a no-extra-LLM answer above matching results.

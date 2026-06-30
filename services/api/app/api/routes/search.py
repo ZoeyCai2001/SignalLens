@@ -11,7 +11,7 @@ from app.schemas.search import (
     SearchIntentResponse,
 )
 from app.services.preferences import get_user_preferences
-from app.services.search import infer_search_intent, search_feed_items
+from app.services.search import build_search_summary, infer_search_intent, search_feed_items
 from app.services.feed_actions import normalize_feed_module_filter
 
 router = APIRouter()
@@ -91,4 +91,5 @@ async def search_items_with_natural_language(
     return NaturalLanguageSearchResponse(
         intent=SearchIntentResponse.model_validate(intent),
         items=items,
+        summary=build_search_summary(payload.query, intent, items),
     )

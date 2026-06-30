@@ -9,7 +9,9 @@ from app.api.routes import search as search_routes
 from app.db.models import Base, NormalizedItem, UserItemAction
 from app.schemas.preferences import RankingWeights
 from app.schemas.search import SearchIntentResponse
+from app.services.feed_actions import serialize_feed_item
 from app.services.search import (
+    build_search_summary,
     infer_search_intent,
     normalize_filter_value,
     normalize_read_status,
@@ -141,6 +143,41 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     assert response.query == "AI data center"
     assert response.date_from == date(2026, 6, 19)
     assert response.read_status is None
+
+
+def test_build_search_summary_handles_summary_style_query() -> None:
+    intent = infer_search_intent(
+        "Summarize the most important semiconductor AI news this week.",
+        today=date(2026, 6, 26),
+    )
+    item = make_feed_result(
+        1,
+        "Micron HBM demand rises",
+        source_name="Alpha Vantage News",
+        topics=["semiconductor", "hbm"],
+        tickers=["MU"],
+        summary_short="Micron demand signal for AI memory.",
+        importance_score=0.84,
+    )
+
+    summary = build_search_summary(
+        "Summarize the most important semiconductor AI news this week.",
+        intent,
+        [item],
+    )
+
+    assert summary is not None
+    assert "Found 1 matching SignalLens items for semiconductor." in summary
+    assert "Micron HBM demand rises (Alpha Vantage News)" in summary
+    assert "Micron demand signal for AI memory." in summary
+    assert "Tickers: MU." in summary
+    assert "Importance 84." in summary
+
+
+def test_build_search_summary_stays_empty_for_plain_keyword_search() -> None:
+    intent = infer_search_intent("agent harness")
+
+    assert build_search_summary("agent harness", intent, []) is None
 
 
 def test_search_feed_items_applies_inferred_topic_filter() -> None:
@@ -408,7 +445,7 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
     monkeypatch.setattr(search_routes, "get_user_preferences", lambda db: preferences)
 
     def fake_search_feed_items(**kwargs):
-        assert kwargs["query"] == "latest AI coding products"
+        assert kwargs["query"] == "summarize latest AI coding products"
         assert kwargs["limit"] == 8
         assert kwargs["ranking_weights"] == preferences.ranking_weights
         assert kwargs["preferred_sources"] == preferences.preferred_sources
@@ -421,7 +458,7 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
 
     result = await search_routes.search_items_with_natural_language(
         payload=search_routes.NaturalLanguageSearchRequest(
-            query="latest AI coding products",
+            query="summarize latest AI coding products",
             limit=8,
             module="products",
         ),
@@ -430,6 +467,7 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
 
     assert result.items == []
     assert result.intent.category == "product"
+    assert result.summary == "No matching SignalLens items were found for this natural-language search."
 
 
 def test_search_feed_items_excludes_blocked_sources() -> None:
@@ -556,6 +594,28 @@ def make_preferences() -> SimpleNamespace:
         blocked_sources=["Noisy Blog"],
         language_preferences=["en"],
     )
+
+
+def make_feed_result(
+    item_id: int,
+    title: str,
+    source_name: str = "Test Source",
+    topics: list[str] | None = None,
+    tickers: list[str] | None = None,
+    summary_short: str | None = None,
+    importance_score: float = 0.7,
+):
+    item = make_search_item(
+        item_id,
+        title,
+        title,
+        topics=topics or [],
+        source_name=source_name,
+        importance_score=importance_score,
+    )
+    item.tickers = tickers or []
+    item.summary_short = summary_short
+    return serialize_feed_item(item)
 
 
 def make_search_item(
