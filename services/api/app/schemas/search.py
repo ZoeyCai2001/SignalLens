@@ -7,6 +7,7 @@ from app.schemas.feed import FeedItem
 
 class SearchIntentResponse(BaseModel):
     query: str | None = None
+    source: str | None = None
     category: str | None = None
     ticker: str | None = None
     company: str | None = None

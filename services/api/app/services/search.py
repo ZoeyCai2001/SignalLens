@@ -24,6 +24,7 @@ from app.services.scoring import detect_tickers
 @dataclass(frozen=True)
 class SearchIntent:
     query: str | None = None
+    source: str | None = None
     category: str | None = None
     ticker: str | None = None
     company: str | None = None
@@ -67,6 +68,7 @@ def search_feed_items(
 ) -> list[FeedItem]:
     intent = infer_search_intent(query)
     effective_query = resolve_effective_query(query, intent)
+    effective_source = source or intent.source
     effective_category = category or intent.category
     effective_ticker = ticker or intent.ticker
     effective_company = company or intent.company
@@ -121,7 +123,7 @@ def search_feed_items(
             )
         )
 
-    normalized_source = normalize_filter_value(source)
+    normalized_source = normalize_filter_value(effective_source)
     if normalized_source:
         statement = statement.filter(NormalizedItem.source_name.ilike(f"%{normalized_source}%"))
 
@@ -231,7 +233,14 @@ def build_search_summary(
         return "No matching SignalLens items were found for this natural-language search."
 
     leading_items = items[:max_items]
-    topic = intent.topic or intent.query or intent.company or intent.ticker or "the requested search"
+    topic = (
+        intent.topic
+        or intent.query
+        or intent.company
+        or intent.ticker
+        or intent.source
+        or "the requested search"
+    )
     lines = [
         f"Found {len(items)} matching SignalLens items for {topic}.",
         "Top signals:",
@@ -280,6 +289,7 @@ def resolve_effective_query(query: str | None, intent: SearchIntent) -> str | No
 def has_structured_intent(intent: SearchIntent) -> bool:
     return bool(
         intent.category
+        or intent.source
         or intent.ticker
         or intent.company
         or intent.topic
@@ -301,6 +311,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
     lowered = normalized.lower()
     today = today or datetime.now(UTC).date()
     category = infer_category(lowered)
+    source = infer_source(lowered)
     language = infer_language(lowered)
     ticker = next(iter(detect_tickers(normalized)), None)
     company = infer_company(lowered)
@@ -320,6 +331,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
 
     return SearchIntent(
         query=extract_search_keywords(normalized),
+        source=source,
         category=category,
         ticker=ticker,
         company=company,
@@ -381,6 +393,23 @@ def infer_category(lowered_query: str) -> str | None:
     ):
         return "technical_trend"
     return None
+
+
+def infer_source(lowered_query: str) -> str | None:
+    source_aliases = [
+        (r"\barxiv\b", "arXiv"),
+        (r"\bhacker news\b|\bhn\b", "Hacker News"),
+        (r"\bgithub\b|\bgit hub\b", "GitHub"),
+        (r"\bhugging face\b|\bhf\b", "Hugging Face"),
+        (r"\bproduct hunt\b", "Product Hunt"),
+        (r"\balpha vantage\b", "Alpha Vantage"),
+        (r"\bsec\b|\bedgar\b", "SEC"),
+        (r"\brss\b", "RSS"),
+    ]
+    return next(
+        (source for pattern, source in source_aliases if re.search(pattern, lowered_query)),
+        None,
+    )
 
 
 def infer_language(lowered_query: str) -> str | None:
@@ -470,6 +499,9 @@ def extract_search_keywords(query: str) -> str | None:
         ("semiconductor ai", "semiconductor AI"),
         ("open-source llms", "open-source LLM"),
         ("open source llms", "open source LLM"),
+        ("mcp repositories", "MCP"),
+        ("mcp repos", "MCP"),
+        ("mcp", "MCP"),
     ]
     for needle, replacement in phrase_matches:
         if needle in lowered:
@@ -500,6 +532,13 @@ def extract_search_keywords(query: str) -> str | None:
         flags=re.IGNORECASE,
     )
     cleaned = re.sub(r"\$?[A-Z]{1,5}\b", " ", cleaned)
+    cleaned = re.sub(
+        r"\b(arxiv|hacker news|hn|github|git hub|hugging face|hf|product hunt|"
+        r"alpha vantage|sec|edgar|rss|repos?|repositories)\b",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
     cleaned = re.sub(
         r"\b(show|me|what|are|the|latest|recent|find|about|posts|post|news|discussion|"
         r"discussions|summarize|most|important|this|week|saved|bookmarked|item|items|"

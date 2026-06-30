@@ -59,6 +59,26 @@ def test_infer_search_intent_handles_recent_stock_query() -> None:
     assert intent.date_from == date(2026, 6, 19)
 
 
+def test_infer_search_intent_handles_source_query() -> None:
+    intent = infer_search_intent(
+        "Find recent arXiv papers about agent harness.",
+        today=date(2026, 6, 26),
+    )
+
+    assert intent.source == "arXiv"
+    assert intent.category == "research"
+    assert intent.topic == "agent harness"
+    assert intent.query == "agent harness"
+    assert intent.date_from == date(2026, 6, 19)
+
+
+def test_infer_search_intent_strips_source_terms_from_keyword_query() -> None:
+    intent = infer_search_intent("Show GitHub MCP repos.")
+
+    assert intent.source == "GitHub"
+    assert intent.query == "MCP"
+
+
 def test_infer_search_intent_handles_product_discovery_query() -> None:
     intent = infer_search_intent(
         "What are the latest AI coding products?",
@@ -152,6 +172,7 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     response = SearchIntentResponse.model_validate(intent)
 
     assert response.ticker == "MRVL"
+    assert response.source is None
     assert response.company == "Marvell"
     assert response.category == "stock_company_event"
     assert response.topic == "ai data center"
@@ -224,6 +245,39 @@ def test_search_feed_items_applies_inferred_topic_filter() -> None:
         results = search_feed_items(db, query="Find agent harness discussion")
 
     assert [item.title for item in results] == ["Agent harness implementation notes"]
+
+
+def test_search_feed_items_applies_inferred_source_filter() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "Agent harness paper",
+                    "Agent harness research.",
+                    topics=["agent harness"],
+                    category="research",
+                    source_name="arXiv",
+                ),
+                make_search_item(
+                    2,
+                    "Agent harness discussion",
+                    "Agent harness discussion.",
+                    topics=["agent harness"],
+                    category="research",
+                    source_name="Hacker News",
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="Find recent arXiv papers about agent harness")
+
+    assert [item.title for item in results] == ["Agent harness paper"]
 
 
 def test_search_feed_items_filters_by_company() -> None:

@@ -409,6 +409,7 @@ type FeedProcessingResponse = {
 
 type SearchIntent = {
   query: string | null;
+  source: string | null;
   category: string | null;
   ticker: string | null;
   company: string | null;
@@ -8967,6 +8968,7 @@ function buildSearchIntentChips(intent: SearchIntent | null): string[] {
 
   const chips = [
     intent.query ? `query: ${intent.query}` : null,
+    intent.source ? `source: ${intent.source}` : null,
     intent.category ? `category: ${intent.category}` : null,
     intent.ticker ? `ticker: ${intent.ticker}` : null,
     intent.company ? `company: ${intent.company}` : null,

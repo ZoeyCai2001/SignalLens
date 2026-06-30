@@ -283,3 +283,4 @@ Implementation progress:
 - Added Source Health triage filter targets to quality findings so readiness actions can open attention or failed-source views directly.
 - Added latest saved digest date tracking to quality metrics so System Readiness can distinguish stale saved briefings from never-saved digest snapshots.
 - Added derived raw-content storage policy and failure-handling guidance to Source Health so each connector is easier to audit against the PRD source requirements.
+- Added source inference to natural-language search so queries such as arXiv papers, GitHub repos, Hacker News posts, Product Hunt launches, or Hugging Face items apply the matching source filter and show it in dashboard chips.
