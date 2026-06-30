@@ -19,6 +19,7 @@ import {
   Github,
   History,
   Loader2,
+  Mail,
   Newspaper,
   Plus,
   RefreshCw,
@@ -805,6 +806,7 @@ export function Dashboard() {
   const [busyPreferences, setBusyPreferences] = useState(false);
   const [busyDigestGenerate, setBusyDigestGenerate] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
+  const [busyDigestEmail, setBusyDigestEmail] = useState(false);
   const [busyDigestSave, setBusyDigestSave] = useState(false);
   const [busyDigestSnapshotId, setBusyDigestSnapshotId] = useState<number | null>(null);
   const [digestDateDraft, setDigestDateDraft] = useState("");
@@ -1653,6 +1655,30 @@ export function Dashboard() {
       setStatus("Digest copy failed");
     } finally {
       setBusyDigestCopy(false);
+    }
+  };
+
+  const emailDailyDigest = async () => {
+    setBusyDigestEmail(true);
+    setError(null);
+    try {
+      const targetDigestDate = digestDateDraft || digest?.digest_date || "";
+      const query = buildDigestDateQuery(targetDigestDate);
+      const emailDateLabel = targetDigestDate || digest?.digest_date || "latest";
+      const markdown =
+        activeDigestSnapshot?.digest_date === targetDigestDate
+          ? activeDigestSnapshot.markdown
+          : (await fetchJson<DailyDigestMarkdown>(`/api/digest/daily/markdown${query}`)).markdown;
+      window.location.href = buildDigestEmailHref(
+        `SignalLens Daily Digest ${emailDateLabel}`,
+        markdown,
+      );
+      setStatus(`Opened email draft for digest ${emailDateLabel}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Digest email draft failed");
+    } finally {
+      setBusyDigestEmail(false);
     }
   };
 
@@ -3037,10 +3063,12 @@ export function Dashboard() {
               busySnapshotId={busyDigestSnapshotId}
               busyGenerate={busyDigestGenerate}
               busyCopy={busyDigestCopy}
+              busyEmail={busyDigestEmail}
               busySave={busyDigestSave}
               onDigestDateChange={updateDigestDateDraft}
               onGenerate={generateDailyDigest}
               onCopy={copyDailyDigest}
+              onEmail={emailDailyDigest}
               onSave={saveDailyDigestSnapshot}
               onSnapshotOpen={loadDigestSnapshot}
               onSnapshotDelete={deleteDailyDigestSnapshot}
@@ -3837,10 +3865,12 @@ function DailyDigestPanel({
   busySnapshotId,
   busyGenerate,
   busyCopy,
+  busyEmail,
   busySave,
   onDigestDateChange,
   onGenerate,
   onCopy,
+  onEmail,
   onSave,
   onSnapshotOpen,
   onSnapshotDelete,
@@ -3852,10 +3882,12 @@ function DailyDigestPanel({
   busySnapshotId: number | null;
   busyGenerate: boolean;
   busyCopy: boolean;
+  busyEmail: boolean;
   busySave: boolean;
   onDigestDateChange: (value: string) => void;
   onGenerate: () => void;
   onCopy: () => void;
+  onEmail: () => void;
   onSave: () => void;
   onSnapshotOpen: (snapshot: DailyDigestSnapshot) => void;
   onSnapshotDelete: (snapshot: DailyDigestSnapshot) => void;
@@ -3892,6 +3924,15 @@ function DailyDigestPanel({
             aria-label="Copy digest markdown"
           >
             {busyCopy ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+          </button>
+          <button
+            className="button icon-button"
+            onClick={onEmail}
+            disabled={!digest || busyEmail}
+            title="Open email draft"
+            aria-label="Open email draft"
+          >
+            {busyEmail ? <Loader2 className="spin" size={16} /> : <Mail size={16} />}
           </button>
         </div>
       </div>
@@ -7819,6 +7860,14 @@ function formatDate(value: string) {
 function buildDigestDateQuery(value: string): string {
   const normalized = value.trim();
   return normalized ? `?date=${encodeURIComponent(normalized)}` : "";
+}
+
+function buildDigestEmailHref(subject: string, markdown: string): string {
+  const params = new URLSearchParams({
+    subject,
+    body: markdown,
+  });
+  return `mailto:?${params.toString()}`;
 }
 
 function buildSourceRunQuery(statusFilter: "all" | "failed", sourceId?: number): string {
