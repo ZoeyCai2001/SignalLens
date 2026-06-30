@@ -331,6 +331,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
         "chinese": 0,
     }
     assert metrics.covered_module_count == 1
+    assert metrics.recent_source_count == 1
+    assert metrics.dominant_source_share == 1
     assert metrics.high_value_item_count == 1
     assert metrics.high_value_unsummarized_count == 0
     assert metrics.classification_coverage == 1
@@ -511,6 +513,37 @@ def test_build_quality_findings_flags_thin_module_coverage() -> None:
     assert findings[0].action_source_filter == "attention"
 
 
+def test_build_quality_findings_flags_thin_source_diversity() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        high_value_item_count=0,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        recent_source_count=1,
+        dominant_source_share=1,
+        covered_module_count=5,
+    )
+
+    assert [finding.title for finding in findings] == ["Source diversity is thin"]
+    assert findings[0].metric == "1 recent sources, 100% dominant"
+    assert findings[0].action_label == "Review Sources"
+    assert findings[0].action_module == "sources"
+    assert findings[0].action_operation == "cycle"
+    assert findings[0].action_source_filter == "attention"
+
+
 def test_build_quality_findings_flags_thin_digest_snapshot() -> None:
     findings = build_quality_findings(
         recent_item_count=8,
@@ -663,6 +696,7 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
                     url="https://example.com/trend",
                     published_at=now,
                     category="technical_trend",
+                    source_name="Hacker News",
                 ),
                 make_quality_item(
                     2,
@@ -670,6 +704,7 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
                     url="https://example.com/paper",
                     published_at=now,
                     category="research",
+                    source_name="arXiv",
                 ),
                 make_quality_item(
                     3,
@@ -678,6 +713,7 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
                     published_at=now,
                     category="technical_trend",
                     products=["Agent IDE"],
+                    source_name="Product Hunt",
                 ),
                 make_quality_item(
                     4,
@@ -686,6 +722,7 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
                     published_at=now,
                     category="technical_trend",
                     tickers=["MU"],
+                    source_name="Alpha Vantage News",
                 ),
                 make_quality_item(
                     5,
@@ -694,6 +731,7 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
                     published_at=now,
                     category="technical_trend",
                     language="zh",
+                    source_name="Chinese RSS Feeds",
                 ),
             ]
         )
@@ -709,7 +747,12 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
         "chinese": 1,
     }
     assert metrics.covered_module_count == 5
+    assert metrics.recent_source_count == 5
+    assert metrics.dominant_source_share == 0.2
     assert "Module coverage is thin" not in [
+        finding.title for finding in metrics.quality_findings
+    ]
+    assert "Source diversity is thin" not in [
         finding.title for finding in metrics.quality_findings
     ]
 

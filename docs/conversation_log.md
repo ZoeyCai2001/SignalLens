@@ -300,3 +300,4 @@ Implementation progress:
 - Added saved digest item-count tracking and a thin-digest readiness finding so sparse daily briefing snapshots can be regenerated from System Readiness.
 - Added PRD module coverage counts to quality metrics and a readiness finding for dashboards where recent items cover too few first-class modules.
 - Added classification confidence coverage to quality metrics and a readiness action that runs capped LLM classification when recent items are mostly low-confidence.
+- Added recent source-diversity metrics and a readiness finding for feeds dominated by one source, steering recovery back to Source Health and a full ingestion cycle.

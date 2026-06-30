@@ -87,6 +87,8 @@ class QualityMetricsResponse(BaseModel):
     recent_item_count: int
     recent_module_counts: dict[str, int] = Field(default_factory=dict)
     covered_module_count: int = 0
+    recent_source_count: int = 0
+    dominant_source_share: float = 0
     high_value_item_count: int
     high_value_unsummarized_count: int = 0
     classification_coverage: float = 0

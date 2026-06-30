@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from typing import TypedDict
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -107,6 +108,12 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     recent_item_count = len(recent_rows)
     recent_module_counts = build_recent_module_counts(recent_rows)
     covered_module_count = sum(1 for count in recent_module_counts.values() if count > 0)
+    recent_source_counts = Counter(item.source_name for item in recent_rows)
+    recent_source_count = len(recent_source_counts)
+    dominant_source_share = ratio(
+        max(recent_source_counts.values()) if recent_source_counts else 0,
+        recent_item_count,
+    )
     relevance_precision_proxy = ratio(
         sum(1 for item in recent_rows if item.relevance_score >= 0.5),
         recent_item_count,
@@ -159,6 +166,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         recent_item_count=recent_item_count,
         recent_module_counts=recent_module_counts,
         covered_module_count=covered_module_count,
+        recent_source_count=recent_source_count,
+        dominant_source_share=dominant_source_share,
         high_value_item_count=high_value_item_count,
         high_value_unsummarized_count=high_value_unsummarized_count,
         classification_coverage=classification_coverage,
@@ -191,6 +200,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             recent_item_count=recent_item_count,
             covered_module_count=covered_module_count,
             total_module_count=len(PRD_FEED_MODULES),
+            recent_source_count=recent_source_count,
+            dominant_source_share=dominant_source_share,
             high_value_item_count=high_value_item_count,
             relevance_precision_proxy=relevance_precision_proxy,
             duplicate_rate=duplicate_rate,
@@ -511,6 +522,8 @@ def build_quality_findings(
     low_confidence_item_count: int = 0,
     covered_module_count: int | None = None,
     total_module_count: int = len(PRD_FEED_MODULES),
+    recent_source_count: int = 0,
+    dominant_source_share: float = 0,
     latest_stock_price_date: date | None = None,
     stock_watchlist_count: int = 0,
     current_date: date | None = None,
@@ -557,6 +570,29 @@ def build_quality_findings(
                     "do not silently collapse into one feed."
                 ),
                 action_label="Run Full Cycle",
+                action_module="sources",
+                action_operation="cycle",
+                action_source_filter="attention",
+            )
+        )
+    if (
+        recent_item_count >= 5
+        and recent_source_count > 0
+        and (recent_source_count < 2 or dominant_source_share >= 0.8)
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Source diversity is thin",
+                metric=(
+                    f"{recent_source_count} recent sources, "
+                    f"{format_quality_percent(dominant_source_share)} dominant"
+                ),
+                recommendation=(
+                    "Run a full ingestion cycle and review Source Health so the dashboard "
+                    "keeps cross-source context instead of over-weighting one feed."
+                ),
+                action_label="Review Sources",
                 action_module="sources",
                 action_operation="cycle",
                 action_source_filter="attention",

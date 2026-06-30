@@ -483,6 +483,8 @@ type QualityMetrics = {
   recent_item_count: number;
   recent_module_counts: Record<string, number>;
   covered_module_count: number;
+  recent_source_count: number;
+  dominant_source_share: number;
   high_value_item_count: number;
   high_value_unsummarized_count: number;
   classification_coverage: number;
@@ -3805,6 +3807,10 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Classified"
                     value={formatQualityPercent(qualityMetrics.classification_coverage)}
+                  />
+                  <ReadinessMetric
+                    label="Recent Src"
+                    value={`${qualityMetrics.recent_source_count} · ${formatQualityPercent(qualityMetrics.dominant_source_share)}`}
                   />
                   <ReadinessMetric
                     label="Source Fail"
