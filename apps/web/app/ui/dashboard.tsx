@@ -335,6 +335,8 @@ type SourceHealth = {
   enabled: boolean;
   priority: number;
   terms_notes: string | null;
+  raw_content_policy: string;
+  failure_handling: string;
   latest_status: string;
   latest_error: string | null;
   last_started_at: string | null;
@@ -8337,6 +8339,7 @@ function SourceTable({
               <th>Polling</th>
               <th>Rate Limit</th>
               <th>Terms Notes</th>
+              <th>Policy</th>
               <th>Status</th>
               <th>Stored</th>
               <th>Quality</th>
@@ -8440,6 +8443,10 @@ function SourceTable({
                       onChange={(event) => setDraftValue(source.id, "terms_notes", event.target.value)}
                       placeholder="Usage notes"
                     />
+                  </td>
+                  <td>
+                    <div className="small-muted">{source.raw_content_policy}</div>
+                    <div className="small-muted">{source.failure_handling}</div>
                   </td>
                   <td className={source.latest_status === "success" ? "health-ok" : ""}>
                     <div>{source.latest_status}</div>

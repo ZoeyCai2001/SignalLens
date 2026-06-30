@@ -20,7 +20,9 @@ from app.services.ingestion import (
 from app.services.source_health import (
     create_source,
     delete_source,
+    failure_handling_for_source,
     list_source_run_history,
+    raw_content_policy_for_source,
     serialize_source_health,
     serialize_source_run_history_item,
     source_is_stale,
@@ -63,6 +65,12 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     assert health.polling_interval == "hourly"
     assert health.priority == 20
     assert health.terms_notes == "Use RSS feed only."
+    assert health.raw_content_policy == (
+        "Store public feed metadata, title, excerpt, URL, and publication time."
+    )
+    assert health.failure_handling == (
+        "Record failures, preserve the last success time, and retry at the next polling window."
+    )
     assert health.latest_status == "skipped"
     assert health.latest_error == "disabled"
     assert health.last_success_at == last_success_at
@@ -97,6 +105,33 @@ def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
 
     assert health.failure_count == 1
     assert health.needs_attention is True
+
+
+def test_source_health_derives_compliance_policy_by_source_type() -> None:
+    assert raw_content_policy_for_source(
+        Source(name="Manual URL", type="manual", access_method="manual_submission")
+    ) == "Store the submitted URL, title, excerpt, and optional user-provided text."
+    assert raw_content_policy_for_source(
+        Source(name="Chinese RSS", type="social_keyword", access_method="rss")
+    ) == "Store public RSS/Atom metadata and snippets only; avoid login-protected content."
+    assert raw_content_policy_for_source(
+        Source(name="Product Hunt AI", type="product_topic", access_method="official_graphql_api")
+    ) == "Store Product Hunt launch metadata returned by the official GraphQL API."
+    assert raw_content_policy_for_source(
+        Source(name="Repo", type="github_repository", access_method="official_api")
+    ) == "Store public repository metadata and summaries; do not clone repository contents."
+
+
+def test_source_health_derives_failure_handling_from_auth_and_polling() -> None:
+    assert failure_handling_for_source(
+        Source(name="API", type="api", access_method="official_api", auth_required=True)
+    ) == "Record the failed run and latest error; update credentials or disable the source."
+    assert failure_handling_for_source(
+        Source(name="RSS", type="rss", access_method="rss", polling_interval="daily")
+    ) == "Record failures, preserve the last success time, and retry at the next polling window."
+    assert failure_handling_for_source(
+        Source(name="Manual", type="manual", access_method="manual_submission")
+    ) == "Record failures in run history; use a manual run after fixing source configuration."
 
 
 def test_source_attention_uses_recent_failure_count_threshold() -> None:

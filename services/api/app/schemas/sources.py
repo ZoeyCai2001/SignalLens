@@ -15,6 +15,8 @@ class SourceHealth(BaseModel):
     enabled: bool
     priority: int
     terms_notes: str | None
+    raw_content_policy: str
+    failure_handling: str
     latest_status: str
     latest_error: str | None
     last_started_at: datetime | None

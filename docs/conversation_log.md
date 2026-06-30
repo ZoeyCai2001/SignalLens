@@ -282,3 +282,4 @@ Implementation progress:
 - Added action targets and dashboard buttons for quality findings so System Readiness can jump to Source Health, Daily Digest, Dashboard, or Settings workflows.
 - Added Source Health triage filter targets to quality findings so readiness actions can open attention or failed-source views directly.
 - Added latest saved digest date tracking to quality metrics so System Readiness can distinguish stale saved briefings from never-saved digest snapshots.
+- Added derived raw-content storage policy and failure-handling guidance to Source Health so each connector is easier to audit against the PRD source requirements.

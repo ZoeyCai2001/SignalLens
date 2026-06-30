@@ -344,6 +344,8 @@ def serialize_source_health(
         enabled=bool(source.enabled),
         priority=source.priority if source.priority is not None else 100,
         terms_notes=source.terms_notes,
+        raw_content_policy=raw_content_policy_for_source(source),
+        failure_handling=failure_handling_for_source(source),
         latest_status=latest_status,
         latest_error=run.error_message if run else None,
         last_started_at=run.started_at if run else None,
@@ -361,6 +363,34 @@ def serialize_source_health(
         recent_items_fetched=quality.items_fetched,
         recent_items_stored=quality.items_stored,
     )
+
+
+def raw_content_policy_for_source(source: Source) -> str:
+    source_type = (source.type or "").strip().lower()
+    access_method = (source.access_method or "").strip().lower()
+    if source_type == "manual":
+        return "Store the submitted URL, title, excerpt, and optional user-provided text."
+    if source_type == "social_keyword":
+        return "Store public RSS/Atom metadata and snippets only; avoid login-protected content."
+    if source_type == "product_topic":
+        return "Store Product Hunt launch metadata returned by the official GraphQL API."
+    if source_type == "github_repository":
+        return "Store public repository metadata and summaries; do not clone repository contents."
+    if source_type == "research":
+        return "Store public paper metadata, abstract text, source URL, and publication time."
+    if access_method in {"rss", "atom"}:
+        return "Store public feed metadata, title, excerpt, URL, and publication time."
+    if "api" in access_method:
+        return "Store public API metadata and snippets needed for ranking and summaries."
+    return "Store minimal public metadata required for personal search, ranking, and attribution."
+
+
+def failure_handling_for_source(source: Source) -> str:
+    if source.auth_required:
+        return "Record the failed run and latest error; update credentials or disable the source."
+    if parse_polling_interval(source.polling_interval) is not None:
+        return "Record failures, preserve the last success time, and retry at the next polling window."
+    return "Record failures in run history; use a manual run after fixing source configuration."
 
 
 def source_next_run_due_at(
