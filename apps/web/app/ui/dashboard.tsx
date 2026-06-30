@@ -1486,6 +1486,40 @@ export function Dashboard() {
     }
   };
 
+  const applyTickerFeedFilter = async (stock: StockWatchlistItem) => {
+    setLoadState("loading");
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "30");
+      params.set("ticker", stock.ticker);
+      const results = await fetchJson<FeedItem[]>(`/api/search?${params.toString()}`);
+      setFeed(results);
+      setActiveModule("dashboard");
+      setSearchQuery("");
+      setSearchSource("");
+      setSearchCategory("");
+      setSearchTicker(stock.ticker);
+      setSearchCompany("");
+      setSearchTopic("");
+      setSearchManualTag("");
+      setSearchLanguage("");
+      setSearchDateFrom("");
+      setSearchDateTo("");
+      setSearchMinImportance("");
+      setSearchReadStatus("");
+      setSavedOnly(false);
+      setSearchIntent(null);
+      setSelectedFeedDetail((detail) => reconcileFeedDetailAfterRefresh(detail, results));
+      setStatus(`Filtered feed by ticker ${stock.ticker}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Ticker filter failed");
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
   const applySavedManualTagFilter = async (tag: string) => {
     setLoadState("loading");
     setError(null);
@@ -2855,6 +2889,7 @@ export function Dashboard() {
                 company={searchCompany}
                 topic={searchTopic}
                 manualTag={searchManualTag}
+                stockOptions={stocks}
                 topicOptions={topics}
                 language={searchLanguage}
                 dateFrom={searchDateFrom}
@@ -2871,6 +2906,7 @@ export function Dashboard() {
                 onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
                 onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
                 onManualTagChange={(value) => updateSearchField(setSearchManualTag, value)}
+                onTickerFilter={applyTickerFeedFilter}
                 onTopicFilter={applyTopicFeedFilter}
                 onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
                 onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
@@ -4252,6 +4288,7 @@ function SearchPanel({
   company,
   topic,
   manualTag,
+  stockOptions,
   topicOptions,
   language,
   dateFrom,
@@ -4268,6 +4305,7 @@ function SearchPanel({
   onCompanyChange,
   onTopicChange,
   onManualTagChange,
+  onTickerFilter,
   onTopicFilter,
   onLanguageChange,
   onDateFromChange,
@@ -4285,6 +4323,7 @@ function SearchPanel({
   company: string;
   topic: string;
   manualTag: string;
+  stockOptions: StockWatchlistItem[];
   topicOptions: TopicWatchlistItem[];
   language: string;
   dateFrom: string;
@@ -4301,6 +4340,7 @@ function SearchPanel({
   onCompanyChange: (value: string) => void;
   onTopicChange: (value: string) => void;
   onManualTagChange: (value: string) => void;
+  onTickerFilter: (stock: StockWatchlistItem) => void;
   onTopicFilter: (topic: TopicWatchlistItem) => void;
   onLanguageChange: (value: string) => void;
   onDateFromChange: (value: string) => void;
@@ -4333,6 +4373,21 @@ function SearchPanel({
           Clear
         </button>
       </div>
+      {stockOptions.length ? (
+        <div className="topic-filter-row" aria-label="Watchlist stock filters">
+          {stockOptions.slice(0, 10).map((stock) => (
+            <button
+              className={`badge-button ${ticker.toUpperCase() === stock.ticker ? "active" : ""}`}
+              key={stock.ticker}
+              onClick={() => onTickerFilter(stock)}
+              disabled={disabled}
+              type="button"
+            >
+              {stock.ticker}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {topicOptions.length ? (
         <div className="topic-filter-row" aria-label="Watchlist topic filters">
           {topicOptions.slice(0, 8).map((topicOption) => (
