@@ -194,7 +194,7 @@ Batch LLM processing filters summarize and classify candidates before spending m
 
 The dashboard exposes batch LLM classification and summarization as separate actions against `/api/llm/process-feed`, making cost-bearing enrichment explicit while still supporting the PRD requirement for LLM classification and LLM summarization. When the active view is AI Trends, Research, Products, AI Stocks, or Chinese Social, the dashboard sends the matching `module` value so the capped Kimi batch enriches the current module instead of the global feed.
 
-Every successful classification and summarization call writes a local `llm_usage_events` ledger row with provider, model, operation, linked item, and token counts returned by the provider. `/api/quality-metrics` aggregates recent call and token totals so System Readiness can show local LLM spend pressure without requiring a paid billing API.
+Every successful classification, summarization, stock briefing summary, and event cluster explanation call writes a local `llm_usage_events` ledger row with provider, model, operation, linked item when available, and token counts returned by the provider. `/api/quality-metrics` aggregates recent call and token totals so System Readiness can show local LLM spend pressure without requiring a paid billing API.
 
 ### 7.4 Ranking Service
 

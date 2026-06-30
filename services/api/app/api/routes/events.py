@@ -11,6 +11,7 @@ from app.services.event_clustering import (
     get_event_cluster,
     list_event_clusters,
 )
+from app.services.llm_usage import record_llm_usage
 from app.services.preferences import get_user_preferences
 
 router = APIRouter()
@@ -83,6 +84,14 @@ async def explain_cluster_with_llm(
         )
     except KimiCodingError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    record_llm_usage(
+        db=db,
+        operation="explain_event_cluster",
+        provider=settings.llm_provider,
+        result=result,
+    )
+    db.commit()
 
     return EventClusterLlmExplanation(
         cluster_key=cluster.cluster_key,

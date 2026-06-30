@@ -26,6 +26,7 @@ from app.schemas.watchlist import (
     TopicWatchlistItemCreate,
     TopicWatchlistItemUpdate,
 )
+from app.services.llm_usage import record_llm_usage
 from app.services.preferences import get_user_preferences
 from app.services.watchlist import (
     build_stock_briefing_llm_prompt,
@@ -169,6 +170,14 @@ async def summarize_stock_briefing_with_llm(
         )
     except KimiCodingError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    record_llm_usage(
+        db=db,
+        operation="summarize_stock_briefing",
+        provider=settings.llm_provider,
+        result=result,
+    )
+    db.commit()
 
     return StockBriefingLlmSummary(
         ticker=briefing.stock.ticker,

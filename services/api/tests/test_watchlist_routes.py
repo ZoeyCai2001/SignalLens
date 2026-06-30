@@ -85,7 +85,7 @@ async def test_stock_briefing_llm_summary_route_uses_kimi_and_preferences(
     monkeypatch.setattr(
         watchlist_routes,
         "get_settings",
-        lambda: SimpleNamespace(moonshot_api_key="test-key"),
+        lambda: SimpleNamespace(moonshot_api_key="test-key", llm_provider="kimi"),
     )
 
     def fake_get_stock_briefing(db, ticker: str, limit: int = 10, blocked_sources=None):
@@ -113,7 +113,18 @@ async def test_stock_briefing_llm_summary_route_uses_kimi_and_preferences(
     monkeypatch.setattr(watchlist_routes, "get_stock_briefing", fake_get_stock_briefing)
     monkeypatch.setattr(watchlist_routes, "KimiCodingClient", FakeKimiClient)
 
-    db = object()
+    class FakeDb:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+            self.commits = 0
+
+        def add(self, item: object) -> None:
+            self.added.append(item)
+
+        def commit(self) -> None:
+            self.commits += 1
+
+    db = FakeDb()
     result = await watchlist_routes.summarize_stock_briefing_with_llm(
         ticker="MU",
         db=db,
@@ -130,6 +141,13 @@ async def test_stock_briefing_llm_summary_route_uses_kimi_and_preferences(
     assert seen["blocked_sources"] == preferences.blocked_sources
     assert seen["max_tokens"] == 520
     assert "Micron discusses HBM demand" in str(seen["prompt"])
+    assert db.commits == 1
+    assert len(db.added) == 1
+    usage_event = db.added[0]
+    assert usage_event.operation == "summarize_stock_briefing"
+    assert usage_event.provider == "kimi"
+    assert usage_event.model == "kimi-test"
+    assert usage_event.total_tokens == 42
 
 
 @pytest.mark.anyio

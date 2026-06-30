@@ -300,7 +300,7 @@ async def test_explain_cluster_route_uses_kimi_and_preferences(monkeypatch) -> N
     monkeypatch.setattr(
         events,
         "get_settings",
-        lambda: SimpleNamespace(moonshot_api_key="test-key"),
+        lambda: SimpleNamespace(moonshot_api_key="test-key", llm_provider="kimi"),
     )
 
     def fake_get_event_cluster(
@@ -336,9 +336,21 @@ async def test_explain_cluster_route_uses_kimi_and_preferences(monkeypatch) -> N
     monkeypatch.setattr(events, "get_event_cluster", fake_get_event_cluster)
     monkeypatch.setattr(events, "KimiCodingClient", FakeKimiClient)
 
+    class FakeDb:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+            self.commits = 0
+
+        def add(self, item: object) -> None:
+            self.added.append(item)
+
+        def commit(self) -> None:
+            self.commits += 1
+
+    db = FakeDb()
     result = await events.explain_cluster_with_llm(
         cluster_key="strong|technical_trend|avgo|event:chip",
-        db=object(),
+        db=db,
         min_items=2,
     )
 
@@ -352,6 +364,13 @@ async def test_explain_cluster_route_uses_kimi_and_preferences(monkeypatch) -> N
     assert seen["blocked_sources"] == preferences.blocked_sources
     assert seen["max_tokens"] == 420
     assert "OpenAI and Broadcom" in str(seen["prompt"])
+    assert db.commits == 1
+    assert len(db.added) == 1
+    usage_event = db.added[0]
+    assert usage_event.operation == "explain_event_cluster"
+    assert usage_event.provider == "kimi"
+    assert usage_event.model == "kimi-test"
+    assert usage_event.total_tokens == 28
 
 
 @pytest.mark.anyio
