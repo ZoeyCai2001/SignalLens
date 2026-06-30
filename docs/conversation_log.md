@@ -294,3 +294,4 @@ Implementation progress:
 - Added latest digest age tracking to System Readiness so stale saved digest snapshots are flagged by daily freshness instead of only rolling-window counts.
 - Added a direct save-digest-snapshot action to missing or stale digest System Readiness findings so daily briefing freshness can be repaired from the readiness panel.
 - Added a direct full-ingestion-cycle action to no-recent-items System Readiness findings so empty dashboards can recover from the readiness panel.
+- Added recovery hints and store-rate status to single-source Source Health runs so individual connector retries expose the same triage guidance as full-cycle runs.

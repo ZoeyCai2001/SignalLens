@@ -977,6 +977,35 @@ async def test_run_source_ingestion_by_id_skips_product_topic_without_token(monk
     assert db.added[0].status == "skipped"
 
 
+@pytest.mark.anyio
+async def test_run_source_now_route_includes_recovery_hint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_runner(db, source_id: int, limit: int | None = None) -> IngestionResult:
+        assert db == "db-session"
+        assert source_id == 8
+        assert limit == 25
+        return IngestionResult(
+            source_name="Product Hunt AI Coding",
+            status="skipped",
+            items_fetched=0,
+            items_stored=0,
+            error_message="PRODUCT_HUNT_API_TOKEN is not configured.",
+        )
+
+    monkeypatch.setattr(source_routes, "run_source_ingestion_by_id", fake_runner)
+
+    response = await source_routes.run_source_now(source_id=8, db="db-session", limit=25)
+
+    assert response.source_name == "Product Hunt AI Coding"
+    assert response.status == "skipped"
+    assert response.needs_attention is True
+    assert response.store_rate == 0
+    assert response.recovery_hint == (
+        "Add the required API key in .env or disable this optional source."
+    )
+
+
 class FakeDb:
     def __init__(self) -> None:
         self.commits = 0

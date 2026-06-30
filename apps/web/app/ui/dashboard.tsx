@@ -2822,14 +2822,12 @@ export function Dashboard() {
     setBusySourceId(source.id);
     setError(null);
     try {
-      const result = await fetchJson<{
-        source_name: string;
-        status: string;
-        items_fetched: number;
-        items_stored: number;
-      }>(`/api/sources/${source.id}/run`, { method: "POST" });
+      const result = await fetchJson<IngestionRunResponse>(`/api/sources/${source.id}/run`, {
+        method: "POST",
+      });
+      const hint = result.recovery_hint ? ` · ${result.recovery_hint}` : "";
       await refreshAllWithStatus(
-        `${result.source_name}: ${result.status}, ${result.items_fetched} fetched, ${result.items_stored} stored`,
+        `${result.source_name}: ${result.status}, ${result.items_fetched} fetched, ${result.items_stored} stored, ${Math.round(result.store_rate * 100)}% stored${hint}`,
       );
     } catch (err) {
       setError(readError(err));
