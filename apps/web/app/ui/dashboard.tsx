@@ -514,7 +514,10 @@ type QualityFinding = {
   recommendation: string;
   action_label: string | null;
   action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings"> | null;
-  action_operation: Extract<DashboardOperation, "digest:save-snapshot" | "llm:summarize"> | null;
+  action_operation: Extract<
+    DashboardOperation,
+    "cycle" | "digest:save-snapshot" | "llm:summarize"
+  > | null;
   action_source_filter: SourceHealthFilter | null;
 };
 
@@ -2865,6 +2868,10 @@ export function Dashboard() {
       setSourceRunStatusFilter(finding.action_source_filter === "failed" ? "failed" : "all");
     }
     setActiveModule(finding.action_module);
+    if (finding.action_operation === "cycle") {
+      await runFullCycle();
+      return;
+    }
     if (finding.action_operation === "llm:summarize") {
       await processTopItemsWithLlm({
         summarize: true,

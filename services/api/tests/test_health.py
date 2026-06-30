@@ -383,7 +383,8 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "No saved digest snapshot",
     ]
     assert findings[0].severity == "warning"
-    assert findings[0].action_label == "Open Source Health"
+    assert findings[0].action_label == "Run Full Cycle"
+    assert findings[0].action_operation == "cycle"
     assert findings[0].action_source_filter == "attention"
     assert findings[1].action_module == "digest"
     assert findings[1].action_label == "Save Digest"

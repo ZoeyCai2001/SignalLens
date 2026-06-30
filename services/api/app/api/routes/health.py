@@ -416,8 +416,9 @@ def build_quality_findings(
                 title="No recent items",
                 metric="0 recent items",
                 recommendation="Run a full ingestion cycle or check source credentials.",
-                action_label="Open Source Health",
+                action_label="Run Full Cycle",
                 action_module="sources",
+                action_operation="cycle",
                 action_source_filter="attention",
             )
         )
