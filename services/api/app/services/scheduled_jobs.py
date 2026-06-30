@@ -59,6 +59,22 @@ class ScheduledCycleResult:
     saved_digest_date: date | None
     ingestion_results: list[IngestionResult]
 
+    @property
+    def duration_seconds(self) -> float:
+        return round(max(0, (self.finished_at - self.started_at).total_seconds()), 3)
+
+    @property
+    def successful_source_count(self) -> int:
+        return count_cycle_results_by_status(self.ingestion_results, "success")
+
+    @property
+    def failed_source_count(self) -> int:
+        return count_cycle_results_by_status(self.ingestion_results, "failed")
+
+    @property
+    def skipped_source_count(self) -> int:
+        return count_cycle_results_by_status(self.ingestion_results, "skipped")
+
 
 DEFAULT_INGESTION_JOBS = [
     ScheduledIngestionJob(name="hacker-news", runner=run_hacker_news_ingestion, limit=30),
@@ -204,10 +220,15 @@ def failed_ingestion_result(source_name: str, exc: Exception) -> IngestionResult
     )
 
 
+def count_cycle_results_by_status(results: list[IngestionResult], status: str) -> int:
+    return sum(1 for result in results if result.status == status)
+
+
 def scheduled_cycle_to_log_dict(result: ScheduledCycleResult) -> dict[str, object]:
     return {
         "started_at": result.started_at.isoformat(),
         "finished_at": result.finished_at.isoformat(),
+        "duration_seconds": result.duration_seconds,
         "seeded_stock_count": result.seeded_stock_count,
         "seeded_company_count": result.seeded_company_count,
         "seeded_topic_count": result.seeded_topic_count,
@@ -216,6 +237,9 @@ def scheduled_cycle_to_log_dict(result: ScheduledCycleResult) -> dict[str, objec
         "saved_digest_date": result.saved_digest_date.isoformat()
         if result.saved_digest_date
         else None,
+        "successful_source_count": result.successful_source_count,
+        "failed_source_count": result.failed_source_count,
+        "skipped_source_count": result.skipped_source_count,
         "ingestion_results": [
             {
                 "source_name": item.source_name,

@@ -129,6 +129,10 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
     assert log_data["seeded_product_count"] == 2
     assert log_data["generated_alert_count"] == 1
     assert log_data["saved_digest_date"] == "2026-06-26"
+    assert isinstance(log_data["duration_seconds"], float)
+    assert log_data["successful_source_count"] == 1
+    assert log_data["failed_source_count"] == 0
+    assert log_data["skipped_source_count"] == 0
     assert log_data["ingestion_results"] == [
         {
             "source_name": "test",
@@ -138,6 +142,34 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
             "error_message": None,
         }
     ]
+
+
+def test_scheduled_cycle_result_counts_source_statuses() -> None:
+    result = ScheduledCycleResult(
+        started_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
+        finished_at=datetime(2026, 6, 27, 8, 2, 5, tzinfo=UTC),
+        seeded_stock_count=0,
+        seeded_company_count=0,
+        seeded_topic_count=0,
+        seeded_product_count=0,
+        generated_alert_count=0,
+        saved_digest_date=None,
+        ingestion_results=[
+            IngestionResult(source_name="rss", status="success", items_fetched=5, items_stored=4),
+            IngestionResult(source_name="github", status="failed", items_fetched=0, items_stored=0),
+            IngestionResult(
+                source_name="custom",
+                status="skipped",
+                items_fetched=0,
+                items_stored=0,
+            ),
+        ],
+    )
+
+    assert result.duration_seconds == 125
+    assert result.successful_source_count == 1
+    assert result.failed_source_count == 1
+    assert result.skipped_source_count == 1
 
 
 def test_parse_polling_interval_handles_common_source_frequency_text() -> None:
@@ -358,6 +390,10 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
     assert response.seeded_product_count == 4
     assert response.generated_alert_count == 1
     assert response.saved_digest_date == date(2026, 6, 27)
+    assert response.duration_seconds == 60
+    assert response.successful_source_count == 1
+    assert response.failed_source_count == 0
+    assert response.skipped_source_count == 0
     assert response.ingestion_results[0].source_name == "rss"
     assert response.ingestion_results[0].items_stored == 4
 

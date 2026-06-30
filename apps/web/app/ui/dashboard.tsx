@@ -376,12 +376,16 @@ type IngestionRunResponse = {
 type ScheduledCycleResponse = {
   started_at: string;
   finished_at: string;
+  duration_seconds: number;
   seeded_stock_count: number;
   seeded_company_count: number;
   seeded_topic_count: number;
   seeded_product_count: number;
   generated_alert_count: number;
   saved_digest_date: string | null;
+  successful_source_count: number;
+  failed_source_count: number;
+  skipped_source_count: number;
   ingestion_results: IngestionRunResponse[];
 };
 
@@ -1362,7 +1366,7 @@ export function Dashboard() {
       await refreshAll();
       setLastCycleResult(result);
       setStatus(
-        `Cycle completed: ${storedCount} stored, ${result.generated_alert_count} alerts, ${result.seeded_stock_count + result.seeded_company_count + result.seeded_topic_count + result.seeded_product_count} watchlist defaults, digest ${result.saved_digest_date ?? "not saved"}`,
+        `Cycle completed in ${formatDuration(result.duration_seconds)}: ${storedCount} stored, ${result.failed_source_count} failed, ${result.skipped_source_count} skipped, ${result.generated_alert_count} alerts, digest ${result.saved_digest_date ?? "not saved"}`,
       );
     } catch (err) {
       setError(readError(err));
@@ -3792,6 +3796,18 @@ function formatCompactNumber(value: number): string {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
+}
+
+function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return "0s";
+  }
+  if (seconds < 60) {
+    return `${Math.round(seconds)}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }
 
 function formatLlmOperationLabel(operation: string): string {
@@ -8480,6 +8496,22 @@ function SourceTable({
           <div className="cycle-metrics">
             <span className="badge">{cycleFetched ?? 0} fetched</span>
             <span className="badge">{cycleStored ?? 0} stored</span>
+            <span className="badge">{formatDuration(lastCycleResult.duration_seconds)}</span>
+            <span className="badge">{lastCycleResult.successful_source_count} succeeded</span>
+            <span
+              className={`badge ${
+                lastCycleResult.failed_source_count > 0 ? "alert-badge" : "muted-badge"
+              }`}
+            >
+              {lastCycleResult.failed_source_count} failed
+            </span>
+            <span
+              className={`badge ${
+                lastCycleResult.skipped_source_count > 0 ? "muted-badge" : ""
+              }`}
+            >
+              {lastCycleResult.skipped_source_count} skipped
+            </span>
             <span className="badge">{lastCycleResult.generated_alert_count} alerts</span>
             <span className="badge">{lastCycleResult.seeded_stock_count} stocks</span>
             <span className="badge">{lastCycleResult.seeded_company_count} companies</span>

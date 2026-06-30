@@ -16,12 +16,16 @@ class IngestionRunResponse(BaseModel):
 class ScheduledCycleResponse(BaseModel):
     started_at: datetime
     finished_at: datetime
+    duration_seconds: float
     seeded_stock_count: int
     seeded_company_count: int
     seeded_topic_count: int
     seeded_product_count: int
     generated_alert_count: int
     saved_digest_date: date | None = None
+    successful_source_count: int = 0
+    failed_source_count: int = 0
+    skipped_source_count: int = 0
     ingestion_results: list[IngestionRunResponse]
 
     model_config = ConfigDict(from_attributes=True)
