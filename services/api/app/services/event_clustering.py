@@ -170,6 +170,12 @@ def build_event_cluster(cluster_key: str, items: list[FeedItem]) -> EventCluster
     last_seen_at = max(timestamps) if timestamps else None
     earliest_source = timeline[0].source_name if timeline else None
     top_score = max(item.importance_score for item in items)
+    source_count = len(sources)
+    duplicate_item_count = max(len(items) - source_count, 0)
+    confirmation_level = cluster_confirmation_level(
+        item_count=len(items),
+        source_count=source_count,
+    )
 
     return EventCluster(
         cluster_key=cluster_key,
@@ -198,6 +204,9 @@ def build_event_cluster(cluster_key: str, items: list[FeedItem]) -> EventCluster
         tickers=tickers[:6],
         sources=sources,
         item_count=len(items),
+        source_count=source_count,
+        duplicate_item_count=duplicate_item_count,
+        confirmation_level=confirmation_level,
         top_score=top_score,
         importance_score=top_score,
         confidence=compute_cluster_confidence(items=items, sources=sources),
@@ -316,6 +325,11 @@ def build_cluster_explanation(
     tickers: list[str],
 ) -> str:
     evidence_bits: list[str] = []
+    confirmation_level = cluster_confirmation_level(
+        item_count=len(items),
+        source_count=len(sources),
+    )
+    evidence_bits.append(f"confirmation level is {confirmation_level.replace('_', ' ')}")
     if len(items) <= 1 and len(sources) <= 1:
         evidence_bits.append("the item is currently a single-source event candidate")
     if len(sources) > 1:
@@ -332,6 +346,16 @@ def build_cluster_explanation(
             f"{round(representative.stock_impact_score * 100)}"
         )
     return "This cluster is surfaced because " + "; ".join(evidence_bits) + "."
+
+
+def cluster_confirmation_level(item_count: int, source_count: int) -> str:
+    if source_count >= 3 or (source_count >= 2 and item_count >= 3):
+        return "strong_cross_source"
+    if source_count >= 2:
+        return "cross_source"
+    if item_count > 1:
+        return "repeated_single_source"
+    return "single_source"
 
 
 def build_cluster_uncertainty_notes(

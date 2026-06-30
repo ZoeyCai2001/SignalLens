@@ -25,6 +25,9 @@ class EventCluster(BaseModel):
     tickers: list[str]
     sources: list[str]
     item_count: int
+    source_count: int = 0
+    duplicate_item_count: int = 0
+    confirmation_level: str = "single_source"
     top_score: float
     importance_score: float
     confidence: float

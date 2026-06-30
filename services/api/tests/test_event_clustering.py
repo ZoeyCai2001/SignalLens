@@ -64,6 +64,9 @@ def test_event_cluster_builds_representative_summary() -> None:
     cluster = build_event_cluster("strong|technical_trend|avgo|event:chip", items)
 
     assert cluster.item_count == 2
+    assert cluster.source_count == 2
+    assert cluster.duplicate_item_count == 0
+    assert cluster.confirmation_level == "cross_source"
     assert cluster.tickers == ["AVGO"]
     assert cluster.sources == ["RSS", "Hacker News"]
     assert cluster.representative_item.title == "OpenAI and Broadcom unveil inference chip"
@@ -74,6 +77,7 @@ def test_event_cluster_builds_representative_summary() -> None:
     assert cluster.confidence == 0.62
     assert cluster.importance_score == cluster.top_score
     assert [item.source_name for item in cluster.timeline] == ["Hacker News", "RSS"]
+    assert "confirmation level is cross source" in cluster.explanation
     assert "2 sources mention related signals" in cluster.explanation
     assert "affected ticker context: AVGO" in cluster.explanation
     assert cluster.uncertainty_notes == [
@@ -88,8 +92,45 @@ def test_event_cluster_explains_single_source_uncertainties() -> None:
     )
 
     assert "single-source event candidate" in cluster.explanation
+    assert cluster.source_count == 1
+    assert cluster.duplicate_item_count == 0
+    assert cluster.confirmation_level == "single_source"
     assert "Only one source is currently represented" in cluster.uncertainty_notes[0]
     assert any("No affected ticker was extracted" in note for note in cluster.uncertainty_notes)
+
+
+def test_event_cluster_marks_repeated_single_source_items() -> None:
+    cluster = build_event_cluster(
+        "technical_trend|agent",
+        [
+            make_item(1, "Agent framework update", source_name="RSS", tickers=[]),
+            make_item(2, "Agent framework discussion", source_name="RSS", tickers=[]),
+        ],
+    )
+
+    assert cluster.source_count == 1
+    assert cluster.duplicate_item_count == 1
+    assert cluster.confirmation_level == "repeated_single_source"
+
+
+def test_event_cluster_marks_strong_cross_source_confirmation() -> None:
+    cluster = build_event_cluster(
+        "strong|technical_trend|avgo|event:chip",
+        [
+            make_item(
+                1,
+                "OpenAI and Broadcom unveil inference chip",
+                source_name="RSS",
+                tickers=["AVGO"],
+            ),
+            make_item(2, "Broadcom chip discussion", source_name="Hacker News", tickers=["AVGO"]),
+            make_item(3, "AVGO custom silicon report", source_name="Finance Feed", tickers=["AVGO"]),
+        ],
+    )
+
+    assert cluster.source_count == 3
+    assert cluster.duplicate_item_count == 0
+    assert cluster.confirmation_level == "strong_cross_source"
 
 
 def test_event_cluster_llm_prompt_uses_evidence_and_guardrails() -> None:

@@ -516,6 +516,9 @@ type EventCluster = {
   tickers: string[];
   sources: string[];
   item_count: number;
+  source_count: number;
+  duplicate_item_count: number;
+  confirmation_level: string;
   top_score: number;
   importance_score: number;
   confidence: number;
@@ -4060,11 +4063,17 @@ function EventClusterPanel({
                   <div>
                     <div className="digest-section-title">
                       {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"} ·{" "}
-                      {cluster.sources.slice(0, 2).join(", ")}
+                      {cluster.source_count} source{cluster.source_count === 1 ? "" : "s"} ·{" "}
+                      {formatConfirmationLevel(cluster.confirmation_level)}
                     </div>
                     <div className="small-muted">
                       Confidence {Math.round(cluster.confidence * 100)} · Importance{" "}
                       {Math.round(cluster.importance_score * 100)}
+                      {cluster.duplicate_item_count > 0
+                        ? ` · ${cluster.duplicate_item_count} repeat item${
+                            cluster.duplicate_item_count === 1 ? "" : "s"
+                          }`
+                        : ""}
                       {cluster.earliest_source ? ` · first ${cluster.earliest_source}` : ""}
                       {cluster.latest_update_at
                         ? ` · latest ${formatDate(cluster.latest_update_at)}`
@@ -4095,6 +4104,14 @@ function EventClusterPanel({
                   </button>
                 </div>
                 <div className="badges">
+                  {cluster.sources.slice(0, 4).map((source) => (
+                    <span
+                      className="badge muted-badge"
+                      key={`source-${cluster.cluster_key}-${source}`}
+                    >
+                      {source}
+                    </span>
+                  ))}
                   {[...cluster.tickers, ...cluster.topics.slice(0, 3)].map((label) => (
                     <span className="badge" key={label}>
                       {label}
@@ -7564,6 +7581,19 @@ function formatCategoryLabel(value: string): string {
     .filter(Boolean)
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatConfirmationLevel(value: string): string {
+  if (value === "strong_cross_source") {
+    return "Strong cross-source";
+  }
+  if (value === "cross_source") {
+    return "Cross-source";
+  }
+  if (value === "repeated_single_source") {
+    return "Repeated single-source";
+  }
+  return "Single-source";
 }
 
 function splitTerms(value: string) {
