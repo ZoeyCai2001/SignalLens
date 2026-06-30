@@ -343,6 +343,7 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.source_failure_rate == 0.5
     assert metrics.save_count == 1
     assert metrics.hide_count == 2
+    assert metrics.feedback_action_count == 3
     assert metrics.saved_read_count == 1
     assert metrics.saved_read_later_count == 0
     assert metrics.save_hide_ratio == 0.5
@@ -814,6 +815,34 @@ def test_build_quality_findings_flags_read_later_backlog() -> None:
     assert findings[0].metric == "5 saved unread"
     assert findings[0].action_label == "Open Daily Digest"
     assert findings[0].action_module == "digest"
+
+
+def test_build_quality_findings_flags_missing_personal_feedback() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        high_value_item_count=0,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        feedback_action_count=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Personal feedback is empty"]
+    assert findings[0].metric == "0 save or hide actions"
+    assert findings[0].action_label == "Open Dashboard"
+    assert findings[0].action_module == "dashboard"
+    assert findings[0].action_operation is None
 
 
 def test_build_quality_findings_ignores_small_read_later_queue() -> None:

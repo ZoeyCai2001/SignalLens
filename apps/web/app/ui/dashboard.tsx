@@ -495,6 +495,7 @@ type QualityMetrics = {
   source_failure_rate: number;
   save_count: number;
   hide_count: number;
+  feedback_action_count: number;
   saved_read_count: number;
   saved_read_later_count: number;
   save_hide_ratio: number | null;
@@ -3830,6 +3831,10 @@ function SystemStatusPanel({
                         ? `${qualityMetrics.save_count}/0`
                         : qualityMetrics.save_hide_ratio.toFixed(2)
                     }
+                  />
+                  <ReadinessMetric
+                    label="Feedback"
+                    value={qualityMetrics.feedback_action_count}
                   />
                   <ReadinessMetric
                     label="Read Later"

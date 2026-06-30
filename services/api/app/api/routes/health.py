@@ -101,6 +101,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     ]
     save_count = count_user_actions(db=db, field_name="is_saved")
     hide_count = count_user_actions(db=db, field_name="is_hidden")
+    feedback_action_count = save_count + hide_count
     saved_read_count, saved_read_later_count = count_saved_read_statuses(db)
     alert_counts = count_alerts_by_status(db)
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
@@ -178,6 +179,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         source_failure_rate=source_failure_rate,
         save_count=save_count,
         hide_count=hide_count,
+        feedback_action_count=feedback_action_count,
         saved_read_count=saved_read_count,
         saved_read_later_count=saved_read_later_count,
         save_hide_ratio=round(save_count / hide_count, 3) if hide_count else None,
@@ -212,6 +214,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             source_failure_rate=source_failure_rate,
             saved_read_later_count=saved_read_later_count,
             save_count=save_count,
+            feedback_action_count=feedback_action_count,
             active_alert_count=alert_counts["active"],
             dismissed_alert_count=alert_counts["dismissed"],
             alert_dismissal_rate=alert_dismissal_rate,
@@ -518,6 +521,7 @@ def build_quality_findings(
     latest_digest_snapshot_date: date | None,
     latest_digest_snapshot_item_count: int | None,
     llm_calls_per_recent_item: float,
+    feedback_action_count: int | None = None,
     classification_coverage: float = 0,
     low_confidence_item_count: int = 0,
     covered_module_count: int | None = None,
@@ -662,6 +666,20 @@ def build_quality_findings(
                 recommendation="Use the Daily Digest read-later section to clear saved items.",
                 action_label="Open Daily Digest",
                 action_module="digest",
+            )
+        )
+    if recent_item_count >= 10 and feedback_action_count == 0:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Personal feedback is empty",
+                metric="0 save or hide actions",
+                recommendation=(
+                    "Save useful items and hide noisy ones so SignalLens can tune ranking, "
+                    "digest read-later context, and personalization notes."
+                ),
+                action_label="Open Dashboard",
+                action_module="dashboard",
             )
         )
     if recent_item_count > 0 and high_value_item_count > 0 and active_alert_count == 0:
