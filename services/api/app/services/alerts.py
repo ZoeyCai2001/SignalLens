@@ -20,6 +20,7 @@ from app.services.feed_actions import (
     get_action,
     normalize_source_names,
     serialize_feed_item,
+    social_signal_score_for_item,
 )
 from app.services.preferences import get_user_preferences
 from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER
@@ -30,12 +31,14 @@ EARNINGS_GUIDANCE_CATEGORY = "earnings_guidance"
 ANALYST_ACTION_CATEGORY = "analyst_action"
 SUPPLY_CHAIN_SIGNAL_CATEGORY = "supply_chain_signal"
 THEME_BREAKOUT_CATEGORY = "theme_breakout"
+SOCIAL_TREND_CATEGORY = "social_trend"
 MIN_ALERT_CLASSIFICATION_CONFIDENCE = 0.55
 MIN_ALERT_SOURCE_QUALITY = 0.55
 MIN_CROSS_SOURCE_CLUSTER_CONFIDENCE = 0.65
 MIN_PRICE_MOVE_ALERT_PERCENT = 5
 MIN_THEME_BREAKOUT_ITEMS = 2
 MIN_THEME_BREAKOUT_SOURCES = 2
+MIN_SOCIAL_TREND_SCORE = 0.45
 
 SPECIAL_STOCK_EVENT_TERMS = {
     EARNINGS_GUIDANCE_CATEGORY: [
@@ -163,6 +166,19 @@ DEFAULT_ALERT_RULES = [
         "category": THEME_BREAKOUT_CATEGORY,
         "severity": "medium",
         "min_importance_score": 0.65,
+        "min_stock_impact_score": 0,
+        "tickers": [],
+        "topics": [],
+    },
+    {
+        "name": "Viral AI product or social trend",
+        "description": (
+            "A social, community, or product signal shows strong engagement, novelty, or "
+            "Chinese/social-platform traction."
+        ),
+        "category": SOCIAL_TREND_CATEGORY,
+        "severity": "medium",
+        "min_importance_score": 0.62,
         "min_stock_impact_score": 0,
         "tickers": [],
         "topics": [],
@@ -376,7 +392,9 @@ def match_alert_rules(item: NormalizedItem, rules: list[AlertRule]) -> list[Aler
             THEME_BREAKOUT_CATEGORY,
         }:
             continue
-        if rule.category in SPECIAL_STOCK_EVENT_TERMS:
+        if rule.category == SOCIAL_TREND_CATEGORY:
+            reason = social_trend_alert_reason(item, rule)
+        elif rule.category in SPECIAL_STOCK_EVENT_TERMS:
             reason = stock_event_alert_reason(item, rule)
         else:
             reason = alert_reason(item, rule)
@@ -699,6 +717,63 @@ def stock_event_alert_reason(item: NormalizedItem, rule: AlertRule) -> str | Non
     if item.tickers:
         score_bits.append(f"tickers {', '.join(item.tickers[:4])}")
     return f"{rule.name}: " + ", ".join(score_bits)
+
+
+def social_trend_alert_reason(item: NormalizedItem, rule: AlertRule) -> str | None:
+    if item.importance_score < rule.min_importance_score:
+        return None
+    if item.classification_confidence < MIN_ALERT_CLASSIFICATION_CONFIDENCE:
+        return None
+    if item.source_quality_score < MIN_ALERT_SOURCE_QUALITY:
+        return None
+    if item.stock_impact_score < rule.min_stock_impact_score:
+        return None
+    if rule.tickers and not set(normalize_tickers(rule.tickers)).intersection(
+        normalize_tickers(item.tickers)
+    ):
+        return None
+    if rule.topics and not set(normalize_list(rule.topics)).intersection(
+        normalize_list(item.topics)
+    ):
+        return None
+
+    social_score = social_signal_score_for_item(item)
+    context_bits = social_trend_context_bits(item=item, social_score=social_score)
+    if not context_bits:
+        return None
+
+    score_bits = [
+        *context_bits,
+        f"importance {round(item.importance_score * 100)}",
+        f"novelty {round(item.novelty_score * 100)}",
+        f"social signal {round(social_score * 100)}",
+        f"confidence {round(item.classification_confidence * 100)}",
+    ]
+    if item.products:
+        score_bits.append(f"products {', '.join(item.products[:4])}")
+    if item.topics:
+        score_bits.append(f"topics {', '.join(item.topics[:4])}")
+    return f"{rule.name}: " + ", ".join(score_bits)
+
+
+def social_trend_context_bits(item: NormalizedItem, social_score: float) -> list[str]:
+    source_name = item.source_name.lower()
+    subcategory = (item.subcategory or "").lower()
+    category = item.category.lower()
+    bits: list[str] = []
+
+    if social_score >= MIN_SOCIAL_TREND_SCORE:
+        bits.append("strong engagement")
+    if item.novelty_score >= 0.72 and (item.products or category == "product"):
+        bits.append("new product signal")
+    if category == SOCIAL_TREND_CATEGORY or "social" in subcategory:
+        bits.append("social trend source")
+    if item.language.lower().startswith("zh") or "chinese" in source_name:
+        bits.append("Chinese-language signal")
+    if "product hunt" in source_name and item.products:
+        bits.append("product-launch traction")
+
+    return clean_terms(bits)
 
 
 def build_alert_item_text(item: NormalizedItem) -> str:

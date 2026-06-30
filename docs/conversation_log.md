@@ -247,3 +247,4 @@ Implementation progress:
 - Improved the Saved Items panel as a read-later queue with unread-first ordering, read/read-later counts, and source/date context.
 - Added Daily Digest overview metrics for high-impact items, stock-linked signals, read-later items, and source diversity.
 - Added watched-stock ticker quick filters to the dashboard search panel so stock-specific feeds can be opened from the main ranked feed.
+- Added deterministic social-trend alerting for viral AI products, Chinese/social-platform signals, and high-engagement community launches using existing free metadata.

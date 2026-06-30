@@ -8,6 +8,7 @@ from app.db.models import (
     AlertRule,
     Base,
     NormalizedItem,
+    RawItem,
     StockPricePoint,
     StockWatchlistItem,
     UserItemAction,
@@ -17,6 +18,7 @@ from app.schemas.feed import FeedItem
 from app.services.alerts import (
     CROSS_SOURCE_CLUSTER_CATEGORY,
     EARNINGS_GUIDANCE_CATEGORY,
+    SOCIAL_TREND_CATEGORY,
     STOCK_PRICE_MOVE_CATEGORY,
     THEME_BREAKOUT_CATEGORY,
     alert_reason,
@@ -31,6 +33,7 @@ from app.services.alerts import (
     match_alert_rules,
     normalize_tickers,
     price_move_alert_reason,
+    social_trend_alert_reason,
     stock_event_alert_reason,
     theme_breakout_alert_reason,
     update_alert_rule,
@@ -182,6 +185,78 @@ def test_stock_event_alert_reason_requires_stock_context() -> None:
     )
 
     assert stock_event_alert_reason(item, rule) is None
+
+
+def test_social_trend_alert_reason_matches_high_engagement_product_signal() -> None:
+    item = make_item(
+        title="New AI video workflow goes viral",
+        source_name="Product Hunt",
+        category="product",
+        importance_score=0.68,
+        novelty_score=0.82,
+        products=["AI video editor"],
+        topics=["video"],
+        raw_metadata={"votes_count": 720, "comments_count": 80},
+    )
+    rule = make_rule(
+        name="Viral AI product or social trend",
+        category=SOCIAL_TREND_CATEGORY,
+        min_importance_score=0.62,
+    )
+
+    reason = social_trend_alert_reason(item, rule)
+
+    assert reason is not None
+    assert "strong engagement" in reason
+    assert "new product signal" in reason
+    assert "product-launch traction" in reason
+    assert "social signal" in reason
+    assert "AI video editor" in reason
+
+
+def test_social_trend_alert_reason_matches_chinese_social_signal_without_paid_metrics() -> None:
+    item = make_item(
+        title="AI修图工作流在小红书讨论升温",
+        source_name="Chinese Social RSS",
+        category="social_trend",
+        subcategory="social_keyword",
+        language="zh",
+        importance_score=0.65,
+        novelty_score=0.74,
+        products=["AI photo tools"],
+        topics=["ai-photo"],
+    )
+    rule = make_rule(
+        name="Viral AI product or social trend",
+        category=SOCIAL_TREND_CATEGORY,
+        min_importance_score=0.62,
+    )
+
+    reason = social_trend_alert_reason(item, rule)
+
+    assert reason is not None
+    assert "social trend source" in reason
+    assert "Chinese-language signal" in reason
+    assert "AI photo tools" in reason
+
+
+def test_social_trend_alert_reason_skips_ordinary_low_signal_items() -> None:
+    item = make_item(
+        title="Routine AI product note",
+        source_name="RSS",
+        category="product",
+        importance_score=0.63,
+        novelty_score=0.4,
+        products=[],
+        topics=["productivity"],
+    )
+    rule = make_rule(
+        name="Viral AI product or social trend",
+        category=SOCIAL_TREND_CATEGORY,
+        min_importance_score=0.62,
+    )
+
+    assert social_trend_alert_reason(item, rule) is None
 
 
 def test_theme_breakout_alert_reason_summarizes_multi_source_topic() -> None:
@@ -629,29 +704,46 @@ def make_item(
     stock_impact_score: float = 0,
     classification_confidence: float = 0.72,
     source_quality_score: float = 0.8,
+    novelty_score: float = 0.7,
     tickers: list[str] | None = None,
     topics: list[str] | None = None,
+    products: list[str] | None = None,
+    subcategory: str | None = None,
+    language: str = "en",
+    raw_metadata: dict | None = None,
 ) -> NormalizedItem:
-    return NormalizedItem(
+    item = NormalizedItem(
         id=item_id,
         raw_item_id=item_id,
         title=title,
         url=f"https://example.com/{item_id}",
         source_name=source_name,
-        language="en",
+        language=language,
         category=category,
+        subcategory=subcategory,
         tickers=tickers or [],
         companies=[],
-        products=[],
+        products=products or [],
         topics=topics or [],
         sentiment="neutral",
         relevance_score=0.8,
         classification_confidence=classification_confidence,
         importance_score=importance_score,
-        novelty_score=0.7,
+        novelty_score=novelty_score,
         source_quality_score=source_quality_score,
         stock_impact_score=stock_impact_score,
     )
+    if raw_metadata is not None:
+        item.raw_item = RawItem(
+            id=item_id,
+            source_id=item_id,
+            external_id=str(item_id),
+            url=f"https://example.com/{item_id}",
+            raw_title=title,
+            raw_metadata=raw_metadata,
+            content_hash=f"hash-{item_id}",
+        )
+    return item
 
 
 def make_alert(item_id: int, rule_id: int, title: str) -> Alert:
