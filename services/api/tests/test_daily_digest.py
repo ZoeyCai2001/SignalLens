@@ -5,7 +5,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.routes import digest as digest_routes
-from app.db.models import Base, CompanyWatchlistItem, NormalizedItem, UserPreference
+from app.db.models import (
+    Alert,
+    AlertRule,
+    Base,
+    CompanyWatchlistItem,
+    NormalizedItem,
+    UserItemAction,
+    UserPreference,
+)
 from app.db.models import DailyDigestSnapshot as DailyDigestSnapshotModel
 from app.schemas.digest import DailyDigest
 from app.schemas.feed import FeedItem
@@ -18,6 +26,7 @@ from app.services.daily_digest import (
     delete_daily_digest_snapshot,
     filter_items_by_excluded_topics,
     generate_daily_digest,
+    list_active_digest_alerts,
     list_excluded_digest_company_terms,
     list_visible_items_for_digest_date,
     list_watchlist_companies,
@@ -302,6 +311,94 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert "- [Research](https://example.com/1) - Test Source" in markdown
     assert "## Disclaimer" in markdown
     assert markdown.endswith("Informational only.\n")
+
+
+def test_render_digest_markdown_includes_active_alerts() -> None:
+    digest = DailyDigest(
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+        headline="1 AI signal for 2026-06-25.",
+        total_items=1,
+        active_alert_count=1,
+        sections=[],
+        active_alerts=[
+            {
+                "id": 9,
+                "title": "Urgent stock signal",
+                "reason": "High-impact stock signal: importance 90",
+                "severity": "high",
+                "rule_name": "High-impact stock signal",
+                "created_at": datetime(2026, 6, 25, 13, 5, tzinfo=UTC),
+                "item": make_item(9, "Urgent stock signal", "stock_company_event", 0.9),
+            }
+        ],
+        source_coverage=[],
+        disclaimer="Informational only.",
+    )
+
+    markdown = render_digest_markdown(digest)
+
+    assert "## Active Alerts" in markdown
+    assert "- [Urgent stock signal](https://example.com/9) - high via High-impact stock signal" in markdown
+    assert "High-impact stock signal: importance 90" in markdown
+
+
+def test_list_active_digest_alerts_excludes_blocked_hidden_and_dismissed_items() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        rule = make_alert_rule(1, "High-impact stock signal", severity="high")
+        disabled_rule = make_alert_rule(2, "Disabled rule", enabled=False)
+        db.add_all([rule, disabled_rule])
+        db.add_all(
+            [
+                make_normalized_item(1, "Blocked alert item", source_name="Noisy Blog"),
+                make_normalized_item(2, "Hidden alert item", source_name="Trusted Blog"),
+                make_normalized_item(3, "Dismissed alert item", source_name="Trusted Blog"),
+                make_normalized_item(4, "Disabled-rule alert item", source_name="Trusted Blog"),
+                make_normalized_item(5, "Visible high alert", source_name="Trusted Blog"),
+                make_normalized_item(6, "Visible medium alert", source_name="Trusted Blog"),
+            ]
+        )
+        db.flush()
+        dismissed_alert = make_alert(3, rule.id, "Dismissed alert item", severity="high")
+        dismissed_alert.status = "dismissed"
+        db.add_all(
+            [
+                make_alert(1, rule.id, "Blocked alert item", severity="high"),
+                make_alert(2, rule.id, "Hidden alert item", severity="high"),
+                dismissed_alert,
+                make_alert(4, disabled_rule.id, "Disabled-rule alert item", severity="high"),
+                make_alert(5, rule.id, "Visible high alert", severity="high"),
+                make_alert(6, rule.id, "Visible medium alert", severity="medium"),
+            ]
+        )
+        db.add(
+            UserPreference(
+                user_id="local",
+                ranking_weights={},
+                preferred_sources=[],
+                blocked_sources=["Noisy Blog"],
+            )
+        )
+        db.add(UserPreference(user_id="other", ranking_weights={}, preferred_sources=[]))
+        db.add(UserItemAction(user_id="local", item_id=2, is_hidden=True))
+        db.commit()
+
+        alerts = list_active_digest_alerts(db, blocked_sources=["Noisy Blog"])
+        digest = generate_daily_digest(
+            db,
+            digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        )
+
+    assert [alert.title for alert in alerts] == ["Visible high alert", "Visible medium alert"]
+    assert digest.active_alert_count == 2
+    assert [alert.title for alert in digest.active_alerts] == [
+        "Visible high alert",
+        "Visible medium alert",
+    ]
 
 
 def test_serialize_daily_digest_snapshot_round_trips_payload() -> None:
@@ -661,4 +758,36 @@ def make_normalized_item(
         novelty_score=0.6,
         source_quality_score=0.7,
         stock_impact_score=0,
+    )
+
+
+def make_alert_rule(
+    rule_id: int,
+    name: str,
+    severity: str = "medium",
+    enabled: bool = True,
+) -> AlertRule:
+    return AlertRule(
+        id=rule_id,
+        user_id="local",
+        name=name,
+        category="all",
+        severity=severity,
+        min_importance_score=0.7,
+        min_stock_impact_score=0,
+        tickers=[],
+        topics=[],
+        enabled=enabled,
+    )
+
+
+def make_alert(item_id: int, rule_id: int, title: str, severity: str = "medium") -> Alert:
+    return Alert(
+        user_id="local",
+        item_id=item_id,
+        rule_id=rule_id,
+        title=title,
+        reason=f"{title}: test reason",
+        severity=severity,
+        status="active",
     )

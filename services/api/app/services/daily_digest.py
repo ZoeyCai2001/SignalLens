@@ -1,13 +1,15 @@
 from collections import Counter
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, case, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import (
     DailyDigestSnapshot as DailyDigestSnapshotModel,
 )
 from app.db.models import (
+    Alert,
+    AlertRule,
     CompanyWatchlistItem,
     NormalizedItem,
     ProductWatchlistItem,
@@ -17,6 +19,7 @@ from app.db.models import (
 )
 from app.schemas.digest import (
     DailyDigest,
+    DigestAlertItem,
     DailyDigestSnapshot,
     DigestSection,
     DigestSourceCoverage,
@@ -24,6 +27,7 @@ from app.schemas.digest import (
 from app.schemas.feed import FeedItem
 from app.services.feed_actions import (
     LOCAL_USER_ID,
+    get_action,
     normalize_language_codes,
     normalize_source_names,
     serialize_feed_item,
@@ -73,6 +77,11 @@ def generate_daily_digest(
     tickers = list_watchlist_tickers(db)
     companies = list_watchlist_companies(db)
     metrics = build_digest_overview_metrics(feed_items, coverage)
+    active_alerts = list_active_digest_alerts(
+        db=db,
+        blocked_sources=blocked_sources,
+        limit=5,
+    )
 
     return DailyDigest(
         digest_date=selected_date,
@@ -82,8 +91,10 @@ def generate_daily_digest(
         high_impact_count=metrics["high_impact_count"],
         stock_signal_count=metrics["stock_signal_count"],
         read_later_count=metrics["read_later_count"],
+        active_alert_count=len(active_alerts),
         source_count=metrics["source_count"],
         sections=sections,
+        active_alerts=active_alerts,
         source_coverage=coverage,
         watchlist_tickers=tickers,
         watchlist_companies=companies,
@@ -112,6 +123,15 @@ def render_digest_markdown(digest: DailyDigest) -> str:
                 "",
             ]
         )
+
+    if digest.active_alerts:
+        lines.extend(["## Active Alerts", ""])
+        for alert in digest.active_alerts:
+            lines.append(
+                f"- [{alert.title}]({alert.item.url}) - {alert.severity} via {alert.rule_name}"
+            )
+            lines.append(f"  - {alert.reason}")
+        lines.append("")
 
     for section in digest.sections:
         if not section.items:
@@ -309,6 +329,61 @@ def list_visible_items_for_digest_date(
         )
         .limit(100)
         .all()
+    )
+
+
+def list_active_digest_alerts(
+    db: Session,
+    blocked_sources: list[str] | None = None,
+    limit: int = 5,
+) -> list[DigestAlertItem]:
+    blocked_source_names = normalize_source_names(blocked_sources)
+    query = (
+        db.query(Alert)
+        .join(Alert.item)
+        .join(Alert.rule)
+        .outerjoin(
+            UserItemAction,
+            (UserItemAction.item_id == Alert.item_id)
+            & (UserItemAction.user_id == LOCAL_USER_ID),
+        )
+        .filter(
+            Alert.user_id == LOCAL_USER_ID,
+            Alert.status == "active",
+            Alert.rule.has(AlertRule.enabled.is_(True)),
+        )
+        .filter((UserItemAction.is_hidden.is_(False)) | (UserItemAction.id.is_(None)))
+    )
+    if blocked_source_names:
+        query = query.filter(~NormalizedItem.source_name.in_(blocked_source_names))
+
+    rows = (
+        query.order_by(
+            case(
+                (Alert.severity == "critical", 0),
+                (Alert.severity == "high", 1),
+                (Alert.severity == "medium", 2),
+                (Alert.severity == "low", 3),
+                else_=4,
+            ),
+            Alert.created_at.desc(),
+            Alert.id.desc(),
+        )
+        .limit(limit)
+        .all()
+    )
+    return [serialize_digest_alert(db, alert) for alert in rows]
+
+
+def serialize_digest_alert(db: Session, alert: Alert) -> DigestAlertItem:
+    return DigestAlertItem(
+        id=alert.id,
+        title=alert.title,
+        reason=alert.reason,
+        severity=alert.severity,
+        rule_name=alert.rule.name,
+        created_at=alert.created_at,
+        item=serialize_feed_item(alert.item, get_action(db, alert.item_id)),
     )
 
 

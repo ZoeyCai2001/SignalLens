@@ -290,6 +290,12 @@ a {
   color: #9a3412;
 }
 
+.alert-badge {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+
 .success-badge {
   background: #ecfdf5;
   border-color: #bbf7d0;
@@ -933,6 +939,16 @@ table {
 .digest-preview-item:first-child {
   border-top: 0;
   padding-top: 0;
+}
+
+.digest-preview-item.severity-high {
+  border-left: 3px solid var(--rose);
+  padding-left: 8px;
+}
+
+.digest-preview-item.severity-medium {
+  border-left: 3px solid var(--amber);
+  padding-left: 8px;
 }
 
 .digest-item-summary {

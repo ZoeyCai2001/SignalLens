@@ -17,6 +17,16 @@ class DigestSection(BaseModel):
     items: list[FeedItem]
 
 
+class DigestAlertItem(BaseModel):
+    id: int
+    title: str
+    reason: str
+    severity: str
+    rule_name: str
+    created_at: datetime
+    item: FeedItem
+
+
 class DailyDigest(BaseModel):
     digest_date: date
     generated_at: datetime
@@ -25,8 +35,10 @@ class DailyDigest(BaseModel):
     high_impact_count: int = 0
     stock_signal_count: int = 0
     read_later_count: int = 0
+    active_alert_count: int = 0
     source_count: int = 0
     sections: list[DigestSection]
+    active_alerts: list[DigestAlertItem] = Field(default_factory=list)
     source_coverage: list[DigestSourceCoverage]
     watchlist_tickers: list[str] = Field(default_factory=list)
     watchlist_companies: list[str] = Field(default_factory=list)

@@ -474,6 +474,16 @@ type DigestSection = {
   items: FeedItem[];
 };
 
+type DigestAlertItem = {
+  id: number;
+  title: string;
+  reason: string;
+  severity: string;
+  rule_name: string;
+  created_at: string;
+  item: FeedItem;
+};
+
 type DailyDigest = {
   digest_date: string;
   generated_at: string;
@@ -482,8 +492,10 @@ type DailyDigest = {
   high_impact_count: number;
   stock_signal_count: number;
   read_later_count: number;
+  active_alert_count: number;
   source_count: number;
   sections: DigestSection[];
+  active_alerts: DigestAlertItem[];
   source_coverage: DigestSourceCoverage[];
   watchlist_tickers: string[];
   watchlist_companies: string[];
@@ -3793,6 +3805,7 @@ function DailyDigestPanel({
             <span className="badge">{digest.high_impact_count} high impact</span>
             <span className="badge stock">{digest.stock_signal_count} stock-linked</span>
             <span className="badge">{digest.read_later_count} read later</span>
+            <span className="badge alert-badge">{digest.active_alert_count} active alerts</span>
             <span className="badge muted-badge">{digest.source_count} sources</span>
           </div>
           <div className="digest-coverage">
@@ -3815,6 +3828,29 @@ function DailyDigestPanel({
             ))}
           </div>
           <div className="digest-sections">
+            {digest.active_alerts.length ? (
+              <div className="digest-section">
+                <div className="digest-section-title">Active Alerts</div>
+                <div className="digest-list">
+                  {digest.active_alerts.slice(0, 5).map((alert) => (
+                    <div className={`digest-preview-item severity-${alert.severity}`} key={alert.id}>
+                      <a
+                        className="digest-link"
+                        href={alert.item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {alert.title}
+                      </a>
+                      <div className="small-muted">
+                        {alert.severity} · {alert.rule_name} · {formatDate(alert.created_at)}
+                      </div>
+                      <div className="digest-item-summary">{alert.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {sectionsWithItems.length ? (
               sectionsWithItems.map((section) => (
                 <div className="digest-section" key={section.key}>
