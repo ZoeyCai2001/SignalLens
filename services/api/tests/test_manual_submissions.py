@@ -17,6 +17,7 @@ from app.services.manual_submissions import (
     enrich_manual_normalized_item,
     first_sentence,
     reset_manual_normalized_item,
+    resolve_manual_source_name,
     resolve_manual_title,
 )
 from app.services.summarization import SummarizationError
@@ -215,6 +216,64 @@ def test_manual_submission_blank_title_is_treated_as_missing() -> None:
     assert resolve_manual_title(request) == "Claude workflow update."
 
 
+def test_manual_submission_source_name_can_be_inferred_from_known_url() -> None:
+    assert (
+        resolve_manual_source_name(
+            ManualSubmissionRequest(url="https://github.com/modelcontextprotocol/servers")
+        )
+        == "GitHub"
+    )
+    assert (
+        resolve_manual_source_name(
+            ManualSubmissionRequest(url="https://huggingface.co/spaces/example/demo")
+        )
+        == "Hugging Face"
+    )
+    assert (
+        resolve_manual_source_name(
+            ManualSubmissionRequest(url="https://news.ycombinator.com/item?id=123")
+        )
+        == "Hacker News"
+    )
+
+
+def test_manual_submission_source_name_can_be_inferred_from_generic_domain() -> None:
+    request = ManualSubmissionRequest(url="https://blog.example-ai.com/posts/agent-workflow")
+
+    assert resolve_manual_source_name(request) == "Example AI"
+
+
+def test_manual_submission_preserves_custom_source_name() -> None:
+    request = ManualSubmissionRequest(
+        url="https://example.com/posts/agent-workflow",
+        source_name="My Research Inbox",
+    )
+
+    assert resolve_manual_source_name(request) == "My Research Inbox"
+
+
+def test_manual_submission_result_uses_inferred_source_name() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        result = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="MCP server repository",
+                url="https://github.com/modelcontextprotocol/servers",
+                text="GitHub repository for MCP server integrations.",
+            ),
+        )
+
+        source = db.query(Source).one()
+
+    assert result.item.source_name == "GitHub"
+    assert source.name == "GitHub"
+    assert source.base_url == "https://github.com"
+
+
 def test_manual_resubmission_updates_existing_url_item() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -263,6 +322,56 @@ def test_manual_resubmission_updates_existing_url_item() -> None:
         assert raw_items[0].raw_text == "Updated note about OpenAI agents."
         assert raw_items[0].normalized_item.title == "Updated agent note"
         assert raw_items[0].normalized_item.text == "Updated note about OpenAI agents."
+
+
+def test_manual_submission_resubmits_old_generic_source_as_inferred_update() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        old_source = make_source()
+        db.add(old_source)
+        db.flush()
+
+        first = create_raw_manual_item(
+            db=db,
+            source=old_source,
+            request=ManualSubmissionRequest(
+                title="Old GitHub note",
+                url="https://github.com/example/agent",
+                text="Old note.",
+            ),
+        )
+        db.add(
+            NormalizedItem(
+                raw_item_id=first.id,
+                title=first.raw_title,
+                url=first.url,
+                source_name=old_source.name,
+                text=first.raw_text,
+            )
+        )
+        db.commit()
+
+        result = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="Updated GitHub note",
+                url="https://github.com/example/agent?utm_source=newsletter",
+                text="Updated note about AI agents.",
+            ),
+        )
+
+        raw_items = db.query(RawItem).all()
+        sources = {source.name for source in db.query(Source).all()}
+
+    assert result.created is False
+    assert result.updated_existing is True
+    assert result.item.id == first.normalized_item.id
+    assert result.item.source_name == "GitHub"
+    assert len(raw_items) == 1
+    assert sources == {"Manual Submission", "GitHub"}
 
 
 def test_manual_submission_result_reports_created_and_updated_existing() -> None:

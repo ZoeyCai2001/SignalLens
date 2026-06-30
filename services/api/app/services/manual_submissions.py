@@ -56,12 +56,13 @@ def create_manual_submission_result(
     db: Session,
     request: ManualSubmissionRequest,
 ) -> ManualSubmissionSaveResult:
+    source_name = resolve_manual_source_name(request)
     source = get_or_create_source(
         db,
-        name=request.source_name,
+        name=source_name,
         source_type="manual",
         access_method="manual_submission",
-        base_url="",
+        base_url=source_base_url_from_request(request),
         auth_required=False,
         rate_limit="User submitted.",
         polling_interval="Manual only.",
@@ -204,8 +205,9 @@ def find_existing_manual_raw_item(
         return None
     return (
         db.query(RawItem)
+        .join(Source, Source.id == RawItem.source_id)
         .filter(
-            RawItem.source_id == source.id,
+            Source.type == "manual",
             RawItem.external_id == external_id,
         )
         .one_or_none()
@@ -247,6 +249,65 @@ def resolve_manual_title(request: ManualSubmissionRequest) -> str:
     if path_title:
         return f"{parsed.netloc}: {path_title[:140]}"
     return parsed.netloc or "Manual URL submission"
+
+
+def resolve_manual_source_name(request: ManualSubmissionRequest) -> str:
+    requested_source = request.source_name.strip()
+    if requested_source and requested_source != "Manual Submission":
+        return requested_source
+
+    parsed = urlparse(str(request.url))
+    host = normalized_manual_host(parsed.netloc)
+    known_sources = {
+        "arxiv.org": "arXiv",
+        "github.com": "GitHub",
+        "huggingface.co": "Hugging Face",
+        "news.ycombinator.com": "Hacker News",
+        "producthunt.com": "Product Hunt",
+        "sec.gov": "SEC EDGAR",
+        "openai.com": "OpenAI",
+        "anthropic.com": "Anthropic",
+        "deepmind.google": "Google DeepMind",
+        "ai.meta.com": "Meta AI",
+        "microsoft.com": "Microsoft",
+        "nvidia.com": "NVIDIA",
+    }
+    if host in known_sources:
+        return known_sources[host]
+    registered_domain = registered_manual_domain(host)
+    if registered_domain in known_sources:
+        return known_sources[registered_domain]
+    return readable_manual_domain(registered_domain or host) or "Manual Submission"
+
+
+def source_base_url_from_request(request: ManualSubmissionRequest) -> str:
+    parsed = urlparse(str(request.url))
+    host = normalized_manual_host(parsed.netloc)
+    return f"{parsed.scheme}://{host}" if parsed.scheme and host else ""
+
+
+def normalized_manual_host(netloc: str) -> str:
+    host = netloc.lower().split("@")[-1].split(":")[0].strip()
+    return host[4:] if host.startswith("www.") else host
+
+
+def registered_manual_domain(host: str) -> str:
+    if not host:
+        return ""
+    parts = host.split(".")
+    if len(parts) <= 2:
+        return host
+    return ".".join(parts[-2:])
+
+
+def readable_manual_domain(domain: str) -> str:
+    if not domain:
+        return ""
+    label = domain.split(".", 1)[0].replace("-", " ").strip()
+    if not label:
+        return domain
+    known_uppercase = {"ai": "AI", "sec": "SEC"}
+    return " ".join(known_uppercase.get(part, part.capitalize()) for part in label.split())
 
 
 def create_manual_normalized_item(raw: RawItem, source: Source) -> NormalizedItem:
