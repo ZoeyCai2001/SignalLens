@@ -24,6 +24,11 @@ class SourceHealth(BaseModel):
     items_stored: int
     failure_count: int = 0
     needs_attention: bool = False
+    recent_run_count: int = 0
+    recent_success_rate: float | None = None
+    recent_store_rate: float | None = None
+    recent_items_fetched: int = 0
+    recent_items_stored: int = 0
 
 
 class SourceRunHistoryItem(BaseModel):

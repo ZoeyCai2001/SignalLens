@@ -242,3 +242,4 @@ Implementation progress:
 - Added `/api/health` setup summary counts and dashboard readiness metrics so first-run setup distinguishes core, recommended, and optional missing configuration at a glance.
 - Made Clear search inside PRD feed modules reload the active module's ranked feed directly, avoiding a temporary fallback to the global dashboard feed.
 - Added save-on-submit for manual URL submissions so curated links can enter Saved Items and digest read-later views during capture.
+- Added recent source-run quality metrics to Source Health, including success rate and stored/fetched ratio for spotting failing or duplicate-heavy sources.

@@ -317,6 +317,11 @@ type SourceHealth = {
   items_stored: number;
   failure_count: number;
   needs_attention: boolean;
+  recent_run_count: number;
+  recent_success_rate: number | null;
+  recent_store_rate: number | null;
+  recent_items_fetched: number;
+  recent_items_stored: number;
 };
 
 type SourceRunHistoryItem = {
@@ -598,6 +603,7 @@ type IngestionSource =
   | "alpha-vantage-prices"
   | "arxiv"
   | "chinese-rss"
+  | "sec-filings"
   | "github"
   | "hugging-face"
   | "product-hunt"
@@ -3990,7 +3996,8 @@ function HiddenItemsPanel({
                     {item.title}
                   </a>
                   <div className="small-muted">
-                    {item.source_name} · {formatDate(item.published_at)}
+                    {item.source_name} ·{" "}
+                    {item.published_at ? formatDate(item.published_at) : "unknown date"}
                   </div>
                 </div>
                 <button
@@ -7076,6 +7083,7 @@ function SourceTable({
               <th>Terms Notes</th>
               <th>Status</th>
               <th>Stored</th>
+              <th>Quality</th>
               <th>Last Run</th>
               <th>Action</th>
             </tr>
@@ -7148,6 +7156,22 @@ function SourceTable({
                     ) : null}
                   </td>
                   <td>{source.items_stored}</td>
+                  <td>
+                    {source.recent_run_count > 0 ? (
+                      <>
+                        <div>{formatRatioPercent(source.recent_success_rate)} success</div>
+                        <div className="small-muted">
+                          {source.recent_items_stored}/{source.recent_items_fetched} stored
+                        </div>
+                        <div className="small-muted">
+                          {formatRatioPercent(source.recent_store_rate)} store rate ·{" "}
+                          {source.recent_run_count} runs
+                        </div>
+                      </>
+                    ) : (
+                      <span className="small-muted">No recent runs</span>
+                    )}
+                  </td>
                   <td>
                     <div>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</div>
                     {source.last_success_at ? (
@@ -7223,7 +7247,7 @@ function SourceTable({
             })}
             {!displayedSources.length ? (
               <tr>
-                <td colSpan={10}>
+                <td colSpan={11}>
                   <div className="empty-state">No sources match this health filter.</div>
                 </td>
               </tr>
@@ -7659,6 +7683,13 @@ function formatChange(market: StockMarketSnapshot | null | undefined): string {
   }
   const sign = market.change > 0 ? "+" : "";
   return `${sign}${market.change.toFixed(2)} (${sign}${market.change_percent.toFixed(2)}%)`;
+}
+
+function formatRatioPercent(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  return `${Math.round(value * 100)}%`;
 }
 
 function formatPercentChange(value: number | null | undefined): string {

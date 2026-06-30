@@ -24,6 +24,7 @@ from app.services.source_health import (
     serialize_source_health,
     serialize_source_run_history_item,
     source_needs_attention,
+    summarize_recent_source_runs,
     update_source,
 )
 from app.sources.base import FetchCursor, FetchResult, SourceConnector
@@ -65,6 +66,11 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     assert health.last_success_at == last_success_at
     assert health.failure_count == 0
     assert health.needs_attention is False
+    assert health.recent_run_count == 0
+    assert health.recent_success_rate is None
+    assert health.recent_store_rate is None
+    assert health.recent_items_fetched == 0
+    assert health.recent_items_stored == 0
 
 
 def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
@@ -92,6 +98,51 @@ def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
 def test_source_attention_uses_recent_failure_count_threshold() -> None:
     assert source_needs_attention("success", 1) is False
     assert source_needs_attention("success", 2) is True
+
+
+def test_summarize_recent_source_runs_reports_quality_metrics() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        source = Source(name="Quality RSS", type="blog", access_method="rss")
+        db.add(source)
+        db.flush()
+        db.add_all(
+            [
+                SourceRun(
+                    source_id=source.id,
+                    status="success",
+                    items_fetched=10,
+                    items_stored=8,
+                    started_at=datetime(2026, 6, 27, 8, 0, tzinfo=UTC),
+                ),
+                SourceRun(
+                    source_id=source.id,
+                    status="failed",
+                    items_fetched=0,
+                    items_stored=0,
+                    started_at=datetime(2026, 6, 27, 9, 0, tzinfo=UTC),
+                ),
+                SourceRun(
+                    source_id=source.id,
+                    status="success",
+                    items_fetched=20,
+                    items_stored=5,
+                    started_at=datetime(2026, 6, 27, 10, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        quality = summarize_recent_source_runs(db, source.id)
+
+    assert quality.run_count == 3
+    assert quality.success_rate == pytest.approx(2 / 3)
+    assert quality.items_fetched == 30
+    assert quality.items_stored == 13
+    assert quality.store_rate == pytest.approx(13 / 30)
 
 
 def test_source_quality_falls_back_to_access_method_then_type() -> None:

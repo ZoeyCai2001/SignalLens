@@ -11,11 +11,14 @@ from app.services.ingestion import (
     run_source_ingestion_by_id,
 )
 from app.services.source_health import (
+    count_recent_source_failures,
     create_source,
     delete_source,
     get_latest_source_run,
+    get_latest_success_at,
     list_source_run_history,
     serialize_source_health,
+    summarize_recent_source_runs,
     update_source,
 )
 from app.services.source_health import (
@@ -84,7 +87,13 @@ async def patch_source(
     source = update_source(db, source_id=source_id, payload=payload)
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
-    return serialize_source_health(source, get_latest_source_run(db, source_id=source.id))
+    return serialize_source_health(
+        source,
+        get_latest_source_run(db, source_id=source.id),
+        failure_count=count_recent_source_failures(db, source.id),
+        last_success_at=get_latest_success_at(db, source.id),
+        recent_quality=summarize_recent_source_runs(db, source.id),
+    )
 
 
 @router.delete("/{source_id}", status_code=204)

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import func
@@ -9,6 +10,15 @@ from app.schemas.sources import SourceCreate, SourceHealth, SourceRunHistoryItem
 SOURCE_ATTENTION_FAILURE_THRESHOLD = 2
 SOURCE_HEALTH_RECENT_RUN_LIMIT = 5
 SOURCE_FAILURE_STATUSES = {"failed"}
+
+
+@dataclass(frozen=True)
+class RecentSourceRunQuality:
+    run_count: int = 0
+    success_rate: float | None = None
+    store_rate: float | None = None
+    items_fetched: int = 0
+    items_stored: int = 0
 
 
 def list_source_health(db: Session) -> list[SourceHealth]:
@@ -39,6 +49,7 @@ def list_source_health(db: Session) -> list[SourceHealth]:
             run,
             failure_count=count_recent_source_failures(db, source.id),
             last_success_at=get_latest_success_at(db, source.id),
+            recent_quality=summarize_recent_source_runs(db, source.id),
         )
         for source, run in rows
     ]
@@ -200,6 +211,33 @@ def count_recent_source_failures(
     return sum(1 for row in rows if unwrap_status(row) in SOURCE_FAILURE_STATUSES)
 
 
+def summarize_recent_source_runs(
+    db: Session,
+    source_id: int,
+    limit: int = SOURCE_HEALTH_RECENT_RUN_LIMIT,
+) -> RecentSourceRunQuality:
+    rows = (
+        db.query(SourceRun.status, SourceRun.items_fetched, SourceRun.items_stored)
+        .filter(SourceRun.source_id == source_id)
+        .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
+        .limit(limit)
+        .all()
+    )
+    if not rows:
+        return RecentSourceRunQuality()
+
+    items_fetched = sum(row.items_fetched or 0 for row in rows)
+    items_stored = sum(row.items_stored or 0 for row in rows)
+    success_count = sum(1 for row in rows if row.status == "success")
+    return RecentSourceRunQuality(
+        run_count=len(rows),
+        success_rate=success_count / len(rows),
+        store_rate=items_stored / items_fetched if items_fetched else None,
+        items_fetched=items_fetched,
+        items_stored=items_stored,
+    )
+
+
 def unwrap_status(row) -> str:
     if isinstance(row, str):
         return row
@@ -222,8 +260,10 @@ def serialize_source_health(
     run: SourceRun | None,
     failure_count: int = 0,
     last_success_at: datetime | None = None,
+    recent_quality: RecentSourceRunQuality | None = None,
 ) -> SourceHealth:
     latest_status = run.status if run else "never_run"
+    quality = recent_quality or RecentSourceRunQuality()
     return SourceHealth(
         id=source.id,
         name=source.name,
@@ -245,6 +285,11 @@ def serialize_source_health(
         items_stored=run.items_stored if run else 0,
         failure_count=failure_count,
         needs_attention=source_needs_attention(latest_status, failure_count),
+        recent_run_count=quality.run_count,
+        recent_success_rate=quality.success_rate,
+        recent_store_rate=quality.store_rate,
+        recent_items_fetched=quality.items_fetched,
+        recent_items_stored=quality.items_stored,
     )
 
 

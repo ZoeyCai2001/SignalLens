@@ -414,7 +414,7 @@ Custom followed sources can run through reusable connectors when the access patt
 
 Built-in source routes include manual actions for Hacker News, Alpha Vantage news, Alpha Vantage prices, SEC filings, arXiv, Chinese RSS, GitHub, Hugging Face, Product Hunt, selected RSS feeds, and the full ingestion cycle. The dashboard mirrors those routes in the toolbar so the user can run a free official filings refresh without waiting for the scheduler.
 
-Source Health rows surface the latest run status, recent failure count, and latest error text so ingestion failures can be diagnosed directly from the dashboard instead of requiring terminal logs. Source run history can be filtered to failed runs and scoped to a single source through the API and dashboard so connector issues can be triaged without scanning unrelated successful runs.
+Source Health rows surface the latest run status, recent failure count, recent success rate, recent stored/fetched ratio, and latest error text so ingestion failures, duplicate-heavy sources, and low-yield sources can be diagnosed directly from the dashboard instead of requiring terminal logs. Source run history can be filtered to failed runs and scoped to a single source through the API and dashboard so connector issues can be triaged without scanning unrelated successful runs.
 
 ### Manual Submission
 
