@@ -105,6 +105,12 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         recent_item_count,
     )
     duplicate_rate = duplicate_rate_for_items(recent_rows)
+    high_value_item_count = sum(1 for item in recent_rows if item.importance_score >= 0.75)
+    high_value_unsummarized_count = sum(
+        1
+        for item in recent_rows
+        if item.importance_score >= 0.75 and not (item.summary_short or item.summary_detailed)
+    )
     summary_coverage = ratio(
         sum(1 for item in recent_rows if item.summary_short or item.summary_detailed),
         recent_item_count,
@@ -123,7 +129,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         window_days=window_days,
         total_item_count=len(total_rows),
         recent_item_count=recent_item_count,
-        high_value_item_count=sum(1 for item in recent_rows if item.importance_score >= 0.75),
+        high_value_item_count=high_value_item_count,
+        high_value_unsummarized_count=high_value_unsummarized_count,
         relevance_precision_proxy=relevance_precision_proxy,
         duplicate_rate=duplicate_rate,
         summary_coverage=summary_coverage,
@@ -149,6 +156,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             relevance_precision_proxy=relevance_precision_proxy,
             duplicate_rate=duplicate_rate,
             summary_coverage=summary_coverage,
+            high_value_unsummarized_count=high_value_unsummarized_count,
             source_failure_rate=source_failure_rate,
             digest_snapshot_count=digest_snapshot_count,
             latest_digest_snapshot_date=(
@@ -337,6 +345,7 @@ def build_quality_findings(
     relevance_precision_proxy: float,
     duplicate_rate: float,
     summary_coverage: float,
+    high_value_unsummarized_count: int,
     source_failure_rate: float,
     digest_snapshot_count: int,
     latest_digest_snapshot_date: date | None,
@@ -385,6 +394,17 @@ def build_quality_findings(
                 title="Summary coverage is thin",
                 metric=f"{format_quality_percent(summary_coverage)} summarized",
                 recommendation="Run capped LLM summarization for high-signal unsummarized items.",
+                action_label="Open Dashboard",
+                action_module="dashboard",
+            )
+        )
+    if high_value_unsummarized_count > 0:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="High-value summaries missing",
+                metric=f"{high_value_unsummarized_count} high-value unsummarized",
+                recommendation="Run capped LLM summarization before relying on the daily digest.",
                 action_label="Open Dashboard",
                 action_module="dashboard",
             )

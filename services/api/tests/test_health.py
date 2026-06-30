@@ -321,6 +321,7 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.total_item_count == 2
     assert metrics.recent_item_count == 2
     assert metrics.high_value_item_count == 1
+    assert metrics.high_value_unsummarized_count == 0
     assert metrics.relevance_precision_proxy == 1
     assert metrics.duplicate_rate == 0.5
     assert metrics.summary_coverage == 0.5
@@ -361,6 +362,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         relevance_precision_proxy=0,
         duplicate_rate=0,
         summary_coverage=0,
+        high_value_unsummarized_count=0,
         source_failure_rate=0,
         digest_snapshot_count=0,
         latest_digest_snapshot_date=None,
@@ -381,6 +383,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         relevance_precision_proxy=0.5,
         duplicate_rate=0.3,
         summary_coverage=0.4,
+        high_value_unsummarized_count=2,
         source_failure_rate=0.25,
         digest_snapshot_count=1,
         latest_digest_snapshot_date=date(2026, 6, 30),
@@ -391,6 +394,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "Low relevance precision",
         "Duplicate pressure",
         "Summary coverage is thin",
+        "High-value summaries missing",
         "Source failures need review",
         "LLM spend is high",
     ]
@@ -399,6 +403,7 @@ def test_build_quality_findings_recommends_local_actions() -> None:
     assert [finding.action_module for finding in findings] == [
         "settings",
         "sources",
+        "dashboard",
         "dashboard",
         "sources",
         "settings",
@@ -411,6 +416,7 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
         relevance_precision_proxy=0.8,
         duplicate_rate=0,
         summary_coverage=0.8,
+        high_value_unsummarized_count=0,
         source_failure_rate=0,
         digest_snapshot_count=0,
         latest_digest_snapshot_date=date(2026, 6, 20),
@@ -421,6 +427,25 @@ def test_build_quality_findings_flags_stale_digest_snapshot() -> None:
     assert findings[0].metric == "last saved 2026-06-20"
     assert findings[0].action_label == "Open Daily Digest"
     assert findings[0].action_module == "digest"
+
+
+def test_build_quality_findings_flags_high_value_summary_gap() -> None:
+    findings = build_quality_findings(
+        recent_item_count=5,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=3,
+        source_failure_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        llm_calls_per_recent_item=0,
+    )
+
+    assert [finding.title for finding in findings] == ["High-value summaries missing"]
+    assert findings[0].metric == "3 high-value unsummarized"
+    assert findings[0].action_label == "Open Dashboard"
+    assert findings[0].action_module == "dashboard"
 
 
 def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:

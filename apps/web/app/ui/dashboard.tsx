@@ -477,6 +477,7 @@ type QualityMetrics = {
   total_item_count: number;
   recent_item_count: number;
   high_value_item_count: number;
+  high_value_unsummarized_count: number;
   relevance_precision_proxy: number;
   duplicate_rate: number;
   summary_coverage: number;
@@ -3731,6 +3732,10 @@ function SystemStatusPanel({
                 </div>
                 <div className="readiness-grid setup-summary-grid">
                   <ReadinessMetric label="High Value" value={qualityMetrics.high_value_item_count} />
+                  <ReadinessMetric
+                    label="Needs Summary"
+                    value={qualityMetrics.high_value_unsummarized_count}
+                  />
                   <ReadinessMetric
                     label="Save/Hide"
                     value={

@@ -78,6 +78,7 @@ class QualityMetricsResponse(BaseModel):
     total_item_count: int
     recent_item_count: int
     high_value_item_count: int
+    high_value_unsummarized_count: int = 0
     relevance_precision_proxy: float
     duplicate_rate: float
     summary_coverage: float
