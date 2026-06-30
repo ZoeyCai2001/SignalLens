@@ -157,6 +157,7 @@ type StockSignalSummary = {
   today_signal_count: number;
   high_impact_count: number;
   attention_score: number;
+  attention_reasons: string[];
   market: StockMarketSnapshot | null;
   latest_event_title: string | null;
   latest_event_at: string | null;
@@ -197,6 +198,7 @@ type StockBriefing = {
   stock: StockWatchlistItem;
   signal_count: number;
   attention_score: number;
+  attention_reasons: string[];
   market: StockMarketSnapshot | null;
   urgency: string;
   latest_signal_at: string | null;
@@ -6134,7 +6136,14 @@ function StockTable({
                     ) : null}
                   </td>
                   <td>{formatDominantSentiment(summary?.sentiment_counts)}</td>
-                  <td>{Math.round((summary?.attention_score ?? 0) * 100)}</td>
+                  <td className="table-attention-cell">
+                    <span>{Math.round((summary?.attention_score ?? 0) * 100)}</span>
+                    {summary?.attention_reasons.length ? (
+                      <div className="small-muted">
+                        {summary.attention_reasons.slice(0, 2).join(" · ")}
+                      </div>
+                    ) : null}
+                  </td>
                   <td>
                     {summary?.last_updated_at ? formatDate(summary.last_updated_at) : "--"}
                   </td>
@@ -6518,6 +6527,9 @@ function StockBriefingPanel({
             <div className="score-cell">
               <span className="score-label">Attention</span>
               <span className="score-value">{Math.round(briefing.attention_score * 100)}</span>
+              {briefing.attention_reasons.length ? (
+                <span className="score-note">{briefing.attention_reasons[0]}</span>
+              ) : null}
             </div>
             <div className="score-cell">
               <span className="score-label">Positive</span>

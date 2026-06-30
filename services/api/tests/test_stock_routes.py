@@ -20,7 +20,7 @@ from app.schemas.watchlist import (
 
 def test_prd_stock_routes_are_registered() -> None:
     app = create_app()
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
 
     assert "/api/stocks/watchlist-dashboard" in paths
     assert "/api/stocks/{ticker}" in paths

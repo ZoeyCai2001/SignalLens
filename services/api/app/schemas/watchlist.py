@@ -53,6 +53,7 @@ class StockSignalSummary(BaseModel):
     today_signal_count: int = 0
     high_impact_count: int = 0
     attention_score: float
+    attention_reasons: list[str] = Field(default_factory=list)
     market: StockMarketSnapshot | None = None
     latest_event_title: str | None = None
     latest_event_at: datetime | None = None
@@ -93,6 +94,7 @@ class StockBriefing(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
     attention_score: float
+    attention_reasons: list[str] = Field(default_factory=list)
     market: StockMarketSnapshot | None = None
     urgency: str
     latest_signal_at: datetime | None

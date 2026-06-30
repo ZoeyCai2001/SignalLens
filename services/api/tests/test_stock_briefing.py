@@ -13,6 +13,7 @@ from app.schemas.watchlist import (
     StockWatchlistItem,
 )
 from app.services.watchlist import (
+    build_stock_attention_reasons,
     build_stock_briefing,
     build_stock_briefing_llm_prompt,
     build_stock_market_snapshot,
@@ -88,6 +89,7 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
     briefing = build_stock_briefing(summary)
 
     assert briefing.attention_score == 0.812
+    assert briefing.attention_reasons == []
     assert summary.high_impact_count == 1
     assert summary.latest_event_title == "Micron discusses HBM demand"
     assert briefing.market is not None
@@ -282,6 +284,45 @@ def test_compute_stock_attention_score_combines_signal_volume_and_preferences() 
     score = compute_stock_attention_score(stock=stock, top_signals=signals, signal_count=4)
 
     assert score == 0.74
+
+
+def test_build_stock_attention_reasons_explains_score_inputs() -> None:
+    stock = StockWatchlistItem(
+        ticker="MU",
+        company_name="Micron",
+        exchange="NASDAQ",
+        sector="Technology",
+        industry="Semiconductors",
+        priority="High",
+        group_name="Watch Only",
+        is_pinned=True,
+    )
+    signals = [
+        make_feed_item(
+            1,
+            "Micron high impact item",
+            sentiment="positive",
+            stock_impact_score=0.8,
+            importance_score=0.6,
+            topics=["HBM"],
+            companies=["Micron"],
+        )
+    ]
+
+    reasons = build_stock_attention_reasons(
+        stock=stock,
+        top_signals=signals,
+        signal_count=4,
+        today_signal_count=1,
+        high_impact_count=1,
+    )
+
+    assert reasons == [
+        "Strongest signal scored 80",
+        "4 matched signals",
+        "1 signal today",
+        "1 high-impact signal",
+    ]
 
 
 def test_build_stock_market_snapshot_includes_volume_change() -> None:

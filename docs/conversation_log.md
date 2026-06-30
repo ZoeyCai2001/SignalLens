@@ -288,3 +288,4 @@ Implementation progress:
 - Added saved read/read-later counts and a backlog finding to quality metrics so System Readiness can steer large saved-unread queues back into the Daily Digest workflow.
 - Added an alert-noise readiness finding based on high dismissal rate so System Readiness can steer noisy alert rules back to Settings.
 - Added URL-based source-name inference for manual submissions and cross-manual-source URL deduplication so pasted links keep useful attribution without extra typing.
+- Added stock attention reason fields to stock summaries and briefings, with dashboard table/detail rendering so ranked watchlist rows explain their score inputs.

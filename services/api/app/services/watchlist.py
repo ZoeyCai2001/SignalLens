@@ -1369,24 +1369,33 @@ def build_stock_signal_summary(
     )
     market = build_stock_market_snapshot(db=db, ticker=stock_schema.ticker)
     latest_event_at = latest_signal.published_at if latest_signal else None
+    today_signal_count = count_stock_signal_rows_for_date(
+        db,
+        stock=stock,
+        signal_date=datetime.now(UTC).date(),
+        blocked_sources=blocked_sources,
+    )
+    high_impact_count = count_high_impact_stock_signal_rows(
+        db,
+        stock=stock,
+        blocked_sources=blocked_sources,
+    )
     return StockSignalSummary(
         stock=stock_schema,
         signal_count=signal_count,
-        today_signal_count=count_stock_signal_rows_for_date(
-            db,
-            stock=stock,
-            signal_date=datetime.now(UTC).date(),
-            blocked_sources=blocked_sources,
-        ),
-        high_impact_count=count_high_impact_stock_signal_rows(
-            db,
-            stock=stock,
-            blocked_sources=blocked_sources,
-        ),
+        today_signal_count=today_signal_count,
+        high_impact_count=high_impact_count,
         attention_score=compute_stock_attention_score(
             stock=stock_schema,
             top_signals=top_signals,
             signal_count=signal_count,
+        ),
+        attention_reasons=build_stock_attention_reasons(
+            stock=stock_schema,
+            top_signals=top_signals,
+            signal_count=signal_count,
+            today_signal_count=today_signal_count,
+            high_impact_count=high_impact_count,
         ),
         market=market,
         latest_event_title=latest_signal.title if latest_signal else None,
@@ -1410,6 +1419,7 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
         stock=summary.stock,
         signal_count=summary.signal_count,
         attention_score=summary.attention_score,
+        attention_reasons=summary.attention_reasons,
         market=summary.market,
         urgency=classify_stock_urgency(summary),
         latest_signal_at=latest_signal_at,
@@ -1523,6 +1533,41 @@ def compute_stock_attention_score(
         ),
         3,
     )
+
+
+def build_stock_attention_reasons(
+    stock: StockWatchlistSchema,
+    top_signals: list[FeedItem],
+    signal_count: int,
+    today_signal_count: int,
+    high_impact_count: int,
+) -> list[str]:
+    reasons: list[str] = []
+    strongest_signal = max(
+        (compute_stock_signal_score(item) for item in top_signals),
+        default=0,
+    )
+    if strongest_signal >= 0.7:
+        reasons.append(f"Strongest signal scored {round(strongest_signal * 100)}")
+    if signal_count > 0:
+        reasons.append(f"{signal_count} matched signal{'' if signal_count == 1 else 's'}")
+    if today_signal_count > 0:
+        reasons.append(
+            f"{today_signal_count} signal{'' if today_signal_count == 1 else 's'} today"
+        )
+    if high_impact_count > 0:
+        reasons.append(
+            f"{high_impact_count} high-impact signal{'' if high_impact_count == 1 else 's'}"
+        )
+    if stock.priority.strip().lower() == "high":
+        reasons.append("High watchlist priority")
+    elif stock.priority.strip().lower() == "medium":
+        reasons.append("Medium watchlist priority")
+    if stock.is_pinned:
+        reasons.append("Pinned ticker boost")
+    if not reasons:
+        reasons.append("No AI-related signals matched yet")
+    return reasons[:4]
 
 
 def priority_score(value: str) -> float:
