@@ -487,6 +487,8 @@ type QualityMetrics = {
   dominant_source_share: number;
   trusted_source_coverage: number;
   low_quality_item_count: number;
+  search_facet_coverage: number;
+  unfaceted_item_count: number;
   high_value_item_count: number;
   high_value_unsummarized_count: number;
   classification_coverage: number;
@@ -3818,6 +3820,10 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Trusted"
                     value={formatQualityPercent(qualityMetrics.trusted_source_coverage)}
+                  />
+                  <ReadinessMetric
+                    label="Facets"
+                    value={formatQualityPercent(qualityMetrics.search_facet_coverage)}
                   />
                   <ReadinessMetric
                     label="Source Fail"

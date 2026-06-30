@@ -120,6 +120,11 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     )
     trusted_source_coverage = ratio(trusted_source_item_count, recent_item_count)
     low_quality_item_count = recent_item_count - trusted_source_item_count
+    faceted_item_count = sum(
+        1 for item in recent_rows if quality_item_has_search_facets(item)
+    )
+    search_facet_coverage = ratio(faceted_item_count, recent_item_count)
+    unfaceted_item_count = recent_item_count - faceted_item_count
     relevance_precision_proxy = ratio(
         sum(1 for item in recent_rows if item.relevance_score >= 0.5),
         recent_item_count,
@@ -176,6 +181,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         dominant_source_share=dominant_source_share,
         trusted_source_coverage=trusted_source_coverage,
         low_quality_item_count=low_quality_item_count,
+        search_facet_coverage=search_facet_coverage,
+        unfaceted_item_count=unfaceted_item_count,
         high_value_item_count=high_value_item_count,
         high_value_unsummarized_count=high_value_unsummarized_count,
         classification_coverage=classification_coverage,
@@ -213,6 +220,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             dominant_source_share=dominant_source_share,
             trusted_source_coverage=trusted_source_coverage,
             low_quality_item_count=low_quality_item_count,
+            search_facet_coverage=search_facet_coverage,
+            unfaceted_item_count=unfaceted_item_count,
             high_value_item_count=high_value_item_count,
             relevance_precision_proxy=relevance_precision_proxy,
             duplicate_rate=duplicate_rate,
@@ -512,6 +521,10 @@ def quality_item_matches_module(item: NormalizedItem, module: str) -> bool:
     return False
 
 
+def quality_item_has_search_facets(item: NormalizedItem) -> bool:
+    return bool(item.topics or item.companies or item.products or item.tickers)
+
+
 def build_quality_findings(
     *,
     recent_item_count: int,
@@ -539,6 +552,8 @@ def build_quality_findings(
     dominant_source_share: float = 0,
     trusted_source_coverage: float = 0,
     low_quality_item_count: int = 0,
+    search_facet_coverage: float = 0,
+    unfaceted_item_count: int = 0,
     latest_stock_price_date: date | None = None,
     stock_watchlist_count: int = 0,
     current_date: date | None = None,
@@ -669,6 +684,25 @@ def build_quality_findings(
                 recommendation=(
                     "Run capped LLM classification so ranking, alerts, digest sections, "
                     "and uncertainty notes have stronger labels."
+                ),
+                action_label="Run Classification",
+                action_module="dashboard",
+                action_operation="llm:classify",
+            )
+        )
+    if (
+        recent_item_count >= 5
+        and unfaceted_item_count > 0
+        and search_facet_coverage < 0.6
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Search facets are thin",
+                metric=f"{format_quality_percent(search_facet_coverage)} faceted",
+                recommendation=(
+                    "Run capped LLM classification so topics, companies, products, and tickers "
+                    "improve search filters and drill-downs."
                 ),
                 action_label="Run Classification",
                 action_module="dashboard",
