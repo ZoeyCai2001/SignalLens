@@ -122,6 +122,46 @@ def test_update_stock_watchlist_item_can_change_display_name_without_blank_overw
     assert blank_update.company_name == "Micron AI Memory"
 
 
+def test_update_stock_watchlist_item_ignores_blank_required_metadata() -> None:
+    db = make_db()
+    db.add(make_stock("MRVL", display_order=10, priority="High"))
+    db.commit()
+
+    updated = update_stock_watchlist_item(
+        db,
+        "MRVL",
+        StockWatchlistItemUpdate(
+            exchange="   ",
+            sector="   ",
+            industry="   ",
+            priority="   ",
+            group_name="   ",
+        ),
+    )
+
+    assert updated is not None
+    assert updated.exchange == "NASDAQ"
+    assert updated.sector == "Technology"
+    assert updated.industry == "Semiconductors"
+    assert updated.priority == "High"
+    assert updated.group_name == "Watch Only"
+
+
+def test_update_stock_watchlist_item_can_clear_notes() -> None:
+    db = make_db()
+    db.add(make_stock("SNDK", display_order=10, notes="Monitor storage cycle"))
+    db.commit()
+
+    updated = update_stock_watchlist_item(
+        db,
+        "SNDK",
+        StockWatchlistItemUpdate(notes="   "),
+    )
+
+    assert updated is not None
+    assert updated.notes is None
+
+
 def make_db():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -134,6 +174,7 @@ def make_stock(
     display_order: int,
     priority: str = "Medium",
     is_pinned: bool = False,
+    notes: str | None = None,
 ) -> StockWatchlistItem:
     return StockWatchlistItem(
         user_id="local",
@@ -149,4 +190,5 @@ def make_stock(
         related_keywords=[],
         related_companies=[],
         related_ai_themes=[],
+        notes=notes,
     )
