@@ -169,6 +169,8 @@ type StockBriefingTimelineItem = {
   event_type: string;
   possible_market_impact: string;
   price_reaction: string;
+  event_price_date: string | null;
+  event_price_change_percent: number | null;
   confidence: number;
   time_sensitivity: string;
   event_summary: string;
@@ -5941,6 +5943,14 @@ function StockBriefingPanel({
                       <span className="badge">
                         Price: {formatCategoryLabel(entry.price_reaction)}
                       </span>
+                      {entry.event_price_change_percent !== null ? (
+                        <span
+                          className={`badge ${marketChangeClass(entry.event_price_change_percent)}`}
+                        >
+                          Event move {formatPercentChange(entry.event_price_change_percent)}
+                          {entry.event_price_date ? ` on ${formatDate(entry.event_price_date)}` : ""}
+                        </span>
+                      ) : null}
                       <span className="badge">Confidence {Math.round(entry.confidence * 100)}</span>
                       <span className="badge">Time: {entry.time_sensitivity}</span>
                     </div>

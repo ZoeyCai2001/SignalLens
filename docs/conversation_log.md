@@ -251,3 +251,4 @@ Implementation progress:
 - Added duplicate-aware batch LLM candidate selection so exact duplicate URLs or titles do not consume capped Kimi processing calls.
 - Added active-alert context to daily digest responses, markdown export, and the dashboard digest preview.
 - Added a local quality-metrics API and Settings dashboard grid for PRD success metrics such as relevance, duplicates, summary coverage, source failures, save/hide ratio, alert dismissal, digest snapshots, and high-value item count.
+- Added event-date price movement context to stock briefing timeline items so stock-linked news can show the first stored trading-day move around the signal timestamp.

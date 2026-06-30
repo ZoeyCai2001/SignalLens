@@ -1684,16 +1684,26 @@ def build_stock_briefing_timeline_item(
     market: StockMarketSnapshot | None,
 ) -> StockBriefingTimelineItem:
     possible_market_impact = infer_possible_market_impact(item)
+    event_price_date, event_price_change_percent = infer_event_price_move(
+        market=market,
+        item=item,
+    )
     return StockBriefingTimelineItem(
         item=item,
         signal_score=compute_stock_signal_score(item),
         reason=build_stock_signal_reason(item),
         event_type=infer_stock_event_type(item),
         possible_market_impact=possible_market_impact,
-        price_reaction=infer_stock_price_reaction(
-            market=market,
+        price_reaction=infer_stock_price_reaction_from_change(
+            change_percent=(
+                event_price_change_percent
+                if event_price_change_percent is not None
+                else market.change_percent if market else None
+            ),
             possible_market_impact=possible_market_impact,
         ),
+        event_price_date=event_price_date,
+        event_price_change_percent=event_price_change_percent,
         confidence=compute_stock_event_confidence(item),
         time_sensitivity=infer_stock_event_time_sensitivity(item),
         event_summary=build_stock_event_summary(item),
@@ -1752,10 +1762,19 @@ def infer_stock_price_reaction(
     market: StockMarketSnapshot | None,
     possible_market_impact: str,
 ) -> str:
-    if market is None or market.change_percent is None:
+    return infer_stock_price_reaction_from_change(
+        change_percent=market.change_percent if market else None,
+        possible_market_impact=possible_market_impact,
+    )
+
+
+def infer_stock_price_reaction_from_change(
+    change_percent: float | None,
+    possible_market_impact: str,
+) -> str:
+    if change_percent is None:
         return "no_price_data"
 
-    change_percent = market.change_percent
     if abs(change_percent) < 0.75:
         return "muted_or_unclear"
 
@@ -1764,6 +1783,31 @@ def infer_stock_price_reaction(
     if possible_market_impact == "negative":
         return "aligned_down" if change_percent < 0 else "opposite_move"
     return "muted_or_unclear"
+
+
+def infer_event_price_move(
+    market: StockMarketSnapshot | None,
+    item: FeedItem,
+) -> tuple[date | None, float | None]:
+    if market is None or not market.history or item.published_at is None:
+        return None, None
+
+    event_date = item.published_at.date()
+    history = sorted(market.history, key=lambda point: point.price_date)
+    for index, point in enumerate(history):
+        if point.price_date < event_date:
+            continue
+        if index == 0:
+            return point.price_date, None
+        previous = history[index - 1]
+        if not previous.close_price:
+            return point.price_date, None
+        change_percent = round(
+            ((point.close_price - previous.close_price) / previous.close_price) * 100,
+            2,
+        )
+        return point.price_date, change_percent
+    return None, None
 
 
 def compute_stock_event_confidence(item: FeedItem) -> float:

@@ -115,6 +115,86 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
     assert briefing.disclaimer == "Informational only."
 
 
+def test_build_stock_briefing_timeline_uses_event_date_price_move() -> None:
+    summary = StockSignalSummary(
+        stock=StockWatchlistItem(
+            ticker="MU",
+            company_name="Micron",
+            exchange="NASDAQ",
+            sector="Technology",
+            industry="Semiconductors",
+            priority="High",
+            group_name="Watch Only",
+        ),
+        signal_count=1,
+        attention_score=0.8,
+        market=StockMarketSnapshot(
+            latest=StockPricePoint(
+                price_date=datetime(2026, 6, 26, tzinfo=UTC).date(),
+                open_price=108,
+                high_price=109,
+                low_price=107,
+                close_price=108,
+                adjusted_close=108,
+                volume=1000,
+            ),
+            previous_close=106,
+            change=2,
+            change_percent=1.89,
+            history=[
+                StockPricePoint(
+                    price_date=datetime(2026, 6, 23, tzinfo=UTC).date(),
+                    open_price=100,
+                    high_price=100,
+                    low_price=100,
+                    close_price=100,
+                    adjusted_close=100,
+                    volume=1000,
+                ),
+                StockPricePoint(
+                    price_date=datetime(2026, 6, 24, tzinfo=UTC).date(),
+                    open_price=106,
+                    high_price=106,
+                    low_price=106,
+                    close_price=106,
+                    adjusted_close=106,
+                    volume=1200,
+                ),
+                StockPricePoint(
+                    price_date=datetime(2026, 6, 26, tzinfo=UTC).date(),
+                    open_price=108,
+                    high_price=109,
+                    low_price=107,
+                    close_price=108,
+                    adjusted_close=108,
+                    volume=1000,
+                ),
+            ],
+        ),
+        sentiment_counts={"positive": 1},
+        top_signals=[
+            make_feed_item(
+                1,
+                "Micron HBM demand update",
+                sentiment="positive",
+                stock_impact_score=0.84,
+                importance_score=0.7,
+                topics=["HBM"],
+                companies=["Micron"],
+                published_at=datetime(2026, 6, 24, 9, 0, tzinfo=UTC),
+            )
+        ],
+        disclaimer="Informational only.",
+    )
+
+    briefing = build_stock_briefing(summary)
+
+    timeline_item = briefing.recent_timeline[0]
+    assert timeline_item.event_price_date == datetime(2026, 6, 24, tzinfo=UTC).date()
+    assert timeline_item.event_price_change_percent == 6.0
+    assert timeline_item.price_reaction == "aligned_up"
+
+
 def test_build_stock_briefing_llm_prompt_uses_evidence_and_guardrails() -> None:
     summary = StockSignalSummary(
         stock=StockWatchlistItem(
