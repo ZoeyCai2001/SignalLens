@@ -375,6 +375,9 @@ type IngestionRunResponse = {
   items_fetched: number;
   items_stored: number;
   error_message: string | null;
+  store_rate: number;
+  needs_attention: boolean;
+  recovery_hint: string | null;
 };
 
 type ScheduledCycleResponse = {
@@ -1353,14 +1356,12 @@ export function Dashboard() {
     setError(null);
     try {
       const limit = source === "arxiv" ? 15 : source === "github" ? 20 : 25;
-      const result = await fetchJson<{
-        source_name: string;
-        status: string;
-        items_fetched: number;
-        items_stored: number;
-      }>(`/api/ingestion/${source}?limit=${limit}`, { method: "POST" });
+      const result = await fetchJson<IngestionRunResponse>(`/api/ingestion/${source}?limit=${limit}`, {
+        method: "POST",
+      });
+      const hint = result.recovery_hint ? ` · ${result.recovery_hint}` : "";
       await refreshAllWithStatus(
-        `${result.source_name}: ${result.items_fetched} fetched, ${result.items_stored} stored`,
+        `${result.source_name}: ${result.items_fetched} fetched, ${result.items_stored} stored${hint}`,
       );
     } catch (err) {
       setError(readError(err));
@@ -8628,13 +8629,30 @@ function SourceTable({
           </div>
           <div className="cycle-source-list">
             {lastCycleResult.ingestion_results.map((result) => (
-              <span
-                className={`badge ${result.status === "success" ? "" : "muted-badge"}`}
+              <div
+                className={`cycle-source-result ${
+                  result.needs_attention
+                    ? "needs-attention"
+                    : result.status === "success"
+                      ? "success"
+                      : "muted"
+                }`}
                 key={result.source_name}
-                title={result.error_message ?? undefined}
               >
-                {result.source_name}: {result.status}
-              </span>
+                <div className="cycle-source-heading">
+                  <span>{result.source_name}</span>
+                  <span className="small-muted">
+                    {result.status} · {result.items_fetched} fetched · {result.items_stored} stored ·{" "}
+                    {Math.round(result.store_rate * 100)}% stored
+                  </span>
+                </div>
+                {result.error_message ? (
+                  <div className="small-muted source-error">{result.error_message}</div>
+                ) : null}
+                {result.recovery_hint ? (
+                  <div className="small-muted">{result.recovery_hint}</div>
+                ) : null}
+              </div>
             ))}
           </div>
         </div>

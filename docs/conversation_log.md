@@ -289,3 +289,4 @@ Implementation progress:
 - Added an alert-noise readiness finding based on high dismissal rate so System Readiness can steer noisy alert rules back to Settings.
 - Added URL-based source-name inference for manual submissions and cross-manual-source URL deduplication so pasted links keep useful attribution without extra typing.
 - Added stock attention reason fields to stock summaries and briefings, with dashboard table/detail rendering so ranked watchlist rows explain their score inputs.
+- Added full-cycle ingestion store rates, attention flags, recovery hints, and visible Source Health cycle rows so failed or zero-store sources are easier to triage from the dashboard.

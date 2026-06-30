@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.api.routes import ingestion as ingestion_routes
 from app.db.models import Base, Source, SourceRun
+from app.schemas.ingestion import IngestionRunResponse
 from app.services.ingestion import IngestionResult, SourceRunnerNotFoundError
 from app.services.scheduled_jobs import (
     ScheduledCycleResult,
@@ -170,6 +171,37 @@ def test_scheduled_cycle_result_counts_source_statuses() -> None:
     assert result.successful_source_count == 1
     assert result.failed_source_count == 1
     assert result.skipped_source_count == 1
+
+
+def test_ingestion_run_response_derives_attention_and_recovery_fields() -> None:
+    failed = IngestionRunResponse.model_validate(
+        IngestionResult(
+            source_name="Product Hunt",
+            status="failed",
+            items_fetched=0,
+            items_stored=0,
+            error_message="PRODUCT_HUNT_API_TOKEN is not configured.",
+        )
+    )
+    zero_store = IngestionRunResponse.model_validate(
+        IngestionResult(
+            source_name="RSS",
+            status="success",
+            items_fetched=5,
+            items_stored=0,
+        )
+    )
+
+    assert failed.needs_attention is True
+    assert failed.store_rate == 0
+    assert failed.recovery_hint == (
+        "Add the required API key in .env or disable this optional source."
+    )
+    assert zero_store.needs_attention is True
+    assert zero_store.store_rate == 0
+    assert zero_store.recovery_hint == (
+        "Fetched items were filtered or deduplicated; review source relevance and canonical URLs."
+    )
 
 
 def test_parse_polling_interval_handles_common_source_frequency_text() -> None:
@@ -376,7 +408,14 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
                     status="success",
                     items_fetched=5,
                     items_stored=4,
-                )
+                ),
+                IngestionResult(
+                    source_name="product-hunt",
+                    status="failed",
+                    items_fetched=0,
+                    items_stored=0,
+                    error_message="PRODUCT_HUNT_API_TOKEN is not configured.",
+                ),
             ],
         )
 
@@ -392,10 +431,16 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
     assert response.saved_digest_date == date(2026, 6, 27)
     assert response.duration_seconds == 60
     assert response.successful_source_count == 1
-    assert response.failed_source_count == 0
+    assert response.failed_source_count == 1
     assert response.skipped_source_count == 0
     assert response.ingestion_results[0].source_name == "rss"
     assert response.ingestion_results[0].items_stored == 4
+    assert response.ingestion_results[0].store_rate == 0.8
+    assert response.ingestion_results[0].needs_attention is False
+    assert response.ingestion_results[1].needs_attention is True
+    assert response.ingestion_results[1].recovery_hint == (
+        "Add the required API key in .env or disable this optional source."
+    )
 
 
 def make_job(

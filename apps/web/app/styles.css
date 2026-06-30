@@ -579,6 +579,36 @@ table {
   gap: 6px;
 }
 
+.cycle-source-result {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  display: grid;
+  gap: 3px;
+  min-width: 220px;
+  padding: 7px 8px;
+}
+
+.cycle-source-result.success {
+  border-color: #bbf7d0;
+}
+
+.cycle-source-result.needs-attention {
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.cycle-source-result.muted {
+  opacity: 0.72;
+}
+
+.cycle-source-heading {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 760;
+}
+
 .source-run-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
