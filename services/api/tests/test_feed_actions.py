@@ -117,6 +117,32 @@ def test_build_feed_why_it_matters_uses_entities_and_trust_signals() -> None:
     )
 
 
+def test_build_feed_why_it_matters_includes_product_use_case_focus() -> None:
+    item = make_feed_item(1, "AI coding workspace", relevance_score=0.82, importance_score=0.8)
+    item.category = "product"
+    item.subcategory = "product_coding"
+    item.products = ["CodePilot"]
+    item.source_quality_score = 0.82
+
+    why = build_feed_why_it_matters(item)
+
+    assert why == (
+        "This may help identify AI products gaining traction. "
+        "It is linked to CodePilot, Coding and shows high importance, strong AI relevance, "
+        "high source credibility."
+    )
+
+
+def test_build_score_explanation_includes_product_use_case() -> None:
+    item = make_feed_item(1, "AI media workspace")
+    item.category = "product"
+    item.subcategory = "product_media"
+
+    explanation = build_score_explanation(item)
+
+    assert "classified as product / Media" in explanation
+
+
 def test_serialize_feed_item_computes_social_signal_from_raw_metadata() -> None:
     item = NormalizedItem(
         id=1,

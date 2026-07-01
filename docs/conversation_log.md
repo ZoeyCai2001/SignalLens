@@ -314,3 +314,4 @@ Implementation progress:
 - Added product names and product use-case labels to Daily Digest markdown and dashboard previews so product signals carry their PRD category context into the morning briefing.
 - Extended Daily Digest product-category exclusions to include derived PRD use-case subcategories, so turning off an AI product area suppresses classified matching items even when text terms differ.
 - Added product use-case labels to viral product/social alert reasons and dashboard alert badges so product alerts show whether a signal is coding, media, search, business, or another PRD use case.
+- Surfaced product names and use-case labels on ordinary feed cards, item details, and deterministic feed explanations so product context is visible outside the Products module.

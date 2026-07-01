@@ -5530,6 +5530,9 @@ function FeedCard({
           <span className={`badge ${item.category === "research" ? "research" : ""}`}>
             {item.category}
           </span>
+          {item.category === "product" && item.subcategory ? (
+            <span className="badge">{formatProductUseCaseLabel(item.subcategory)}</span>
+          ) : null}
           {item.tickers.map((ticker) => (
             <span className="badge stock" key={ticker}>
               {ticker}
@@ -5539,6 +5542,11 @@ function FeedCard({
       </div>
 
       <div className="badges">
+        {item.products.slice(0, 4).map((product) => (
+          <span className="badge" key={`product:${product}`}>
+            {product}
+          </span>
+        ))}
         {item.topics.slice(0, 8).map((topic) => (
           <span className="badge" key={topic}>
             {topic}
@@ -5657,7 +5665,14 @@ function FeedCard({
 }
 
 function buildFeedCardExplanation(item: FeedItem): string {
-  const relatedSignals = [...item.tickers, ...item.topics.slice(0, 3)];
+  const relatedSignals = uniqueLabels([
+    ...item.tickers,
+    ...item.products,
+    item.category === "product" && item.subcategory
+      ? formatProductUseCaseLabel(item.subcategory)
+      : "",
+    ...item.topics.slice(0, 3),
+  ]);
   const scoreSignals = [
     item.classification_confidence >= 0.8 ? "high classifier confidence" : null,
     item.classification_confidence < 0.6 ? "lower classifier confidence" : null,
@@ -5717,6 +5732,9 @@ function FeedDetailPanel({
         {detail.is_important ? <span className="badge stock">important</span> : null}
         {detail.is_hidden ? <span className="badge muted-badge">hidden</span> : null}
         {detail.is_read ? <span className="badge muted-badge">read</span> : null}
+        {detail.category === "product" && detail.subcategory ? (
+          <span className="badge">{formatProductUseCaseLabel(detail.subcategory)}</span>
+        ) : null}
         {detail.manual_tags.map((tag) => (
           <span className="badge" key={`manual:${tag}`}>
             {tag}

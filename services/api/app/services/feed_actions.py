@@ -93,7 +93,13 @@ def build_feed_why_it_matters(item: FeedItem) -> str | None:
 
 
 def primary_item_focus(item: FeedItem) -> str:
-    labels = [*item.tickers, *item.products, *item.companies, *item.topics]
+    labels = [
+        *item.tickers,
+        *item.products,
+        product_use_case_label(item.subcategory) if item.category == "product" else "",
+        *item.companies,
+        *item.topics,
+    ]
     unique_labels = []
     seen = set()
     for label in labels:
@@ -147,7 +153,10 @@ def build_score_explanation(item: FeedItem) -> str:
     if item.topics:
         reasons.append(f"matched topics {', '.join(item.topics[:3])}")
     if item.category:
-        reasons.append(f"classified as {item.category.replace('_', ' ')}")
+        category_label = item.category.replace("_", " ")
+        if item.category == "product" and item.subcategory:
+            category_label = f"{category_label} / {product_use_case_label(item.subcategory)}"
+        reasons.append(f"classified as {category_label}")
     if item.source_quality_score >= 0.8:
         reasons.append("high source credibility")
     elif item.source_quality_score < 0.6:
@@ -167,6 +176,20 @@ def build_score_explanation(item: FeedItem) -> str:
     if not reasons:
         reasons.append("matched the AI relevance prefilter")
     return "Shown because it " + "; ".join(reasons) + "."
+
+
+def product_use_case_label(subcategory: str | None) -> str:
+    labels = {
+        "product_coding": "Coding",
+        "product_media": "Media",
+        "product_search": "Search",
+        "product_education": "Education",
+        "product_business": "Business",
+        "product_productivity": "Productivity",
+        "product_entertainment": "Entertainment",
+        "product_general": "General",
+    }
+    return labels.get(subcategory or "", (subcategory or "General").replace("_", " ").title())
 
 
 def build_feed_uncertainty_notes(item: FeedItem) -> list[str]:
