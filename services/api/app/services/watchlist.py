@@ -46,7 +46,7 @@ from app.schemas.watchlist import (
     TopicWatchlistItem as TopicWatchlistSchema,
 )
 from app.services.feed_actions import LOCAL_USER_ID, normalize_source_names, serialize_feed_item
-from app.services.scoring import TICKER_ALIASES, TICKER_COMPANY_NAMES
+from app.services.scoring import TICKER_ALIASES, TICKER_COMPANY_NAMES, infer_product_use_case
 from app.services.seed_data import (
     initial_company_watchlist,
     initial_product_watchlist,
@@ -856,6 +856,9 @@ def product_signal_query(
     blocked_sources: list[str] | None = None,
 ):
     conditions = []
+    use_case_terms = build_product_use_case_terms(product)
+    if use_case_terms:
+        conditions.append(NormalizedItem.subcategory.in_(use_case_terms))
     for term in build_product_match_terms(product):
         pattern = f"%{term}%"
         json_pattern = f'%"{term}"%'
@@ -900,6 +903,16 @@ def build_product_match_terms(
     return unique_normalized_terms(
         [product.category, label_words, category_words, *product.related_terms]
     )
+
+
+def build_product_use_case_terms(
+    product: ProductWatchlistItem | ProductWatchlistSchema,
+) -> list[str]:
+    combined_text = " ".join(
+        [product.category.replace("-", " "), product.label, *product.related_terms]
+    )
+    use_case = infer_product_use_case(combined_text)
+    return [] if use_case == "product_general" else [use_case]
 
 
 def rank_product_discovery_items(items: list[FeedItem]) -> list[FeedItem]:

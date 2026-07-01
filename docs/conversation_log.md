@@ -310,3 +310,4 @@ Implementation progress:
 - Added deterministic product use-case subcategories for coding, productivity, media, search, education, business, entertainment, and general AI product items across Product Hunt, Hugging Face Spaces, and manual submissions.
 - Added product use-case filtering to search so natural-language product queries infer subcategories such as coding or media, and the dashboard can filter product results by the same taxonomy.
 - Added product use-case distribution to Product Category briefings so the Products module can show whether watched product signals cluster around coding, media, business, or other PRD use cases.
+- Added product use-case matching to Product Category briefings so watchlists such as AI coding tools can include items classified as `product_coding` even when titles or summaries use different wording.

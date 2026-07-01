@@ -4,7 +4,11 @@ import pytest
 
 from app.schemas.feed import FeedItem
 from app.schemas.watchlist import ProductWatchlistItem
-from app.services.watchlist import build_product_briefing, build_product_match_terms
+from app.services.watchlist import (
+    build_product_briefing,
+    build_product_match_terms,
+    build_product_use_case_terms,
+)
 
 
 def test_build_product_briefing_groups_sources_products_traction_and_activity() -> None:
@@ -92,6 +96,18 @@ def test_build_product_match_terms_includes_slug_label_and_related_terms() -> No
     assert "ai search browsers" in terms
     assert "AI search and browsers" in terms
     assert "answer engine" in terms
+
+
+def test_build_product_use_case_terms_maps_prd_product_categories() -> None:
+    assert build_product_use_case_terms(
+        ProductWatchlistItem(category="ai-coding-tools", label="AI coding tools")
+    ) == ["product_coding"]
+    assert build_product_use_case_terms(
+        ProductWatchlistItem(category="ai-search-browsers", label="AI search and browsers")
+    ) == ["product_search"]
+    assert build_product_use_case_terms(
+        ProductWatchlistItem(category="ai-productivity", label="AI productivity")
+    ) == ["product_productivity"]
 
 
 def make_item(

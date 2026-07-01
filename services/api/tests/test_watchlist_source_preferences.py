@@ -97,6 +97,51 @@ def test_product_briefing_excludes_blocked_sources() -> None:
     assert [source.source_name for source in briefing.trending_sources] == ["Trusted Blog"]
 
 
+def test_product_briefing_matches_product_use_case_subcategory() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            ProductWatchlistItem(
+                user_id="local",
+                category="ai-coding-tools",
+                label="AI coding tools",
+                related_terms=[],
+            )
+        )
+        db.add_all(
+            [
+                make_item(
+                    1,
+                    "Generic launch",
+                    "Product Hunt",
+                    category="product",
+                    subcategory="product_coding",
+                    text="New workspace for software teams.",
+                ),
+                make_item(
+                    2,
+                    "Creative studio launch",
+                    "Product Hunt",
+                    category="product",
+                    subcategory="product_media",
+                    text="New workspace for creators.",
+                ),
+            ]
+        )
+        db.commit()
+
+        briefing = get_product_briefing(db, category="ai-coding-tools")
+
+    assert briefing is not None
+    assert [item.title for item in briefing.recent_timeline] == ["Generic launch"]
+    assert [(bucket.source_name, bucket.item_count) for bucket in briefing.use_case_counts] == [
+        ("Coding", 1)
+    ]
+
+
 def test_topic_briefing_excludes_blocked_sources() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -185,6 +230,9 @@ def make_item(
     products: list[str] | None = None,
     topics: list[str] | None = None,
     tickers: list[str] | None = None,
+    category: str = "technical_trend",
+    subcategory: str | None = None,
+    text: str | None = None,
 ) -> NormalizedItem:
     return NormalizedItem(
         id=item_id,
@@ -195,9 +243,9 @@ def make_item(
         author=None,
         language="en",
         published_at=datetime(2026, 6, 25, 12, item_id, tzinfo=UTC),
-        text=title,
-        category="technical_trend",
-        subcategory=None,
+        text=text or title,
+        category=category,
+        subcategory=subcategory,
         tickers=tickers or [],
         companies=companies or [],
         products=products or [],
