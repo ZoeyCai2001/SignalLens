@@ -353,8 +353,12 @@ def generate_alerts(
     )
     items = [item for item, _action in rows]
     created = 0
+    pending_alert_keys: set[tuple[int, int]] = set()
     for item in items:
         for match in match_alert_rules(item, rules):
+            alert_key = (item.id, match.rule.id)
+            if alert_key in pending_alert_keys:
+                continue
             existing = (
                 db.query(Alert)
                 .filter(
@@ -366,6 +370,7 @@ def generate_alerts(
             )
             if existing:
                 continue
+            pending_alert_keys.add(alert_key)
             db.add(
                 Alert(
                     user_id=LOCAL_USER_ID,
@@ -442,12 +447,16 @@ def generate_cross_source_alerts(
 
     clusters = build_event_clusters_from_items(items=items, limit=30, min_items=2)
     created = 0
+    pending_alert_keys: set[tuple[int, int]] = set()
     for cluster in clusters:
         if len(cluster.sources) < 2:
             continue
         for rule in cluster_rules:
             reason = cross_source_alert_reason(cluster=cluster, rule=rule)
             if reason is None:
+                continue
+            alert_key = (cluster.representative_item.id, rule.id)
+            if alert_key in pending_alert_keys:
                 continue
             existing = (
                 db.query(Alert)
@@ -460,6 +469,7 @@ def generate_cross_source_alerts(
             )
             if existing:
                 continue
+            pending_alert_keys.add(alert_key)
             db.add(
                 Alert(
                     user_id=LOCAL_USER_ID,
@@ -490,10 +500,14 @@ def generate_price_move_alerts(
 
     created = 0
     price_moves: dict[str, float | None] = {}
+    pending_alert_keys: set[tuple[int, int]] = set()
     for item in items:
         for rule in price_move_rules:
             reason = price_move_alert_reason(db=db, item=item, rule=rule, price_moves=price_moves)
             if reason is None:
+                continue
+            alert_key = (item.id, rule.id)
+            if alert_key in pending_alert_keys:
                 continue
             existing = (
                 db.query(Alert)
@@ -506,6 +520,7 @@ def generate_price_move_alerts(
             )
             if existing:
                 continue
+            pending_alert_keys.add(alert_key)
             db.add(
                 Alert(
                     user_id=LOCAL_USER_ID,
@@ -536,6 +551,7 @@ def generate_theme_breakout_alerts(
 
     created = 0
     buckets = build_theme_breakout_buckets(items)
+    pending_alert_keys: set[tuple[int, int]] = set()
     for theme, theme_items in buckets.items():
         sources = {item.source_name for item in theme_items}
         if len(theme_items) < MIN_THEME_BREAKOUT_ITEMS:
@@ -560,6 +576,9 @@ def generate_theme_breakout_alerts(
             )
             if reason is None:
                 continue
+            alert_key = (representative.id, rule.id)
+            if alert_key in pending_alert_keys:
+                continue
             existing = (
                 db.query(Alert)
                 .filter(
@@ -571,6 +590,7 @@ def generate_theme_breakout_alerts(
             )
             if existing:
                 continue
+            pending_alert_keys.add(alert_key)
             db.add(
                 Alert(
                     user_id=LOCAL_USER_ID,

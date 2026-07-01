@@ -318,3 +318,4 @@ Implementation progress:
 - Added research contribution, method, and relevance snippets to related papers inside Topic Watchlist briefings so paper value can be scanned before opening the source.
 - Added an opt-in `python scripts/seed_database.py --demo-data` path that seeds local example feed items, source runs, stock price points, alert rules, and generated alerts so the MVP dashboard can be evaluated without paid or optional APIs.
 - Added `POST /api/ingestion/demo-data` and wired System Readiness to offer a Seed Demo Data action when no recent items exist, letting the local dashboard become inspectable without terminal-only setup.
+- Added `python scripts/smoke_test_demo.py` to verify the no-paid-API demo path against core API surfaces, and guarded alert generation against duplicate pending alerts when multiple alert categories match the same item and rule.

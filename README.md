@@ -147,6 +147,13 @@ python scripts/seed_database.py --demo-data
 The same demo dataset can be seeded from the dashboard System Readiness panel when
 the local database has no recent items.
 
+Run the local demo smoke verifier without Postgres or external API calls:
+
+```bash
+cd services/api
+python scripts/smoke_test_demo.py
+```
+
 Run the Kimi API smoke test:
 
 ```bash
