@@ -545,8 +545,20 @@ type QualityFinding = {
     | "llm:summarize"
     | "stock-prices:refresh"
     | "alerts:generate"
+    | "demo-data:seed"
   > | null;
   action_source_filter: SourceHealthFilter | null;
+};
+
+type DemoDataSeedResponse = {
+  seeded_stock_watchlist_count: number;
+  seeded_company_watchlist_count: number;
+  seeded_topic_watchlist_count: number;
+  seeded_product_watchlist_count: number;
+  seeded_demo_item_count: number;
+  seeded_demo_price_count: number;
+  seeded_demo_alert_count: number;
+  seeded_demo_alert_rule_count: number;
 };
 
 type LlmOperationUsage = {
@@ -793,6 +805,7 @@ type DashboardOperation =
   | "digest:save-snapshot"
   | "stock-prices:refresh"
   | "alerts:generate"
+  | "demo-data:seed"
   | "llm:classify"
   | "llm:summarize"
   | `ingest:${IngestionSource}`;
@@ -1441,6 +1454,32 @@ export function Dashboard() {
     } catch (err) {
       setError(readError(err));
       setStatus("Full ingestion cycle failed");
+    } finally {
+      setLoadState("idle");
+      setActiveOperation(null);
+    }
+  };
+
+  const seedDemoDataFromDashboard = async () => {
+    setActiveOperation("demo-data:seed");
+    setLoadState("running");
+    setError(null);
+    try {
+      const result = await fetchJson<DemoDataSeedResponse>("/api/ingestion/demo-data", {
+        method: "POST",
+      });
+      await refreshAll();
+      const watchlistRows =
+        result.seeded_stock_watchlist_count +
+        result.seeded_company_watchlist_count +
+        result.seeded_topic_watchlist_count +
+        result.seeded_product_watchlist_count;
+      setStatus(
+        `Demo data ready: ${result.seeded_demo_item_count} items, ${result.seeded_demo_price_count} prices, ${result.seeded_demo_alert_count} alerts, ${watchlistRows} watchlist rows`,
+      );
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Demo data seed failed");
     } finally {
       setLoadState("idle");
       setActiveOperation(null);
@@ -2952,6 +2991,10 @@ export function Dashboard() {
       await generateDashboardAlerts();
       return;
     }
+    if (finding.action_operation === "demo-data:seed") {
+      await seedDemoDataFromDashboard();
+      return;
+    }
     setStatus(`${finding.action_label ?? "Opened"}: ${finding.title}`);
   };
 
@@ -2992,6 +3035,7 @@ export function Dashboard() {
       watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
       qualityMetrics={qualityMetrics}
       busyCopy={busySetupCopy}
+      disabled={loadState !== "idle"}
       onCopyMissingEnv={copyMissingEnvTemplate}
       onQualityFindingAction={openQualityFindingAction}
     />
@@ -3730,6 +3774,7 @@ function SystemStatusPanel({
   watchlistCount,
   qualityMetrics,
   busyCopy,
+  disabled,
   onCopyMissingEnv,
   onQualityFindingAction,
 }: {
@@ -3741,6 +3786,7 @@ function SystemStatusPanel({
   watchlistCount: number;
   qualityMetrics: QualityMetrics | null;
   busyCopy: boolean;
+  disabled: boolean;
   onCopyMissingEnv: () => void;
   onQualityFindingAction: (finding: QualityFinding) => void;
 }) {
@@ -3956,6 +4002,7 @@ function SystemStatusPanel({
                             <button
                               className="button"
                               onClick={() => onQualityFindingAction(finding)}
+                              disabled={disabled}
                               type="button"
                             >
                               {finding.action_label}

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession
-from app.schemas.ingestion import IngestionRunResponse, ScheduledCycleResponse
+from app.schemas.ingestion import DemoDataSeedResponse, IngestionRunResponse, ScheduledCycleResponse
+from app.services.demo_data import seed_demo_data
 from app.services.ingestion import (
     run_alpha_vantage_news_ingestion,
     run_alpha_vantage_price_ingestion,
@@ -15,6 +16,12 @@ from app.services.ingestion import (
     run_sec_filings_ingestion,
 )
 from app.services.scheduled_jobs import run_ingestion_cycle
+from app.services.watchlist import (
+    seed_initial_company_watchlist,
+    seed_initial_product_watchlist,
+    seed_initial_stock_watchlist,
+    seed_initial_topic_watchlist,
+)
 
 router = APIRouter()
 
@@ -23,6 +30,18 @@ router = APIRouter()
 async def run_scheduled_ingestion_cycle(db: DbSession) -> ScheduledCycleResponse:
     result = await run_ingestion_cycle(db)
     return ScheduledCycleResponse.model_validate(result)
+
+
+@router.post("/demo-data", response_model=DemoDataSeedResponse)
+async def seed_local_demo_data(db: DbSession) -> DemoDataSeedResponse:
+    result = {
+        "seeded_stock_watchlist_count": len(seed_initial_stock_watchlist(db)),
+        "seeded_company_watchlist_count": len(seed_initial_company_watchlist(db)),
+        "seeded_topic_watchlist_count": len(seed_initial_topic_watchlist(db)),
+        "seeded_product_watchlist_count": len(seed_initial_product_watchlist(db)),
+    }
+    result.update(seed_demo_data(db))
+    return DemoDataSeedResponse.model_validate(result)
 
 
 @router.post("/hacker-news", response_model=IngestionRunResponse)

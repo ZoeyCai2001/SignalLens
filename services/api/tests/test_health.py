@@ -5,16 +5,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.routes.health import (
-    build_quality_findings,
     build_missing_env_template,
+    build_quality_findings,
     build_quality_metrics,
-    build_setup_summary,
     build_setup_items,
+    build_setup_summary,
     canonical_quality_url,
-    duplicate_rate_for_items,
     digest_age_days,
-    has_custom_sec_user_agent,
+    duplicate_rate_for_items,
     has_config_value,
+    has_custom_sec_user_agent,
     health_check,
     normalize_quality_title,
 )
@@ -102,8 +102,12 @@ async def test_health_check_reports_readiness_without_exposing_secrets(monkeypat
     assert response.setup_summary.core_ready is True
     assert "PRODUCT_HUNT_API_TOKEN=your-product-hunt-token" in response.missing_env_template
     assert "MOONSHOT_API_KEY" not in response.missing_env_template
-    assert next(item for item in response.setup_items if item.key == "kimi_coding_api").importance == "core"
-    assert next(item for item in response.setup_items if item.key == "product_hunt_api").importance == "optional"
+    kimi_setup = next(item for item in response.setup_items if item.key == "kimi_coding_api")
+    product_hunt_setup = next(
+        item for item in response.setup_items if item.key == "product_hunt_api"
+    )
+    assert kimi_setup.importance == "core"
+    assert product_hunt_setup.importance == "optional"
     assert "moonshot-key" not in response.model_dump_json()
     assert "github-key" not in response.model_dump_json()
 
@@ -417,9 +421,10 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "No saved digest snapshot",
     ]
     assert findings[0].severity == "warning"
-    assert findings[0].action_label == "Run Full Cycle"
-    assert findings[0].action_operation == "cycle"
-    assert findings[0].action_source_filter == "attention"
+    assert findings[0].action_label == "Seed Demo Data"
+    assert findings[0].action_module == "dashboard"
+    assert findings[0].action_operation == "demo-data:seed"
+    assert findings[0].action_source_filter is None
     assert findings[1].action_module == "digest"
     assert findings[1].action_label == "Save Digest"
     assert findings[1].action_operation == "digest:save-snapshot"

@@ -100,6 +100,7 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/ingestion/hugging-face`
 - `POST http://127.0.0.1:8000/api/ingestion/product-hunt`
 - `POST http://127.0.0.1:8000/api/ingestion/rss`
+- `POST http://127.0.0.1:8000/api/ingestion/demo-data`
 - `POST http://127.0.0.1:8000/api/manual-submissions`
 - `POST http://127.0.0.1:8000/api/watchlist/stocks`
 - `PATCH http://127.0.0.1:8000/api/watchlist/stocks/{ticker}`
@@ -142,6 +143,9 @@ research, product, stock, Chinese social, source-health, alert, and price-chart 
 cd services/api
 python scripts/seed_database.py --demo-data
 ```
+
+The same demo dataset can be seeded from the dashboard System Readiness panel when
+the local database has no recent items.
 
 Run the Kimi API smoke test:
 

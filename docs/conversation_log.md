@@ -317,3 +317,4 @@ Implementation progress:
 - Surfaced product names and use-case labels on ordinary feed cards, item details, and deterministic feed explanations so product context is visible outside the Products module.
 - Added research contribution, method, and relevance snippets to related papers inside Topic Watchlist briefings so paper value can be scanned before opening the source.
 - Added an opt-in `python scripts/seed_database.py --demo-data` path that seeds local example feed items, source runs, stock price points, alert rules, and generated alerts so the MVP dashboard can be evaluated without paid or optional APIs.
+- Added `POST /api/ingestion/demo-data` and wired System Readiness to offer a Seed Demo Data action when no recent items exist, letting the local dashboard become inspectable without terminal-only setup.

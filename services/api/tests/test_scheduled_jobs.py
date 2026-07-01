@@ -443,6 +443,45 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
     )
 
 
+@pytest.mark.anyio
+async def test_demo_data_seed_route_serializes_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = object()
+
+    monkeypatch.setattr(ingestion_routes, "seed_initial_stock_watchlist", lambda seed_db: [1, 2])
+    monkeypatch.setattr(
+        ingestion_routes,
+        "seed_initial_company_watchlist",
+        lambda seed_db: [1, 2, 3],
+    )
+    monkeypatch.setattr(ingestion_routes, "seed_initial_topic_watchlist", lambda seed_db: [1])
+    monkeypatch.setattr(
+        ingestion_routes,
+        "seed_initial_product_watchlist",
+        lambda seed_db: [1, 2, 3, 4],
+    )
+    monkeypatch.setattr(
+        ingestion_routes,
+        "seed_demo_data",
+        lambda seed_db: {
+            "seeded_demo_item_count": 5,
+            "seeded_demo_price_count": 6,
+            "seeded_demo_alert_count": 2,
+            "seeded_demo_alert_rule_count": 9,
+        },
+    )
+
+    response = await ingestion_routes.seed_local_demo_data(db)
+
+    assert response.seeded_stock_watchlist_count == 2
+    assert response.seeded_company_watchlist_count == 3
+    assert response.seeded_topic_watchlist_count == 1
+    assert response.seeded_product_watchlist_count == 4
+    assert response.seeded_demo_item_count == 5
+    assert response.seeded_demo_price_count == 6
+    assert response.seeded_demo_alert_count == 2
+    assert response.seeded_demo_alert_rule_count == 9
+
+
 def make_job(
     name: str,
     limit: int,

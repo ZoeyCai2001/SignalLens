@@ -73,11 +73,17 @@ def build_ingestion_recovery_hint(
     if "no runnable connector" in normalized_error:
         return "Add a supported RSS, GitHub, Product Hunt, or social-source URL before rerunning."
     if normalized_status == "failed":
-        return "Check credentials, network access, rate limits, or source configuration before rerunning."
+        return (
+            "Check credentials, network access, rate limits, or source configuration before "
+            "rerunning."
+        )
     if normalized_status == "skipped" and error_message:
         return "Review the source configuration or schedule before rerunning."
     if normalized_status == "success" and items_fetched > 0 and items_stored == 0:
-        return "Fetched items were filtered or deduplicated; review source relevance and canonical URLs."
+        return (
+            "Fetched items were filtered or deduplicated; review source relevance and "
+            "canonical URLs."
+        )
     return None
 
 
@@ -97,3 +103,14 @@ class ScheduledCycleResponse(BaseModel):
     ingestion_results: list[IngestionRunResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DemoDataSeedResponse(BaseModel):
+    seeded_stock_watchlist_count: int
+    seeded_company_watchlist_count: int
+    seeded_topic_watchlist_count: int
+    seeded_product_watchlist_count: int
+    seeded_demo_item_count: int
+    seeded_demo_price_count: int
+    seeded_demo_alert_count: int
+    seeded_demo_alert_rule_count: int

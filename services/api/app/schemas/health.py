@@ -68,6 +68,7 @@ class QualityFinding(BaseModel):
         "digest:save-snapshot",
         "stock-prices:refresh",
         "alerts:generate",
+        "demo-data:seed",
     ] | None = None
     action_source_filter: Literal[
         "all",

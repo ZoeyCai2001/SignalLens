@@ -662,11 +662,13 @@ def build_quality_findings(
                 severity="warning",
                 title="No recent items",
                 metric="0 recent items",
-                recommendation="Run a full ingestion cycle or check source credentials.",
-                action_label="Run Full Cycle",
-                action_module="sources",
-                action_operation="cycle",
-                action_source_filter="attention",
+                recommendation=(
+                    "Seed local demo data to evaluate the dashboard, or run a full ingestion "
+                    "cycle after source credentials are configured."
+                ),
+                action_label="Seed Demo Data",
+                action_module="dashboard",
+                action_operation="demo-data:seed",
             )
         )
     elif relevance_precision_proxy < 0.6:
@@ -749,7 +751,9 @@ def build_quality_findings(
                 severity="warning",
                 title="Duplicate pressure",
                 metric=f"{format_quality_percent(duplicate_rate)} duplicate rate",
-                recommendation="Review noisy sources and canonical URL handling before LLM batches.",
+                recommendation=(
+                    "Review noisy sources and canonical URL handling before LLM batches."
+                ),
                 action_label="Open Source Health",
                 action_module="sources",
                 action_source_filter="attention",
@@ -905,7 +909,9 @@ def build_quality_findings(
                     f"{format_quality_percent(alert_dismissal_rate)} dismissed "
                     f"across {active_alert_count + dismissed_alert_count} alerts"
                 ),
-                recommendation="Tune alert rules, watched tickers, and minimum importance thresholds.",
+                recommendation=(
+                    "Tune alert rules, watched tickers, and minimum importance thresholds."
+                ),
                 action_label="Review Settings",
                 action_module="settings",
             )
@@ -916,7 +922,9 @@ def build_quality_findings(
                 severity="warning",
                 title="Source failures need review",
                 metric=f"{format_quality_percent(source_failure_rate)} failure rate",
-                recommendation="Open Source Health, filter failed runs, and update credentials or feeds.",
+                recommendation=(
+                    "Open Source Health, filter failed runs, and update credentials or feeds."
+                ),
                 action_label="Show Failed Runs",
                 action_module="sources",
                 action_source_filter="failed",
