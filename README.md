@@ -135,6 +135,14 @@ alembic upgrade head
 python scripts/seed_database.py
 ```
 
+For a local no-paid-API demo dashboard, seed the watchlists plus sample AI trend,
+research, product, stock, Chinese social, source-health, alert, and price-chart data:
+
+```bash
+cd services/api
+python scripts/seed_database.py --demo-data
+```
+
 Run the Kimi API smoke test:
 
 ```bash

@@ -316,3 +316,4 @@ Implementation progress:
 - Added product use-case labels to viral product/social alert reasons and dashboard alert badges so product alerts show whether a signal is coding, media, search, business, or another PRD use case.
 - Surfaced product names and use-case labels on ordinary feed cards, item details, and deterministic feed explanations so product context is visible outside the Products module.
 - Added research contribution, method, and relevance snippets to related papers inside Topic Watchlist briefings so paper value can be scanned before opening the source.
+- Added an opt-in `python scripts/seed_database.py --demo-data` path that seeds local example feed items, source runs, stock price points, alert rules, and generated alerts so the MVP dashboard can be evaluated without paid or optional APIs.

@@ -1,7 +1,11 @@
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+from app.db.models import Base, NormalizedItem, SourceRun, StockPricePoint
 from app.schemas.watchlist import StockWatchlistItemUpdate
+from app.services.demo_data import seed_demo_data
 from app.services.seed_data import (
     initial_company_watchlist,
     initial_product_watchlist,
@@ -86,6 +90,58 @@ def test_seed_database_script_seeds_all_default_watchlists(monkeypatch: pytest.M
         "seeded_topic_watchlist_count": 4,
         "seeded_product_watchlist_count": 2,
     }
+
+
+def test_seed_database_script_can_include_demo_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = object()
+    monkeypatch.setattr(seed_database_script, "seed_initial_stock_watchlist", lambda _db: [])
+    monkeypatch.setattr(seed_database_script, "seed_initial_company_watchlist", lambda _db: [])
+    monkeypatch.setattr(seed_database_script, "seed_initial_topic_watchlist", lambda _db: [])
+    monkeypatch.setattr(seed_database_script, "seed_initial_product_watchlist", lambda _db: [])
+    monkeypatch.setattr(
+        seed_database_script,
+        "seed_demo_data",
+        lambda seed_db: {
+            "seeded_demo_item_count": 5,
+            "seeded_demo_price_count": 6,
+            "seeded_demo_alert_count": 2,
+            "seeded_demo_alert_rule_count": 9,
+        },
+    )
+
+    result = seed_database_script.seed_database(db, include_demo_data=True)
+
+    assert result["seeded_demo_item_count"] == 5
+    assert result["seeded_demo_price_count"] == 6
+
+
+def test_seed_demo_data_populates_first_run_dashboard_examples() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        first = seed_demo_data(db)
+        second = seed_demo_data(db)
+
+        categories = {item.category for item in db.query(NormalizedItem).all()}
+
+        assert first["seeded_demo_item_count"] == 5
+        assert first["seeded_demo_price_count"] == 6
+        assert first["seeded_demo_alert_rule_count"] == 9
+        assert first["seeded_demo_alert_count"] >= 1
+        assert second["seeded_demo_item_count"] == 0
+        assert second["seeded_demo_price_count"] == 0
+        expected_categories = {
+            "research",
+            "technical_trend",
+            "product",
+            "stock_company_event",
+            "social_trend",
+        }
+        assert expected_categories.issubset(categories)
+        assert db.query(SourceRun).count() == 5
+        assert db.query(StockPricePoint).count() == 6
 
 
 def test_stock_match_terms_include_ticker_company_and_related_terms() -> None:
