@@ -24,6 +24,7 @@ from app.services.scoring import (
     detect_tickers,
     detect_topics,
     importance_score,
+    infer_product_use_case,
     is_ai_relevant,
     relevance_score,
 )
@@ -852,7 +853,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         hf_kind = raw.raw_metadata.get("hf_kind")
         if hf_kind == "space":
             category = "product"
-            subcategory = "hf_space_demo"
+            subcategory = infer_product_use_case(combined_text)
             summary_prefix = "Hugging Face Space"
             why_it_matters = (
                 "This Space metadata matched AI product or demo signals on Hugging Face."
@@ -894,7 +895,7 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         )
     elif source.name == "Product Hunt":
         category = "product"
-        subcategory = "product_launch"
+        subcategory = infer_product_use_case(combined_text)
         summary_prefix = "Product Hunt launch"
         why_it_matters = (
             "This product launch matched the AI relevance prefilter from Product Hunt metadata."
@@ -1006,7 +1007,9 @@ def build_initial_detailed_summary(
 
     if category == "product":
         traction = build_source_traction_signal(raw.raw_metadata)
+        product_category = format_product_use_case(subcategory)
         parts = [
+            f"Product category: {product_category}",
             f"Product use case: {source_excerpt}",
             f"Product audience: {infer_product_audience(raw.raw_text or raw.raw_title)}",
         ]
@@ -1172,6 +1175,20 @@ def infer_product_audience(text: str) -> str:
     if re.search(r"\b(photo|video|image|media|creative)\b", lowered):
         return "creative and media users"
     return "AI product evaluators"
+
+
+def format_product_use_case(subcategory: str | None) -> str:
+    labels = {
+        "product_coding": "coding",
+        "product_productivity": "productivity",
+        "product_media": "media",
+        "product_search": "search",
+        "product_education": "education",
+        "product_business": "business",
+        "product_entertainment": "entertainment",
+        "product_general": "general AI product",
+    }
+    return labels.get(subcategory or "", "general AI product")
 
 
 def first_sentence(text: str, limit: int = 260) -> str:

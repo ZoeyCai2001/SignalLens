@@ -307,3 +307,4 @@ Implementation progress:
 - Added manual submission counts and manual enrichment gap counts to quality metrics, plus a readiness finding that runs capped classification when user-submitted links still need metadata.
 - Added stock, company, topic, and product watchlist coverage counts to quality metrics, plus a readiness finding for dashboards with too few populated personalization areas.
 - Added deterministic backend `why_it_matters` fallbacks for feed items so cards, details, digest, and saved-item exports keep useful explanations before LLM summarization runs.
+- Added deterministic product use-case subcategories for coding, productivity, media, search, education, business, entertainment, and general AI product items across Product Hunt, Hugging Face Spaces, and manual submissions.

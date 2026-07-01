@@ -1,3 +1,5 @@
+import re
+
 AI_KEYWORDS = {
     "ai",
     "artificial intelligence",
@@ -130,6 +132,35 @@ AI_PRODUCT_ALIASES = {
     "Hugging Face Spaces": ["Hugging Face Space", "Hugging Face Spaces"],
 }
 
+PRODUCT_USE_CASE_PATTERNS = [
+    (
+        "product_coding",
+        r"\b(coding|code|developer|developers|devtool|ide|repository|github|pull request|"
+        r"programming|software engineer|debug|agentic coding)\b",
+    ),
+    (
+        "product_media",
+        r"\b(photo|image|video|audio|voice|music|design|editing|creator|media|sora|"
+        r"midjourney|runway)\b",
+    ),
+    ("product_search", r"\b(search|browser|answer engine|research assistant|perplexity)\b"),
+    (
+        "product_education",
+        r"\b(education|learning|tutor|student|teacher|course|classroom|study)\b",
+    ),
+    (
+        "product_business",
+        r"\b(business|enterprise|sales|support|customer|crm|operations|product teams?|"
+        r"product managers?|pm|finance|legal|hr)\b",
+    ),
+    (
+        "product_productivity",
+        r"\b(productivity|workflow|note|notes|calendar|email|docs?|spreadsheet|task|"
+        r"meeting|assistant|automation)\b",
+    ),
+    ("product_entertainment", r"\b(game|gaming|entertainment|social companion|roleplay)\b"),
+]
+
 
 def detect_topics(text: str) -> list[str]:
     normalized = text.lower()
@@ -167,6 +198,14 @@ def detect_products(text: str) -> list[str]:
         if any(alias.lower() in normalized for alias in aliases)
     }
     return sorted(detected)
+
+
+def infer_product_use_case(text: str) -> str:
+    normalized = text.lower()
+    for use_case, pattern in PRODUCT_USE_CASE_PATTERNS:
+        if re.search(pattern, normalized):
+            return use_case
+    return "product_general"
 
 
 def is_ai_relevant(text: str) -> bool:

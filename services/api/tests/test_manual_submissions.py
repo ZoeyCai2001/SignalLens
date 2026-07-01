@@ -63,7 +63,7 @@ def test_manual_enrichment_routes_ai_product_submissions() -> None:
     enrich_manual_normalized_item(item, raw)
 
     assert item.category == "product"
-    assert item.subcategory == "manual_product"
+    assert item.subcategory == "product_business"
     assert item.companies == []
     assert item.products == ["AgentDesk"]
     assert "agent" in item.topics

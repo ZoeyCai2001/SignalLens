@@ -94,11 +94,12 @@ def test_product_hunt_normalized_item_is_product_launch() -> None:
 
     assert item is not None
     assert item.category == "product"
-    assert item.subcategory == "product_launch"
+    assert item.subcategory == "product_business"
     assert item.source_quality_score == 0.74
     assert item.products == ["AgentDesk"]
     assert item.summary_short == "Product Hunt launch: AgentDesk: AI agents for product teams"
     assert item.summary_detailed is not None
+    assert "Product category: business" in item.summary_detailed
     assert "Product use case: AI agents coordinate LLM workflows" in item.summary_detailed
     assert "Product audience: product and growth teams" in item.summary_detailed
     assert "Traction signal: 340 Product Hunt votes, 24 comments" in item.summary_detailed

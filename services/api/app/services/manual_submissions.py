@@ -28,6 +28,7 @@ from app.services.scoring import (
     detect_tickers,
     detect_topics,
     importance_score,
+    infer_product_use_case,
     is_ai_relevant,
     relevance_score,
 )
@@ -392,7 +393,7 @@ def infer_manual_category(text: str) -> tuple[str, str]:
     ):
         return "social_trend", "manual_social_signal"
     if re.search(r"\b(product|launch|app|tool|workflow|browser|photo|video)\b", lowered):
-        return "product", "manual_product"
+        return "product", infer_product_use_case(text)
     return "technical_trend", "manual_ai_signal"
 
 

@@ -4,6 +4,7 @@ from app.services.scoring import (
     detect_products,
     detect_tickers,
     detect_topics,
+    infer_product_use_case,
     is_ai_relevant,
     relevance_score,
 )
@@ -39,6 +40,17 @@ def test_detect_products_maps_known_ai_product_names() -> None:
     text = "ChatGPT, Claude, Cursor, and GitHub Copilot shipped agent updates."
 
     assert detect_products(text) == ["ChatGPT", "Claude", "Copilot", "Cursor"]
+
+
+def test_infer_product_use_case_maps_prd_product_categories() -> None:
+    assert infer_product_use_case("AI coding workspace for developers") == "product_coding"
+    assert infer_product_use_case("AI video editing and photo generation") == "product_media"
+    assert infer_product_use_case("AI search browser for research") == "product_search"
+    assert infer_product_use_case("AI tutor for students and teachers") == "product_education"
+    assert infer_product_use_case("AI CRM support tool for sales teams") == "product_business"
+    assert infer_product_use_case("AI workflow assistant for meeting notes") == "product_productivity"
+    assert infer_product_use_case("AI gaming companion for entertainment") == "product_entertainment"
+    assert infer_product_use_case("New AI product launch") == "product_general"
 
 
 def test_ai_relevance_detects_chinese_ai_terms() -> None:

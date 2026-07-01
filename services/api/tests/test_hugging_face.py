@@ -108,7 +108,7 @@ def test_hugging_face_space_normalizes_as_product_demo() -> None:
 
     assert item is not None
     assert item.category == "product"
-    assert item.subcategory == "hf_space_demo"
+    assert item.subcategory == "product_media"
     assert item.source_quality_score == 0.78
     assert item.summary_short == "Hugging Face Space: demo-org/video-agent: Hugging Face Space update"
     assert "Traction signal: Hugging Face Space traction: 640 likes" in item.summary_detailed
