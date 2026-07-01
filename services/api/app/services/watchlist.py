@@ -773,6 +773,11 @@ def build_product_briefing(
     items: list[FeedItem],
 ) -> ProductBriefing:
     source_counts = Counter(item.source_name for item in items)
+    use_case_counts = Counter(
+        format_product_use_case_label(item.subcategory)
+        for item in items
+        if item.category == "product" and item.subcategory
+    )
     product_counts: Counter[str] = Counter()
     company_counts: Counter[str] = Counter()
     activity_counts: Counter = Counter()
@@ -799,6 +804,10 @@ def build_product_briefing(
             TopicSourceCount(source_name=source_name, item_count=count)
             for source_name, count in source_counts.most_common(8)
         ],
+        use_case_counts=[
+            TopicSourceCount(source_name=use_case, item_count=count)
+            for use_case, count in use_case_counts.most_common(8)
+        ],
         matched_products=[
             product_name for product_name, _count in product_counts.most_common(10)
         ],
@@ -812,6 +821,20 @@ def build_product_briefing(
             for activity_date, count in sorted(activity_counts.items(), reverse=True)[:14]
         ],
     )
+
+
+def format_product_use_case_label(subcategory: str | None) -> str:
+    labels = {
+        "product_coding": "Coding",
+        "product_media": "Media",
+        "product_search": "Search",
+        "product_education": "Education",
+        "product_business": "Business",
+        "product_productivity": "Productivity",
+        "product_entertainment": "Entertainment",
+        "product_general": "General",
+    }
+    return labels.get(subcategory or "", (subcategory or "General").replace("_", " ").title())
 
 
 def query_product_rows(

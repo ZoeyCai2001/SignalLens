@@ -21,6 +21,7 @@ def test_build_product_briefing_groups_sources_products_traction_and_activity() 
             source_name="Product Hunt",
             products=["AgentDesk"],
             companies=["AgentDesk"],
+            subcategory="product_coding",
             published_at=datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
             importance_score=0.8,
             novelty_score=0.85,
@@ -32,6 +33,7 @@ def test_build_product_briefing_groups_sources_products_traction_and_activity() 
             source_name="GitHub",
             products=["CodePilot"],
             companies=["CodePilot"],
+            subcategory="product_coding",
             published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
             importance_score=0.6,
             novelty_score=0.95,
@@ -43,6 +45,7 @@ def test_build_product_briefing_groups_sources_products_traction_and_activity() 
             source_name="Product Hunt",
             products=["AgentDesk"],
             companies=["AgentDesk"],
+            subcategory="product_business",
             published_at=datetime(2026, 6, 24, 12, 0, tzinfo=UTC),
             importance_score=0.9,
             novelty_score=0.4,
@@ -58,6 +61,10 @@ def test_build_product_briefing_groups_sources_products_traction_and_activity() 
     assert briefing.average_novelty_score == pytest.approx((0.85 + 0.95 + 0.4) / 3)
     assert briefing.trending_sources[0].source_name == "Product Hunt"
     assert briefing.trending_sources[0].item_count == 2
+    assert [(bucket.source_name, bucket.item_count) for bucket in briefing.use_case_counts] == [
+        ("Coding", 2),
+        ("Business", 1),
+    ]
     assert briefing.matched_products[:2] == ["AgentDesk", "CodePilot"]
     assert briefing.related_companies[:2] == ["AgentDesk", "CodePilot"]
     assert briefing.traction_signals == [
@@ -94,6 +101,7 @@ def make_item(
     products: list[str],
     companies: list[str],
     published_at: datetime,
+    subcategory: str | None = None,
     importance_score: float = 0.7,
     novelty_score: float = 0.7,
     summary_detailed: str | None = None,
@@ -107,7 +115,7 @@ def make_item(
         language="en",
         published_at=published_at,
         category="product",
-        subcategory=None,
+        subcategory=subcategory,
         tickers=[],
         companies=companies,
         products=products,

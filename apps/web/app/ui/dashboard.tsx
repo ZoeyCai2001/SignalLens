@@ -294,6 +294,7 @@ type ProductBriefing = {
   average_importance_score: number;
   average_novelty_score: number;
   trending_sources: TopicSourceCount[];
+  use_case_counts: TopicSourceCount[];
   matched_products: string[];
   related_companies: string[];
   traction_signals: string[];
@@ -8296,6 +8297,13 @@ function ProductBriefingPanel({
           emptyText="No source activity yet."
           items={briefing.trending_sources.map(
             (source) => `${source.source_name} (${source.item_count})`,
+          )}
+        />
+        <TopicBriefingList
+          title="Use Cases"
+          emptyText="No use-case classification yet."
+          items={briefing.use_case_counts.map(
+            (bucket) => `${bucket.source_name} (${bucket.item_count})`,
           )}
         />
         <TopicBriefingList

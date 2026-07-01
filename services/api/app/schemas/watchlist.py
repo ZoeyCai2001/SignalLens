@@ -299,6 +299,7 @@ class ProductBriefing(BaseModel):
     average_importance_score: float = 0
     average_novelty_score: float = 0
     trending_sources: list[TopicSourceCount]
+    use_case_counts: list[TopicSourceCount] = Field(default_factory=list)
     matched_products: list[str]
     related_companies: list[str]
     traction_signals: list[str] = Field(default_factory=list)
