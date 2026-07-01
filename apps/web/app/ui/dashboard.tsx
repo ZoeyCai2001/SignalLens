@@ -500,6 +500,8 @@ type QualityMetrics = {
   save_count: number;
   hide_count: number;
   feedback_action_count: number;
+  manual_submission_count: number;
+  manual_enrichment_gap_count: number;
   saved_read_count: number;
   saved_read_later_count: number;
   save_hide_ratio: number | null;
@@ -3847,6 +3849,10 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Feedback"
                     value={qualityMetrics.feedback_action_count}
+                  />
+                  <ReadinessMetric
+                    label="Manual"
+                    value={`${qualityMetrics.manual_submission_count} · ${qualityMetrics.manual_enrichment_gap_count} gap`}
                   />
                   <ReadinessMetric
                     label="Read Later"

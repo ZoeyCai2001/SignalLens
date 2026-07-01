@@ -348,6 +348,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.save_count == 1
     assert metrics.hide_count == 2
     assert metrics.feedback_action_count == 3
+    assert metrics.manual_submission_count == 0
+    assert metrics.manual_enrichment_gap_count == 0
     assert metrics.saved_read_count == 1
     assert metrics.saved_read_later_count == 0
     assert metrics.save_hide_ratio == 0.5
@@ -827,6 +829,48 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
     ]
 
 
+def test_build_quality_metrics_tracks_manual_submission_enrichment_gaps() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    now = datetime.now(UTC)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_quality_item(
+                    1,
+                    "Manual AI reading note",
+                    url="https://example.com/manual-1",
+                    published_at=now,
+                    category="manual_submission",
+                ),
+                make_quality_item(
+                    2,
+                    "Manual stock signal",
+                    url="https://example.com/manual-2",
+                    published_at=now,
+                    category="manual_submission",
+                ),
+                make_quality_item(
+                    3,
+                    "Classified manual product signal",
+                    url="https://example.com/manual-3",
+                    published_at=now,
+                    category="product",
+                    source_name="Manual Submission",
+                    products=["AgentDesk"],
+                ),
+            ]
+        )
+        db.commit()
+
+        metrics = build_quality_metrics(db=db, window_days=7)
+
+    assert metrics.manual_submission_count == 3
+    assert metrics.manual_enrichment_gap_count == 2
+
+
 def test_digest_age_days_tracks_latest_saved_digest_freshness() -> None:
     assert digest_age_days(date(2026, 6, 30), date(2026, 6, 30)) == 0
     assert digest_age_days(date(2026, 6, 28), date(2026, 6, 30)) == 2
@@ -912,6 +956,37 @@ def test_build_quality_findings_flags_missing_personal_feedback() -> None:
     assert findings[0].action_label == "Open Dashboard"
     assert findings[0].action_module == "dashboard"
     assert findings[0].action_operation is None
+
+
+def test_build_quality_findings_flags_manual_submission_enrichment_gap() -> None:
+    findings = build_quality_findings(
+        recent_item_count=3,
+        high_value_item_count=0,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        manual_submission_count=3,
+        manual_enrichment_gap_count=2,
+    )
+
+    assert [finding.title for finding in findings] == [
+        "Manual submissions need enrichment"
+    ]
+    assert findings[0].metric == "2/3 manual items need review"
+    assert findings[0].action_label == "Run Classification"
+    assert findings[0].action_module == "dashboard"
+    assert findings[0].action_operation == "llm:classify"
 
 
 def test_build_quality_findings_ignores_small_read_later_queue() -> None:

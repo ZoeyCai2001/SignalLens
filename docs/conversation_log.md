@@ -304,3 +304,4 @@ Implementation progress:
 - Added feedback action count and a readiness finding for dashboards with recent items but no save/hide feedback, steering users back to personal ranking training.
 - Added trusted-source coverage and low-quality item counts to quality metrics, plus a readiness finding that steers low-trust feeds back to Source Health.
 - Added search-facet coverage and unfaceted item counts to quality metrics, plus a readiness finding that runs capped classification when topics, companies, products, or tickers are missing.
+- Added manual submission counts and manual enrichment gap counts to quality metrics, plus a readiness finding that runs capped classification when user-submitted links still need metadata.

@@ -104,6 +104,8 @@ class QualityMetricsResponse(BaseModel):
     save_count: int
     hide_count: int
     feedback_action_count: int = 0
+    manual_submission_count: int = 0
+    manual_enrichment_gap_count: int = 0
     saved_read_count: int = 0
     saved_read_later_count: int = 0
     save_hide_ratio: float | None

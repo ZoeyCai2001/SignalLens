@@ -125,6 +125,11 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     )
     search_facet_coverage = ratio(faceted_item_count, recent_item_count)
     unfaceted_item_count = recent_item_count - faceted_item_count
+    recent_manual_rows = [item for item in recent_rows if quality_item_is_manual_submission(item)]
+    manual_submission_count = len(recent_manual_rows)
+    manual_enrichment_gap_count = sum(
+        1 for item in recent_manual_rows if quality_item_needs_manual_enrichment(item)
+    )
     relevance_precision_proxy = ratio(
         sum(1 for item in recent_rows if item.relevance_score >= 0.5),
         recent_item_count,
@@ -194,6 +199,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         save_count=save_count,
         hide_count=hide_count,
         feedback_action_count=feedback_action_count,
+        manual_submission_count=manual_submission_count,
+        manual_enrichment_gap_count=manual_enrichment_gap_count,
         saved_read_count=saved_read_count,
         saved_read_later_count=saved_read_later_count,
         save_hide_ratio=round(save_count / hide_count, 3) if hide_count else None,
@@ -233,6 +240,8 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             saved_read_later_count=saved_read_later_count,
             save_count=save_count,
             feedback_action_count=feedback_action_count,
+            manual_submission_count=manual_submission_count,
+            manual_enrichment_gap_count=manual_enrichment_gap_count,
             active_alert_count=alert_counts["active"],
             dismissed_alert_count=alert_counts["dismissed"],
             alert_dismissal_rate=alert_dismissal_rate,
@@ -525,6 +534,29 @@ def quality_item_has_search_facets(item: NormalizedItem) -> bool:
     return bool(item.topics or item.companies or item.products or item.tickers)
 
 
+def quality_item_is_manual_submission(item: NormalizedItem) -> bool:
+    if item.category == "manual_submission":
+        return True
+    raw_item = getattr(item, "raw_item", None)
+    if raw_item is None:
+        return item.source_name == "Manual Submission"
+    source = getattr(raw_item, "source", None)
+    metadata = raw_item.raw_metadata or {}
+    return (
+        getattr(source, "type", None) == "manual"
+        or metadata.get("submission_type") == "manual"
+        or item.source_name == "Manual Submission"
+    )
+
+
+def quality_item_needs_manual_enrichment(item: NormalizedItem) -> bool:
+    return (
+        item.category == "manual_submission"
+        or (item.classification_confidence or 0) < 0.7
+        or not quality_item_has_search_facets(item)
+    )
+
+
 def build_quality_findings(
     *,
     recent_item_count: int,
@@ -544,6 +576,8 @@ def build_quality_findings(
     latest_digest_snapshot_item_count: int | None,
     llm_calls_per_recent_item: float,
     feedback_action_count: int | None = None,
+    manual_submission_count: int = 0,
+    manual_enrichment_gap_count: int = 0,
     classification_coverage: float = 0,
     low_confidence_item_count: int = 0,
     covered_module_count: int | None = None,
@@ -559,7 +593,7 @@ def build_quality_findings(
     current_date: date | None = None,
 ) -> list[QualityFinding]:
     findings: list[QualityFinding] = []
-    today = current_date or datetime.now(UTC).date()
+    today = current_date or latest_digest_snapshot_date or datetime.now(UTC).date()
     if recent_item_count == 0:
         findings.append(
             QualityFinding(
@@ -744,6 +778,27 @@ def build_quality_findings(
                 ),
                 action_label="Open Dashboard",
                 action_module="dashboard",
+            )
+        )
+    if manual_submission_count >= 3 and ratio(
+        manual_enrichment_gap_count,
+        manual_submission_count,
+    ) >= 0.5:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Manual submissions need enrichment",
+                metric=(
+                    f"{manual_enrichment_gap_count}/{manual_submission_count} "
+                    "manual items need review"
+                ),
+                recommendation=(
+                    "Run capped LLM classification so user-submitted links become searchable, "
+                    "ranked, and digest-ready."
+                ),
+                action_label="Run Classification",
+                action_module="dashboard",
+                action_operation="llm:classify",
             )
         )
     if recent_item_count > 0 and high_value_item_count > 0 and active_alert_count == 0:
