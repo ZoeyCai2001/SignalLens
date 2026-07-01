@@ -33,6 +33,7 @@ from app.services.feed_actions import (
     serialize_feed_item,
 )
 from app.services.preferences import get_user_preferences
+from app.services.watchlist import format_product_use_case_label
 
 NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens is informational only and does not provide investment advice."
@@ -139,7 +140,7 @@ def render_digest_markdown(digest: DailyDigest) -> str:
         lines.extend([f"## {section.title}", ""])
         for item in section.items:
             summary = item.summary_short or item.why_it_matters or item.summary_detailed
-            labels = [*item.tickers[:3], *item.topics[:3]]
+            labels = build_digest_item_labels(item)
             label_text = f" ({', '.join(labels)})" if labels else ""
             lines.append(f"- [{item.title}]({item.url}) - {item.source_name}{label_text}")
             if summary:
@@ -154,6 +155,28 @@ def render_digest_markdown(digest: DailyDigest) -> str:
 
     lines.extend(["## Disclaimer", "", digest.disclaimer])
     return "\n".join(lines).strip() + "\n"
+
+
+def build_digest_item_labels(item: FeedItem, limit: int = 4) -> list[str]:
+    labels = [
+        *item.tickers,
+        *item.products,
+        format_product_use_case_label(item.subcategory) if item.category == "product" else "",
+        *item.topics,
+    ]
+    return unique_digest_labels(labels)[:limit]
+
+
+def unique_digest_labels(labels: list[str]) -> list[str]:
+    seen = set()
+    unique_labels = []
+    for label in labels:
+        normalized = label.strip()
+        key = normalized.lower()
+        if normalized and key not in seen:
+            seen.add(key)
+            unique_labels.append(normalized)
+    return unique_labels
 
 
 def save_daily_digest_snapshot(

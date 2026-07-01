@@ -4806,7 +4806,29 @@ function digestItemSummary(item: FeedItem): string | null {
 }
 
 function digestItemLabels(item: FeedItem): string[] {
-  return Array.from(new Set([...item.tickers, ...item.topics])).slice(0, 4);
+  const labels = [
+    ...item.tickers,
+    ...item.products,
+    item.category === "product" && item.subcategory
+      ? formatProductUseCaseLabel(item.subcategory)
+      : "",
+    ...item.topics,
+  ];
+  return uniqueLabels(labels).slice(0, 4);
+}
+
+function uniqueLabels(labels: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  labels.forEach((label) => {
+    const normalized = label.trim();
+    const key = normalized.toLowerCase();
+    if (normalized && !seen.has(key)) {
+      seen.add(key);
+      result.push(normalized);
+    }
+  });
+  return result;
 }
 
 function SavedItemsPanel({

@@ -19,6 +19,7 @@ from app.schemas.digest import DailyDigest
 from app.schemas.feed import FeedItem
 from app.services.daily_digest import (
     build_digest_overview_metrics,
+    build_digest_item_labels,
     build_digest_sections,
     build_headline,
     build_source_coverage,
@@ -148,6 +149,20 @@ def test_sort_for_digest_uses_social_signal() -> None:
 
     assert ranked[0].title == "Popular product signal"
     assert digest_rank_score(popular) > digest_rank_score(quiet)
+
+
+def test_build_digest_item_labels_includes_product_names_and_use_case() -> None:
+    item = make_item(
+        1,
+        "AI product launch",
+        "product",
+        0.8,
+        products=["CodePilot", "Coding"],
+        topics=["ai coding"],
+        subcategory="product_coding",
+    )
+
+    assert build_digest_item_labels(item) == ["CodePilot", "Coding", "ai coding"]
 
 
 def test_daily_digest_headline_handles_empty_day() -> None:
@@ -289,6 +304,14 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     items = [
         make_item(1, "Research", "research", 0.9, topics=["llm"]),
         make_item(2, "Stock", "stock_company_event", 0.8, tickers=["MU"]),
+        make_item(
+            3,
+            "Product",
+            "product",
+            0.85,
+            products=["CodePilot"],
+            subcategory="product_coding",
+        ),
     ]
     digest = DailyDigest(
         digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
@@ -309,6 +332,7 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert "Company watchlist: OpenAI, Anthropic" in markdown
     assert "## AI Research" in markdown
     assert "- [Research](https://example.com/1) - Test Source" in markdown
+    assert "- [Product](https://example.com/3) - Test Source (CodePilot, Coding)" in markdown
     assert "## Disclaimer" in markdown
     assert markdown.endswith("Informational only.\n")
 
@@ -698,6 +722,7 @@ def make_item(
     is_read: bool = False,
     source_quality_score: float = 0.7,
     classification_confidence: float = 0.5,
+    subcategory: str | None = None,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -708,7 +733,7 @@ def make_item(
         language="en",
         published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
         category=category,
-        subcategory=None,
+        subcategory=subcategory,
         tickers=tickers or [],
         companies=companies or [],
         products=products or [],
