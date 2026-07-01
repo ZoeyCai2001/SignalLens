@@ -12,12 +12,15 @@ from app.api.deps import DbSession
 from app.core.config import DEFAULT_SEC_USER_AGENT, Settings, get_settings
 from app.db.models import (
     Alert,
+    CompanyWatchlistItem,
     DailyDigestSnapshot,
     LlmUsageEvent,
     NormalizedItem,
+    ProductWatchlistItem,
     SourceRun,
     StockPricePoint,
     StockWatchlistItem,
+    TopicWatchlistItem,
     UserItemAction,
 )
 from app.schemas.health import (
@@ -168,6 +171,15 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         current_date=generated_at.date(),
     )
     stock_watchlist_count = count_stock_watchlist_items(db)
+    company_watchlist_count = count_company_watchlist_items(db)
+    topic_watchlist_count = count_topic_watchlist_items(db)
+    product_watchlist_count = count_product_watchlist_items(db)
+    watchlist_area_count = count_populated_watchlist_areas(
+        stock_watchlist_count=stock_watchlist_count,
+        company_watchlist_count=company_watchlist_count,
+        topic_watchlist_count=topic_watchlist_count,
+        product_watchlist_count=product_watchlist_count,
+    )
     latest_stock_price_date = get_latest_stock_price_date(db)
     latest_stock_price_age_days = stock_price_age_days(
         latest_stock_price_date=latest_stock_price_date,
@@ -201,6 +213,11 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         feedback_action_count=feedback_action_count,
         manual_submission_count=manual_submission_count,
         manual_enrichment_gap_count=manual_enrichment_gap_count,
+        stock_watchlist_count=stock_watchlist_count,
+        company_watchlist_count=company_watchlist_count,
+        topic_watchlist_count=topic_watchlist_count,
+        product_watchlist_count=product_watchlist_count,
+        watchlist_area_count=watchlist_area_count,
         saved_read_count=saved_read_count,
         saved_read_later_count=saved_read_later_count,
         save_hide_ratio=round(save_count / hide_count, 3) if hide_count else None,
@@ -242,6 +259,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             feedback_action_count=feedback_action_count,
             manual_submission_count=manual_submission_count,
             manual_enrichment_gap_count=manual_enrichment_gap_count,
+            watchlist_area_count=watchlist_area_count,
             active_alert_count=alert_counts["active"],
             dismissed_alert_count=alert_counts["dismissed"],
             alert_dismissal_rate=alert_dismissal_rate,
@@ -377,6 +395,49 @@ def count_stock_watchlist_items(db: Session) -> int:
         db.query(StockWatchlistItem)
         .filter(StockWatchlistItem.user_id == LOCAL_USER_ID)
         .count()
+    )
+
+
+def count_company_watchlist_items(db: Session) -> int:
+    return (
+        db.query(CompanyWatchlistItem)
+        .filter(CompanyWatchlistItem.user_id == LOCAL_USER_ID)
+        .count()
+    )
+
+
+def count_topic_watchlist_items(db: Session) -> int:
+    return (
+        db.query(TopicWatchlistItem)
+        .filter(TopicWatchlistItem.user_id == LOCAL_USER_ID)
+        .count()
+    )
+
+
+def count_product_watchlist_items(db: Session) -> int:
+    return (
+        db.query(ProductWatchlistItem)
+        .filter(ProductWatchlistItem.user_id == LOCAL_USER_ID)
+        .count()
+    )
+
+
+def count_populated_watchlist_areas(
+    *,
+    stock_watchlist_count: int,
+    company_watchlist_count: int,
+    topic_watchlist_count: int,
+    product_watchlist_count: int,
+) -> int:
+    return sum(
+        1
+        for count in (
+            stock_watchlist_count,
+            company_watchlist_count,
+            topic_watchlist_count,
+            product_watchlist_count,
+        )
+        if count > 0
     )
 
 
@@ -578,6 +639,7 @@ def build_quality_findings(
     feedback_action_count: int | None = None,
     manual_submission_count: int = 0,
     manual_enrichment_gap_count: int = 0,
+    watchlist_area_count: int | None = None,
     classification_coverage: float = 0,
     low_confidence_item_count: int = 0,
     covered_module_count: int | None = None,
@@ -799,6 +861,24 @@ def build_quality_findings(
                 action_label="Run Classification",
                 action_module="dashboard",
                 action_operation="llm:classify",
+            )
+        )
+    if (
+        watchlist_area_count is not None
+        and recent_item_count >= 5
+        and watchlist_area_count < 3
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Watchlist coverage is thin",
+                metric=f"{watchlist_area_count}/4 watchlist areas",
+                recommendation=(
+                    "Seed or edit stock, company, topic, and product watchlists so ranking, "
+                    "search, alerts, and digests have enough personal context."
+                ),
+                action_label="Open Dashboard",
+                action_module="dashboard",
             )
         )
     if recent_item_count > 0 and high_value_item_count > 0 and active_alert_count == 0:

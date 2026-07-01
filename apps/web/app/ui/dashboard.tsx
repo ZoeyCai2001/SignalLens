@@ -502,6 +502,11 @@ type QualityMetrics = {
   feedback_action_count: number;
   manual_submission_count: number;
   manual_enrichment_gap_count: number;
+  stock_watchlist_count: number;
+  company_watchlist_count: number;
+  topic_watchlist_count: number;
+  product_watchlist_count: number;
+  watchlist_area_count: number;
   saved_read_count: number;
   saved_read_later_count: number;
   save_hide_ratio: number | null;
@@ -3853,6 +3858,10 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Manual"
                     value={`${qualityMetrics.manual_submission_count} · ${qualityMetrics.manual_enrichment_gap_count} gap`}
+                  />
+                  <ReadinessMetric
+                    label="Watchlists"
+                    value={`${qualityMetrics.watchlist_area_count}/4`}
                   />
                   <ReadinessMetric
                     label="Read Later"

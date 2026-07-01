@@ -106,6 +106,11 @@ class QualityMetricsResponse(BaseModel):
     feedback_action_count: int = 0
     manual_submission_count: int = 0
     manual_enrichment_gap_count: int = 0
+    stock_watchlist_count: int = 0
+    company_watchlist_count: int = 0
+    topic_watchlist_count: int = 0
+    product_watchlist_count: int = 0
+    watchlist_area_count: int = 0
     saved_read_count: int = 0
     saved_read_later_count: int = 0
     save_hide_ratio: float | None
