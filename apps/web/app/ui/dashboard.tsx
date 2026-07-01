@@ -416,6 +416,7 @@ type SearchIntent = {
   query: string | null;
   source: string | null;
   category: string | null;
+  subcategory: string | null;
   ticker: string | null;
   company: string | null;
   topic: string | null;
@@ -862,6 +863,17 @@ const sourceTypeOptions: { value: string; label: string }[] = [
   { value: "finance_filings", label: "Finance filings" },
 ];
 
+const productUseCaseOptions: { value: string; label: string }[] = [
+  { value: "product_coding", label: "Coding" },
+  { value: "product_media", label: "Media" },
+  { value: "product_search", label: "Search" },
+  { value: "product_education", label: "Education" },
+  { value: "product_business", label: "Business" },
+  { value: "product_productivity", label: "Productivity" },
+  { value: "product_entertainment", label: "Entertainment" },
+  { value: "product_general", label: "General" },
+];
+
 const alertCategoryOptions: { value: string; label: string }[] = [
   { value: "all", label: "Any" },
   { value: "technical_trend", label: "Trend" },
@@ -1028,6 +1040,7 @@ export function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSource, setSearchSource] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
+  const [searchSubcategory, setSearchSubcategory] = useState("");
   const [searchTicker, setSearchTicker] = useState("");
   const [searchCompany, setSearchCompany] = useState("");
   const [searchTopic, setSearchTopic] = useState("");
@@ -1561,6 +1574,7 @@ export function Dashboard() {
       const hasManualFilters = [
         searchSource,
         searchCategory,
+        searchSubcategory,
         searchTicker,
         searchCompany,
         searchTopic,
@@ -1595,6 +1609,7 @@ export function Dashboard() {
       if (searchQuery.trim()) params.set("q", searchQuery.trim());
       if (searchSource.trim()) params.set("source", searchSource.trim());
       if (searchCategory.trim()) params.set("category", searchCategory.trim());
+      if (searchSubcategory.trim()) params.set("subcategory", searchSubcategory.trim());
       if (searchTicker.trim()) params.set("ticker", searchTicker.trim().toUpperCase());
       if (searchCompany.trim()) params.set("company", searchCompany.trim());
       if (searchTopic.trim()) params.set("topic", searchTopic.trim());
@@ -1640,6 +1655,7 @@ export function Dashboard() {
     setSearchQuery("");
     setSearchSource("");
     setSearchCategory("");
+    setSearchSubcategory("");
     setSearchTicker("");
     setSearchCompany("");
     setSearchTopic("");
@@ -1698,6 +1714,7 @@ export function Dashboard() {
       setSearchQuery("");
       setSearchSource("");
       setSearchCategory("");
+      setSearchSubcategory("");
       setSearchTicker("");
       setSearchCompany("");
       setSearchTopic(topic.topic);
@@ -1733,6 +1750,7 @@ export function Dashboard() {
       setSearchQuery("");
       setSearchSource("");
       setSearchCategory("");
+      setSearchSubcategory("");
       setSearchTicker(stock.ticker);
       setSearchCompany("");
       setSearchTopic("");
@@ -1769,6 +1787,7 @@ export function Dashboard() {
       setSearchQuery("");
       setSearchSource("");
       setSearchCategory("");
+      setSearchSubcategory("");
       setSearchTicker("");
       setSearchCompany("");
       setSearchTopic("");
@@ -3296,6 +3315,7 @@ export function Dashboard() {
                 query={searchQuery}
                 source={searchSource}
                 category={searchCategory}
+                subcategory={searchSubcategory}
                 ticker={searchTicker}
                 company={searchCompany}
                 topic={searchTopic}
@@ -3314,6 +3334,7 @@ export function Dashboard() {
                 onQueryChange={(value) => updateSearchField(setSearchQuery, value)}
                 onSourceChange={(value) => updateSearchField(setSearchSource, value)}
                 onCategoryChange={(value) => updateSearchField(setSearchCategory, value)}
+                onSubcategoryChange={(value) => updateSearchField(setSearchSubcategory, value)}
                 onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
                 onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
                 onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
@@ -5173,6 +5194,7 @@ function SearchPanel({
   query,
   source,
   category,
+  subcategory,
   ticker,
   company,
   topic,
@@ -5191,6 +5213,7 @@ function SearchPanel({
   onQueryChange,
   onSourceChange,
   onCategoryChange,
+  onSubcategoryChange,
   onTickerChange,
   onCompanyChange,
   onTopicChange,
@@ -5209,6 +5232,7 @@ function SearchPanel({
   query: string;
   source: string;
   category: string;
+  subcategory: string;
   ticker: string;
   company: string;
   topic: string;
@@ -5227,6 +5251,7 @@ function SearchPanel({
   onQueryChange: (value: string) => void;
   onSourceChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
+  onSubcategoryChange: (value: string) => void;
   onTickerChange: (value: string) => void;
   onCompanyChange: (value: string) => void;
   onTopicChange: (value: string) => void;
@@ -5314,6 +5339,19 @@ function SearchPanel({
           <option value="stock_company_event">Stock/company</option>
           <option value="product">Product</option>
           <option value="social_trend">Social trend</option>
+        </select>
+        <select
+          className="field"
+          value={subcategory}
+          onChange={(event) => onSubcategoryChange(event.target.value)}
+          aria-label="Product use case filter"
+        >
+          <option value="">Any product use case</option>
+          {productUseCaseOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <input
           className="field"
@@ -9120,6 +9158,13 @@ function formatCategoryLabel(value: string): string {
     .join(" ");
 }
 
+function formatProductUseCaseLabel(value: string): string {
+  return (
+    productUseCaseOptions.find((option) => option.value === value)?.label ??
+    formatCategoryLabel(value)
+  );
+}
+
 function formatConfirmationLevel(value: string): string {
   if (value === "strong_cross_source") {
     return "Strong cross-source";
@@ -9149,6 +9194,7 @@ function buildSearchIntentChips(intent: SearchIntent | null): string[] {
     intent.query ? `query: ${intent.query}` : null,
     intent.source ? `source: ${intent.source}` : null,
     intent.category ? `category: ${intent.category}` : null,
+    intent.subcategory ? `use case: ${formatProductUseCaseLabel(intent.subcategory)}` : null,
     intent.ticker ? `ticker: ${intent.ticker}` : null,
     intent.company ? `company: ${intent.company}` : null,
     intent.topic ? `topic: ${intent.topic}` : null,

@@ -18,7 +18,7 @@ from app.services.feed_actions import (
     rank_feed_items,
     serialize_feed_item,
 )
-from app.services.scoring import detect_tickers
+from app.services.scoring import detect_tickers, infer_product_use_case
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,7 @@ class SearchIntent:
     query: str | None = None
     source: str | None = None
     category: str | None = None
+    subcategory: str | None = None
     ticker: str | None = None
     company: str | None = None
     topic: str | None = None
@@ -49,6 +50,7 @@ def search_feed_items(
     query: str | None = None,
     source: str | None = None,
     category: str | None = None,
+    subcategory: str | None = None,
     ticker: str | None = None,
     company: str | None = None,
     topic: str | None = None,
@@ -70,6 +72,7 @@ def search_feed_items(
     effective_query = resolve_effective_query(query, intent)
     effective_source = source or intent.source
     effective_category = category or intent.category
+    effective_subcategory = subcategory or intent.subcategory
     effective_ticker = ticker or intent.ticker
     effective_company = company or intent.company
     effective_topic = topic or intent.topic
@@ -130,6 +133,10 @@ def search_feed_items(
     normalized_category = normalize_filter_value(effective_category)
     if normalized_category:
         statement = statement.filter(NormalizedItem.category == normalized_category)
+
+    normalized_subcategory = normalize_filter_value(effective_subcategory)
+    if normalized_subcategory:
+        statement = statement.filter(NormalizedItem.subcategory == normalized_subcategory)
 
     normalized_ticker = normalize_filter_value(effective_ticker)
     if normalized_ticker:
@@ -289,6 +296,7 @@ def resolve_effective_query(query: str | None, intent: SearchIntent) -> str | No
 def has_structured_intent(intent: SearchIntent) -> bool:
     return bool(
         intent.category
+        or intent.subcategory
         or intent.source
         or intent.ticker
         or intent.company
@@ -311,6 +319,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
     lowered = normalized.lower()
     today = today or datetime.now(UTC).date()
     category = infer_category(lowered)
+    subcategory = infer_subcategory(lowered, category)
     source = infer_source(lowered)
     language = infer_language(lowered)
     ticker = next(iter(detect_tickers(normalized)), None)
@@ -333,6 +342,7 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         query=extract_search_keywords(normalized),
         source=source,
         category=category,
+        subcategory=subcategory,
         ticker=ticker,
         company=company,
         topic=topic,
@@ -393,6 +403,13 @@ def infer_category(lowered_query: str) -> str | None:
     ):
         return "technical_trend"
     return None
+
+
+def infer_subcategory(lowered_query: str, category: str | None) -> str | None:
+    if category != "product":
+        return None
+    use_case = infer_product_use_case(lowered_query)
+    return None if use_case == "product_general" else use_case
 
 
 def infer_source(lowered_query: str) -> str | None:

@@ -86,6 +86,7 @@ def test_infer_search_intent_handles_product_discovery_query() -> None:
     )
 
     assert intent.category == "product"
+    assert intent.subcategory == "product_coding"
     assert intent.topic == "ai coding"
     assert intent.query == "AI coding"
     assert intent.date_from == date(2026, 6, 19)
@@ -175,6 +176,7 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     assert response.source is None
     assert response.company == "Marvell"
     assert response.category == "stock_company_event"
+    assert response.subcategory is None
     assert response.topic == "ai data center"
     assert response.manual_tag is None
     assert response.query == "AI data center"
@@ -309,6 +311,41 @@ def test_search_feed_items_filters_by_company() -> None:
         results = search_feed_items(db, company="OpenAI")
 
     assert [item.title for item in results] == ["Model release"]
+
+
+def test_search_feed_items_filters_by_product_subcategory() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "AI coding assistant",
+                    "Developer workflow tool.",
+                    topics=["ai coding"],
+                    category="product",
+                    subcategory="product_coding",
+                ),
+                make_search_item(
+                    2,
+                    "AI image studio",
+                    "Creator media tool.",
+                    topics=["ai photo"],
+                    category="product",
+                    subcategory="product_media",
+                ),
+            ]
+        )
+        db.commit()
+
+        explicit_results = search_feed_items(db, category="product", subcategory="product_coding")
+        inferred_results = search_feed_items(db, query="latest AI coding products")
+
+    assert [item.title for item in explicit_results] == ["AI coding assistant"]
+    assert [item.title for item in inferred_results] == ["AI coding assistant"]
 
 
 def test_search_feed_items_matches_company_entities_in_query() -> None:
@@ -488,6 +525,7 @@ async def test_search_route_passes_user_preferences(monkeypatch) -> None:
     def fake_search_feed_items(**kwargs):
         assert kwargs["query"] == "agent"
         assert kwargs["limit"] == 5
+        assert kwargs["subcategory"] == "product_coding"
         assert kwargs["read_status"] == "unread"
         assert kwargs["ranking_weights"] == preferences.ranking_weights
         assert kwargs["preferred_sources"] == preferences.preferred_sources
@@ -501,6 +539,7 @@ async def test_search_route_passes_user_preferences(monkeypatch) -> None:
     result = await search_routes.search_items(
         db=object(),
         q="agent",
+        subcategory="product_coding",
         read_status="unread",
         module="research",
         limit=5,
@@ -731,6 +770,7 @@ def make_search_item(
     source_name: str = "Test Source",
     language: str = "en",
     category: str = "technical_trend",
+    subcategory: str | None = None,
     importance_score: float = 0.7,
     published_at: datetime | None = None,
 ) -> NormalizedItem:
@@ -745,7 +785,7 @@ def make_search_item(
         published_at=published_at or datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
         text=text,
         category=category,
-        subcategory=None,
+        subcategory=subcategory,
         tickers=[],
         companies=companies or [],
         products=[],
