@@ -374,6 +374,11 @@ a {
   padding: 10px;
 }
 
+.compact-research-insights {
+  gap: 6px;
+  padding: 8px;
+}
+
 .research-insight {
   display: grid;
   gap: 2px;

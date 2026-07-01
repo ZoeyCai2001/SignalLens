@@ -5807,7 +5807,13 @@ function FeedDetailPanel({
   );
 }
 
-function ResearchInsightsPanel({ insights }: { insights: ResearchInsights }) {
+function ResearchInsightsPanel({
+  insights,
+  compact = false,
+}: {
+  insights: ResearchInsights;
+  compact?: boolean;
+}) {
   const rows = [
     ["Contribution", insights.contribution],
     ["Method", insights.method],
@@ -5819,7 +5825,7 @@ function ResearchInsightsPanel({ insights }: { insights: ResearchInsights }) {
   }
 
   return (
-    <div className="research-insights">
+    <div className={`research-insights ${compact ? "compact-research-insights" : ""}`}>
       {rows.map(([label, value]) => (
         <div className="research-insight" key={label}>
           <div className="research-insight-label">{label}</div>
@@ -7871,7 +7877,7 @@ function TopicBriefingPanel({
           emptyText="No related companies yet."
           items={briefing.related_companies}
         />
-        <TopicBriefingLinks
+        <TopicBriefingPaperLinks
           title="Related Papers"
           emptyText="No related papers yet."
           items={briefing.related_papers}
@@ -7998,6 +8004,49 @@ function TopicBriefingLinks({
               {item.title}
             </a>
           ))}
+        </div>
+      ) : (
+        <div className="small-muted">{emptyText}</div>
+      )}
+    </div>
+  );
+}
+
+function TopicBriefingPaperLinks({
+  title,
+  emptyText,
+  items,
+}: {
+  title: string;
+  emptyText: string;
+  items: FeedItem[];
+}) {
+  return (
+    <div className="digest-section">
+      <div className="digest-section-title">{title}</div>
+      {items.length ? (
+        <div className="digest-list">
+          {items.slice(0, 5).map((item) => {
+            const insights = parseResearchInsights(item);
+            return (
+              <div className="digest-preview-item" key={item.id}>
+                <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
+                  {item.title}
+                </a>
+                <div className="small-muted">
+                  {item.source_name}
+                  {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                </div>
+                {insights ? (
+                  <ResearchInsightsPanel insights={insights} compact />
+                ) : item.summary_short || item.why_it_matters ? (
+                  <div className="digest-item-summary">
+                    {item.summary_short || item.why_it_matters}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="small-muted">{emptyText}</div>
