@@ -11,6 +11,7 @@ from app.db.models import (
     Base,
     CompanyWatchlistItem,
     NormalizedItem,
+    ProductWatchlistItem,
     UserItemAction,
     UserPreference,
 )
@@ -29,6 +30,7 @@ from app.services.daily_digest import (
     generate_daily_digest,
     list_active_digest_alerts,
     list_excluded_digest_company_terms,
+    list_excluded_digest_product_terms,
     list_visible_items_for_digest_date,
     list_watchlist_companies,
     render_digest_markdown,
@@ -211,11 +213,49 @@ def test_filter_items_by_excluded_topics_removes_digest_excluded_terms() -> None
         make_item(1, "Keep", "technical_trend", 0.8, topics=["agent"]),
         make_item(2, "Exclude", "technical_trend", 0.9, topics=["model routing"]),
         make_item(3, "Product Exclude", "product", 0.7, products=["AI search"]),
+        make_item(4, "Coding Product Exclude", "product", 0.7, subcategory="product_coding"),
     ]
 
-    filtered = filter_items_by_excluded_topics(items, {"model routing", "ai search"})
+    filtered = filter_items_by_excluded_topics(
+        items,
+        {"model routing", "ai search", "product_coding"},
+    )
 
     assert [item.title for item in filtered] == ["Keep"]
+
+
+def test_list_excluded_digest_product_terms_includes_use_case_terms() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                ProductWatchlistItem(
+                    user_id="local",
+                    category="ai-coding-tools",
+                    label="AI coding tools",
+                    include_in_digest=False,
+                    related_terms=["developer agent"],
+                ),
+                ProductWatchlistItem(
+                    user_id="local",
+                    category="ai-productivity",
+                    label="AI productivity",
+                    include_in_digest=True,
+                    related_terms=["meeting notes"],
+                ),
+            ]
+        )
+        db.commit()
+
+        terms = list_excluded_digest_product_terms(db)
+
+    assert {"ai-coding-tools", "ai coding tools", "developer agent", "product_coding"}.issubset(
+        terms
+    )
+    assert "product_productivity" not in terms
 
 
 def test_filter_items_by_excluded_topics_checks_companies_and_tickers() -> None:

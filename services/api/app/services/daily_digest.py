@@ -33,7 +33,7 @@ from app.services.feed_actions import (
     serialize_feed_item,
 )
 from app.services.preferences import get_user_preferences
-from app.services.watchlist import format_product_use_case_label
+from app.services.watchlist import build_product_use_case_terms, format_product_use_case_label
 
 NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens is informational only and does not provide investment advice."
@@ -498,7 +498,13 @@ def filter_items_by_excluded_topics(
 def matches_excluded_topic(item: FeedItem, excluded_terms: set[str]) -> bool:
     item_terms = {
         term.strip().lower()
-        for term in [*item.topics, *item.products, *item.companies, *item.tickers]
+        for term in [
+            item.subcategory or "",
+            *item.topics,
+            *item.products,
+            *item.companies,
+            *item.tickers,
+        ]
         if term.strip()
     }
     return bool(item_terms & excluded_terms)
@@ -625,9 +631,10 @@ def list_excluded_digest_product_terms(db: Session) -> set[str]:
     )
     terms: set[str] = set()
     for row in rows:
+        use_case_terms = build_product_use_case_terms(row)
         terms.update(
             term.strip().lower()
-            for term in [row.category, row.label, *row.related_terms]
+            for term in [row.category, row.label, *row.related_terms, *use_case_terms]
             if term.strip()
         )
     return terms
