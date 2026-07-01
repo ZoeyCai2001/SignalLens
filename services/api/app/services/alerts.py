@@ -23,7 +23,7 @@ from app.services.feed_actions import (
     social_signal_score_for_item,
 )
 from app.services.preferences import get_user_preferences
-from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER
+from app.services.watchlist import NON_FINANCIAL_ADVICE_DISCLAIMER, format_product_use_case_label
 
 CROSS_SOURCE_CLUSTER_CATEGORY = "cross_source_cluster"
 STOCK_PRICE_MOVE_CATEGORY = "stock_price_move"
@@ -764,6 +764,8 @@ def social_trend_alert_reason(item: NormalizedItem, rule: AlertRule) -> str | No
     ]
     if item.products:
         score_bits.append(f"products {', '.join(item.products[:4])}")
+    if item.category == "product" and item.subcategory:
+        score_bits.append(f"use case {format_product_use_case_label(item.subcategory)}")
     if item.topics:
         score_bits.append(f"topics {', '.join(item.topics[:4])}")
     return f"{rule.name}: " + ", ".join(score_bits)

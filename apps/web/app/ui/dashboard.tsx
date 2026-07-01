@@ -4396,6 +4396,14 @@ function AlertPanel({
                   </span>
                 ))}
                 <span className="badge">{alert.item.category}</span>
+                {alert.item.category === "product" && alert.item.subcategory ? (
+                  <span className="badge">{formatProductUseCaseLabel(alert.item.subcategory)}</span>
+                ) : null}
+                {alert.item.products.slice(0, 2).map((product) => (
+                  <span className="badge" key={`alert-product:${alert.id}:${product}`}>
+                    {product}
+                  </span>
+                ))}
               </div>
               <a className="digest-link" href={alert.item.url} target="_blank">
                 {alert.item.source_name}

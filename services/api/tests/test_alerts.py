@@ -192,6 +192,7 @@ def test_social_trend_alert_reason_matches_high_engagement_product_signal() -> N
         title="New AI video workflow goes viral",
         source_name="Product Hunt",
         category="product",
+        subcategory="product_media",
         importance_score=0.68,
         novelty_score=0.82,
         products=["AI video editor"],
@@ -212,6 +213,7 @@ def test_social_trend_alert_reason_matches_high_engagement_product_signal() -> N
     assert "product-launch traction" in reason
     assert "social signal" in reason
     assert "AI video editor" in reason
+    assert "use case Media" in reason
 
 
 def test_social_trend_alert_reason_matches_chinese_social_signal_without_paid_metrics() -> None:
