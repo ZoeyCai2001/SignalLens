@@ -12,6 +12,7 @@ from app.services.feed_actions import (
     build_feed_module_conditions,
     build_feed_topic_filter_terms,
     build_feed_uncertainty_notes,
+    build_feed_why_it_matters,
     build_personalization_notes,
     build_score_explanation,
     export_saved_items_markdown,
@@ -66,6 +67,54 @@ def test_serialize_feed_item_includes_user_action_flags() -> None:
     assert serialized.is_saved is True
     assert serialized.is_hidden is False
     assert serialized.is_important is True
+    assert serialized.why_it_matters == (
+        "This user-submitted link may need review for the personal intelligence archive. "
+        "It is linked to agent and shows lower classifier confidence."
+    )
+
+
+def test_serialize_feed_item_preserves_existing_why_it_matters() -> None:
+    item = NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Agent release",
+        url="https://example.com",
+        source_name="Official Blog",
+        language="en",
+        category="technical_trend",
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=["agent"],
+        sentiment="neutral",
+        relevance_score=0.8,
+        importance_score=0.8,
+        novelty_score=0.6,
+        source_quality_score=0.9,
+        stock_impact_score=0,
+        why_it_matters="  Existing LLM explanation.  ",
+    )
+
+    serialized = serialize_feed_item(item)
+
+    assert serialized.why_it_matters == "Existing LLM explanation."
+
+
+def test_build_feed_why_it_matters_uses_entities_and_trust_signals() -> None:
+    item = make_feed_item(1, "Micron HBM demand", relevance_score=0.82, importance_score=0.84)
+    item.category = "stock_company_event"
+    item.tickers = ["MU"]
+    item.companies = ["Micron"]
+    item.source_quality_score = 0.85
+    item.stock_impact_score = 0.55
+
+    why = build_feed_why_it_matters(item)
+
+    assert why == (
+        "This may matter for AI-linked company and stock monitoring. "
+        "It is linked to MU, Micron and shows high importance, strong AI relevance, "
+        "possible stock-watchlist impact."
+    )
 
 
 def test_serialize_feed_item_computes_social_signal_from_raw_metadata() -> None:

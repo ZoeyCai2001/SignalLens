@@ -48,6 +48,7 @@ def serialize_feed_item(
 ) -> FeedItem:
     data = FeedItem.model_validate(item)
     data.social_signal_score = social_signal_score_for_item(item)
+    data.why_it_matters = build_feed_why_it_matters(data)
     if action:
         data.is_saved = action.is_saved
         data.is_hidden = action.is_hidden
@@ -57,6 +58,65 @@ def serialize_feed_item(
         data.personal_note = action.personal_note
         data.manual_tags = normalize_manual_tags(action.manual_tags)
     return data
+
+
+def build_feed_why_it_matters(item: FeedItem) -> str | None:
+    if item.why_it_matters and item.why_it_matters.strip():
+        return item.why_it_matters.strip()
+
+    focus = primary_item_focus(item)
+    context = category_context(item.category)
+    signal_parts = []
+    if item.importance_score >= 0.75:
+        signal_parts.append("high importance")
+    if item.relevance_score >= 0.72:
+        signal_parts.append("strong AI relevance")
+    if item.stock_impact_score >= 0.45:
+        signal_parts.append("possible stock-watchlist impact")
+    if item.social_signal_score >= 0.65:
+        signal_parts.append("strong public traction")
+    if item.source_quality_score >= 0.8:
+        signal_parts.append("high source credibility")
+    elif item.source_quality_score < 0.6:
+        signal_parts.append("lower source credibility")
+    if item.classification_confidence < 0.6:
+        signal_parts.append("lower classifier confidence")
+
+    signal_text = ", ".join(signal_parts[:3])
+    if focus and signal_text:
+        return f"{context} It is linked to {focus} and shows {signal_text}."
+    if focus:
+        return f"{context} It is linked to {focus}."
+    if signal_text:
+        return f"{context} It shows {signal_text}."
+    return context
+
+
+def primary_item_focus(item: FeedItem) -> str:
+    labels = [*item.tickers, *item.products, *item.companies, *item.topics]
+    unique_labels = []
+    seen = set()
+    for label in labels:
+        normalized = label.strip()
+        key = normalized.casefold()
+        if normalized and key not in seen:
+            unique_labels.append(normalized)
+            seen.add(key)
+    if not unique_labels:
+        return ""
+    return ", ".join(unique_labels[:3])
+
+
+def category_context(category: str) -> str:
+    contexts = {
+        "technical_trend": "This may affect the AI technical trend watchlist.",
+        "research": "This may inform AI research tracking and related paper discovery.",
+        "product": "This may help identify AI products gaining traction.",
+        "stock_company_event": "This may matter for AI-linked company and stock monitoring.",
+        "social_trend": "This may indicate an emerging AI social or Chinese-language trend.",
+        "manual_submission": "This user-submitted link may need review for the personal intelligence archive.",
+    }
+    return contexts.get(category, "This item matched the SignalLens AI relevance filters.")
 
 
 def serialize_feed_item_detail(
