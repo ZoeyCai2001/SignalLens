@@ -326,7 +326,15 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
         )
         db.commit()
 
-        metrics = build_quality_metrics(db=db, window_days=7)
+        settings = fake_settings().model_copy(
+            update={
+                "llm_input_cost_per_1m_tokens": 100,
+                "llm_output_cost_per_1m_tokens": 200,
+                "llm_monthly_budget_usd": 0.05,
+            }
+        )
+
+        metrics = build_quality_metrics(db=db, window_days=7, settings=settings)
 
     assert metrics.total_item_count == 2
     assert metrics.recent_item_count == 2
@@ -379,21 +387,48 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.llm_output_tokens == 30
     assert metrics.llm_total_tokens == 210
     assert metrics.llm_calls_per_recent_item == 1
+    assert metrics.llm_pricing_configured is True
+    assert metrics.llm_estimated_cost_usd == pytest.approx(0.024, abs=0.000001)
+    assert metrics.llm_projected_monthly_cost_usd == pytest.approx(0.102857, abs=0.000001)
+    assert metrics.llm_monthly_budget_usd == 0.05
+    assert metrics.llm_monthly_budget_usage == pytest.approx(2.057, abs=0.001)
+    assert metrics.llm_estimated_cost_per_recent_item_usd == pytest.approx(
+        0.012,
+        abs=0.000001,
+    )
+    assert metrics.llm_estimated_cost_per_digest_usd == pytest.approx(
+        0.024,
+        abs=0.000001,
+    )
+    assert metrics.llm_estimated_cost_per_active_alert_usd == pytest.approx(
+        0.024,
+        abs=0.000001,
+    )
     assert [operation.operation for operation in metrics.llm_operation_usage] == [
         "summarize_item",
         "classify_item",
     ]
     assert metrics.llm_operation_usage[0].call_count == 1
     assert metrics.llm_operation_usage[0].total_tokens == 120
+    assert metrics.llm_operation_usage[0].estimated_cost_usd == pytest.approx(
+        0.014,
+        abs=0.000001,
+    )
     assert metrics.llm_operation_usage[1].total_tokens == 90
+    assert metrics.llm_operation_usage[1].estimated_cost_usd == pytest.approx(
+        0.01,
+        abs=0.000001,
+    )
     assert [finding.title for finding in metrics.quality_findings] == [
         "Duplicate pressure",
         "Source failures need review",
+        "LLM budget projection is high",
     ]
     assert metrics.quality_findings[0].action_module == "sources"
     assert metrics.quality_findings[0].action_source_filter == "attention"
     assert metrics.quality_findings[1].action_label == "Show Failed Runs"
     assert metrics.quality_findings[1].action_source_filter == "failed"
+    assert metrics.quality_findings[2].metric == "$0.10/mo projected vs $0.05 budget"
 
 
 def test_build_quality_findings_recommends_local_actions() -> None:

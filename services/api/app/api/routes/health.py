@@ -58,6 +58,7 @@ class LlmUsageSummary(TypedDict):
     input_tokens: int
     output_tokens: int
     total_tokens: int
+    estimated_cost_usd: float
     operation_usage: list[LlmOperationUsage]
 
 
@@ -95,7 +96,12 @@ async def quality_metrics(
     return build_quality_metrics(db=db, window_days=window_days)
 
 
-def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsResponse:
+def build_quality_metrics(
+    db: Session,
+    window_days: int = 7,
+    settings: Settings | None = None,
+) -> QualityMetricsResponse:
+    settings = settings or get_settings()
     generated_at = datetime.now(UTC)
     since = generated_at - timedelta(days=window_days)
     total_rows = list_visible_quality_items(db)
@@ -108,7 +114,7 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
     saved_read_count, saved_read_later_count = count_saved_read_statuses(db)
     alert_counts = count_alerts_by_status(db)
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
-    llm_usage = summarize_recent_llm_usage(db=db, since=since)
+    llm_usage = summarize_recent_llm_usage(db=db, since=since, settings=settings)
     recent_item_count = len(recent_rows)
     recent_module_counts = build_recent_module_counts(recent_rows)
     covered_module_count = sum(1 for count in recent_module_counts.values() if count > 0)
@@ -186,6 +192,16 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         current_date=generated_at.date(),
     )
     llm_calls_per_recent_item = ratio(llm_usage["call_count"], recent_item_count)
+    llm_pricing_configured = is_llm_pricing_configured(settings)
+    llm_projected_monthly_cost_usd = project_monthly_cost(
+        cost_usd=llm_usage["estimated_cost_usd"],
+        window_days=window_days,
+    )
+    llm_monthly_budget_usage = (
+        ratio(llm_projected_monthly_cost_usd, settings.llm_monthly_budget_usd)
+        if settings.llm_monthly_budget_usd > 0
+        else None
+    )
 
     return QualityMetricsResponse(
         generated_at=generated_at,
@@ -235,6 +251,23 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
         llm_output_tokens=llm_usage["output_tokens"],
         llm_total_tokens=llm_usage["total_tokens"],
         llm_calls_per_recent_item=llm_calls_per_recent_item,
+        llm_pricing_configured=llm_pricing_configured,
+        llm_estimated_cost_usd=llm_usage["estimated_cost_usd"],
+        llm_projected_monthly_cost_usd=llm_projected_monthly_cost_usd,
+        llm_monthly_budget_usd=round(settings.llm_monthly_budget_usd, 6),
+        llm_monthly_budget_usage=llm_monthly_budget_usage,
+        llm_estimated_cost_per_recent_item_usd=cost_per_unit(
+            llm_usage["estimated_cost_usd"],
+            recent_item_count,
+        ),
+        llm_estimated_cost_per_digest_usd=cost_per_unit(
+            llm_usage["estimated_cost_usd"],
+            digest_snapshot_count,
+        ),
+        llm_estimated_cost_per_active_alert_usd=cost_per_unit(
+            llm_usage["estimated_cost_usd"],
+            alert_counts["active"],
+        ),
         llm_operation_usage=llm_usage["operation_usage"],
         quality_findings=build_quality_findings(
             recent_item_count=recent_item_count,
@@ -270,6 +303,9 @@ def build_quality_metrics(db: Session, window_days: int = 7) -> QualityMetricsRe
             stock_watchlist_count=stock_watchlist_count,
             current_date=generated_at.date(),
             llm_calls_per_recent_item=llm_calls_per_recent_item,
+            llm_pricing_configured=llm_pricing_configured,
+            llm_projected_monthly_cost_usd=llm_projected_monthly_cost_usd,
+            llm_monthly_budget_usd=settings.llm_monthly_budget_usd,
         ),
     )
 
@@ -466,28 +502,43 @@ def stock_price_age_days(
     return max(0, (current_date - latest_stock_price_date).days)
 
 
-def summarize_recent_llm_usage(db: Session, since: datetime) -> LlmUsageSummary:
+def summarize_recent_llm_usage(
+    db: Session,
+    since: datetime,
+    settings: Settings,
+) -> LlmUsageSummary:
     rows = (
         db.query(LlmUsageEvent)
         .filter(LlmUsageEvent.user_id == LOCAL_USER_ID, LlmUsageEvent.created_at >= since)
         .all()
     )
-    operation_totals: dict[str, dict[str, int]] = {}
+    operation_totals: dict[str, dict[str, int | float]] = {}
     for row in rows:
         totals = operation_totals.setdefault(
             row.operation,
-            {"call_count": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+            {
+                "call_count": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "estimated_cost_usd": 0,
+            },
         )
         totals["call_count"] += 1
         totals["input_tokens"] += row.input_tokens
         totals["output_tokens"] += row.output_tokens
         totals["total_tokens"] += row.total_tokens
+        totals["estimated_cost_usd"] += estimate_llm_cost_usd(
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            settings=settings,
+        )
 
     operation_usage = [
         LlmOperationUsage(operation=operation, **totals)
         for operation, totals in sorted(
-            operation_totals.items(),
-            key=lambda item: (-item[1]["total_tokens"], item[0]),
+            normalized_llm_operation_totals(operation_totals).items(),
+            key=lambda item: (-int(item[1]["total_tokens"]), item[0]),
         )
     ]
     return {
@@ -495,8 +546,55 @@ def summarize_recent_llm_usage(db: Session, since: datetime) -> LlmUsageSummary:
         "input_tokens": sum(row.input_tokens for row in rows),
         "output_tokens": sum(row.output_tokens for row in rows),
         "total_tokens": sum(row.total_tokens for row in rows),
+        "estimated_cost_usd": estimate_llm_cost_usd(
+            input_tokens=sum(row.input_tokens for row in rows),
+            output_tokens=sum(row.output_tokens for row in rows),
+            settings=settings,
+        ),
         "operation_usage": operation_usage,
     }
+
+
+def normalized_llm_operation_totals(
+    operation_totals: dict[str, dict[str, int | float]],
+) -> dict[str, dict[str, int | float]]:
+    return {
+        operation: {
+            **totals,
+            "estimated_cost_usd": round(float(totals["estimated_cost_usd"]), 6),
+        }
+        for operation, totals in operation_totals.items()
+    }
+
+
+def is_llm_pricing_configured(settings: Settings) -> bool:
+    return (
+        settings.llm_input_cost_per_1m_tokens > 0
+        or settings.llm_output_cost_per_1m_tokens > 0
+    )
+
+
+def estimate_llm_cost_usd(
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    settings: Settings,
+) -> float:
+    input_cost = (input_tokens / 1_000_000) * settings.llm_input_cost_per_1m_tokens
+    output_cost = (output_tokens / 1_000_000) * settings.llm_output_cost_per_1m_tokens
+    return round(input_cost + output_cost, 6)
+
+
+def project_monthly_cost(cost_usd: float, window_days: int) -> float:
+    if window_days <= 0:
+        return round(cost_usd, 6)
+    return round(cost_usd * 30 / window_days, 6)
+
+
+def cost_per_unit(cost_usd: float, count: int) -> float | None:
+    if count <= 0:
+        return None
+    return round(cost_usd / count, 6)
 
 
 def duplicate_rate_for_items(items: list[NormalizedItem]) -> float:
@@ -653,6 +751,9 @@ def build_quality_findings(
     latest_stock_price_date: date | None = None,
     stock_watchlist_count: int = 0,
     current_date: date | None = None,
+    llm_pricing_configured: bool = False,
+    llm_projected_monthly_cost_usd: float = 0,
+    llm_monthly_budget_usd: float = 0,
 ) -> list[QualityFinding]:
     findings: list[QualityFinding] = []
     today = current_date or latest_digest_snapshot_date or datetime.now(UTC).date()
@@ -1005,6 +1106,27 @@ def build_quality_findings(
                 title="LLM spend is high",
                 metric=f"{llm_calls_per_recent_item:.2f} calls per recent item",
                 recommendation="Use module-scoped batches and skip already enriched items.",
+                action_label="Review Settings",
+                action_module="settings",
+            )
+        )
+    if (
+        llm_pricing_configured
+        and llm_monthly_budget_usd > 0
+        and llm_projected_monthly_cost_usd > llm_monthly_budget_usd
+    ):
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="LLM budget projection is high",
+                metric=(
+                    f"${llm_projected_monthly_cost_usd:.2f}/mo projected "
+                    f"vs ${llm_monthly_budget_usd:.2f} budget"
+                ),
+                recommendation=(
+                    "Lower batch limits, run module-scoped enrichment, or skip already enriched "
+                    "items before running more cost-bearing LLM actions."
+                ),
                 action_label="Review Settings",
                 action_module="settings",
             )

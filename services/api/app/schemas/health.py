@@ -52,6 +52,7 @@ class LlmOperationUsage(BaseModel):
     input_tokens: int
     output_tokens: int
     total_tokens: int
+    estimated_cost_usd: float = 0
 
 
 class QualityFinding(BaseModel):
@@ -129,5 +130,13 @@ class QualityMetricsResponse(BaseModel):
     llm_output_tokens: int = 0
     llm_total_tokens: int = 0
     llm_calls_per_recent_item: float = 0
+    llm_pricing_configured: bool = False
+    llm_estimated_cost_usd: float = 0
+    llm_projected_monthly_cost_usd: float = 0
+    llm_monthly_budget_usd: float = 0
+    llm_monthly_budget_usage: float | None = None
+    llm_estimated_cost_per_recent_item_usd: float | None = None
+    llm_estimated_cost_per_digest_usd: float | None = None
+    llm_estimated_cost_per_active_alert_usd: float | None = None
     llm_operation_usage: list[LlmOperationUsage] = Field(default_factory=list)
     quality_findings: list[QualityFinding] = Field(default_factory=list)

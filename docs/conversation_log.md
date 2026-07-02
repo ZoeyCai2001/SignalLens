@@ -322,3 +322,4 @@ Implementation progress:
 - Added `pnpm verify:demo` as a repo-root MVP demo readiness command that runs the API demo smoke check, web lint, and production web build together.
 - Added repo-root local workflow commands for infrastructure, migrations, API dev, default seeding, and demo seeding so first-run setup no longer requires jumping between project folders.
 - Added `pnpm setup:check` to verify local Mac workspace readiness without printing secrets, distinguishing blocking core gaps from recommended and optional integration warnings.
+- Added optional LLM cost and monthly budget tracking to `/api/quality-metrics` and System Readiness, using local token price assumptions instead of provider billing APIs.

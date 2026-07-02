@@ -171,6 +171,11 @@ cd services/api
 python scripts/smoke_test_kimi.py
 ```
 
+Optional LLM budget tracking uses local price assumptions instead of a provider billing
+API. Set `LLM_INPUT_COST_PER_1M_TOKENS`, `LLM_OUTPUT_COST_PER_1M_TOKENS`, and
+`LLM_MONTHLY_BUDGET_USD` in `.env` to estimate recent spend, monthly projection,
+cost per item/digest/alert, and budget usage in System Readiness.
+
 Product Hunt ingestion is optional and uses the official GraphQL API. Set
 `PRODUCT_HUNT_API_TOKEN` in `.env` to enable it; without a token the source run is
 recorded as `skipped`.

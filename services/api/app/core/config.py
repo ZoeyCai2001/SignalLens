@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     )
     moonshot_model: str = Field(default="kimi-for-coding", alias="MOONSHOT_MODEL")
     kimi_api_format: str = Field(default="anthropic_messages", alias="KIMI_API_FORMAT")
+    llm_input_cost_per_1m_tokens: float = Field(
+        default=0,
+        ge=0,
+        alias="LLM_INPUT_COST_PER_1M_TOKENS",
+    )
+    llm_output_cost_per_1m_tokens: float = Field(
+        default=0,
+        ge=0,
+        alias="LLM_OUTPUT_COST_PER_1M_TOKENS",
+    )
+    llm_monthly_budget_usd: float = Field(default=0, ge=0, alias="LLM_MONTHLY_BUDGET_USD")
     github_token: str | None = Field(default=None, alias="GITHUB_TOKEN")
     product_hunt_api_token: str | None = Field(default=None, alias="PRODUCT_HUNT_API_TOKEN")
     alpha_vantage_api_key: str | None = Field(default=None, alias="ALPHA_VANTAGE_API_KEY")

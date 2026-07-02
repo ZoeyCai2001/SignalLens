@@ -526,6 +526,14 @@ type QualityMetrics = {
   llm_output_tokens: number;
   llm_total_tokens: number;
   llm_calls_per_recent_item: number;
+  llm_pricing_configured: boolean;
+  llm_estimated_cost_usd: number;
+  llm_projected_monthly_cost_usd: number;
+  llm_monthly_budget_usd: number;
+  llm_monthly_budget_usage: number | null;
+  llm_estimated_cost_per_recent_item_usd: number | null;
+  llm_estimated_cost_per_digest_usd: number | null;
+  llm_estimated_cost_per_active_alert_usd: number | null;
   llm_operation_usage: LlmOperationUsage[];
   quality_findings: QualityFinding[];
 };
@@ -567,6 +575,7 @@ type LlmOperationUsage = {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
+  estimated_cost_usd: number;
 };
 
 type SourceUpdatePayload = {
@@ -3983,6 +3992,58 @@ function SystemStatusPanel({
                     label="Total Tok"
                     value={formatCompactNumber(qualityMetrics.llm_total_tokens)}
                   />
+                  <ReadinessMetric
+                    label="LLM Cost"
+                    value={
+                      qualityMetrics.llm_pricing_configured
+                        ? formatUsd(qualityMetrics.llm_estimated_cost_usd)
+                        : "pricing off"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="Monthly Est"
+                    value={
+                      qualityMetrics.llm_pricing_configured
+                        ? formatUsd(qualityMetrics.llm_projected_monthly_cost_usd)
+                        : "pricing off"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="Budget"
+                    value={
+                      qualityMetrics.llm_monthly_budget_usd > 0 &&
+                      qualityMetrics.llm_monthly_budget_usage !== null
+                        ? formatQualityPercent(qualityMetrics.llm_monthly_budget_usage)
+                        : "not set"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="Cost/Item"
+                    value={
+                      qualityMetrics.llm_pricing_configured &&
+                      qualityMetrics.llm_estimated_cost_per_recent_item_usd !== null
+                        ? formatUsd(qualityMetrics.llm_estimated_cost_per_recent_item_usd)
+                        : "none"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="Cost/Digest"
+                    value={
+                      qualityMetrics.llm_pricing_configured &&
+                      qualityMetrics.llm_estimated_cost_per_digest_usd !== null
+                        ? formatUsd(qualityMetrics.llm_estimated_cost_per_digest_usd)
+                        : "none"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="Cost/Alert"
+                    value={
+                      qualityMetrics.llm_pricing_configured &&
+                      qualityMetrics.llm_estimated_cost_per_active_alert_usd !== null
+                        ? formatUsd(qualityMetrics.llm_estimated_cost_per_active_alert_usd)
+                        : "none"
+                    }
+                  />
                 </div>
                 {qualityMetrics.quality_findings.length ? (
                   <div className="setup-list">
@@ -4028,6 +4089,9 @@ function SystemStatusPanel({
                           </div>
                         </div>
                         <span className="badge">
+                          {qualityMetrics.llm_pricing_configured
+                            ? `${formatUsd(operation.estimated_cost_usd)} · `
+                            : ""}
                           {formatCompactNumber(operation.total_tokens)} tok
                         </span>
                       </div>
@@ -4083,6 +4147,18 @@ function formatCompactNumber(value: number): string {
   return new Intl.NumberFormat("en", {
     notation: "compact",
     maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function formatUsd(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "$0";
+  }
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: value < 0.01 ? 4 : 2,
+    maximumFractionDigits: value < 0.01 ? 4 : 2,
   }).format(value);
 }
 
