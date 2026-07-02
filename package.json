@@ -10,6 +10,7 @@
     "api:seed-demo": "cd services/api && .venv/bin/python scripts/seed_database.py --demo-data",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "setup:check": "python3 scripts/check_local_setup.py",
     "verify:demo": "pnpm api:demo-smoke && pnpm web:lint && pnpm web:build",
     "web:dev": "pnpm --filter @signallens/web dev",
     "web:build": "pnpm --filter @signallens/web build",

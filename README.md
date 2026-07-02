@@ -41,6 +41,13 @@ From the repository root, start local infrastructure:
 pnpm infra:up
 ```
 
+Check whether the Mac workspace has the local files, installed dependencies, and
+configured environment variable names needed for the demo flow:
+
+```bash
+pnpm setup:check
+```
+
 The Docker PostgreSQL service maps to host port `55432` to avoid conflicts with a local
 Postgres running on the default `5432`.
 
@@ -233,6 +240,7 @@ exposing secret values.
 
 ## Root Commands
 
+- `pnpm setup:check` checks local demo readiness without printing secret values.
 - `pnpm infra:up` starts local PostgreSQL and Redis.
 - `pnpm infra:down` stops local infrastructure.
 - `pnpm api:migrate` applies backend migrations.
