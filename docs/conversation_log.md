@@ -326,3 +326,4 @@ Implementation progress:
 - Added Source Health follow templates for public blog RSS, company blogs, GitHub repositories, Product Hunt topics, Chinese/public social RSS feeds, and manual watch sources so the PRD source watchlist is easier to configure from the dashboard.
 - Added permanent feed-item deletion for PRD privacy/compliance, removing raw item text, normalized feed content, personal item state, alerts, and digest snapshots that still contain the deleted item.
 - Added personal settings backup and restore for preferences, followed sources, alert rules, and watchlists, with dashboard JSON download/upload controls and a non-destructive upsert restore path.
+- Added PRD summary profiles to expanded feed item details, deriving one-line, card, technical, and market-watch summaries from existing stored summaries without extra LLM spend.

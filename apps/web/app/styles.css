@@ -398,6 +398,28 @@ a {
   line-height: 1.45;
 }
 
+.summary-profile-grid {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.summary-profile {
+  display: grid;
+  gap: 4px;
+  color: #34403e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.summary-profile ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .feed-detail-panel {
   border-top: 1px solid var(--line);
   padding-top: 10px;

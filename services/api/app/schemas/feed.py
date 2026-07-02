@@ -46,6 +46,11 @@ class FeedItem(BaseModel):
 
 class FeedItemDetail(FeedItem):
     text: str | None = None
+    one_line_summary: str | None = None
+    card_summary: list[str] = Field(default_factory=list)
+    technical_summary: str | None = None
+    market_watch_summary: str | None = None
+    summary_source: str = "deterministic"
     score_explanation: str
     uncertainty_notes: list[str]
     personalization_notes: list[str] = Field(default_factory=list)

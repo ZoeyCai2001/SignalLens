@@ -248,7 +248,12 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
         novelty_score=0.7,
         source_quality_score=0.82,
         stock_impact_score=0.9,
-        summary_short="Micron demand signal",
+        summary_short="Micron demand signal\n- HBM demand is rising.\n- AI servers need memory.",
+        summary_detailed=(
+            "Micron demand signal.\n"
+            "Market relevance: This is relevant to watched memory tickers.\n"
+            "Technical relevance: HBM supply affects AI accelerator deployment."
+        ),
     )
     action = UserItemAction(
         item_id=1,
@@ -263,6 +268,11 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
     detail = serialize_feed_item_detail(item, action)
 
     assert detail.text == "Source article text."
+    assert detail.one_line_summary == "Micron demand signal"
+    assert detail.card_summary == ["HBM demand is rising.", "AI servers need memory."]
+    assert detail.technical_summary == "HBM supply affects AI accelerator deployment."
+    assert detail.market_watch_summary == "This is relevant to watched memory tickers."
+    assert detail.summary_source == "stored_summary"
     assert detail.action_state == {
         "is_saved": True,
         "is_hidden": False,
@@ -276,6 +286,28 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
     assert "marked important by you" in detail.score_explanation
     assert detail.uncertainty_notes == ["No major uncertainty flags from the stored item signals."]
     assert detail.personalization_notes == []
+
+
+def test_serialize_feed_item_detail_derives_summary_profile_without_stored_summary() -> None:
+    item = make_normalized_item(
+        1,
+        "Research note",
+        language="en",
+        category="research",
+        summary_short=None,
+    )
+    item.summary_detailed = None
+    item.why_it_matters = "This informs AI evaluation work. It should be reviewed later."
+
+    detail = serialize_feed_item_detail(item)
+
+    assert detail.one_line_summary == "This informs AI evaluation work."
+    assert detail.card_summary == [
+        "This informs AI evaluation work.",
+    ]
+    assert detail.technical_summary == "This informs AI evaluation work."
+    assert detail.market_watch_summary is None
+    assert detail.summary_source == "why_it_matters"
 
 
 def test_serialize_feed_item_detail_includes_personalization_notes() -> None:

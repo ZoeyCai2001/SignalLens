@@ -136,9 +136,11 @@ def serialize_feed_item_detail(
     interest_profile: FeedInterestProfile | None = None,
 ) -> FeedItemDetail:
     base = serialize_feed_item(item, action)
+    summary_profile = build_feed_summary_profile(base)
     return FeedItemDetail(
         **base.model_dump(),
         text=item.text,
+        **summary_profile,
         score_explanation=build_score_explanation(base),
         uncertainty_notes=build_feed_uncertainty_notes(base),
         personalization_notes=build_personalization_notes(base, interest_profile),
@@ -149,6 +151,136 @@ def serialize_feed_item_detail(
             "is_read": base.is_read,
         },
     )
+
+
+def build_feed_summary_profile(item: FeedItem) -> dict[str, str | list[str] | None]:
+    one_line = extract_one_line_summary(item)
+    card_summary = extract_card_summary(item)
+    return {
+        "one_line_summary": one_line,
+        "card_summary": card_summary,
+        "technical_summary": extract_technical_summary(item),
+        "market_watch_summary": extract_market_watch_summary(item),
+        "summary_source": summary_source_label(item),
+    }
+
+
+def extract_one_line_summary(item: FeedItem) -> str | None:
+    for line in split_summary_lines(item.summary_short):
+        if not is_bullet_line(line):
+            return line
+    for candidate in [item.summary_detailed, item.why_it_matters, item.title]:
+        sentence = first_sentence(candidate)
+        if sentence:
+            return sentence
+    return None
+
+
+def extract_card_summary(item: FeedItem) -> list[str]:
+    bullets = [
+        strip_bullet_prefix(line)
+        for line in split_summary_lines(item.summary_short)
+        if is_bullet_line(line)
+    ]
+    if bullets:
+        return bullets[:4]
+
+    candidates = [
+        first_sentence(item.why_it_matters),
+        first_sentence(item.summary_detailed),
+    ]
+    return [candidate for candidate in candidates if candidate][:4]
+
+
+def extract_technical_summary(item: FeedItem) -> str | None:
+    labeled_parts = extract_labeled_summary_parts(
+        item.summary_detailed,
+        [
+            "Technical relevance",
+            "Research contribution",
+            "Research method",
+        ],
+    )
+    if labeled_parts:
+        return " ".join(labeled_parts)
+    if item.category not in {
+        "research",
+        "technical_trend",
+        "infrastructure",
+        "benchmark_evaluation",
+        "open_source_release",
+    }:
+        return None
+    return first_sentence(item.why_it_matters)
+
+
+def extract_market_watch_summary(item: FeedItem) -> str | None:
+    has_market_context = (
+        bool(item.tickers)
+        or item.category == "stock_company_event"
+        or item.stock_impact_score >= 0.25
+    )
+    if not has_market_context:
+        return None
+    labeled_parts = extract_labeled_summary_parts(item.summary_detailed, ["Market relevance"])
+    if labeled_parts:
+        return " ".join(labeled_parts)
+    ticker_text = f" for {', '.join(item.tickers[:3])}" if item.tickers else ""
+    direction = "possible market context"
+    if item.sentiment in {"positive", "negative", "mixed"}:
+        direction = f"{item.sentiment} market context"
+    return (
+        f"Watch{ticker_text} as {direction}; SignalLens does not provide financial advice."
+    )
+
+
+def extract_labeled_summary_parts(text: str | None, labels: list[str]) -> list[str]:
+    parts = []
+    label_prefixes = tuple(f"{label.lower()}:" for label in labels)
+    for line in split_summary_lines(text):
+        lowered = line.lower()
+        if not lowered.startswith(label_prefixes):
+            continue
+        _label, value = line.split(":", 1)
+        cleaned = value.strip()
+        if cleaned:
+            parts.append(cleaned)
+    return parts
+
+
+def split_summary_lines(text: str | None) -> list[str]:
+    if not text:
+        return []
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def is_bullet_line(line: str) -> bool:
+    return line.startswith(("- ", "* "))
+
+
+def strip_bullet_prefix(line: str) -> str:
+    return line[2:].strip() if is_bullet_line(line) else line.strip()
+
+
+def first_sentence(text: str | None) -> str | None:
+    if not text:
+        return None
+    normalized = " ".join(line.strip() for line in text.splitlines() if line.strip())
+    if not normalized:
+        return None
+    for marker in [". ", "? ", "! "]:
+        if marker in normalized:
+            end = normalized.index(marker) + 1
+            return normalized[:end].strip()
+    return normalized.strip()
+
+
+def summary_source_label(item: FeedItem) -> str:
+    if item.summary_short or item.summary_detailed:
+        return "stored_summary"
+    if item.why_it_matters:
+        return "why_it_matters"
+    return "deterministic"
 
 
 def delete_feed_item(db: Session, item: NormalizedItem) -> None:

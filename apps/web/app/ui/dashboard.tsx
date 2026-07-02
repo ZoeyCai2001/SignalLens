@@ -72,6 +72,11 @@ type FeedItem = {
 
 type FeedItemDetail = FeedItem & {
   text: string | null;
+  one_line_summary: string | null;
+  card_summary: string[];
+  technical_summary: string | null;
+  market_watch_summary: string | null;
+  summary_source: string;
   score_explanation: string;
   uncertainty_notes: string[];
   personalization_notes: string[];
@@ -6220,6 +6225,7 @@ function FeedDetailPanel({
           <strong>Why it matters:</strong> {detail.why_it_matters}
         </div>
       ) : null}
+      <SummaryProfilesPanel detail={detail} />
       {researchInsights ? <ResearchInsightsPanel insights={researchInsights} /> : null}
       {detail.summary_detailed ? (
         <div className="summary">
@@ -6236,6 +6242,52 @@ function FeedDetailPanel({
         </div>
       ) : null}
       {detail.text ? <div className="detail-text">{detail.text}</div> : null}
+    </div>
+  );
+}
+
+function SummaryProfilesPanel({ detail }: { detail: FeedItemDetail }) {
+  const hasSummaryProfiles =
+    detail.one_line_summary ||
+    detail.card_summary.length ||
+    detail.technical_summary ||
+    detail.market_watch_summary;
+  if (!hasSummaryProfiles) {
+    return null;
+  }
+  return (
+    <div className="summary-profile-grid">
+      {detail.one_line_summary ? (
+        <div className="summary-profile">
+          <div className="field-label">One-line</div>
+          <div>{detail.one_line_summary}</div>
+        </div>
+      ) : null}
+      {detail.card_summary.length ? (
+        <div className="summary-profile">
+          <div className="field-label">Card Summary</div>
+          <ul>
+            {detail.card_summary.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {detail.technical_summary ? (
+        <div className="summary-profile">
+          <div className="field-label">Technical</div>
+          <div>{detail.technical_summary}</div>
+        </div>
+      ) : null}
+      {detail.market_watch_summary ? (
+        <div className="summary-profile">
+          <div className="field-label">Market Watch</div>
+          <div>{detail.market_watch_summary}</div>
+        </div>
+      ) : null}
+      <div className="small-muted">
+        Summary source: {formatSummarySource(detail.summary_source)}
+      </div>
     </div>
   );
 }
@@ -9735,6 +9787,15 @@ function formatProductUseCaseLabel(value: string): string {
     productUseCaseOptions.find((option) => option.value === value)?.label ??
     formatCategoryLabel(value)
   );
+}
+
+function formatSummarySource(value: string): string {
+  const labels: Record<string, string> = {
+    stored_summary: "stored summary",
+    why_it_matters: "why it matters",
+    deterministic: "deterministic fallback",
+  };
+  return labels[value] ?? value.replace(/_/g, " ");
 }
 
 function formatConfirmationLevel(value: string): string {
