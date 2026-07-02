@@ -4,6 +4,12 @@
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "api:demo-smoke": "cd services/api && .venv/bin/python scripts/smoke_test_demo.py",
+    "api:dev": "cd services/api && .venv/bin/uvicorn app.main:app --reload",
+    "api:migrate": "cd services/api && .venv/bin/alembic upgrade head",
+    "api:seed": "cd services/api && .venv/bin/python scripts/seed_database.py",
+    "api:seed-demo": "cd services/api && .venv/bin/python scripts/seed_database.py --demo-data",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
     "verify:demo": "pnpm api:demo-smoke && pnpm web:lint && pnpm web:build",
     "web:dev": "pnpm --filter @signallens/web dev",
     "web:build": "pnpm --filter @signallens/web build",

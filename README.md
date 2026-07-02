@@ -38,7 +38,7 @@ pip install -e ".[dev]"
 From the repository root, start local infrastructure:
 
 ```bash
-docker compose -f infra/docker-compose.yml up -d
+pnpm infra:up
 ```
 
 The Docker PostgreSQL service maps to host port `55432` to avoid conflicts with a local
@@ -47,8 +47,7 @@ Postgres running on the default `5432`.
 Run the API:
 
 ```bash
-cd services/api
-uvicorn app.main:app --reload
+pnpm api:dev
 ```
 
 Useful endpoints:
@@ -131,17 +130,15 @@ Useful endpoints:
 Run database migrations and seed the initial stock, company, topic, and product watchlists:
 
 ```bash
-cd services/api
-alembic upgrade head
-python scripts/seed_database.py
+pnpm api:migrate
+pnpm api:seed
 ```
 
 For a local no-paid-API demo dashboard, seed the watchlists plus sample AI trend,
 research, product, stock, Chinese social, source-health, alert, and price-chart data:
 
 ```bash
-cd services/api
-python scripts/seed_database.py --demo-data
+pnpm api:seed-demo
 ```
 
 The same demo dataset can be seeded from the dashboard System Readiness panel when
@@ -233,3 +230,14 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 The dashboard System Readiness panel reads `/api/health`, summarizes core/recommended/optional
 setup readiness, and shows which integration environment variables are configured without
 exposing secret values.
+
+## Root Commands
+
+- `pnpm infra:up` starts local PostgreSQL and Redis.
+- `pnpm infra:down` stops local infrastructure.
+- `pnpm api:migrate` applies backend migrations.
+- `pnpm api:seed` seeds default watchlists.
+- `pnpm api:seed-demo` seeds the no-paid-API demo dashboard data.
+- `pnpm api:dev` starts the FastAPI backend.
+- `pnpm web:dev` starts the Next.js dashboard.
+- `pnpm verify:demo` runs the local demo smoke check, web lint, and web build.

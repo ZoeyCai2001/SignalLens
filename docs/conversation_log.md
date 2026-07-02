@@ -320,3 +320,4 @@ Implementation progress:
 - Added `POST /api/ingestion/demo-data` and wired System Readiness to offer a Seed Demo Data action when no recent items exist, letting the local dashboard become inspectable without terminal-only setup.
 - Added `python scripts/smoke_test_demo.py` to verify the no-paid-API demo path against core API surfaces, and guarded alert generation against duplicate pending alerts when multiple alert categories match the same item and rule.
 - Added `pnpm verify:demo` as a repo-root MVP demo readiness command that runs the API demo smoke check, web lint, and production web build together.
+- Added repo-root local workflow commands for infrastructure, migrations, API dev, default seeding, and demo seeding so first-run setup no longer requires jumping between project folders.
