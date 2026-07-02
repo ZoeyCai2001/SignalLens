@@ -151,7 +151,13 @@ Run the local demo smoke verifier without Postgres or external API calls:
 
 ```bash
 cd services/api
-python scripts/smoke_test_demo.py
+.venv/bin/python scripts/smoke_test_demo.py
+```
+
+From the repository root, run the combined MVP demo verification:
+
+```bash
+pnpm verify:demo
 ```
 
 Run the Kimi API smoke test:

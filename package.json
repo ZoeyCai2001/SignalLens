@@ -3,6 +3,8 @@
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "scripts": {
+    "api:demo-smoke": "cd services/api && .venv/bin/python scripts/smoke_test_demo.py",
+    "verify:demo": "pnpm api:demo-smoke && pnpm web:lint && pnpm web:build",
     "web:dev": "pnpm --filter @signallens/web dev",
     "web:build": "pnpm --filter @signallens/web build",
     "web:lint": "pnpm --filter @signallens/web lint"
