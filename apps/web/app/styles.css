@@ -348,6 +348,16 @@ a {
   white-space: pre-line;
 }
 
+.scheduler-command {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
+  padding: 8px 10px;
+}
+
 .why-card {
   border: 1px solid var(--line);
   border-radius: 8px;

@@ -83,6 +83,7 @@ Useful endpoints:
 - `PATCH http://127.0.0.1:8000/api/preferences`
 - `GET http://127.0.0.1:8000/api/settings/backup`
 - `POST http://127.0.0.1:8000/api/settings/restore`
+- `GET http://127.0.0.1:8000/api/ingestion/schedule`
 - `GET http://127.0.0.1:8000/api/alerts`
 - `GET http://127.0.0.1:8000/api/alerts/rules`
 - `GET http://127.0.0.1:8000/api/digest/daily`
@@ -215,6 +216,8 @@ Run the local scheduler continuously:
 cd services/api
 SIGNALLENS_SCHEDULER_MODE=forever SIGNALLENS_SCHEDULER_INTERVAL_MINUTES=360 python scripts/run_scheduler.py
 ```
+
+`DIGEST_TARGET_HOUR_UTC=0` configures the preferred UTC hour shown in the Settings scheduler panel for the morning digest target.
 
 ## Local Web Setup
 

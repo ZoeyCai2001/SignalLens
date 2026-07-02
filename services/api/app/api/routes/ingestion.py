@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession
-from app.schemas.ingestion import DemoDataSeedResponse, IngestionRunResponse, ScheduledCycleResponse
+from app.core.config import get_settings
+from app.schemas.ingestion import (
+    DemoDataSeedResponse,
+    IngestionRunResponse,
+    IngestionScheduleStatus,
+    ScheduledCycleResponse,
+)
 from app.services.demo_data import seed_demo_data
 from app.services.ingestion import (
     run_alpha_vantage_news_ingestion,
@@ -15,7 +21,7 @@ from app.services.ingestion import (
     run_rss_ingestion,
     run_sec_filings_ingestion,
 )
-from app.services.scheduled_jobs import run_ingestion_cycle
+from app.services.scheduled_jobs import build_ingestion_schedule_status, run_ingestion_cycle
 from app.services.watchlist import (
     seed_initial_company_watchlist,
     seed_initial_product_watchlist,
@@ -30,6 +36,17 @@ router = APIRouter()
 async def run_scheduled_ingestion_cycle(db: DbSession) -> ScheduledCycleResponse:
     result = await run_ingestion_cycle(db)
     return ScheduledCycleResponse.model_validate(result)
+
+
+@router.get("/schedule", response_model=IngestionScheduleStatus)
+async def read_ingestion_schedule(db: DbSession) -> IngestionScheduleStatus:
+    settings = get_settings()
+    return build_ingestion_schedule_status(
+        db=db,
+        mode=settings.signallens_scheduler_mode,
+        interval_minutes=settings.signallens_scheduler_interval_minutes,
+        digest_target_hour_utc=settings.digest_target_hour_utc,
+    )
 
 
 @router.post("/demo-data", response_model=DemoDataSeedResponse)

@@ -1,10 +1,11 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Source, SourceRun
+from app.db.models import DailyDigestSnapshot, Source, SourceRun
+from app.schemas.ingestion import IngestionScheduleStatus, ScheduledJobPlan
 from app.services.alerts import generate_alerts
 from app.services.daily_digest import save_daily_digest_snapshot
 from app.services.ingestion import (
@@ -114,9 +115,9 @@ def save_cycle_digest_snapshot(db: Session) -> date:
     return save_daily_digest_snapshot(db).digest_date
 
 
-def list_enabled_custom_sources(db: Session) -> list[Source]:
+def list_enabled_custom_sources(db: Session, now: datetime | None = None) -> list[Source]:
     registered_names = set(REGISTERED_SOURCE_RUNNERS_BY_NAME)
-    now = datetime.now(UTC)
+    reference_time = ensure_utc(now or datetime.now(UTC))
     sources = (
         db.query(Source)
         .filter(Source.enabled.is_(True), ~Source.name.in_(registered_names))
@@ -129,9 +130,112 @@ def list_enabled_custom_sources(db: Session) -> list[Source]:
         if source_due_for_cycle(
             source=source,
             latest_run=get_latest_source_run_for_cycle(db=db, source_id=source.id),
-            now=now,
+            now=reference_time,
         )
     ]
+
+
+def build_ingestion_schedule_status(
+    db: Session,
+    *,
+    mode: str = "once",
+    interval_minutes: int = 360,
+    digest_target_hour_utc: int = 0,
+    now: datetime | None = None,
+) -> IngestionScheduleStatus:
+    reference_time = ensure_utc(now or datetime.now(UTC))
+    normalized_mode = (mode or "once").strip().lower()
+    normalized_interval = max(1, int(interval_minutes))
+    latest_run = get_latest_source_run(db)
+    latest_run_at = ensure_utc(latest_run.started_at) if latest_run else None
+    latest_digest = get_latest_digest_snapshot(db)
+    due_custom_sources = list_enabled_custom_sources(db, now=reference_time)
+    next_cycle_at = None
+    if normalized_mode == "forever":
+        next_cycle_at = next_interval_cycle_at(
+            latest_run_at=latest_run_at,
+            interval_minutes=normalized_interval,
+            now=reference_time,
+        )
+
+    return IngestionScheduleStatus(
+        mode=normalized_mode,
+        interval_minutes=normalized_interval,
+        digest_target_hour_utc=digest_target_hour_utc,
+        now=reference_time,
+        next_cycle_at=next_cycle_at,
+        next_digest_target_at=next_digest_target_at(
+            now=reference_time,
+            target_hour_utc=digest_target_hour_utc,
+        ),
+        latest_source_run_at=latest_run_at,
+        latest_source_run_status=latest_run.status if latest_run else None,
+        latest_digest_snapshot_date=latest_digest.digest_date if latest_digest else None,
+        digest_snapshot_fresh=(
+            latest_digest is not None and latest_digest.digest_date >= reference_time.date()
+        ),
+        built_in_jobs=[
+            ScheduledJobPlan(name=job.name, limit=job.limit, source_type="built_in", due=True)
+            for job in DEFAULT_INGESTION_JOBS
+        ],
+        due_custom_sources=[
+            ScheduledJobPlan(
+                name=source.name,
+                limit=None,
+                source_type=source.type,
+                due=True,
+            )
+            for source in due_custom_sources
+        ],
+        due_custom_source_count=len(due_custom_sources),
+        command_hint=build_scheduler_command_hint(normalized_interval),
+    )
+
+
+def get_latest_source_run(db: Session) -> SourceRun | None:
+    return db.query(SourceRun).order_by(SourceRun.started_at.desc(), SourceRun.id.desc()).first()
+
+
+def get_latest_digest_snapshot(db: Session) -> DailyDigestSnapshot | None:
+    return (
+        db.query(DailyDigestSnapshot)
+        .order_by(DailyDigestSnapshot.digest_date.desc(), DailyDigestSnapshot.id.desc())
+        .first()
+    )
+
+
+def next_interval_cycle_at(
+    *,
+    latest_run_at: datetime | None,
+    interval_minutes: int,
+    now: datetime,
+) -> datetime:
+    if latest_run_at is None:
+        return now
+    next_run = latest_run_at + timedelta(minutes=interval_minutes)
+    return max(next_run, now)
+
+
+def next_digest_target_at(*, now: datetime, target_hour_utc: int) -> datetime:
+    normalized_hour = min(max(int(target_hour_utc), 0), 23)
+    target = now.replace(hour=normalized_hour, minute=0, second=0, microsecond=0)
+    if target <= now:
+        target += timedelta(days=1)
+    return target
+
+
+def build_scheduler_command_hint(interval_minutes: int) -> str:
+    return (
+        "SIGNALLENS_SCHEDULER_MODE=forever "
+        f"SIGNALLENS_SCHEDULER_INTERVAL_MINUTES={interval_minutes} "
+        "python scripts/run_scheduler.py"
+    )
+
+
+def ensure_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def get_latest_source_run_for_cycle(db: Session, source_id: int) -> SourceRun | None:

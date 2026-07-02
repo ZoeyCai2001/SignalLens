@@ -105,6 +105,30 @@ class ScheduledCycleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ScheduledJobPlan(BaseModel):
+    name: str
+    limit: int | None = None
+    source_type: str = "built_in"
+    due: bool = True
+
+
+class IngestionScheduleStatus(BaseModel):
+    mode: str
+    interval_minutes: int
+    digest_target_hour_utc: int
+    now: datetime
+    next_cycle_at: datetime | None = None
+    next_digest_target_at: datetime
+    latest_source_run_at: datetime | None = None
+    latest_source_run_status: str | None = None
+    latest_digest_snapshot_date: date | None = None
+    digest_snapshot_fresh: bool = False
+    built_in_jobs: list[ScheduledJobPlan]
+    due_custom_sources: list[ScheduledJobPlan]
+    due_custom_source_count: int = 0
+    command_hint: str
+
+
 class DemoDataSeedResponse(BaseModel):
     seeded_stock_watchlist_count: int
     seeded_company_watchlist_count: int

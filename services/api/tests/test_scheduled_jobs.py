@@ -8,13 +8,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.routes import ingestion as ingestion_routes
-from app.db.models import Base, Source, SourceRun
+from app.db.models import Base, DailyDigestSnapshot, Source, SourceRun
 from app.schemas.ingestion import IngestionRunResponse
 from app.services.ingestion import IngestionResult, SourceRunnerNotFoundError
 from app.services.scheduled_jobs import (
     ScheduledCycleResult,
     ScheduledIngestionJob,
+    build_ingestion_schedule_status,
     list_enabled_custom_sources,
+    next_digest_target_at,
     parse_polling_interval,
     run_ingestion_cycle,
     scheduled_cycle_to_log_dict,
@@ -210,6 +212,88 @@ def test_parse_polling_interval_handles_common_source_frequency_text() -> None:
     assert parse_polling_interval("every 4 hours") == timedelta(hours=4)
     assert parse_polling_interval("15 minutes") == timedelta(minutes=15)
     assert parse_polling_interval("unknown") is None
+
+
+def test_next_digest_target_at_prefers_next_configured_utc_hour() -> None:
+    assert next_digest_target_at(
+        now=datetime(2026, 7, 2, 0, 30, tzinfo=UTC),
+        target_hour_utc=1,
+    ) == datetime(2026, 7, 2, 1, 0, tzinfo=UTC)
+    assert next_digest_target_at(
+        now=datetime(2026, 7, 2, 1, 30, tzinfo=UTC),
+        target_hour_utc=1,
+    ) == datetime(2026, 7, 3, 1, 0, tzinfo=UTC)
+
+
+def test_build_ingestion_schedule_status_reports_next_cycle_and_digest_freshness() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        built_in = Source(name="Selected RSS Feeds", type="rss", access_method="rss", enabled=True)
+        due_custom = Source(
+            name="Due Custom",
+            type="blog",
+            access_method="rss",
+            polling_interval="1 hour",
+            enabled=True,
+            priority=10,
+        )
+        recent_custom = Source(
+            name="Recent Custom",
+            type="blog",
+            access_method="rss",
+            polling_interval="6 hours",
+            enabled=True,
+            priority=20,
+        )
+        db.add_all([built_in, due_custom, recent_custom])
+        db.flush()
+        db.add_all(
+            [
+                SourceRun(
+                    source_id=built_in.id,
+                    status="success",
+                    started_at=datetime(2026, 7, 2, 0, 0, tzinfo=UTC),
+                ),
+                SourceRun(
+                    source_id=recent_custom.id,
+                    status="success",
+                    started_at=datetime(2026, 7, 2, 2, 0, tzinfo=UTC),
+                ),
+                DailyDigestSnapshot(
+                    user_id="local",
+                    digest_date=date(2026, 7, 2),
+                    generated_at=datetime(2026, 7, 2, 0, 15, tzinfo=UTC),
+                    headline="Morning brief",
+                    total_items=5,
+                    limit_per_section=5,
+                    payload={},
+                    markdown="# Morning brief",
+                ),
+            ]
+        )
+        db.commit()
+
+        status = build_ingestion_schedule_status(
+            db,
+            mode="forever",
+            interval_minutes=360,
+            digest_target_hour_utc=0,
+            now=datetime(2026, 7, 2, 3, 0, tzinfo=UTC),
+        )
+
+    assert status.mode == "forever"
+    assert status.next_cycle_at == datetime(2026, 7, 2, 8, 0, tzinfo=UTC)
+    assert status.next_digest_target_at == datetime(2026, 7, 3, 0, 0, tzinfo=UTC)
+    assert status.latest_source_run_status == "success"
+    assert status.latest_digest_snapshot_date == date(2026, 7, 2)
+    assert status.digest_snapshot_fresh is True
+    assert status.due_custom_source_count == 1
+    assert [source.name for source in status.due_custom_sources] == ["Due Custom"]
+    assert status.built_in_jobs[0].name == "hacker-news"
+    assert "SIGNALLENS_SCHEDULER_MODE=forever" in status.command_hint
 
 
 def test_source_due_for_cycle_respects_latest_run_and_interval() -> None:
@@ -441,6 +525,34 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
     assert response.ingestion_results[1].recovery_hint == (
         "Add the required API key in .env or disable this optional source."
     )
+
+
+@pytest.mark.anyio
+async def test_ingestion_schedule_route_uses_configured_scheduler_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        monkeypatch.setattr(
+            ingestion_routes,
+            "get_settings",
+            lambda: SimpleNamespace(
+                signallens_scheduler_mode="forever",
+                signallens_scheduler_interval_minutes=120,
+                digest_target_hour_utc=2,
+            ),
+        )
+
+        response = await ingestion_routes.read_ingestion_schedule(db)
+
+    assert response.mode == "forever"
+    assert response.interval_minutes == 120
+    assert response.digest_target_hour_utc == 2
+    assert response.next_cycle_at == response.now
+    assert response.digest_snapshot_fresh is False
 
 
 @pytest.mark.anyio

@@ -43,6 +43,13 @@ class Settings(BaseSettings):
         alias="SEC_USER_AGENT",
     )
     chinese_rss_feeds: str | None = Field(default=None, alias="CHINESE_RSS_FEEDS")
+    signallens_scheduler_mode: str = Field(default="once", alias="SIGNALLENS_SCHEDULER_MODE")
+    signallens_scheduler_interval_minutes: int = Field(
+        default=360,
+        ge=1,
+        alias="SIGNALLENS_SCHEDULER_INTERVAL_MINUTES",
+    )
+    digest_target_hour_utc: int = Field(default=0, ge=0, le=23, alias="DIGEST_TARGET_HOUR_UTC")
     cors_origins: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 
     model_config = SettingsConfigDict(

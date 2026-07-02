@@ -402,6 +402,30 @@ type ScheduledCycleResponse = {
   ingestion_results: IngestionRunResponse[];
 };
 
+type ScheduledJobPlan = {
+  name: string;
+  limit: number | null;
+  source_type: string;
+  due: boolean;
+};
+
+type IngestionScheduleStatus = {
+  mode: string;
+  interval_minutes: number;
+  digest_target_hour_utc: number;
+  now: string;
+  next_cycle_at: string | null;
+  next_digest_target_at: string;
+  latest_source_run_at: string | null;
+  latest_source_run_status: string | null;
+  latest_digest_snapshot_date: string | null;
+  digest_snapshot_fresh: boolean;
+  built_in_jobs: ScheduledJobPlan[];
+  due_custom_sources: ScheduledJobPlan[];
+  due_custom_source_count: number;
+  command_hint: string;
+};
+
 type FeedProcessingResponse = {
   requested_limit: number;
   candidates_seen: number;
@@ -1076,6 +1100,7 @@ export function Dashboard() {
   const [sourceRunStatusFilter, setSourceRunStatusFilter] = useState<"all" | "failed">("all");
   const [sourceRunSourceFilter, setSourceRunSourceFilter] = useState<SourceHealth | null>(null);
   const [lastCycleResult, setLastCycleResult] = useState<ScheduledCycleResponse | null>(null);
+  const [scheduleStatus, setScheduleStatus] = useState<IngestionScheduleStatus | null>(null);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestSnapshots, setDigestSnapshots] = useState<DailyDigestSnapshot[]>([]);
   const [activeDigestSnapshot, setActiveDigestSnapshot] = useState<DailyDigestSnapshot | null>(null);
@@ -1245,6 +1270,7 @@ export function Dashboard() {
         nextAlertRules,
         nextPreferences,
         nextSystemStatus,
+        nextScheduleStatus,
         nextQualityMetrics,
       ] =
         await Promise.all([
@@ -1267,6 +1293,7 @@ export function Dashboard() {
           fetchJson<AlertRule[]>("/api/alerts/rules"),
           fetchJson<UserPreferences>("/api/preferences"),
           fetchJson<SystemStatus>("/api/health"),
+          fetchJson<IngestionScheduleStatus>("/api/ingestion/schedule"),
           fetchJson<QualityMetrics>("/api/quality-metrics").catch(() => null),
         ]);
       setFeed(nextFeed);
@@ -1286,6 +1313,7 @@ export function Dashboard() {
       setAlertRules(nextAlertRules);
       setPreferences(nextPreferences);
       setSystemStatus(nextSystemStatus);
+      setScheduleStatus(nextScheduleStatus);
       setQualityMetrics(nextQualityMetrics);
       setModuleFeedOverrides({});
       setRankingDraft(nextPreferences.ranking_weights);
@@ -3277,6 +3305,14 @@ export function Dashboard() {
       onSave={saveRankingPreferences}
     />
   );
+  const schedulerStatusPanel = (
+    <SchedulerStatusPanel
+      schedule={scheduleStatus}
+      disabled={loadState !== "idle"}
+      busy={activeOperation === "cycle"}
+      onRunCycle={runFullCycle}
+    />
+  );
   const settingsBackupPanel = (
     <SettingsBackupPanel
       disabled={loadState !== "idle"}
@@ -3577,6 +3613,7 @@ export function Dashboard() {
           ) : activeModule === "settings" ? (
             <section className="module-stack">
               {systemStatusPanel}
+              {schedulerStatusPanel}
               {rankingPreferencesPanel}
               {settingsBackupPanel}
             </section>
@@ -3948,6 +3985,94 @@ function RankingPreferencesPanel({
             Save
           </button>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function SchedulerStatusPanel({
+  schedule,
+  disabled,
+  busy,
+  onRunCycle,
+}: {
+  schedule: IngestionScheduleStatus | null;
+  disabled: boolean;
+  busy: boolean;
+  onRunCycle: () => void;
+}) {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Scheduler</h2>
+        <CalendarDays size={16} aria-hidden="true" />
+      </div>
+      <div className="digest-panel">
+        {schedule ? (
+          <>
+            <div className="readiness-grid setup-summary-grid">
+              <ReadinessMetric
+                label="Mode"
+                value={schedule.mode === "forever" ? "automatic" : "manual"}
+              />
+              <ReadinessMetric label="Interval" value={`${schedule.interval_minutes}m`} />
+              <ReadinessMetric
+                label="Next Cycle"
+                value={schedule.next_cycle_at ? formatDate(schedule.next_cycle_at) : "manual"}
+              />
+              <ReadinessMetric
+                label="Digest"
+                value={schedule.digest_snapshot_fresh ? "fresh" : "needs save"}
+              />
+            </div>
+            <div className="readiness-grid setup-summary-grid">
+              <ReadinessMetric
+                label="Digest Target"
+                value={`${schedule.digest_target_hour_utc}:00 UTC`}
+              />
+              <ReadinessMetric
+                label="Next Target"
+                value={formatDate(schedule.next_digest_target_at)}
+              />
+              <ReadinessMetric
+                label="Latest Run"
+                value={
+                  schedule.latest_source_run_at
+                    ? formatDate(schedule.latest_source_run_at)
+                    : "none"
+                }
+              />
+              <ReadinessMetric label="Due Custom" value={schedule.due_custom_source_count} />
+            </div>
+            <div className="badges">
+              {schedule.built_in_jobs.slice(0, 6).map((job) => (
+                <span className="badge" key={job.name}>
+                  {job.name}
+                </span>
+              ))}
+              {schedule.due_custom_sources.slice(0, 4).map((source) => (
+                <span className="badge stock" key={source.name}>
+                  {source.name}
+                </span>
+              ))}
+            </div>
+            <div className="summary scheduler-command">{schedule.command_hint}</div>
+            <div className="toolbar">
+              <button
+                className="button primary"
+                onClick={onRunCycle}
+                disabled={disabled || busy}
+                type="button"
+                title="Run full ingestion cycle and save a digest snapshot now"
+              >
+                {busy ? <Loader2 className="spin" size={16} /> : <DatabaseZap size={16} />}
+                Run Cycle
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="empty-state">Scheduler status is loading.</div>
+        )}
       </div>
     </section>
   );
