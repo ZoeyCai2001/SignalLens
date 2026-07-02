@@ -331,3 +331,4 @@ Implementation progress:
 - Added a live PRD MVP checklist to System Readiness, mapping local quality metrics to ready, partial, and needs-action states for the main MVP requirement areas.
 - Updated scheduled ingestion so automated cycles save at most one daily digest snapshot after the configured UTC target hour, while manual digest actions remain available.
 - Added a stock-detail Notes tab that surfaces watchlist notes plus saved, read-later, important, privately noted, or manually tagged stock-linked signals.
+- Added event titles to Event Cluster timeline rows so expanded cluster evidence reads as a usable event timeline.

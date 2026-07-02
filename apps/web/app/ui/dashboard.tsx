@@ -5929,6 +5929,7 @@ function EventClusterPanel({
                     >
                       <span>{event.published_at ? formatDate(event.published_at) : "undated"}</span>
                       <span>{event.source_name}</span>
+                      <span className="cluster-timeline-title">{event.title}</span>
                       <span>{Math.round(event.importance_score * 100)}</span>
                     </div>
                   ))}

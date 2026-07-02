@@ -1021,10 +1021,15 @@ table {
 
 .cluster-timeline-row {
   display: grid;
-  grid-template-columns: minmax(88px, auto) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(88px, auto) minmax(92px, auto) minmax(0, 1fr) auto;
   gap: 8px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.cluster-timeline-title {
+  color: #34403e;
+  font-weight: 700;
 }
 
 .cluster-evidence-row {
