@@ -808,6 +808,19 @@ type UserPreferences = {
   language_preferences: string[];
 };
 
+type PersonalSettingsRestoreResult = {
+  version: number;
+  restored_at: string;
+  preferences_updated: boolean;
+  sources_upserted: number;
+  alert_rules_upserted: number;
+  stock_watchlist_upserted: number;
+  company_watchlist_upserted: number;
+  topic_watchlist_upserted: number;
+  product_watchlist_upserted: number;
+  skipped_sections: string[];
+};
+
 type IngestionSource =
   | "hacker-news"
   | "alpha-vantage-news"
@@ -1098,6 +1111,8 @@ export function Dashboard() {
   const [busyTopicBriefing, setBusyTopicBriefing] = useState<string | null>(null);
   const [busyWatchlistKey, setBusyWatchlistKey] = useState<string | null>(null);
   const [busyPreferences, setBusyPreferences] = useState(false);
+  const [busySettingsBackup, setBusySettingsBackup] = useState(false);
+  const [busySettingsRestore, setBusySettingsRestore] = useState(false);
   const [busyDigestGenerate, setBusyDigestGenerate] = useState(false);
   const [busyDigestCopy, setBusyDigestCopy] = useState(false);
   const [busyDigestDownload, setBusyDigestDownload] = useState(false);
@@ -1670,6 +1685,59 @@ export function Dashboard() {
       setStatus("Ranking preference update failed");
     } finally {
       setBusyPreferences(false);
+    }
+  };
+
+  const downloadSettingsBackup = async () => {
+    setBusySettingsBackup(true);
+    setError(null);
+    try {
+      const backup = await fetchJson<Record<string, unknown>>("/api/settings/backup");
+      const exportedAt =
+        typeof backup.exported_at === "string" ? backup.exported_at : new Date().toISOString();
+      downloadJsonFile(
+        `signallens-settings-${safeFilenamePart(exportedAt.slice(0, 10))}.json`,
+        backup,
+      );
+      setStatus("Downloaded settings backup");
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Settings backup download failed");
+    } finally {
+      setBusySettingsBackup(false);
+    }
+  };
+
+  const restoreSettingsBackup = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+    setBusySettingsRestore(true);
+    setError(null);
+    try {
+      const payload = JSON.parse(await file.text()) as Record<string, unknown>;
+      const result = await fetchJson<PersonalSettingsRestoreResult>("/api/settings/restore", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const watchlistCount =
+        result.stock_watchlist_upserted +
+        result.company_watchlist_upserted +
+        result.topic_watchlist_upserted +
+        result.product_watchlist_upserted;
+      const skippedText = result.skipped_sections.length
+        ? `; skipped ${result.skipped_sections.join(", ")}`
+        : "";
+      const restoreStatus =
+        `Restored settings: ${result.sources_upserted} sources, ` +
+        `${watchlistCount} watchlist rows, ` +
+        `${result.alert_rules_upserted} alert rules${skippedText}`;
+      await refreshAllWithStatus(restoreStatus);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Settings restore failed");
+    } finally {
+      setBusySettingsRestore(false);
     }
   };
 
@@ -3204,6 +3272,15 @@ export function Dashboard() {
       onSave={saveRankingPreferences}
     />
   );
+  const settingsBackupPanel = (
+    <SettingsBackupPanel
+      disabled={loadState !== "idle"}
+      busyBackup={busySettingsBackup}
+      busyRestore={busySettingsRestore}
+      onDownload={downloadSettingsBackup}
+      onRestore={restoreSettingsBackup}
+    />
+  );
   const sourceHealthPanel = (
     <SourceTable
       sources={sources}
@@ -3496,6 +3573,7 @@ export function Dashboard() {
             <section className="module-stack">
               {systemStatusPanel}
               {rankingPreferencesPanel}
+              {settingsBackupPanel}
             </section>
           ) : (
             <section className="section">
@@ -3864,6 +3942,69 @@ function RankingPreferencesPanel({
             {busy ? <Loader2 className="spin" size={16} /> : <SlidersHorizontal size={16} />}
             Save
           </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SettingsBackupPanel({
+  disabled,
+  busyBackup,
+  busyRestore,
+  onDownload,
+  onRestore,
+}: {
+  disabled: boolean;
+  busyBackup: boolean;
+  busyRestore: boolean;
+  onDownload: () => void;
+  onRestore: (file: File | null) => void;
+}) {
+  const inputId = "settings-backup-file";
+  const busy = busyBackup || busyRestore;
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Settings Backup</h2>
+        <FileText size={16} aria-hidden="true" />
+      </div>
+      <div className="digest-panel">
+        <div className="digest-meta">
+          <span>Preferences, watchlists, sources, alert rules</span>
+          <span>JSON</span>
+        </div>
+        <div className="toolbar">
+          <button
+            className="button"
+            onClick={onDownload}
+            disabled={disabled || busy}
+            type="button"
+            title="Download local SignalLens settings as JSON"
+          >
+            {busyBackup ? <Loader2 className="spin" size={16} /> : <Download size={16} />}
+            Download Backup
+          </button>
+          <label
+            className={`button ${disabled || busy ? "disabled" : ""}`}
+            htmlFor={inputId}
+            title="Restore SignalLens settings from a JSON backup"
+          >
+            {busyRestore ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+            Restore Backup
+          </label>
+          <input
+            id={inputId}
+            type="file"
+            accept="application/json,.json"
+            disabled={disabled || busy}
+            style={{ display: "none" }}
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              onRestore(file);
+              event.target.value = "";
+            }}
+          />
         </div>
       </div>
     </section>
@@ -9532,6 +9673,20 @@ function buildDigestEmailHref(subject: string, markdown: string): string {
 
 function downloadMarkdownFile(filename: string, markdown: string): void {
   const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadJsonFile(filename: string, data: Record<string, unknown>): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json;charset=utf-8",
+  });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;

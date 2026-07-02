@@ -12,6 +12,7 @@ from app.api.routes import (
     manual_submissions,
     preferences,
     search,
+    settings as settings_routes,
     sources,
     stocks,
     watchlist,
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/api", tags=["health"])
     app.include_router(feed.router, prefix="/api/feed", tags=["feed"])
     app.include_router(search.router, prefix="/api/search", tags=["search"])
+    app.include_router(settings_routes.router, prefix="/api/settings", tags=["settings"])
     app.include_router(preferences.router, prefix="/api/preferences", tags=["preferences"])
     app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
     app.include_router(digest.router, prefix="/api/digest", tags=["digest"])

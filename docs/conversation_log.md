@@ -325,3 +325,4 @@ Implementation progress:
 - Added optional LLM cost and monthly budget tracking to `/api/quality-metrics` and System Readiness, using local token price assumptions instead of provider billing APIs.
 - Added Source Health follow templates for public blog RSS, company blogs, GitHub repositories, Product Hunt topics, Chinese/public social RSS feeds, and manual watch sources so the PRD source watchlist is easier to configure from the dashboard.
 - Added permanent feed-item deletion for PRD privacy/compliance, removing raw item text, normalized feed content, personal item state, alerts, and digest snapshots that still contain the deleted item.
+- Added personal settings backup and restore for preferences, followed sources, alert rules, and watchlists, with dashboard JSON download/upload controls and a non-destructive upsert restore path.

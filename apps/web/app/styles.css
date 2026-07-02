@@ -164,7 +164,8 @@ a {
   color: #fff;
 }
 
-.button:disabled {
+.button:disabled,
+.button.disabled {
   opacity: 0.58;
   cursor: not-allowed;
 }
