@@ -603,6 +603,19 @@ type SourceCreatePayload = {
   terms_notes: string | null;
 };
 
+type SourceFollowTemplate = {
+  key: string;
+  label: string;
+  type: string;
+  accessMethod: string;
+  namePlaceholder: string;
+  urlPlaceholder: string;
+  pollingInterval: string;
+  rateLimit: string;
+  termsNotes: string;
+  termsPlaceholder: string;
+};
+
 type SourceDraft = {
   name: string;
   type: string;
@@ -886,6 +899,81 @@ const sourceTypeOptions: { value: string; label: string }[] = [
   { value: "finance_filings", label: "Finance filings" },
 ];
 
+const sourceFollowTemplates: SourceFollowTemplate[] = [
+  {
+    key: "blog_rss",
+    label: "Blog RSS",
+    type: "blog",
+    accessMethod: "rss",
+    namePlaceholder: "Latent Space",
+    urlPlaceholder: "https://www.latent.space/feed",
+    pollingInterval: "6 hours",
+    rateLimit: "Public RSS/Atom feed; keep polling conservative.",
+    termsNotes: "Public blog RSS/Atom feed only.",
+    termsPlaceholder: "Public blog RSS/Atom feed only.",
+  },
+  {
+    key: "company_blog",
+    label: "Company Blog",
+    type: "company",
+    accessMethod: "rss",
+    namePlaceholder: "OpenAI Blog",
+    urlPlaceholder: "https://openai.com/news/rss.xml",
+    pollingInterval: "6 hours",
+    rateLimit: "Public company RSS/Atom feed; keep polling conservative.",
+    termsNotes: "Public company announcements and blog posts.",
+    termsPlaceholder: "Public company announcements and blog posts.",
+  },
+  {
+    key: "github_repository",
+    label: "GitHub Repo",
+    type: "github_repository",
+    accessMethod: "official_api",
+    namePlaceholder: "LangChain Repo",
+    urlPlaceholder: "https://github.com/langchain-ai/langchain",
+    pollingInterval: "12 hours",
+    rateLimit: "GitHub public API; set GITHUB_TOKEN for higher rate limits.",
+    termsNotes: "Track public repository releases, stars, and README metadata.",
+    termsPlaceholder: "Track public repository releases, stars, and README metadata.",
+  },
+  {
+    key: "product_hunt_topic",
+    label: "Product Hunt Topic",
+    type: "product_topic",
+    accessMethod: "official_graphql_api",
+    namePlaceholder: "Product Hunt AI Coding",
+    urlPlaceholder: "https://www.producthunt.com/topics/artificial-intelligence",
+    pollingInterval: "6 hours",
+    rateLimit: "Product Hunt API token required; keep topic polling conservative.",
+    termsNotes: "AI products, developer tools, and launch metadata.",
+    termsPlaceholder: "AI products, developer tools, and launch metadata.",
+  },
+  {
+    key: "chinese_social_feed",
+    label: "Chinese RSS",
+    type: "social_keyword",
+    accessMethod: "rss",
+    namePlaceholder: "Chinese AI Apps Feed",
+    urlPlaceholder: "https://example.com/chinese-ai/rss.xml",
+    pollingInterval: "6 hours",
+    rateLimit: "Public RSS/Atom metadata only; no login-protected social scraping.",
+    termsNotes: "Chinese AI product keywords from public RSS/Atom feeds only.",
+    termsPlaceholder: "AI photo, AI video, agent apps, public feed scope.",
+  },
+  {
+    key: "manual_watch",
+    label: "Manual Watch",
+    type: "community",
+    accessMethod: "manual_watch",
+    namePlaceholder: "Researcher Watchlist",
+    urlPlaceholder: "https://example.com",
+    pollingInterval: "",
+    rateLimit: "Manual watch source; no automated collection until a connector is added.",
+    termsNotes: "Track manually submitted URLs for this source.",
+    termsPlaceholder: "Track manually submitted URLs for this source.",
+  },
+];
+
 const productUseCaseOptions: { value: string; label: string }[] = [
   { value: "product_coding", label: "Coding" },
   { value: "product_media", label: "Media" },
@@ -1046,6 +1134,7 @@ export function Dashboard() {
   const [productCategory, setProductCategory] = useState("");
   const [productLabel, setProductLabel] = useState("");
   const [productTerms, setProductTerms] = useState("");
+  const [sourceTemplate, setSourceTemplate] = useState("blog_rss");
   const [sourceName, setSourceName] = useState("");
   const [sourceType, setSourceType] = useState("blog");
   const [sourceAccessMethod, setSourceAccessMethod] = useState("rss");
@@ -2875,6 +2964,21 @@ export function Dashboard() {
     }
   };
 
+  const selectSourceTemplate = (templateKey: string) => {
+    const template =
+      sourceFollowTemplates.find((item) => item.key === templateKey) ?? sourceFollowTemplates[0];
+    setSourceTemplate(template.key);
+    setSourceType(template.type);
+    setSourceAccessMethod(template.accessMethod);
+    setSourcePollingInterval(template.pollingInterval);
+    setSourceRateLimit(template.rateLimit);
+    setSourceTermsNotes((current) =>
+      !current || sourceFollowTemplates.some((item) => item.termsNotes === current)
+        ? template.termsNotes
+        : current,
+    );
+  };
+
   const submitSource = async () => {
     if (!sourceName.trim()) {
       setError("Source entries need a name.");
@@ -2898,6 +3002,7 @@ export function Dashboard() {
         } satisfies SourceCreatePayload),
       });
       setSourceName("");
+      setSourceTemplate("blog_rss");
       setSourceType("blog");
       setSourceAccessMethod("rss");
       setSourceBaseUrl("");
@@ -3075,6 +3180,7 @@ export function Dashboard() {
       runSourceFilter={sourceRunSourceFilter}
       lastCycleResult={lastCycleResult}
       blockedSources={preferences?.blocked_sources ?? []}
+      sourceTemplate={sourceTemplate}
       name={sourceName}
       type={sourceType}
       accessMethod={sourceAccessMethod}
@@ -3084,6 +3190,7 @@ export function Dashboard() {
       rateLimit={sourceRateLimit}
       disabled={loadState !== "idle"}
       busySourceId={busySourceId}
+      onSourceTemplateChange={selectSourceTemplate}
       onNameChange={setSourceName}
       onTypeChange={setSourceType}
       onAccessMethodChange={setSourceAccessMethod}
@@ -8580,6 +8687,7 @@ function SourceTable({
   runSourceFilter,
   lastCycleResult,
   blockedSources,
+  sourceTemplate,
   name,
   type,
   accessMethod,
@@ -8589,6 +8697,7 @@ function SourceTable({
   termsNotes,
   disabled,
   busySourceId,
+  onSourceTemplateChange,
   onNameChange,
   onTypeChange,
   onAccessMethodChange,
@@ -8613,6 +8722,7 @@ function SourceTable({
   runSourceFilter: SourceHealth | null;
   lastCycleResult: ScheduledCycleResponse | null;
   blockedSources: string[];
+  sourceTemplate: string;
   name: string;
   type: string;
   accessMethod: string;
@@ -8622,6 +8732,7 @@ function SourceTable({
   termsNotes: string;
   disabled: boolean;
   busySourceId: number | null;
+  onSourceTemplateChange: (value: string) => void;
   onNameChange: (value: string) => void;
   onTypeChange: (value: string) => void;
   onAccessMethodChange: (value: string) => void;
@@ -8640,6 +8751,9 @@ function SourceTable({
   onDeleteSource: (source: SourceHealth) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<number, SourceDraft>>({});
+  const selectedTemplate =
+    sourceFollowTemplates.find((template) => template.key === sourceTemplate) ??
+    sourceFollowTemplates[0];
 
   useEffect(() => {
     setDrafts(Object.fromEntries(sources.map((source) => [source.id, buildSourceDraft(source)])));
@@ -8678,9 +8792,22 @@ function SourceTable({
         <DatabaseZap size={16} aria-hidden="true" />
       </div>
       <div className="form-panel compact-form source-follow-form">
+        <select
+          className="field"
+          value={selectedTemplate.key}
+          onChange={(event) => onSourceTemplateChange(event.target.value)}
+          disabled={disabled}
+          aria-label="Source template"
+        >
+          {sourceFollowTemplates.map((template) => (
+            <option value={template.key} key={template.key}>
+              {template.label}
+            </option>
+          ))}
+        </select>
         <input
           className="field"
-          placeholder="Source name"
+          placeholder={selectedTemplate.namePlaceholder}
           value={name}
           onChange={(event) => onNameChange(event.target.value)}
           disabled={disabled}
@@ -8711,7 +8838,7 @@ function SourceTable({
         </select>
         <input
           className="field"
-          placeholder="URL or feed"
+          placeholder={selectedTemplate.urlPlaceholder}
           value={baseUrl}
           onChange={(event) => onBaseUrlChange(event.target.value)}
           disabled={disabled}
@@ -8732,7 +8859,7 @@ function SourceTable({
         />
         <input
           className="field"
-          placeholder="Terms or scope notes"
+          placeholder={selectedTemplate.termsPlaceholder}
           value={termsNotes}
           onChange={(event) => onTermsNotesChange(event.target.value)}
           disabled={disabled}
