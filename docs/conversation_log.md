@@ -328,3 +328,4 @@ Implementation progress:
 - Added personal settings backup and restore for preferences, followed sources, alert rules, and watchlists, with dashboard JSON download/upload controls and a non-destructive upsert restore path.
 - Added PRD summary profiles to expanded feed item details, deriving one-line, card, technical, and market-watch summaries from existing stored summaries without extra LLM spend.
 - Added ingestion scheduler status for the Settings dashboard, including configured interval, next cycle estimate, preferred digest target hour, due custom sources, and the continuous-run command.
+- Added a live PRD MVP checklist to System Readiness, mapping local quality metrics to ready, partial, and needs-action states for the main MVP requirement areas.

@@ -587,6 +587,14 @@ type QualityFinding = {
   action_source_filter: SourceHealthFilter | null;
 };
 
+type MvpChecklistItem = {
+  key: string;
+  label: string;
+  status: "ready" | "partial" | "needs_action";
+  metric: string;
+  note: string;
+};
+
 type DemoDataSeedResponse = {
   seeded_stock_watchlist_count: number;
   seeded_company_watchlist_count: number;
@@ -4284,6 +4292,17 @@ function SystemStatusPanel({
                 value={`${status.setup_summary.configured}/${status.setup_summary.total}`}
               />
             </div>
+            <PrdMvpChecklist
+              items={buildPrdMvpChecklist({
+                status,
+                qualityMetrics,
+                itemCount,
+                sourceCount,
+                enabledSourceCount,
+                alertCount,
+                watchlistCount,
+              })}
+            />
             {qualityMetrics ? (
               <>
                 <div className="digest-section-title">
@@ -4552,6 +4571,30 @@ function SystemStatusPanel({
   );
 }
 
+function PrdMvpChecklist({ items }: { items: MvpChecklistItem[] }) {
+  return (
+    <div className="mvp-checklist">
+      <div className="digest-section-title">PRD MVP Checklist</div>
+      <div className="mvp-checklist-grid">
+        {items.map((item) => (
+          <div className="mvp-checklist-row" key={item.key}>
+            <div>
+              <div className="setup-title-row">
+                <div className="digest-section-title">{item.label}</div>
+                <span className={`badge ${mvpChecklistBadgeClass(item.status)}`}>
+                  {formatMvpChecklistStatus(item.status)}
+                </span>
+              </div>
+              <div className="small-muted">{item.note}</div>
+            </div>
+            <span className="badge muted-badge">{item.metric}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function formatQualityPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
@@ -4602,6 +4645,26 @@ function qualityFindingBadgeClass(severity: QualityFinding["severity"]): string 
   return "muted-badge";
 }
 
+function mvpChecklistBadgeClass(status: MvpChecklistItem["status"]): string {
+  if (status === "ready") {
+    return "success-badge";
+  }
+  if (status === "partial") {
+    return "warning-badge";
+  }
+  return "alert-badge";
+}
+
+function formatMvpChecklistStatus(status: MvpChecklistItem["status"]): string {
+  if (status === "ready") {
+    return "ready";
+  }
+  if (status === "partial") {
+    return "partial";
+  }
+  return "needs action";
+}
+
 function ReadinessMetric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="readiness-metric">
@@ -4616,6 +4679,174 @@ function setupImportanceClass(importance: SetupItem["importance"]): string {
     return "";
   }
   return "muted-badge";
+}
+
+function buildPrdMvpChecklist({
+  status,
+  qualityMetrics,
+  itemCount,
+  sourceCount,
+  enabledSourceCount,
+  alertCount,
+  watchlistCount,
+}: {
+  status: SystemStatus;
+  qualityMetrics: QualityMetrics | null;
+  itemCount: number;
+  sourceCount: number;
+  enabledSourceCount: number;
+  alertCount: number;
+  watchlistCount: number;
+}): MvpChecklistItem[] {
+  const recentItems = qualityMetrics?.recent_item_count ?? itemCount;
+  const coveredModules = qualityMetrics?.covered_module_count ?? 0;
+  const recentSourceCount = qualityMetrics?.recent_source_count ?? 0;
+  const classificationCoverage = qualityMetrics?.classification_coverage ?? 0;
+  const summaryCoverage = qualityMetrics?.summary_coverage ?? 0;
+  const watchlistAreaCount = qualityMetrics?.watchlist_area_count ?? 0;
+  const stockWatchlistCount = qualityMetrics?.stock_watchlist_count ?? 0;
+  const latestStockPriceDate = qualityMetrics?.latest_stock_price_date ?? null;
+  const latestDigestAgeDays = qualityMetrics?.latest_digest_age_days ?? null;
+  const digestSnapshotCount = qualityMetrics?.digest_snapshot_count ?? 0;
+  const manualSubmissionCount = qualityMetrics?.manual_submission_count ?? 0;
+  const searchFacetCoverage = qualityMetrics?.search_facet_coverage ?? 0;
+  const llmCallCount = qualityMetrics?.llm_call_count ?? 0;
+  const dismissedAlertCount = qualityMetrics?.dismissed_alert_count ?? 0;
+
+  return [
+    {
+      key: "dashboard-feed",
+      label: "Ranked Dashboard",
+      status:
+        recentItems > 0 && coveredModules >= 3
+          ? "ready"
+          : recentItems > 0
+            ? "partial"
+            : "needs_action",
+      metric: `${recentItems} recent · ${coveredModules}/5 modules`,
+      note:
+        recentItems > 0
+          ? "Feed data is available across the first-class PRD modules."
+          : "Run a source cycle or seed demo data to populate the ranked feed.",
+    },
+    {
+      key: "source-ingestion",
+      label: "Source Ingestion",
+      status:
+        enabledSourceCount >= 5 && recentSourceCount >= 3
+          ? "ready"
+          : enabledSourceCount > 0
+            ? "partial"
+            : "needs_action",
+      metric: `${enabledSourceCount}/${sourceCount} enabled · ${recentSourceCount} recent`,
+      note:
+        enabledSourceCount > 0
+          ? "Connectors are configured; recent diversity shows whether collection is broad enough."
+          : "Enable followed sources before relying on daily collection.",
+    },
+    {
+      key: "llm-processing",
+      label: "LLM Processing",
+      status:
+        status.llm_configured && classificationCoverage >= 0.7 && summaryCoverage >= 0.5
+          ? "ready"
+          : status.llm_configured || llmCallCount > 0
+            ? "partial"
+            : "needs_action",
+      metric: `${formatQualityPercent(classificationCoverage)} classified · ${formatQualityPercent(summaryCoverage)} summarized`,
+      note: status.llm_configured
+        ? "Kimi is configured; coverage depends on running capped classify/summarize batches."
+        : "Add an LLM key before expecting model-generated summaries.",
+    },
+    {
+      key: "watchlists",
+      label: "Personal Watchlists",
+      status:
+        watchlistAreaCount >= 4
+          ? "ready"
+          : watchlistCount > 0
+            ? "partial"
+            : "needs_action",
+      metric: `${watchlistAreaCount}/4 areas · ${watchlistCount} rows`,
+      note:
+        watchlistCount > 0
+          ? "Stock, company, topic, and product watchlists shape ranking and digest context."
+          : "Seed or create watchlists so personalization has a profile to use.",
+    },
+    {
+      key: "stock-watchlist",
+      label: "AI Stock Watchlist",
+      status:
+        stockWatchlistCount > 0 && latestStockPriceDate
+          ? "ready"
+          : stockWatchlistCount > 0
+            ? "partial"
+            : "needs_action",
+      metric: `${stockWatchlistCount} tickers · ${latestStockPriceDate ?? "no price"}`,
+      note:
+        stockWatchlistCount > 0
+          ? "Ticker monitoring is available; fresh prices improve market-context checks."
+          : "Add or seed watched tickers before relying on stock signals.",
+    },
+    {
+      key: "search",
+      label: "Searchable Archive",
+      status:
+        recentItems > 0 && searchFacetCoverage >= 0.7
+          ? "ready"
+          : recentItems > 0
+            ? "partial"
+            : "needs_action",
+      metric: `${formatQualityPercent(searchFacetCoverage)} faceted`,
+      note:
+        recentItems > 0
+          ? "Facet coverage indicates whether search can filter by topics, tickers, sources, and tags."
+          : "Search becomes useful after ingestion creates normalized items.",
+    },
+    {
+      key: "daily-digest",
+      label: "Daily Digest",
+      status:
+        latestDigestAgeDays !== null && latestDigestAgeDays <= 1
+          ? "ready"
+          : digestSnapshotCount > 0
+            ? "partial"
+            : "needs_action",
+      metric:
+        latestDigestAgeDays === null
+          ? `${digestSnapshotCount} snapshots`
+          : `${digestSnapshotCount} snapshots · ${latestDigestAgeDays}d old`,
+      note:
+        digestSnapshotCount > 0
+          ? "A saved digest exists; morning readiness depends on keeping the snapshot fresh."
+          : "Generate and save a digest snapshot to lock in a daily brief.",
+    },
+    {
+      key: "alerts",
+      label: "Dashboard Alerts",
+      status:
+        alertCount > 0
+          ? "ready"
+          : dismissedAlertCount > 0
+            ? "partial"
+            : "needs_action",
+      metric: `${alertCount} active`,
+      note:
+        alertCount > 0
+          ? "Dashboard alert rules are producing active signals."
+          : "Generate alerts after ingestion to validate stock, product, and trend rules.",
+    },
+    {
+      key: "manual-submission",
+      label: "Manual URL Submission",
+      status: manualSubmissionCount > 0 ? "ready" : "partial",
+      metric: `${manualSubmissionCount} recent`,
+      note:
+        manualSubmissionCount > 0
+          ? "Recent manual submissions are flowing into the same feed pipeline."
+          : "The submission flow is available; paste a URL when a source has no connector.",
+    },
+  ];
 }
 
 function AlertPanel({

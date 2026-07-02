@@ -303,6 +303,12 @@ a {
   color: #166534;
 }
 
+.warning-badge {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
 .muted-badge {
   opacity: 0.58;
 }
@@ -896,6 +902,27 @@ table {
   margin-top: 2px;
 }
 
+.mvp-checklist {
+  display: grid;
+  gap: 8px;
+}
+
+.mvp-checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mvp-checklist-row {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  display: grid;
+  gap: 8px;
+  min-height: 128px;
+  padding: 8px;
+}
+
 .setup-list {
   display: grid;
   gap: 6px;
@@ -1458,6 +1485,10 @@ tr:last-child td {
   .content-grid {
     grid-template-columns: 1fr;
   }
+
+  .mvp-checklist-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 700px) {
@@ -1486,6 +1517,7 @@ tr:last-child td {
   .search-row,
   .filter-row,
   .compact-form,
+  .mvp-checklist-grid,
   .source-health-summary,
   .stock-detail-grid,
   .stock-detail-grid-view {
