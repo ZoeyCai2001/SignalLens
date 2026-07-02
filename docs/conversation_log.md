@@ -330,3 +330,4 @@ Implementation progress:
 - Added ingestion scheduler status for the Settings dashboard, including configured interval, next cycle estimate, preferred digest target hour, due custom sources, and the continuous-run command.
 - Added a live PRD MVP checklist to System Readiness, mapping local quality metrics to ready, partial, and needs-action states for the main MVP requirement areas.
 - Updated scheduled ingestion so automated cycles save at most one daily digest snapshot after the configured UTC target hour, while manual digest actions remain available.
+- Added a stock-detail Notes tab that surfaces watchlist notes plus saved, read-later, important, privately noted, or manually tagged stock-linked signals.

@@ -154,7 +154,7 @@ type StockMarketSnapshot = {
 
 type StockPriceRangeKey = "5d" | "1m" | "6m" | "1y";
 type StockSortMode = "attention" | "watchlist";
-type StockDetailTabKey = "overview" | "signals" | "clusters" | "summary";
+type StockDetailTabKey = "overview" | "signals" | "clusters" | "notes" | "summary";
 
 type StockSignalSummary = {
   stock: StockWatchlistItem;
@@ -7528,6 +7528,7 @@ function StockBriefingPanel({
   const relatedClusters = eventClusters
     .filter((cluster) => cluster.tickers.includes(briefing.stock.ticker))
     .slice(0, 4);
+  const personalSignalItems = collectStockPersonalSignalItems(briefing);
 
   return (
     <div className="stock-briefing">
@@ -7775,6 +7776,10 @@ function StockBriefingPanel({
         </div>
       ) : null}
 
+      {activeTab === "notes" ? (
+        <StockNotesPanel briefing={briefing} personalSignalItems={personalSignalItems} />
+      ) : null}
+
       {activeTab === "summary" ? (
         <div className="stock-detail-tab-panel">
           {llmSummary ? (
@@ -7805,8 +7810,104 @@ const STOCK_DETAIL_TABS: { key: StockDetailTabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "signals", label: "Signals" },
   { key: "clusters", label: "Clusters" },
+  { key: "notes", label: "Notes" },
   { key: "summary", label: "Summary" },
 ];
+
+function StockNotesPanel({
+  briefing,
+  personalSignalItems,
+}: {
+  briefing: StockBriefing;
+  personalSignalItems: FeedItem[];
+}) {
+  return (
+    <div className="stock-detail-tab-panel">
+      <div className="stock-detail-grid-view">
+        <div className="digest-section">
+          <div className="digest-section-title">Watchlist Notes</div>
+          {briefing.stock.notes ? (
+            <div className="summary">{briefing.stock.notes}</div>
+          ) : (
+            <div className="empty-state">No watchlist notes saved for {briefing.stock.ticker}.</div>
+          )}
+        </div>
+        <div className="digest-section">
+          <div className="digest-section-title">Personal Context</div>
+          <div className="badges">
+            <span className="badge">{personalSignalItems.length} personal item{personalSignalItems.length === 1 ? "" : "s"}</span>
+            <span className="badge">
+              {personalSignalItems.filter((item) => item.is_saved && !item.is_read).length} read later
+            </span>
+            <span className="badge">
+              {uniqueManualTags(personalSignalItems).length} manual tags
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="stock-timeline">
+        {personalSignalItems.length ? (
+          personalSignalItems.map((item) => (
+            <a
+              className="timeline-row"
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              key={item.id}
+            >
+              <div>
+                <div className="timeline-title">{item.title}</div>
+                <div className="small-muted">
+                  {item.source_name}
+                  {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                </div>
+                <div className="badges">
+                  {item.is_saved ? <span className="badge">saved</span> : null}
+                  {item.is_saved && !item.is_read ? (
+                    <span className="badge">read later</span>
+                  ) : null}
+                  {item.is_read ? <span className="badge muted-badge">read</span> : null}
+                  {item.is_important ? <span className="badge alert-badge">important</span> : null}
+                  {item.manual_tags.map((tag) => (
+                    <span className="badge stock" key={tag}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                {item.personal_note ? <div className="saved-note">{item.personal_note}</div> : null}
+                {item.summary_short || item.why_it_matters ? (
+                  <div className="timeline-reason">{item.summary_short || item.why_it_matters}</div>
+                ) : null}
+              </div>
+              <div className="timeline-score">{Math.round(item.stock_impact_score * 100)}</div>
+            </a>
+          ))
+        ) : (
+          <div className="empty-state">
+            No saved articles, private notes, or manual tags are attached to recent{" "}
+            {briefing.stock.ticker} signals yet.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function collectStockPersonalSignalItems(briefing: StockBriefing): FeedItem[] {
+  return briefing.recent_timeline
+    .map((entry) => entry.item)
+    .filter(
+      (item) =>
+        item.is_saved ||
+        item.is_important ||
+        Boolean(item.personal_note) ||
+        item.manual_tags.length > 0,
+    );
+}
+
+function uniqueManualTags(items: FeedItem[]): string[] {
+  return Array.from(new Set(items.flatMap((item) => item.manual_tags)));
+}
 
 function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
   const [rangeKey, setRangeKey] = useState<StockPriceRangeKey>("1m");
