@@ -19,6 +19,7 @@ from app.services.scheduled_jobs import (
     next_digest_target_at,
     parse_polling_interval,
     run_ingestion_cycle,
+    scheduled_digest_snapshot_due,
     scheduled_cycle_to_log_dict,
     source_due_for_cycle,
 )
@@ -223,6 +224,88 @@ def test_next_digest_target_at_prefers_next_configured_utc_hour() -> None:
         now=datetime(2026, 7, 2, 1, 30, tzinfo=UTC),
         target_hour_utc=1,
     ) == datetime(2026, 7, 3, 1, 0, tzinfo=UTC)
+
+
+def test_scheduled_digest_snapshot_due_skips_when_today_is_already_saved() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            DailyDigestSnapshot(
+                user_id="local",
+                digest_date=date(2026, 7, 2),
+                generated_at=datetime(2026, 7, 2, 0, 15, tzinfo=UTC),
+                headline="Morning brief",
+                total_items=5,
+                limit_per_section=5,
+                payload={},
+                markdown="# Morning brief",
+            )
+        )
+        db.commit()
+
+        due = scheduled_digest_snapshot_due(
+            db=db,
+            now=datetime(2026, 7, 2, 8, 0, tzinfo=UTC),
+            target_hour_utc=0,
+        )
+
+    assert due is False
+
+
+def test_scheduled_digest_snapshot_due_waits_until_target_hour() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        assert (
+            scheduled_digest_snapshot_due(
+                db=db,
+                now=datetime(2026, 7, 2, 0, 30, tzinfo=UTC),
+                target_hour_utc=1,
+            )
+            is False
+        )
+        assert (
+            scheduled_digest_snapshot_due(
+                db=db,
+                now=datetime(2026, 7, 2, 1, 0, tzinfo=UTC),
+                target_hour_utc=1,
+            )
+            is True
+        )
+
+
+def test_scheduled_digest_snapshot_due_runs_for_new_day_after_old_snapshot() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            DailyDigestSnapshot(
+                user_id="local",
+                digest_date=date(2026, 7, 1),
+                generated_at=datetime(2026, 7, 1, 0, 15, tzinfo=UTC),
+                headline="Old brief",
+                total_items=5,
+                limit_per_section=5,
+                payload={},
+                markdown="# Old brief",
+            )
+        )
+        db.commit()
+
+        due = scheduled_digest_snapshot_due(
+            db=db,
+            now=datetime(2026, 7, 2, 3, 0, tzinfo=UTC),
+            target_hour_utc=1,
+        )
+
+    assert due is True
 
 
 def test_build_ingestion_schedule_status_reports_next_cycle_and_digest_freshness() -> None:

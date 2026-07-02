@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models import DailyDigestSnapshot, Source, SourceRun
 from app.schemas.ingestion import IngestionScheduleStatus, ScheduledJobPlan
 from app.services.alerts import generate_alerts
@@ -36,7 +37,7 @@ from app.services.watchlist import (
 IngestionJob = Callable[[Session, int], Awaitable[IngestionResult]]
 WatchlistSeeder = Callable[[Session], tuple[int, int, int, int]]
 AlertGenerator = Callable[[Session], int]
-DigestSnapshotSaver = Callable[[Session], date]
+DigestSnapshotSaver = Callable[[Session], date | None]
 CustomSourceLister = Callable[[Session], list[Source]]
 CustomSourceRunner = Callable[[Session, int], Awaitable[IngestionResult]]
 
@@ -111,8 +112,35 @@ def generate_cycle_alerts(db: Session) -> int:
     return generate_alerts(db).alerts_created
 
 
-def save_cycle_digest_snapshot(db: Session) -> date:
-    return save_daily_digest_snapshot(db).digest_date
+def save_cycle_digest_snapshot(db: Session) -> date | None:
+    settings = get_settings()
+    now = datetime.now(UTC)
+    if not scheduled_digest_snapshot_due(
+        db=db,
+        now=now,
+        target_hour_utc=settings.digest_target_hour_utc,
+    ):
+        return None
+    return save_daily_digest_snapshot(db, digest_date=now.date()).digest_date
+
+
+def scheduled_digest_snapshot_due(
+    db: Session,
+    *,
+    now: datetime,
+    target_hour_utc: int,
+) -> bool:
+    reference_time = ensure_utc(now)
+    latest_digest = get_latest_digest_snapshot(db)
+    if latest_digest is not None and latest_digest.digest_date >= reference_time.date():
+        return False
+    target = reference_time.replace(
+        hour=min(max(int(target_hour_utc), 0), 23),
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    return reference_time >= target
 
 
 def list_enabled_custom_sources(db: Session, now: datetime | None = None) -> list[Source]:

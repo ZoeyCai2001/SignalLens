@@ -217,7 +217,7 @@ cd services/api
 SIGNALLENS_SCHEDULER_MODE=forever SIGNALLENS_SCHEDULER_INTERVAL_MINUTES=360 python scripts/run_scheduler.py
 ```
 
-`DIGEST_TARGET_HOUR_UTC=0` configures the preferred UTC hour shown in the Settings scheduler panel for the morning digest target.
+`DIGEST_TARGET_HOUR_UTC=0` configures the preferred UTC hour shown in the Settings scheduler panel for the morning digest target. Scheduled cycles save at most one digest snapshot per UTC day, after the configured target hour; `0` UTC is 8 AM in Asia/Shanghai.
 
 ## Local Web Setup
 
