@@ -122,6 +122,7 @@ Useful endpoints:
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/save`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/unsave`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/hide`
+- `DELETE http://127.0.0.1:8000/api/feed/{item_id}`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/mark-important`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/unmark-important`
 - `POST http://127.0.0.1:8000/api/feed/{item_id}/classify`

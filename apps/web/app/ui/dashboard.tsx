@@ -2718,6 +2718,39 @@ export function Dashboard() {
     }
   };
 
+  const removeFeedItemFromLocalState = (itemId: number) => {
+    setFeed((items) => items.filter((item) => item.id !== itemId));
+    setModuleFeedOverrides((items) => removeModuleFeedItem(items, itemId));
+    setSavedItems((items) => items.filter((item) => item.id !== itemId));
+    setHiddenItems((items) => items.filter((item) => item.id !== itemId));
+    setSelectedFeedDetail((detail) => (detail?.id === itemId ? null : detail));
+    setAlerts((items) => items.filter((alert) => alert.item.id !== itemId));
+    setEventClusters((clusters) =>
+      clusters.filter((cluster) => cluster.items.every((item) => item.id !== itemId)),
+    );
+    setSelectedEventCluster((cluster) =>
+      cluster?.items.some((item) => item.id === itemId) ? null : cluster,
+    );
+  };
+
+  const deleteFeedItem = async (itemId: number) => {
+    if (!window.confirm("Permanently delete this item and stored source text?")) {
+      return;
+    }
+    setBusyItemId(itemId);
+    setError(null);
+    try {
+      await sendRequest(`/api/feed/${itemId}`, { method: "DELETE" });
+      removeFeedItemFromLocalState(itemId);
+      await refreshAllWithStatus(`Deleted item ${itemId}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Item delete failed");
+    } finally {
+      setBusyItemId(null);
+    }
+  };
+
   const dismissAlert = async (alertId: number) => {
     setBusyAlertId(alertId);
     setError(null);
@@ -3525,6 +3558,7 @@ export function Dashboard() {
                       onClassify={classifyItem}
                       onDetail={loadFeedDetail}
                       onAction={updateFeedAction}
+                      onDelete={deleteFeedItem}
                       onPersonalMetadataSave={saveFeedItemPersonalMetadata}
                     />
                   ))
@@ -3606,6 +3640,7 @@ export function Dashboard() {
               items={hiddenItems.slice(0, 8)}
               busyItemId={busyItemId}
               onUnhide={(itemId) => updateFeedAction(itemId, "unhide")}
+              onDelete={deleteFeedItem}
             />
             <ChineseSocialPanel items={feed} />
             <EventClusterPanel
@@ -5226,10 +5261,12 @@ function HiddenItemsPanel({
   items,
   busyItemId,
   onUnhide,
+  onDelete,
 }: {
   items: FeedItem[];
   busyItemId: number | null;
   onUnhide: (itemId: number) => void;
+  onDelete: (itemId: number) => void;
 }) {
   return (
     <section className="section">
@@ -5263,6 +5300,20 @@ function HiddenItemsPanel({
                     <Loader2 className="spin" size={16} />
                   ) : (
                     <RefreshCw size={16} />
+                  )}
+                </button>
+                <button
+                  className="button icon-button"
+                  onClick={() => onDelete(item.id)}
+                  disabled={busyItemId === item.id}
+                  title="Permanently delete item"
+                  aria-label="Permanently delete item"
+                  type="button"
+                >
+                  {busyItemId === item.id ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : (
+                    <Trash2 size={16} />
                   )}
                 </button>
               </div>
@@ -5718,6 +5769,7 @@ function FeedCard({
   onClassify,
   onDetail,
   onAction,
+  onDelete,
   onPersonalMetadataSave,
 }: {
   item: FeedItem;
@@ -5739,6 +5791,7 @@ function FeedCard({
       | "mark-read"
       | "mark-unread",
   ) => void;
+  onDelete: (itemId: number) => void;
   onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
 }) {
   const researchInsights = parseResearchInsights(item);
@@ -5850,6 +5903,15 @@ function FeedCard({
             aria-label="Hide item"
           >
             {busy ? <Loader2 className="spin" size={16} /> : <EyeOff size={16} />}
+          </button>
+          <button
+            className="button icon-button"
+            onClick={() => onDelete(item.id)}
+            disabled={busy}
+            title="Permanently delete item"
+            aria-label="Permanently delete item"
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
           </button>
           <button
             className="button"

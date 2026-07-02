@@ -3,7 +3,17 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Base, NormalizedItem, RawItem, UserItemAction
+from app.db.models import (
+    Alert,
+    AlertRule,
+    Base,
+    DailyDigestSnapshot,
+    LlmUsageEvent,
+    NormalizedItem,
+    RawItem,
+    Source,
+    UserItemAction,
+)
 from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
@@ -15,6 +25,7 @@ from app.services.feed_actions import (
     build_feed_why_it_matters,
     build_personalization_notes,
     build_score_explanation,
+    delete_feed_item,
     export_saved_items_markdown,
     feed_interest_bonus,
     feedback_interest_adjustment,
@@ -961,6 +972,96 @@ def test_update_item_action_can_mark_item_read_and_unread() -> None:
     assert unread_item.read_at is None
     assert unread_action.is_read is False
     assert unread_action.read_at is None
+
+
+def test_delete_feed_item_removes_stored_content_and_linked_private_state() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        source = Source(name="Manual Submission", type="manual", access_method="manual_submission")
+        db.add(source)
+        db.flush()
+        raw_item = RawItem(
+            id=1,
+            source_id=source.id,
+            external_id="manual-1",
+            url="https://example.com/delete-me",
+            raw_title="Delete me",
+            raw_text="Stored raw source text",
+            raw_metadata={"note": "private"},
+            content_hash="delete-feed-item-hash",
+            published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+        )
+        item = make_normalized_item(1, "Delete me", language="en")
+        rule = AlertRule(
+            id=1,
+            user_id="local",
+            name="Delete rule",
+            category="all",
+            severity="medium",
+            min_importance_score=0,
+            min_stock_impact_score=0,
+            tickers=[],
+            topics=[],
+            enabled=True,
+        )
+        db.add_all([raw_item, item, rule])
+        db.flush()
+        db.add_all(
+            [
+                UserItemAction(
+                    user_id="local",
+                    item_id=item.id,
+                    is_saved=True,
+                    personal_note="private note",
+                    manual_tags=["delete"],
+                ),
+                Alert(
+                    user_id="local",
+                    item_id=item.id,
+                    rule_id=rule.id,
+                    title="Delete me",
+                    reason="Delete me matched an alert.",
+                    severity="medium",
+                    status="active",
+                ),
+                LlmUsageEvent(
+                    user_id="local",
+                    operation="summarize_item",
+                    provider="kimi_coding",
+                    model="kimi-for-coding",
+                    item_id=item.id,
+                    input_tokens=10,
+                    output_tokens=4,
+                    total_tokens=14,
+                    created_at=datetime(2026, 6, 25, 12, 5, tzinfo=UTC),
+                ),
+                DailyDigestSnapshot(
+                    user_id="local",
+                    digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+                    generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+                    headline="Digest",
+                    total_items=1,
+                    limit_per_section=5,
+                    payload={"items": [{"id": item.id, "title": item.title, "url": item.url}]},
+                    markdown=f"- [{item.title}]({item.url})",
+                ),
+            ]
+        )
+        db.commit()
+
+        delete_feed_item(db=db, item=item)
+
+        usage_event = db.query(LlmUsageEvent).one()
+
+        assert db.get(NormalizedItem, 1) is None
+        assert db.get(RawItem, 1) is None
+        assert db.query(UserItemAction).count() == 0
+        assert db.query(Alert).count() == 0
+        assert db.query(DailyDigestSnapshot).count() == 0
+        assert usage_event.item_id is None
 
 
 def test_freshness_score_decays_over_three_days() -> None:

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -5,9 +6,13 @@ from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    Alert,
     CompanyWatchlistItem,
+    DailyDigestSnapshot,
+    LlmUsageEvent,
     NormalizedItem,
     ProductWatchlistItem,
+    RawItem,
     StockWatchlistItem,
     TopicWatchlistItem,
     UserItemAction,
@@ -144,6 +149,52 @@ def serialize_feed_item_detail(
             "is_read": base.is_read,
         },
     )
+
+
+def delete_feed_item(db: Session, item: NormalizedItem) -> None:
+    raw_item_id = item.raw_item_id
+    delete_digest_snapshots_containing_item(db=db, item=item)
+    db.query(Alert).filter(Alert.item_id == item.id).delete(synchronize_session=False)
+    db.query(UserItemAction).filter(UserItemAction.item_id == item.id).delete(
+        synchronize_session=False
+    )
+    db.query(LlmUsageEvent).filter(LlmUsageEvent.item_id == item.id).update(
+        {LlmUsageEvent.item_id: None},
+        synchronize_session=False,
+    )
+    db.delete(item)
+    db.flush()
+
+    raw_item = db.get(RawItem, raw_item_id)
+    raw_item_still_referenced = (
+        db.query(NormalizedItem.id).filter(NormalizedItem.raw_item_id == raw_item_id).first()
+        is not None
+    )
+    if raw_item is not None and not raw_item_still_referenced:
+        db.delete(raw_item)
+    db.commit()
+
+
+def delete_digest_snapshots_containing_item(db: Session, item: NormalizedItem) -> int:
+    item_markers = {
+        item.url,
+        item.title,
+        f'"id": {item.id}',
+        f'"item_id": {item.id}',
+    }
+    snapshots = db.query(DailyDigestSnapshot).all()
+    deleted_count = 0
+    for snapshot in snapshots:
+        searchable_text = "\n".join(
+            [
+                snapshot.markdown or "",
+                json.dumps(snapshot.payload or {}, ensure_ascii=False, sort_keys=True),
+            ]
+        )
+        if any(marker and marker in searchable_text for marker in item_markers):
+            db.delete(snapshot)
+            deleted_count += 1
+    return deleted_count
 
 
 def build_score_explanation(item: FeedItem) -> str:

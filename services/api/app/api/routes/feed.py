@@ -12,6 +12,7 @@ from app.schemas.feed import (
 from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import (
     build_feed_interest_profile,
+    delete_feed_item,
     export_saved_items_markdown,
     get_action,
     list_visible_feed_items,
@@ -176,6 +177,12 @@ async def update_item_personal_metadata_route(
         personal_note=payload.personal_note,
         manual_tags=payload.manual_tags,
     )
+
+
+@router.delete("/{item_id}", status_code=204)
+async def delete_feed_item_route(item_id: int, db: DbSession) -> None:
+    item = get_feed_item_or_404(db, item_id)
+    delete_feed_item(db=db, item=item)
 
 
 def get_feed_item_or_404(db: DbSession, item_id: int) -> NormalizedItem:
