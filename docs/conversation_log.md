@@ -336,3 +336,4 @@ Implementation progress:
 - Added derived market-impact type labels to feed serialization, dashboard feed/detail/alert badges, and daily digest labels so stock/company signals expose the PRD market-impact classification facet without a database migration.
 - Added a derived `is_ai_related` classification flag to feed serialization, dashboard feed/detail/alert displays, and digest labels so low-relevance manual captures or noise items can be audited against the PRD AI-relevance requirement.
 - Added a derived `technologies` field to feed serialization, dashboard feed/detail badges, daily digest labels, and LLM classification parsing so related AI technologies are visible as a PRD classification facet without a database migration.
+- Added an AI-relevance audit filter to the search API and dashboard so users can find either classified AI-related items or low-relevance/noise items needing review.

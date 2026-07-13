@@ -400,6 +400,49 @@ def test_search_feed_items_filters_by_prd_secondary_category() -> None:
     assert [item.title for item in inferred_results] == ["AI policy update"]
 
 
+def test_search_feed_items_filters_by_ai_relevance_state() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        related = make_search_item(
+            1,
+            "Low-score Marvell note",
+            "Marvell AI infrastructure note.",
+            topics=[],
+            category="stock_company_event",
+        )
+        related.relevance_score = 0.2
+        related.tickers = ["MRVL"]
+        manual_review = make_search_item(
+            2,
+            "Unenriched manual link",
+            "Generic saved URL.",
+            topics=[],
+            category="manual_submission",
+        )
+        manual_review.relevance_score = 0.2
+        noise = make_search_item(
+            3,
+            "Unrelated office software update",
+            "Office software maintenance release.",
+            topics=[],
+            category="noise_irrelevant",
+        )
+        db.add_all([related, manual_review, noise])
+        db.commit()
+
+        related_results = search_feed_items(db, ai_related=True)
+        review_results = search_feed_items(db, ai_related=False)
+
+    assert [item.title for item in related_results] == ["Low-score Marvell note"]
+    assert {item.title for item in review_results} == {
+        "Unenriched manual link",
+        "Unrelated office software update",
+    }
+
+
 def test_search_feed_items_matches_company_entities_in_query() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

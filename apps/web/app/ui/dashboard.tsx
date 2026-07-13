@@ -1241,6 +1241,7 @@ export function Dashboard() {
   const [searchDateTo, setSearchDateTo] = useState("");
   const [searchMinImportance, setSearchMinImportance] = useState("");
   const [searchReadStatus, setSearchReadStatus] = useState("");
+  const [searchAiRelated, setSearchAiRelated] = useState("");
   const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
   const [searchSummary, setSearchSummary] = useState<string | null>(null);
   const [savedOnly, setSavedOnly] = useState(false);
@@ -1857,6 +1858,7 @@ export function Dashboard() {
         searchDateTo,
         searchMinImportance,
         searchReadStatus,
+        searchAiRelated,
       ].some((value) => value.trim()) || savedOnly;
 
       if (searchQuery.trim() && !hasManualFilters) {
@@ -1894,6 +1896,7 @@ export function Dashboard() {
         params.set("min_importance_score", searchMinImportance.trim());
       }
       if (searchReadStatus.trim()) params.set("read_status", searchReadStatus.trim());
+      if (searchAiRelated.trim()) params.set("ai_related", searchAiRelated.trim());
       if (savedOnly) params.set("saved_only", "true");
       if (activeFeedModule) params.set("module", activeFeedModule);
       params.set("limit", "30");
@@ -1938,6 +1941,7 @@ export function Dashboard() {
     setSearchDateTo("");
     setSearchMinImportance("");
     setSearchReadStatus("");
+    setSearchAiRelated("");
     setSearchIntent(null);
     setSearchSummary(null);
     setSavedOnly(false);
@@ -1997,6 +2001,7 @@ export function Dashboard() {
       setSearchDateTo("");
       setSearchMinImportance("");
       setSearchReadStatus("");
+      setSearchAiRelated("");
       setSavedOnly(false);
       setSearchIntent(null);
       setSearchSummary(null);
@@ -2033,6 +2038,7 @@ export function Dashboard() {
       setSearchDateTo("");
       setSearchMinImportance("");
       setSearchReadStatus("");
+      setSearchAiRelated("");
       setSavedOnly(false);
       setSearchIntent(null);
       setSearchSummary(null);
@@ -2070,6 +2076,7 @@ export function Dashboard() {
       setSearchDateTo("");
       setSearchMinImportance("");
       setSearchReadStatus("");
+      setSearchAiRelated("");
       setSavedOnly(true);
       setSearchIntent(null);
       setSearchSummary(null);
@@ -3675,6 +3682,7 @@ export function Dashboard() {
                 dateTo={searchDateTo}
                 minImportance={searchMinImportance}
                 readStatus={searchReadStatus}
+                aiRelated={searchAiRelated}
                 intent={searchIntent}
                 summary={searchSummary}
                 savedOnly={savedOnly}
@@ -3694,6 +3702,7 @@ export function Dashboard() {
                 onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
                 onMinImportanceChange={(value) => updateSearchField(setSearchMinImportance, value)}
                 onReadStatusChange={(value) => updateSearchField(setSearchReadStatus, value)}
+                onAiRelatedChange={(value) => updateSearchField(setSearchAiRelated, value)}
                 onSavedOnlyChange={updateSavedOnlySearchFilter}
                 onSearch={runSearch}
                 onClear={clearSearch}
@@ -6055,6 +6064,7 @@ function SearchPanel({
   dateTo,
   minImportance,
   readStatus,
+  aiRelated,
   intent,
   summary,
   savedOnly,
@@ -6074,6 +6084,7 @@ function SearchPanel({
   onDateToChange,
   onMinImportanceChange,
   onReadStatusChange,
+  onAiRelatedChange,
   onSavedOnlyChange,
   onSearch,
   onClear,
@@ -6093,6 +6104,7 @@ function SearchPanel({
   dateTo: string;
   minImportance: string;
   readStatus: string;
+  aiRelated: string;
   intent: SearchIntent | null;
   summary: string | null;
   savedOnly: boolean;
@@ -6112,6 +6124,7 @@ function SearchPanel({
   onDateToChange: (value: string) => void;
   onMinImportanceChange: (value: string) => void;
   onReadStatusChange: (value: string) => void;
+  onAiRelatedChange: (value: string) => void;
   onSavedOnlyChange: (value: boolean) => void;
   onSearch: () => void;
   onClear: () => void;
@@ -6271,6 +6284,16 @@ function SearchPanel({
           <option value="">Any read status</option>
           <option value="unread">Unread</option>
           <option value="read">Read</option>
+        </select>
+        <select
+          className="field"
+          value={aiRelated}
+          onChange={(event) => onAiRelatedChange(event.target.value)}
+          aria-label="AI relevance filter"
+        >
+          <option value="">Any AI relevance</option>
+          <option value="true">AI-related</option>
+          <option value="false">Needs review</option>
         </select>
         <label className="checkbox-row">
           <input

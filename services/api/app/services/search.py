@@ -59,6 +59,7 @@ def search_feed_items(
     date_from: date | None = None,
     date_to: date | None = None,
     min_importance_score: float | None = None,
+    ai_related: bool | None = None,
     saved_only: bool = False,
     read_status: str | None = None,
     ranking_weights: RankingWeights | dict | None = None,
@@ -85,6 +86,7 @@ def search_feed_items(
         if min_importance_score is not None
         else intent.min_importance_score
     )
+    effective_ai_related = ai_related
     effective_saved_only = saved_only or intent.saved_only
     effective_read_status = normalize_read_status(read_status or intent.read_status)
 
@@ -197,6 +199,10 @@ def search_feed_items(
     if normalized_min_importance is not None:
         statement = statement.filter(NormalizedItem.importance_score >= normalized_min_importance)
 
+    if effective_ai_related is not None:
+        condition = build_ai_related_condition()
+        statement = statement.filter(condition if effective_ai_related else ~condition)
+
     if effective_saved_only:
         statement = statement.filter(UserItemAction.is_saved.is_(True))
 
@@ -226,6 +232,23 @@ def search_feed_items(
         preferred_sources=preferred_sources,
         interest_profile=build_feed_interest_profile(db),
     )[:limit]
+
+
+def build_ai_related_condition():
+    entity_conditions = [
+        cast(NormalizedItem.topics, String) != "[]",
+        cast(NormalizedItem.products, String) != "[]",
+        cast(NormalizedItem.tickers, String) != "[]",
+        cast(NormalizedItem.companies, String) != "[]",
+    ]
+    return (
+        (NormalizedItem.category != "noise_irrelevant")
+        & (
+            (NormalizedItem.relevance_score >= 0.35)
+            | or_(*entity_conditions)
+            | (NormalizedItem.category != "manual_submission")
+        )
+    )
 
 
 def build_search_summary(
