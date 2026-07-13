@@ -161,10 +161,28 @@ def build_digest_item_labels(item: FeedItem, limit: int = 4) -> list[str]:
     labels = [
         *item.tickers,
         *item.products,
+        format_market_impact_label(item.market_impact_type),
         format_product_use_case_label(item.subcategory) if item.category == "product" else "",
         *item.topics,
     ]
     return unique_digest_labels(labels)[:limit]
+
+
+def format_market_impact_label(value: str) -> str:
+    if not value or value == "none":
+        return ""
+    labels = {
+        "earnings_guidance": "earnings/guidance",
+        "analyst_action": "analyst action",
+        "partnership_customer": "partnership/customer",
+        "supply_chain_regulation": "supply chain/regulation",
+        "funding_mna": "funding/M&A",
+        "demand_signal": "demand signal",
+        "positive_signal": "positive market signal",
+        "negative_signal": "negative market signal",
+        "stock_signal": "stock signal",
+    }
+    return labels.get(value, value.replace("_", " "))
 
 
 def unique_digest_labels(labels: list[str]) -> list[str]:

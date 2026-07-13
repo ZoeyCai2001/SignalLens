@@ -25,6 +25,7 @@ class FeedItem(BaseModel):
     source_quality_score: float
     social_signal_score: float = 0
     stock_impact_score: float
+    market_impact_type: str = "none"
     summary_short: str | None
     summary_detailed: str | None
     why_it_matters: str | None

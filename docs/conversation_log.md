@@ -333,3 +333,4 @@ Implementation progress:
 - Added a stock-detail Notes tab that surfaces watchlist notes plus saved, read-later, important, privately noted, or manually tagged stock-linked signals.
 - Added event titles to Event Cluster timeline rows so expanded cluster evidence reads as a usable event timeline.
 - Expanded PRD category support so LLM classification, natural-language search, module routing, dashboard filters, and alert category controls understand secondary categories such as policy/regulation, funding/M&A, benchmark/evaluation, open-source release, tutorial/opinion, and noise/irrelevant.
+- Added derived market-impact type labels to feed serialization, dashboard feed/detail/alert badges, and daily digest labels so stock/company signals expose the PRD market-impact classification facet without a database migration.

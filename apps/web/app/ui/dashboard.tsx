@@ -58,6 +58,7 @@ type FeedItem = {
   source_quality_score: number;
   social_signal_score: number;
   stock_impact_score: number;
+  market_impact_type: string;
   summary_short: string | null;
   summary_detailed: string | null;
   why_it_matters: string | null;
@@ -5186,6 +5187,11 @@ function AlertPanel({
                   </span>
                 ))}
                 <span className="badge">{formatCategoryLabel(alert.item.category)}</span>
+                {alert.item.market_impact_type !== "none" ? (
+                  <span className="badge stock">
+                    {formatMarketImpactLabel(alert.item.market_impact_type)}
+                  </span>
+                ) : null}
                 {alert.item.category === "product" && alert.item.subcategory ? (
                   <span className="badge">{formatProductUseCaseLabel(alert.item.subcategory)}</span>
                 ) : null}
@@ -6341,6 +6347,9 @@ function FeedCard({
           {item.category === "product" && item.subcategory ? (
             <span className="badge">{formatProductUseCaseLabel(item.subcategory)}</span>
           ) : null}
+          {item.market_impact_type !== "none" ? (
+            <span className="badge stock">{formatMarketImpactLabel(item.market_impact_type)}</span>
+          ) : null}
           {item.tickers.map((ticker) => (
             <span className="badge stock" key={ticker}>
               {ticker}
@@ -6602,6 +6611,11 @@ function FeedDetailPanel({
       {detail.why_it_matters ? (
         <div className="summary">
           <strong>Why it matters:</strong> {detail.why_it_matters}
+        </div>
+      ) : null}
+      {detail.market_impact_type !== "none" ? (
+        <div className="summary">
+          <strong>Market impact type:</strong> {formatMarketImpactLabel(detail.market_impact_type)}
         </div>
       ) : null}
       <SummaryProfilesPanel detail={detail} />
@@ -10279,6 +10293,21 @@ function formatProductUseCaseLabel(value: string): string {
     productUseCaseOptions.find((option) => option.value === value)?.label ??
     formatCategoryLabel(value)
   );
+}
+
+function formatMarketImpactLabel(value: string): string {
+  const labels: Record<string, string> = {
+    earnings_guidance: "Earnings/guidance",
+    analyst_action: "Analyst action",
+    partnership_customer: "Partnership/customer",
+    supply_chain_regulation: "Supply chain/regulation",
+    funding_mna: "Funding/M&A",
+    demand_signal: "Demand signal",
+    positive_signal: "Positive market signal",
+    negative_signal: "Negative market signal",
+    stock_signal: "Stock signal",
+  };
+  return labels[value] ?? formatCategoryLabel(value);
 }
 
 function formatSummarySource(value: string): string {

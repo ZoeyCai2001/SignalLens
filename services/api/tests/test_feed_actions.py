@@ -30,6 +30,7 @@ from app.services.feed_actions import (
     feed_interest_bonus,
     feedback_interest_adjustment,
     freshness_score,
+    infer_market_impact_type,
     list_visible_feed_items,
     normalize_feed_module_filter,
     normalize_feed_topic_filter,
@@ -109,6 +110,38 @@ def test_serialize_feed_item_preserves_existing_why_it_matters() -> None:
     serialized = serialize_feed_item(item)
 
     assert serialized.why_it_matters == "Existing LLM explanation."
+
+
+def test_serialize_feed_item_adds_market_impact_type() -> None:
+    item = NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Micron HBM demand rises with AI data center capex",
+        url="https://example.com",
+        source_name="Finance News",
+        language="en",
+        category="stock_company_event",
+        tickers=["MU"],
+        companies=["Micron"],
+        products=[],
+        topics=["hbm", "ai data center"],
+        sentiment="positive",
+        relevance_score=0.85,
+        importance_score=0.82,
+        novelty_score=0.7,
+        source_quality_score=0.82,
+        stock_impact_score=0.62,
+    )
+
+    serialized = serialize_feed_item(item)
+
+    assert serialized.market_impact_type == "demand_signal"
+
+
+def test_infer_market_impact_type_ignores_low_impact_non_stock_items() -> None:
+    item = make_feed_item(1, "Agent release", relevance_score=0.8, importance_score=0.8)
+
+    assert infer_market_impact_type(item) == "none"
 
 
 def test_build_feed_why_it_matters_uses_entities_and_trust_signals() -> None:

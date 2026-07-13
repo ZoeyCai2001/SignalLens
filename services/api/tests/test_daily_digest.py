@@ -167,6 +167,20 @@ def test_build_digest_item_labels_includes_product_names_and_use_case() -> None:
     assert build_digest_item_labels(item) == ["CodePilot", "Coding", "ai coding"]
 
 
+def test_build_digest_item_labels_includes_market_impact_type() -> None:
+    item = make_item(
+        1,
+        "Micron HBM demand",
+        "stock_company_event",
+        0.8,
+        tickers=["MU"],
+        topics=["hbm"],
+    )
+    item.market_impact_type = "demand_signal"
+
+    assert build_digest_item_labels(item) == ["MU", "demand signal", "hbm"]
+
+
 def test_daily_digest_headline_handles_empty_day() -> None:
     headline = build_headline([], datetime(2026, 6, 25, tzinfo=UTC).date())
 

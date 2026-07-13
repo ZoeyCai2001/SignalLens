@@ -53,6 +53,7 @@ def serialize_feed_item(
 ) -> FeedItem:
     data = FeedItem.model_validate(item)
     data.social_signal_score = social_signal_score_for_item(item)
+    data.market_impact_type = infer_market_impact_type(data)
     data.why_it_matters = build_feed_why_it_matters(data)
     if action:
         data.is_saved = action.is_saved
@@ -63,6 +64,55 @@ def serialize_feed_item(
         data.personal_note = action.personal_note
         data.manual_tags = normalize_manual_tags(action.manual_tags)
     return data
+
+
+def infer_market_impact_type(item: FeedItem) -> str:
+    if item.stock_impact_score < 0.25 and not item.tickers:
+        return "none"
+
+    text = " ".join(
+        part
+        for part in [
+            item.title,
+            item.summary_short or "",
+            item.why_it_matters or "",
+            " ".join(item.topics),
+        ]
+        if part
+    ).lower()
+    if any(term in text for term in ["earnings", "guidance", "revenue", "margin"]):
+        return "earnings_guidance"
+    if any(
+        term in text
+        for term in ["analyst", "rating", "upgrade", "downgrade", "price target"]
+    ):
+        return "analyst_action"
+    if any(term in text for term in ["partnership", "customer win", "customer", "contract"]):
+        return "partnership_customer"
+    if any(term in text for term in ["supply chain", "supplier", "export", "regulation"]):
+        return "supply_chain_regulation"
+    if any(term in text for term in ["funding", "acquisition", "merger", "m&a", "venture"]):
+        return "funding_mna"
+    if any(
+        term in text
+        for term in [
+            "demand",
+            "capex",
+            "data center",
+            "hbm",
+            "custom silicon",
+            "storage",
+            "nand",
+        ]
+    ):
+        return "demand_signal"
+    if item.sentiment == "positive" and item.stock_impact_score >= 0.45:
+        return "positive_signal"
+    if item.sentiment == "negative" and item.stock_impact_score >= 0.45:
+        return "negative_signal"
+    if item.stock_impact_score >= 0.35 or item.category in {"stock_company_event", "funding_mna"}:
+        return "stock_signal"
+    return "none"
 
 
 def build_feed_why_it_matters(item: FeedItem) -> str | None:
