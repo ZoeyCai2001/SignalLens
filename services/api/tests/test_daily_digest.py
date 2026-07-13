@@ -62,6 +62,11 @@ def test_daily_digest_sections_group_items() -> None:
     assert section_map["developer_highlights"].items[0].title == "Repo"
     assert section_map["read_later"].items[0].title == "Saved"
     assert "Read saved" not in {item.title for item in section_map["read_later"].items}
+    assert section_map["top_signals"].metrics.item_count == 3
+    assert section_map["top_signals"].metrics.high_impact_count == 2
+    assert section_map["top_signals"].metrics.stock_signal_count == 1
+    assert section_map["top_signals"].metrics.source_count == 1
+    assert section_map["read_later"].metrics.read_later_count == 1
 
 
 def test_daily_digest_source_coverage_counts_sources() -> None:
@@ -411,6 +416,8 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert "Ticker watchlist: MU, MRVL" in markdown
     assert "Company watchlist: OpenAI, Anthropic" in markdown
     assert "## AI Research" in markdown
+    assert "Papers, benchmarks, and research discussions." in markdown
+    assert "_Section signals: 1 items, 1 sources, 1 high-impact_" in markdown
     assert "- [Research](https://example.com/1) - Test Source" in markdown
     assert "- [Product](https://example.com/3) - Test Source (CodePilot, Coding)" in markdown
     assert "## Disclaimer" in markdown

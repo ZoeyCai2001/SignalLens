@@ -337,3 +337,4 @@ Implementation progress:
 - Added a derived `is_ai_related` classification flag to feed serialization, dashboard feed/detail/alert displays, and digest labels so low-relevance manual captures or noise items can be audited against the PRD AI-relevance requirement.
 - Added a derived `technologies` field to feed serialization, dashboard feed/detail badges, daily digest labels, and LLM classification parsing so related AI technologies are visible as a PRD classification facet without a database migration.
 - Added an AI-relevance audit filter to the search API and dashboard so users can find either classified AI-related items or low-relevance/noise items needing review.
+- Added Daily Digest section focus text and section-level metrics to the API, markdown, and dashboard preview so each briefing section is easier to audit before saving or sharing.

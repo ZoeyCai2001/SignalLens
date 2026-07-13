@@ -22,6 +22,7 @@ from app.schemas.digest import (
     DigestAlertItem,
     DailyDigestSnapshot,
     DigestSection,
+    DigestSectionMetrics,
     DigestSourceCoverage,
 )
 from app.schemas.feed import FeedItem
@@ -138,6 +139,10 @@ def render_digest_markdown(digest: DailyDigest) -> str:
         if not section.items:
             continue
         lines.extend([f"## {section.title}", ""])
+        lines.extend([section.focus, ""])
+        metric_text = format_digest_section_metrics(section.metrics)
+        if metric_text:
+            lines.extend([f"_Section signals: {metric_text}_", ""])
         for item in section.items:
             summary = item.summary_short or item.why_it_matters or item.summary_detailed
             labels = build_digest_item_labels(item)
@@ -505,9 +510,35 @@ def build_digest_sections(
                 title=title,
                 focus=focus,
                 items=section_items,
+                metrics=build_digest_section_metrics(section_items),
             )
         )
     return sections
+
+
+def build_digest_section_metrics(items: list[FeedItem]) -> DigestSectionMetrics:
+    return DigestSectionMetrics(
+        item_count=len(items),
+        high_impact_count=sum(1 for item in items if item.importance_score >= 0.75),
+        stock_signal_count=sum(
+            1 for item in items if item.category == "stock_company_event" or bool(item.tickers)
+        ),
+        read_later_count=sum(1 for item in items if item.is_saved and not item.is_read),
+        source_count=len({item.source_name for item in items}),
+    )
+
+
+def format_digest_section_metrics(metrics: DigestSectionMetrics) -> str:
+    if metrics.item_count <= 0:
+        return ""
+    parts = [f"{metrics.item_count} items", f"{metrics.source_count} sources"]
+    if metrics.high_impact_count:
+        parts.append(f"{metrics.high_impact_count} high-impact")
+    if metrics.stock_signal_count:
+        parts.append(f"{metrics.stock_signal_count} stock-linked")
+    if metrics.read_later_count:
+        parts.append(f"{metrics.read_later_count} read-later")
+    return ", ".join(parts)
 
 
 def filter_items_by_excluded_topics(

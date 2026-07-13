@@ -687,6 +687,13 @@ type DigestSection = {
   title: string;
   focus: string;
   items: FeedItem[];
+  metrics: {
+    item_count: number;
+    high_impact_count: number;
+    stock_signal_count: number;
+    read_later_count: number;
+    source_count: number;
+  };
 };
 
 type DigestAlertItem = {
@@ -5520,6 +5527,14 @@ function DailyDigestPanel({
               sectionsWithItems.map((section) => (
                 <div className="digest-section" key={section.key}>
                   <div className="digest-section-title">{section.title}</div>
+                  <div className="small-muted">{section.focus}</div>
+                  <div className="digest-coverage">
+                    {digestSectionMetricLabels(section).map((label) => (
+                      <span className="badge" key={`${section.key}:${label}`}>
+                        {label}
+                      </span>
+                    ))}
+                  </div>
                   <div className="digest-list">
                     {section.items.slice(0, 3).map((item) => (
                       <div className="digest-preview-item" key={item.id}>
@@ -5625,14 +5640,28 @@ function digestItemSummary(item: FeedItem): string | null {
 
 function digestItemLabels(item: FeedItem): string[] {
   const labels = [
+    item.is_ai_related ? "" : "not AI-related",
     ...item.tickers,
     ...item.products,
+    ...item.technologies,
+    item.market_impact_type !== "none" ? formatMarketImpactLabel(item.market_impact_type) : "",
     item.category === "product" && item.subcategory
       ? formatProductUseCaseLabel(item.subcategory)
       : "",
     ...item.topics,
   ];
   return uniqueLabels(labels).slice(0, 4);
+}
+
+function digestSectionMetricLabels(section: DigestSection): string[] {
+  const metrics = section.metrics;
+  return [
+    `${metrics.item_count} items`,
+    `${metrics.source_count} sources`,
+    metrics.high_impact_count ? `${metrics.high_impact_count} high-impact` : "",
+    metrics.stock_signal_count ? `${metrics.stock_signal_count} stock-linked` : "",
+    metrics.read_later_count ? `${metrics.read_later_count} read-later` : "",
+  ].filter(Boolean);
 }
 
 function uniqueLabels(labels: string[]): string[] {

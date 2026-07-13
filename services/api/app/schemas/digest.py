@@ -10,11 +10,20 @@ class DigestSourceCoverage(BaseModel):
     item_count: int
 
 
+class DigestSectionMetrics(BaseModel):
+    item_count: int = 0
+    high_impact_count: int = 0
+    stock_signal_count: int = 0
+    read_later_count: int = 0
+    source_count: int = 0
+
+
 class DigestSection(BaseModel):
     key: str
     title: str
     focus: str
     items: list[FeedItem]
+    metrics: DigestSectionMetrics = Field(default_factory=DigestSectionMetrics)
 
 
 class DigestAlertItem(BaseModel):
