@@ -596,6 +596,9 @@ type MvpChecklistItem = {
   status: "ready" | "partial" | "needs_action";
   metric: string;
   note: string;
+  actionLabel?: string;
+  actionModule?: ModuleKey;
+  actionOperation?: DashboardOperation;
 };
 
 type DemoDataSeedResponse = {
@@ -3296,6 +3299,45 @@ export function Dashboard() {
     setStatus(`${finding.action_label ?? "Opened"}: ${finding.title}`);
   };
 
+  const openMvpChecklistAction = async (item: MvpChecklistItem) => {
+    if (item.actionModule) {
+      setActiveModule(item.actionModule);
+    }
+    if (item.actionOperation === "demo-data:seed") {
+      await seedDemoDataFromDashboard();
+      return;
+    }
+    if (item.actionOperation === "cycle") {
+      await runFullCycle();
+      return;
+    }
+    if (item.actionOperation === "llm:classify") {
+      await processTopItemsWithLlm({
+        summarize: false,
+        classify: true,
+        label: item.label,
+        operation: "llm:classify",
+        moduleOverride: null,
+      });
+      return;
+    }
+    if (item.actionOperation === "digest:save-snapshot") {
+      setActiveOperation("digest:save-snapshot");
+      await saveDailyDigestSnapshot("");
+      setActiveOperation(null);
+      return;
+    }
+    if (item.actionOperation === "alerts:generate") {
+      await generateDashboardAlerts();
+      return;
+    }
+    if (item.actionOperation === "stock-prices:refresh") {
+      await runIngestion("alpha-vantage-prices");
+      return;
+    }
+    setStatus(`${item.actionLabel ?? "Opened"}: ${item.label}`);
+  };
+
   const moduleCounts = useMemo(
     () => buildModuleCounts(feed, digest, savedItems, sources, preferences, moduleFeedOverrides),
     [digest, feed, moduleFeedOverrides, preferences, savedItems, sources],
@@ -3336,6 +3378,7 @@ export function Dashboard() {
       disabled={loadState !== "idle"}
       onCopyMissingEnv={copyMissingEnvTemplate}
       onQualityFindingAction={openQualityFindingAction}
+      onMvpChecklistAction={openMvpChecklistAction}
     />
   );
   const rankingPreferencesPanel = (
@@ -4251,6 +4294,7 @@ function SystemStatusPanel({
   disabled,
   onCopyMissingEnv,
   onQualityFindingAction,
+  onMvpChecklistAction,
 }: {
   status: SystemStatus | null;
   itemCount: number;
@@ -4263,6 +4307,7 @@ function SystemStatusPanel({
   disabled: boolean;
   onCopyMissingEnv: () => void;
   onQualityFindingAction: (finding: QualityFinding) => void;
+  onMvpChecklistAction: (item: MvpChecklistItem) => void;
 }) {
   const integrationRows: Array<[string, boolean]> = status
     ? [
@@ -4346,6 +4391,8 @@ function SystemStatusPanel({
                 alertCount,
                 watchlistCount,
               })}
+              disabled={disabled}
+              onAction={onMvpChecklistAction}
             />
             {qualityMetrics ? (
               <>
@@ -4615,7 +4662,15 @@ function SystemStatusPanel({
   );
 }
 
-function PrdMvpChecklist({ items }: { items: MvpChecklistItem[] }) {
+function PrdMvpChecklist({
+  items,
+  disabled,
+  onAction,
+}: {
+  items: MvpChecklistItem[];
+  disabled: boolean;
+  onAction: (item: MvpChecklistItem) => void;
+}) {
   return (
     <div className="mvp-checklist">
       <div className="digest-section-title">PRD MVP Checklist</div>
@@ -4630,6 +4685,16 @@ function PrdMvpChecklist({ items }: { items: MvpChecklistItem[] }) {
                 </span>
               </div>
               <div className="small-muted">{item.note}</div>
+              {item.actionLabel ? (
+                <button
+                  className="button mvp-checklist-action"
+                  disabled={disabled}
+                  onClick={() => onAction(item)}
+                  type="button"
+                >
+                  {item.actionLabel}
+                </button>
+              ) : null}
             </div>
             <span className="badge muted-badge">{item.metric}</span>
           </div>
@@ -4772,6 +4837,9 @@ function buildPrdMvpChecklist({
         recentItems > 0
           ? "Feed data is available across the first-class PRD modules."
           : "Run a source cycle or seed demo data to populate the ranked feed.",
+      actionLabel: recentItems > 0 ? "Open Dashboard" : "Seed Demo Data",
+      actionModule: "dashboard",
+      actionOperation: recentItems > 0 ? undefined : "demo-data:seed",
     },
     {
       key: "source-ingestion",
@@ -4787,6 +4855,11 @@ function buildPrdMvpChecklist({
         enabledSourceCount > 0
           ? "Connectors are configured; recent diversity shows whether collection is broad enough."
           : "Enable followed sources before relying on daily collection.",
+      actionLabel:
+        enabledSourceCount > 0 && recentSourceCount < 3 ? "Run Full Cycle" : "Open Sources",
+      actionModule: "sources",
+      actionOperation:
+        enabledSourceCount > 0 && recentSourceCount < 3 ? "cycle" : undefined,
     },
     {
       key: "llm-processing",
@@ -4801,6 +4874,9 @@ function buildPrdMvpChecklist({
       note: status.llm_configured
         ? "Kimi is configured; coverage depends on running capped classify/summarize batches."
         : "Add an LLM key before expecting model-generated summaries.",
+      actionLabel: status.llm_configured ? "Run Classification" : "Open Settings",
+      actionModule: status.llm_configured ? "dashboard" : "settings",
+      actionOperation: status.llm_configured ? "llm:classify" : undefined,
     },
     {
       key: "watchlists",
@@ -4816,6 +4892,8 @@ function buildPrdMvpChecklist({
         watchlistCount > 0
           ? "Stock, company, topic, and product watchlists shape ranking and digest context."
           : "Seed or create watchlists so personalization has a profile to use.",
+      actionLabel: "Open Dashboard",
+      actionModule: "dashboard",
     },
     {
       key: "stock-watchlist",
@@ -4831,6 +4909,11 @@ function buildPrdMvpChecklist({
         stockWatchlistCount > 0
           ? "Ticker monitoring is available; fresh prices improve market-context checks."
           : "Add or seed watched tickers before relying on stock signals.",
+      actionLabel:
+        stockWatchlistCount > 0 && !latestStockPriceDate ? "Refresh Prices" : "Open Stocks",
+      actionModule: "stocks",
+      actionOperation:
+        stockWatchlistCount > 0 && !latestStockPriceDate ? "stock-prices:refresh" : undefined,
     },
     {
       key: "search",
@@ -4846,6 +4929,11 @@ function buildPrdMvpChecklist({
         recentItems > 0
           ? "Facet coverage indicates whether search can filter by topics, tickers, sources, and tags."
           : "Search becomes useful after ingestion creates normalized items.",
+      actionLabel:
+        recentItems > 0 && searchFacetCoverage < 0.7 ? "Run Classification" : "Open Dashboard",
+      actionModule: "dashboard",
+      actionOperation:
+        recentItems > 0 && searchFacetCoverage < 0.7 ? "llm:classify" : undefined,
     },
     {
       key: "daily-digest",
@@ -4864,6 +4952,13 @@ function buildPrdMvpChecklist({
         digestSnapshotCount > 0
           ? "A saved digest exists; morning readiness depends on keeping the snapshot fresh."
           : "Generate and save a digest snapshot to lock in a daily brief.",
+      actionLabel:
+        latestDigestAgeDays !== null && latestDigestAgeDays <= 1 ? "Open Digest" : "Save Digest",
+      actionModule: "digest",
+      actionOperation:
+        latestDigestAgeDays !== null && latestDigestAgeDays <= 1
+          ? undefined
+          : "digest:save-snapshot",
     },
     {
       key: "alerts",
@@ -4879,6 +4974,9 @@ function buildPrdMvpChecklist({
         alertCount > 0
           ? "Dashboard alert rules are producing active signals."
           : "Generate alerts after ingestion to validate stock, product, and trend rules.",
+      actionLabel: alertCount > 0 ? "Open Dashboard" : "Generate Alerts",
+      actionModule: "dashboard",
+      actionOperation: alertCount > 0 ? undefined : "alerts:generate",
     },
     {
       key: "manual-submission",
@@ -4889,6 +4987,8 @@ function buildPrdMvpChecklist({
         manualSubmissionCount > 0
           ? "Recent manual submissions are flowing into the same feed pipeline."
           : "The submission flow is available; paste a URL when a source has no connector.",
+      actionLabel: "Open Submission",
+      actionModule: "dashboard",
     },
   ];
 }

@@ -923,6 +923,11 @@ table {
   padding: 8px;
 }
 
+.mvp-checklist-action {
+  margin-top: 8px;
+  width: fit-content;
+}
+
 .setup-list {
   display: grid;
   gap: 6px;
