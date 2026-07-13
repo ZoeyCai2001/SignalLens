@@ -34,6 +34,28 @@ FEEDBACK_INTEREST_MATCH_PENALTY = 0.04
 MAX_FEEDBACK_INTEREST_BONUS = 0.10
 MAX_FEEDBACK_INTEREST_PENALTY = 0.12
 
+TECHNOLOGY_TOPIC_LABELS = {
+    "agent": "AI agents",
+    "agents": "AI agents",
+    "artificial intelligence": "AI",
+    "benchmark": "Benchmarks",
+    "coding agent": "Coding agents",
+    "diffusion": "Diffusion models",
+    "embedding": "Embeddings",
+    "gpu": "GPUs",
+    "inference": "Inference",
+    "llama": "Llama",
+    "llm": "LLMs",
+    "machine learning": "Machine learning",
+    "mcp": "MCP",
+    "model": "AI models",
+    "multimodal": "Multimodal AI",
+    "rag": "RAG",
+    "reasoning": "Reasoning models",
+    "retrieval": "Retrieval",
+    "transformer": "Transformers",
+}
+
 
 @dataclass(frozen=True)
 class FeedInterestProfile:
@@ -53,6 +75,7 @@ def serialize_feed_item(
 ) -> FeedItem:
     data = FeedItem.model_validate(item)
     data.is_ai_related = infer_is_ai_related(data)
+    data.technologies = infer_related_technologies(data)
     data.social_signal_score = social_signal_score_for_item(item)
     data.market_impact_type = infer_market_impact_type(data)
     data.why_it_matters = build_feed_why_it_matters(data)
@@ -75,6 +98,17 @@ def infer_is_ai_related(item: FeedItem) -> bool:
     if item.topics or item.products or item.tickers or item.companies:
         return True
     return item.category not in {"manual_submission", "noise_irrelevant"}
+
+
+def infer_related_technologies(item: FeedItem) -> list[str]:
+    technologies: list[str] = []
+    seen: set[str] = set()
+    for topic in item.topics:
+        label = TECHNOLOGY_TOPIC_LABELS.get(topic.strip().casefold())
+        if label and label.casefold() not in seen:
+            technologies.append(label)
+            seen.add(label.casefold())
+    return technologies[:8]
 
 
 def infer_market_impact_type(item: FeedItem) -> str:
@@ -164,6 +198,7 @@ def primary_item_focus(item: FeedItem) -> str:
         *item.products,
         product_use_case_label(item.subcategory) if item.category == "product" else "",
         *item.companies,
+        *item.technologies,
         *item.topics,
     ]
     unique_labels = []

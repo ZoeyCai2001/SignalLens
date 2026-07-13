@@ -17,6 +17,7 @@ class FeedItem(BaseModel):
     companies: list[str]
     products: list[str]
     topics: list[str]
+    technologies: list[str] = Field(default_factory=list)
     sentiment: str
     is_ai_related: bool = True
     relevance_score: float

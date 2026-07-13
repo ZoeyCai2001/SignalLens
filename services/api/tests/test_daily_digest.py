@@ -181,6 +181,19 @@ def test_build_digest_item_labels_includes_market_impact_type() -> None:
     assert build_digest_item_labels(item) == ["MU", "demand signal", "hbm"]
 
 
+def test_build_digest_item_labels_includes_technologies() -> None:
+    item = make_item(
+        1,
+        "Inference systems update",
+        "technical_trend",
+        0.8,
+        topics=["inference"],
+    )
+    item.technologies = ["Inference", "RAG"]
+
+    assert build_digest_item_labels(item) == ["Inference", "RAG", "inference"]
+
+
 def test_build_digest_item_labels_includes_non_ai_relevance_label() -> None:
     item = make_item(
         1,

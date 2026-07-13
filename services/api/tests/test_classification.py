@@ -18,6 +18,7 @@ def test_parse_classification_validates_and_clamps_scores() -> None:
           "category": "stock_company_event",
           "subcategory": "chip_partnership",
           "topics": ["ai", "inference", "custom silicon"],
+          "technologies": ["inference", "RAG"],
           "tickers": ["avgo"],
           "companies": ["Broadcom", "OpenAI"],
           "products": ["inference chip"],
@@ -33,6 +34,7 @@ def test_parse_classification_validates_and_clamps_scores() -> None:
     )
 
     assert classification.category == "stock_company_event"
+    assert classification.topics == ["ai", "inference", "custom silicon", "RAG"]
     assert classification.tickers == ["AVGO"]
     assert classification.classification_confidence == 1.0
     assert classification.importance_score == 1.0

@@ -32,6 +32,7 @@ from app.services.feed_actions import (
     freshness_score,
     infer_is_ai_related,
     infer_market_impact_type,
+    infer_related_technologies,
     list_visible_feed_items,
     normalize_feed_module_filter,
     normalize_feed_topic_filter,
@@ -178,6 +179,13 @@ def test_infer_is_ai_related_flags_unenriched_manual_submission_for_review() -> 
     item.category = "manual_submission"
 
     assert infer_is_ai_related(item) is False
+
+
+def test_infer_related_technologies_maps_ai_topics() -> None:
+    item = make_feed_item(1, "Inference stack", relevance_score=0.8, importance_score=0.8)
+    item.topics = ["inference", "rag", "openai", "llm", "inference"]
+
+    assert infer_related_technologies(item) == ["Inference", "RAG", "LLMs"]
 
 
 def test_infer_market_impact_type_ignores_low_impact_non_stock_items() -> None:

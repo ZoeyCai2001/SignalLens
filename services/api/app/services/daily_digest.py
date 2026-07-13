@@ -162,6 +162,7 @@ def build_digest_item_labels(item: FeedItem, limit: int = 4) -> list[str]:
         format_ai_relevance_label(item.is_ai_related),
         *item.tickers,
         *item.products,
+        *item.technologies,
         format_market_impact_label(item.market_impact_type),
         format_product_use_case_label(item.subcategory) if item.category == "product" else "",
         *item.topics,

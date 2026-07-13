@@ -50,6 +50,7 @@ type FeedItem = {
   companies: string[];
   products: string[];
   topics: string[];
+  technologies: string[];
   sentiment: string;
   is_ai_related: boolean;
   relevance_score: number;
@@ -6371,6 +6372,11 @@ function FeedCard({
             {product}
           </span>
         ))}
+        {item.technologies.slice(0, 6).map((technology) => (
+          <span className="badge" key={`technology:${technology}`}>
+            {technology}
+          </span>
+        ))}
         {item.topics.slice(0, 8).map((topic) => (
           <span className="badge" key={topic}>
             {topic}
@@ -6504,6 +6510,7 @@ function buildFeedCardExplanation(item: FeedItem): string {
     item.category === "product" && item.subcategory
       ? formatProductUseCaseLabel(item.subcategory)
       : "",
+    ...item.technologies.slice(0, 3),
     ...item.topics.slice(0, 3),
   ]);
   const scoreSignals = [
@@ -6581,6 +6588,11 @@ function FeedDetailPanel({
         {detail.products.slice(0, 6).map((product) => (
           <span className="badge" key={product}>
             {product}
+          </span>
+        ))}
+        {detail.technologies.slice(0, 6).map((technology) => (
+          <span className="badge" key={`technology:${technology}`}>
+            {technology}
           </span>
         ))}
       </div>

@@ -159,6 +159,7 @@ Required JSON shape:
   "category": "one allowed category",
   "subcategory": "short snake_case label or empty string",
   "topics": ["2 to 8 lowercase AI topic tags"],
+  "technologies": ["related AI technologies if directly relevant"],
   "tickers": ["stock tickers if directly relevant"],
   "companies": ["company names if directly relevant"],
   "products": ["product/model/tool names if directly relevant"],
@@ -202,7 +203,10 @@ def parse_classification(text: str, item: NormalizedItem) -> ItemClassification:
     data = parse_json_object(text)
     category = normalize_category(data.get("category"))
     sentiment = normalize_sentiment(data.get("sentiment"))
-    topics = normalized_string_list(data.get("topics")) or detect_topics(item.title)
+    topics = merge_string_lists(
+        normalized_string_list(data.get("topics")),
+        normalized_string_list(data.get("technologies")),
+    ) or detect_topics(item.title)
     tickers = normalized_tickers(data.get("tickers"), fallback_text=item.title)
     companies = normalized_string_list(data.get("companies"))
     products = normalized_string_list(data.get("products"))
@@ -265,6 +269,18 @@ def normalized_string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def merge_string_lists(*values: list[str]) -> list[str]:
+    merged = []
+    seen = set()
+    for value_list in values:
+        for value in value_list:
+            key = value.casefold()
+            if key not in seen:
+                merged.append(value)
+                seen.add(key)
+    return merged
 
 
 def normalized_tickers(value: Any, fallback_text: str) -> list[str]:
