@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Source, SourceRun, StockPricePoint
 from app.services.alerts import generate_alerts
+from app.services.daily_digest import save_daily_digest_snapshot
 from app.services.ingestion import get_or_create_source, store_raw_items
 from app.sources.base import RawItemInput
 
@@ -92,11 +93,14 @@ def seed_demo_data(db: Session, now: datetime | None = None) -> dict[str, int]:
     item_count = seed_demo_feed_items(db=db, now=generated_at)
     price_count = seed_demo_stock_prices(db=db, today=generated_at.date())
     alert_result = generate_alerts(db)
+    digest_snapshot = save_daily_digest_snapshot(db=db, digest_date=generated_at.date())
     return {
         "seeded_demo_item_count": item_count,
         "seeded_demo_price_count": price_count,
         "seeded_demo_alert_count": alert_result.alerts_created,
         "seeded_demo_alert_rule_count": alert_result.rules_seeded,
+        "seeded_demo_digest_snapshot_count": 1,
+        "seeded_demo_digest_item_count": digest_snapshot.total_items,
     }
 
 

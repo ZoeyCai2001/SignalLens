@@ -146,7 +146,8 @@ pnpm api:seed
 ```
 
 For a local no-paid-API demo dashboard, seed the watchlists plus sample AI trend,
-research, product, stock, Chinese social, source-health, alert, and price-chart data:
+research, product, stock, Chinese social, source-health, alert, price-chart, and
+saved daily digest data:
 
 ```bash
 pnpm api:seed-demo

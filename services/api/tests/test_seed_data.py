@@ -3,7 +3,13 @@ from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Base, NormalizedItem, SourceRun, StockPricePoint
+from app.db.models import (
+    Base,
+    DailyDigestSnapshot,
+    NormalizedItem,
+    SourceRun,
+    StockPricePoint,
+)
 from app.schemas.watchlist import StockWatchlistItemUpdate
 from app.services.demo_data import seed_demo_data
 from app.services.seed_data import (
@@ -130,8 +136,12 @@ def test_seed_demo_data_populates_first_run_dashboard_examples() -> None:
         assert first["seeded_demo_price_count"] == 6
         assert first["seeded_demo_alert_rule_count"] == 9
         assert first["seeded_demo_alert_count"] >= 1
+        assert first["seeded_demo_digest_snapshot_count"] == 1
+        assert first["seeded_demo_digest_item_count"] >= 1
         assert second["seeded_demo_item_count"] == 0
         assert second["seeded_demo_price_count"] == 0
+        assert second["seeded_demo_digest_snapshot_count"] == 1
+        assert second["seeded_demo_digest_item_count"] >= 1
         expected_categories = {
             "research",
             "technical_trend",
@@ -142,6 +152,7 @@ def test_seed_demo_data_populates_first_run_dashboard_examples() -> None:
         assert expected_categories.issubset(categories)
         assert db.query(SourceRun).count() == 5
         assert db.query(StockPricePoint).count() == 6
+        assert db.query(DailyDigestSnapshot).count() == 1
 
 
 def test_stock_match_terms_include_ticker_company_and_related_terms() -> None:

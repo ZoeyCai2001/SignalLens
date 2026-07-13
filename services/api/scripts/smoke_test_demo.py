@@ -51,6 +51,8 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     assert_minimum(seed_payload, "seeded_demo_item_count", 5)
     assert_minimum(seed_payload, "seeded_demo_price_count", 6)
     assert_minimum(seed_payload, "seeded_demo_alert_rule_count", 9)
+    assert_minimum(seed_payload, "seeded_demo_digest_snapshot_count", 1)
+    assert_minimum(seed_payload, "seeded_demo_digest_item_count", 1)
 
     feed = get_json(client, "/api/feed?limit=50")
     if len(feed) < 5:
@@ -80,6 +82,9 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     digest = get_json(client, "/api/digest/daily")
     if digest["total_items"] <= 0:
         raise AssertionError("Expected the demo daily digest to contain items")
+    digest_snapshots = get_json(client, "/api/digest/daily/snapshots")
+    if not digest_snapshots:
+        raise AssertionError("Expected demo data seeding to save a daily digest snapshot")
 
     clusters = get_json(client, "/api/events/clusters?limit=8&min_items=1")
     alerts = get_json(client, "/api/alerts")
@@ -92,12 +97,16 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "stock_rows": len(stocks),
         "source_health_rows": len(source_health),
         "digest_items": digest["total_items"],
+        "digest_snapshot_count": len(digest_snapshots),
+        "latest_digest_snapshot_items": digest_snapshots[0]["total_items"],
         "cluster_count": len(clusters),
         "alert_count": len(alerts),
         "quality": {
             "recent_item_count": quality_metrics["recent_item_count"],
             "covered_module_count": quality_metrics["covered_module_count"],
             "recent_source_count": quality_metrics["recent_source_count"],
+            "digest_snapshot_count": quality_metrics["digest_snapshot_count"],
+            "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
         },
         "health": {
             "status": health["status"],

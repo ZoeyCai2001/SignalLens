@@ -607,6 +607,8 @@ type DemoDataSeedResponse = {
   seeded_demo_price_count: number;
   seeded_demo_alert_count: number;
   seeded_demo_alert_rule_count: number;
+  seeded_demo_digest_snapshot_count: number;
+  seeded_demo_digest_item_count: number;
 };
 
 type LlmOperationUsage = {
@@ -1663,7 +1665,7 @@ export function Dashboard() {
         result.seeded_topic_watchlist_count +
         result.seeded_product_watchlist_count;
       setStatus(
-        `Demo data ready: ${result.seeded_demo_item_count} items, ${result.seeded_demo_price_count} prices, ${result.seeded_demo_alert_count} alerts, ${watchlistRows} watchlist rows`,
+        `Demo data ready: ${result.seeded_demo_item_count} items, ${result.seeded_demo_price_count} prices, ${result.seeded_demo_alert_count} alerts, ${result.seeded_demo_digest_snapshot_count} digest snapshot, ${watchlistRows} watchlist rows`,
       );
     } catch (err) {
       setError(readError(err));

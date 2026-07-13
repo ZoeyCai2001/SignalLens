@@ -340,3 +340,4 @@ Implementation progress:
 - Added Daily Digest section focus text and section-level metrics to the API, markdown, and dashboard preview so each briefing section is easier to audit before saving or sharing.
 - Updated Daily Digest section routing so PRD secondary categories such as benchmark/evaluation, policy/regulation, infrastructure, funding/M&A, open-source release, and tutorial/opinion appear in the right briefing sections.
 - Updated alert rule category matching so PRD secondary categories route into their parent alert scopes, including benchmark/evaluation under Research, funding/M&A under AI Stocks, and policy/regulation, infrastructure, open-source release, and tutorial/opinion under AI Trends.
+- Updated local demo seeding to save an idempotent daily digest snapshot and extended the no-paid-API demo smoke check so System Readiness can verify a ready digest snapshot after demo data is seeded.

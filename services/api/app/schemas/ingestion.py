@@ -138,3 +138,5 @@ class DemoDataSeedResponse(BaseModel):
     seeded_demo_price_count: int
     seeded_demo_alert_count: int
     seeded_demo_alert_rule_count: int
+    seeded_demo_digest_snapshot_count: int = 0
+    seeded_demo_digest_item_count: int = 0
