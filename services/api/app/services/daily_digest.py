@@ -40,6 +40,17 @@ NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens is informational only and does not provide investment advice."
 )
 
+RESEARCH_DIGEST_CATEGORIES = {"research", "benchmark_evaluation"}
+TECHNICAL_TREND_DIGEST_CATEGORIES = {
+    "technical_trend",
+    "policy_regulation",
+    "infrastructure",
+    "open_source_release",
+    "tutorial_opinion",
+}
+STOCK_DIGEST_CATEGORIES = {"stock_company_event", "funding_mna"}
+DEVELOPER_DIGEST_CATEGORIES = {"open_source_release"}
+
 
 def generate_daily_digest(
     db: Session,
@@ -455,13 +466,13 @@ def build_digest_sections(
             "research",
             "AI Research",
             "Papers, benchmarks, and research discussions.",
-            lambda item: item.category == "research",
+            is_digest_research_item,
         ),
         (
             "technical_trends",
             "AI Technical Trends",
             "Engineering themes, infrastructure, models, and agent workflows.",
-            lambda item: item.category == "technical_trend",
+            is_digest_technical_trend_item,
         ),
         (
             "products",
@@ -479,7 +490,7 @@ def build_digest_sections(
             "stock_watchlist",
             "AI Stock Watchlist",
             "Company and ticker-linked AI signals, informational only.",
-            lambda item: item.category == "stock_company_event" or bool(item.tickers),
+            is_digest_stock_item,
         ),
         (
             "chinese_social",
@@ -491,7 +502,7 @@ def build_digest_sections(
             "developer_highlights",
             "GitHub and Hugging Face Highlights",
             "Open-source repositories, models, and developer ecosystem activity.",
-            lambda item: item.source_name in {"GitHub", "Hugging Face"},
+            is_digest_developer_highlight_item,
         ),
         (
             "read_later",
@@ -514,6 +525,25 @@ def build_digest_sections(
             )
         )
     return sections
+
+
+def is_digest_research_item(item: FeedItem) -> bool:
+    return item.category in RESEARCH_DIGEST_CATEGORIES
+
+
+def is_digest_technical_trend_item(item: FeedItem) -> bool:
+    return item.category in TECHNICAL_TREND_DIGEST_CATEGORIES
+
+
+def is_digest_stock_item(item: FeedItem) -> bool:
+    return item.category in STOCK_DIGEST_CATEGORIES or bool(item.tickers)
+
+
+def is_digest_developer_highlight_item(item: FeedItem) -> bool:
+    return item.category in DEVELOPER_DIGEST_CATEGORIES or item.source_name in {
+        "GitHub",
+        "Hugging Face",
+    }
 
 
 def build_digest_section_metrics(items: list[FeedItem]) -> DigestSectionMetrics:

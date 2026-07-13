@@ -69,6 +69,33 @@ def test_daily_digest_sections_group_items() -> None:
     assert section_map["read_later"].metrics.read_later_count == 1
 
 
+def test_daily_digest_sections_include_prd_secondary_categories() -> None:
+    items = [
+        make_item(1, "Benchmark eval", "benchmark_evaluation", 0.9),
+        make_item(2, "AI policy update", "policy_regulation", 0.8),
+        make_item(3, "Inference infrastructure", "infrastructure", 0.75),
+        make_item(4, "Startup acquisition", "funding_mna", 0.7),
+        make_item(5, "Open source release", "open_source_release", 0.65),
+        make_item(6, "Tutorial essay", "tutorial_opinion", 0.6),
+    ]
+
+    section_map = {section.key: section for section in build_digest_sections(items)}
+
+    assert [item.title for item in section_map["research"].items] == ["Benchmark eval"]
+    assert {item.title for item in section_map["technical_trends"].items} == {
+        "AI policy update",
+        "Inference infrastructure",
+        "Open source release",
+        "Tutorial essay",
+    }
+    assert [item.title for item in section_map["stock_watchlist"].items] == [
+        "Startup acquisition"
+    ]
+    assert [item.title for item in section_map["developer_highlights"].items] == [
+        "Open source release"
+    ]
+
+
 def test_daily_digest_source_coverage_counts_sources() -> None:
     items = [
         make_item(1, "A", "research", 0.9, source_name="arXiv"),
