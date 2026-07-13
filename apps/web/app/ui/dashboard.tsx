@@ -1035,6 +1035,22 @@ const productUseCaseOptions: { value: string; label: string }[] = [
   { value: "product_general", label: "General" },
 ];
 
+const categoryOptions: { value: string; label: string }[] = [
+  { value: "technical_trend", label: "Technical trend" },
+  { value: "research", label: "Research" },
+  { value: "product", label: "Product" },
+  { value: "stock_company_event", label: "Stock/company" },
+  { value: "manual_submission", label: "Manual submission" },
+  { value: "social_trend", label: "Social trend" },
+  { value: "policy_regulation", label: "Policy/regulation" },
+  { value: "infrastructure", label: "Infrastructure" },
+  { value: "funding_mna", label: "Funding/M&A" },
+  { value: "benchmark_evaluation", label: "Benchmark/evaluation" },
+  { value: "open_source_release", label: "Open-source release" },
+  { value: "tutorial_opinion", label: "Tutorial/opinion" },
+  { value: "noise_irrelevant", label: "Noise/irrelevant" },
+];
+
 const alertCategoryOptions: { value: string; label: string }[] = [
   { value: "all", label: "Any" },
   { value: "technical_trend", label: "Trend" },
@@ -1047,6 +1063,13 @@ const alertCategoryOptions: { value: string; label: string }[] = [
   { value: "supply_chain_signal", label: "Supply chain" },
   { value: "theme_breakout", label: "Theme breakout" },
   { value: "social_trend", label: "Social" },
+  { value: "policy_regulation", label: "Policy/regulation" },
+  { value: "infrastructure", label: "Infrastructure" },
+  { value: "funding_mna", label: "Funding/M&A" },
+  { value: "benchmark_evaluation", label: "Benchmark/evaluation" },
+  { value: "open_source_release", label: "Open-source release" },
+  { value: "tutorial_opinion", label: "Tutorial/opinion" },
+  { value: "noise_irrelevant", label: "Noise/irrelevant" },
   { value: "cross_source_cluster", label: "Cross-source" },
 ];
 
@@ -5162,7 +5185,7 @@ function AlertPanel({
                     {ticker}
                   </span>
                 ))}
-                <span className="badge">{alert.item.category}</span>
+                <span className="badge">{formatCategoryLabel(alert.item.category)}</span>
                 {alert.item.category === "product" && alert.item.subcategory ? (
                   <span className="badge">{formatProductUseCaseLabel(alert.item.subcategory)}</span>
                 ) : null}
@@ -6148,12 +6171,11 @@ function SearchPanel({
           aria-label="Category filter"
         >
           <option value="">Any category</option>
-          <option value="research">Research</option>
-          <option value="technical_trend">Technical trend</option>
-          <option value="manual_submission">Manual submission</option>
-          <option value="stock_company_event">Stock/company</option>
-          <option value="product">Product</option>
-          <option value="social_trend">Social trend</option>
+          {categoryOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <select
           className="field"
@@ -6314,7 +6336,7 @@ function FeedCard({
           {item.is_saved ? <span className="badge">saved</span> : null}
           {item.is_read ? <span className="badge muted-badge">read</span> : null}
           <span className={`badge ${item.category === "research" ? "research" : ""}`}>
-            {item.category}
+            {formatCategoryLabel(item.category)}
           </span>
           {item.category === "product" && item.subcategory ? (
             <span className="badge">{formatProductUseCaseLabel(item.subcategory)}</span>
@@ -10134,16 +10156,24 @@ function searchStatusText(resultCount: number, moduleKey: FeedModuleKey | null):
 
 function itemMatchesModule(item: FeedItem, moduleKey: ModuleKey): boolean {
   if (moduleKey === "trends") {
-    return item.category === "technical_trend";
+    return [
+      "technical_trend",
+      "policy_regulation",
+      "infrastructure",
+      "open_source_release",
+      "tutorial_opinion",
+    ].includes(item.category);
   }
   if (moduleKey === "research") {
-    return item.category === "research";
+    return ["research", "benchmark_evaluation"].includes(item.category);
   }
   if (moduleKey === "products") {
     return item.category === "product" || item.products.length > 0;
   }
   if (moduleKey === "stocks") {
-    return item.category === "stock_company_event" || item.tickers.length > 0;
+    return (
+      ["stock_company_event", "funding_mna"].includes(item.category) || item.tickers.length > 0
+    );
   }
   if (moduleKey === "chinese") {
     return item.category === "social_trend" || item.language === "zh";
@@ -10233,6 +10263,10 @@ function isAlertRuleSnoozed(rule: AlertRule): boolean {
 }
 
 function formatCategoryLabel(value: string): string {
+  const optionLabel = categoryOptions.find((option) => option.value === value)?.label;
+  if (optionLabel) {
+    return optionLabel;
+  }
   return value
     .split("_")
     .filter(Boolean)

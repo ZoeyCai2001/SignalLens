@@ -768,6 +768,9 @@ def test_normalize_feed_module_filter_accepts_prd_module_aliases() -> None:
     assert normalize_feed_module_filter("AI Trends") == "trends"
     assert normalize_feed_module_filter("ai-trends") == "trends"
     assert normalize_feed_module_filter("stock_company_event") == "stocks"
+    assert normalize_feed_module_filter("benchmark_evaluation") == "research"
+    assert normalize_feed_module_filter("policy_regulation") == "trends"
+    assert normalize_feed_module_filter("funding_mna") == "stocks"
     assert normalize_feed_module_filter("Chinese Social") == "chinese"
     assert normalize_feed_module_filter("chinese-social") == "chinese"
     assert normalize_feed_module_filter("ignored") is None
@@ -859,6 +862,51 @@ def test_list_visible_feed_items_filters_by_research_module() -> None:
         items = list_visible_feed_items(db, limit=10, module="research")
 
     assert [item.title for item in items] == ["Research paper"]
+
+
+def test_list_visible_feed_items_routes_prd_secondary_categories_to_modules() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Benchmark leaderboard",
+                    language="en",
+                    category="benchmark_evaluation",
+                ),
+                make_normalized_item(
+                    2,
+                    "AI policy update",
+                    language="en",
+                    category="policy_regulation",
+                ),
+                make_normalized_item(
+                    3,
+                    "Startup acquisition",
+                    language="en",
+                    category="funding_mna",
+                ),
+                make_normalized_item(
+                    4,
+                    "Product launch",
+                    language="en",
+                    category="product",
+                ),
+            ]
+        )
+        db.commit()
+
+        research_items = list_visible_feed_items(db, limit=10, module="research")
+        trend_items = list_visible_feed_items(db, limit=10, module="trends")
+        stock_items = list_visible_feed_items(db, limit=10, module="stocks")
+
+    assert [item.title for item in research_items] == ["Benchmark leaderboard"]
+    assert [item.title for item in trend_items] == ["AI policy update"]
+    assert [item.title for item in stock_items] == ["Startup acquisition"]
 
 
 def test_list_visible_feed_items_filters_by_stock_module_entities() -> None:

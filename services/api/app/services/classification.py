@@ -23,9 +23,70 @@ ALLOWED_CATEGORIES = {
     "stock_company_event",
     "manual_submission",
     "social_trend",
+    "policy_regulation",
+    "infrastructure",
+    "funding_mna",
+    "benchmark_evaluation",
+    "open_source_release",
+    "tutorial_opinion",
+    "noise_irrelevant",
 }
 
 ALLOWED_SENTIMENTS = {"positive", "neutral", "negative", "mixed"}
+
+CATEGORY_ALIASES = {
+    "technical_trend": "technical_trend",
+    "technical_trends": "technical_trend",
+    "research": "research",
+    "product": "product",
+    "products": "product",
+    "stock_company": "stock_company_event",
+    "stock_company_event": "stock_company_event",
+    "manual_submission": "manual_submission",
+    "manual": "manual_submission",
+    "social_trend": "social_trend",
+    "social_trends": "social_trend",
+    "policy_regulation": "policy_regulation",
+    "policy_regulations": "policy_regulation",
+    "infrastructure": "infrastructure",
+    "funding_m_a": "funding_mna",
+    "funding_m_and_a": "funding_mna",
+    "funding_ma": "funding_mna",
+    "funding_mna": "funding_mna",
+    "funding_merger_acquisition": "funding_mna",
+    "funding_mergers_and_acquisitions": "funding_mna",
+    "funding_mergers_acquisitions": "funding_mna",
+    "benchmark": "benchmark_evaluation",
+    "benchmarks": "benchmark_evaluation",
+    "benchmark_evaluation": "benchmark_evaluation",
+    "benchmark_evaluations": "benchmark_evaluation",
+    "open_source": "open_source_release",
+    "open_source_release": "open_source_release",
+    "open_source_releases": "open_source_release",
+    "tutorial": "tutorial_opinion",
+    "opinion": "tutorial_opinion",
+    "tutorial_opinion": "tutorial_opinion",
+    "tutorial_opinions": "tutorial_opinion",
+    "noise": "noise_irrelevant",
+    "irrelevant": "noise_irrelevant",
+    "noise_irrelevant": "noise_irrelevant",
+}
+
+CATEGORY_PROMPT_VALUES = [
+    "technical_trend",
+    "research",
+    "product",
+    "stock_company_event",
+    "manual_submission",
+    "social_trend",
+    "policy_regulation",
+    "infrastructure",
+    "funding_mna",
+    "benchmark_evaluation",
+    "open_source_release",
+    "tutorial_opinion",
+    "noise_irrelevant",
+]
 
 
 @dataclass(frozen=True)
@@ -85,17 +146,13 @@ async def classify_feed_item(
 def build_classification_prompt(item: NormalizedItem) -> str:
     source_text = item.text or ""
     trimmed_text = source_text[:3500]
+    allowed_values = "\n".join(f"- {category}" for category in CATEGORY_PROMPT_VALUES)
     return f"""
 You are classifying an item for SignalLens, a personal AI intelligence dashboard.
 Return only valid compact JSON. Do not include markdown fences.
 
 Allowed category values:
-- technical_trend
-- research
-- product
-- stock_company_event
-- manual_submission
-- social_trend
+{allowed_values}
 
 Required JSON shape:
 {{
@@ -115,9 +172,19 @@ Required JSON shape:
 
 Rules:
 - Keep everything in English.
+- Use the exact snake_case category values from the allowed list.
 - Do not give investment advice.
 - Use stock_company_event only for company, market, earnings, chip, cloud capex,
-  regulation, partnership, supply-chain, or analyst events.
+  partnership, supply-chain, or analyst events.
+- Use policy_regulation for policy, regulation, export control, safety governance,
+  or legal changes that are not primarily about one public company.
+- Use infrastructure for AI compute, data center, cloud, networking, serving, or
+  deployment infrastructure signals that are not primarily public-company stock events.
+- Use funding_mna for funding rounds, acquisitions, mergers, or venture activity.
+- Use benchmark_evaluation for benchmark, eval, leaderboard, or measurement news.
+- Use open_source_release for open-source model, repo, dataset, or tool releases.
+- Use tutorial_opinion for practical guides, tutorials, essays, or opinion pieces.
+- Use noise_irrelevant only when the item is not useful AI intelligence.
 - Scores must be numbers from 0 to 1.
 - confidence_score is how certain you are about the category and extracted entities.
 - Preserve source uncertainty. Describe what the source item says, not verified fact.
@@ -175,10 +242,18 @@ def parse_json_object(text: str) -> dict[str, Any]:
 
 
 def normalize_category(value: Any) -> str:
-    category = str(value or "").strip()
+    category = normalize_category_key(value)
+    category = CATEGORY_ALIASES.get(category, category)
     if category not in ALLOWED_CATEGORIES:
         raise ClassificationError(f"Unsupported category from Kimi classification: {category}")
     return category
+
+
+def normalize_category_key(value: Any) -> str:
+    category = str(value or "").strip().lower()
+    category = category.replace("&", "a")
+    category = re.sub(r"[^a-z0-9]+", "_", category)
+    return re.sub(r"_+", "_", category).strip("_")
 
 
 def normalize_sentiment(value: Any) -> str:

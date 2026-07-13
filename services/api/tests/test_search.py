@@ -113,6 +113,25 @@ def test_infer_search_intent_handles_high_importance_semiconductor_query() -> No
     assert intent.date_from == date(2026, 6, 19)
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_category"),
+    [
+        ("Show AI policy and export control updates.", "policy_regulation"),
+        ("Find AI startup funding and M&A news.", "funding_mna"),
+        ("Summarize agent benchmark evaluation results.", "benchmark_evaluation"),
+        ("Show open-source model release signals.", "open_source_release"),
+        ("Find AI tutorial and opinion essays.", "tutorial_opinion"),
+    ],
+)
+def test_infer_search_intent_handles_prd_secondary_categories(
+    query: str,
+    expected_category: str,
+) -> None:
+    intent = infer_search_intent(query)
+
+    assert intent.category == expected_category
+
+
 def test_infer_search_intent_handles_saved_items_query() -> None:
     intent = infer_search_intent("Find saved discussion about agent harness.")
 
@@ -346,6 +365,39 @@ def test_search_feed_items_filters_by_product_subcategory() -> None:
 
     assert [item.title for item in explicit_results] == ["AI coding assistant"]
     assert [item.title for item in inferred_results] == ["AI coding assistant"]
+
+
+def test_search_feed_items_filters_by_prd_secondary_category() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "AI policy update",
+                    "Export control guidance for AI chips.",
+                    topics=["policy"],
+                    category="policy_regulation",
+                ),
+                make_search_item(
+                    2,
+                    "Agent product launch",
+                    "A coding agent product update.",
+                    topics=["agent"],
+                    category="product",
+                ),
+            ]
+        )
+        db.commit()
+
+        explicit_results = search_feed_items(db, category="policy_regulation")
+        inferred_results = search_feed_items(db, query="Show AI export control policy updates")
+
+    assert [item.title for item in explicit_results] == ["AI policy update"]
+    assert [item.title for item in inferred_results] == ["AI policy update"]
 
 
 def test_search_feed_items_matches_company_entities_in_query() -> None:

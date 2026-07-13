@@ -788,6 +788,11 @@ def normalize_feed_module_filter(value: str | None) -> str | None:
     normalized = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
     aliases = {
         "ai_trends": "trends",
+        "benchmark_evaluation": "research",
+        "funding_mna": "stocks",
+        "infrastructure": "trends",
+        "open_source_release": "trends",
+        "policy_regulation": "trends",
         "technical_trend": "trends",
         "technical_trends": "trends",
         "ai_research": "research",
@@ -798,6 +803,7 @@ def normalize_feed_module_filter(value: str | None) -> str | None:
         "stock_company_event": "stocks",
         "chinese_social": "chinese",
         "chinese_social_trends": "chinese",
+        "tutorial_opinion": "trends",
         "social_trend": "chinese",
     }
     normalized = aliases.get(normalized, normalized)
@@ -806,9 +812,19 @@ def normalize_feed_module_filter(value: str | None) -> str | None:
 
 def build_feed_module_conditions(module: str | None) -> list:
     if module == "trends":
-        return [NormalizedItem.category == "technical_trend"]
+        return [
+            NormalizedItem.category.in_(
+                [
+                    "technical_trend",
+                    "policy_regulation",
+                    "infrastructure",
+                    "open_source_release",
+                    "tutorial_opinion",
+                ]
+            )
+        ]
     if module == "research":
-        return [NormalizedItem.category == "research"]
+        return [NormalizedItem.category.in_(["research", "benchmark_evaluation"])]
     if module == "products":
         return [
             NormalizedItem.category == "product",
@@ -817,7 +833,7 @@ def build_feed_module_conditions(module: str | None) -> list:
         ]
     if module == "stocks":
         return [
-            NormalizedItem.category == "stock_company_event",
+            NormalizedItem.category.in_(["stock_company_event", "funding_mna"]),
             cast(NormalizedItem.tickers, String) != "[]",
             NormalizedItem.stock_impact_score >= 0.35,
         ]

@@ -39,6 +39,42 @@ def test_parse_classification_validates_and_clamps_scores() -> None:
     assert classification.stock_impact_score == 0.0
 
 
+@pytest.mark.parametrize(
+    ("raw_category", "expected_category"),
+    [
+        ("policy/regulation", "policy_regulation"),
+        ("funding/M&A", "funding_mna"),
+        ("open-source release", "open_source_release"),
+        ("benchmark/evaluation", "benchmark_evaluation"),
+    ],
+)
+def test_parse_classification_normalizes_prd_secondary_categories(
+    raw_category: str,
+    expected_category: str,
+) -> None:
+    classification = parse_classification(
+        f"""
+        {{
+          "category": "{raw_category}",
+          "subcategory": "",
+          "topics": ["ai"],
+          "tickers": [],
+          "companies": [],
+          "products": [],
+          "sentiment": "neutral",
+          "relevance_score": 0.7,
+          "confidence_score": 0.8,
+          "importance_score": 0.6,
+          "stock_impact_score": 0.0,
+          "why_it_matters": "This item matches a PRD secondary intelligence category."
+        }}
+        """,
+        make_item(),
+    )
+
+    assert classification.category == expected_category
+
+
 def test_parse_classification_rejects_unknown_category() -> None:
     with pytest.raises(ClassificationError):
         parse_classification(

@@ -332,3 +332,4 @@ Implementation progress:
 - Updated scheduled ingestion so automated cycles save at most one daily digest snapshot after the configured UTC target hour, while manual digest actions remain available.
 - Added a stock-detail Notes tab that surfaces watchlist notes plus saved, read-later, important, privately noted, or manually tagged stock-linked signals.
 - Added event titles to Event Cluster timeline rows so expanded cluster evidence reads as a usable event timeline.
+- Expanded PRD category support so LLM classification, natural-language search, module routing, dashboard filters, and alert category controls understand secondary categories such as policy/regulation, funding/M&A, benchmark/evaluation, open-source release, tutorial/opinion, and noise/irrelevant.

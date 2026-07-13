@@ -386,6 +386,27 @@ def infer_category(lowered_query: str) -> str | None:
     ):
         return "social_trend"
     if re.search(
+        r"\b(policy|policies|regulation|regulatory|governance|export controls?|legal|"
+        r"law|laws|compliance|safety rules?)\b",
+        lowered_query,
+    ):
+        return "policy_regulation"
+    if re.search(
+        r"\b(funding|fundraise|fundraises|fundraising|venture|seed round|series [abc]|"
+        r"acquisition|acquires?|merger|m&a|m and a)\b",
+        lowered_query,
+    ):
+        return "funding_mna"
+    if re.search(r"\b(benchmark|benchmarks|evaluation|evaluations|evals?|leaderboard)\b", lowered_query):
+        return "benchmark_evaluation"
+    if re.search(
+        r"\b(open source|open-source|oss|github release|repo release|model release)\b",
+        lowered_query,
+    ):
+        return "open_source_release"
+    if re.search(r"\b(tutorial|guide|how to|how-to|opinion|essay|analysis)\b", lowered_query):
+        return "tutorial_opinion"
+    if re.search(
         r"\b(stock|stocks|semiconductor|chip|earnings|market|data centers?|capex)\b",
         lowered_query,
     ):
@@ -395,10 +416,11 @@ def infer_category(lowered_query: str) -> str | None:
         lowered_query,
     ):
         return "product"
-    if re.search(r"\b(paper|papers|research|arxiv|benchmark|benchmarks)\b", lowered_query):
+    if re.search(r"\b(paper|papers|research|arxiv)\b", lowered_query):
         return "research"
     if re.search(
-        r"\b(agent harness|coding agent|model routing|inference|rag|mcp)\b",
+        r"\b(agent harness|coding agent|model routing|inference|rag|mcp|"
+        r"ai infrastructure|serving infrastructure|compute infrastructure)\b",
         lowered_query,
     ):
         return "technical_trend"
