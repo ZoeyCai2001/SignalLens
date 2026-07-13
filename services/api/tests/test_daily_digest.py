@@ -181,6 +181,19 @@ def test_build_digest_item_labels_includes_market_impact_type() -> None:
     assert build_digest_item_labels(item) == ["MU", "demand signal", "hbm"]
 
 
+def test_build_digest_item_labels_includes_non_ai_relevance_label() -> None:
+    item = make_item(
+        1,
+        "Unrelated saved link",
+        "noise_irrelevant",
+        0.2,
+        topics=["office software"],
+    )
+    item.is_ai_related = False
+
+    assert build_digest_item_labels(item) == ["not AI-related", "office software"]
+
+
 def test_daily_digest_headline_handles_empty_day() -> None:
     headline = build_headline([], datetime(2026, 6, 25, tzinfo=UTC).date())
 

@@ -159,6 +159,7 @@ def render_digest_markdown(digest: DailyDigest) -> str:
 
 def build_digest_item_labels(item: FeedItem, limit: int = 4) -> list[str]:
     labels = [
+        format_ai_relevance_label(item.is_ai_related),
         *item.tickers,
         *item.products,
         format_market_impact_label(item.market_impact_type),
@@ -166,6 +167,10 @@ def build_digest_item_labels(item: FeedItem, limit: int = 4) -> list[str]:
         *item.topics,
     ]
     return unique_digest_labels(labels)[:limit]
+
+
+def format_ai_relevance_label(is_ai_related: bool) -> str:
+    return "" if is_ai_related else "not AI-related"
 
 
 def format_market_impact_label(value: str) -> str:

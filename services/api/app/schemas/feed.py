@@ -18,6 +18,7 @@ class FeedItem(BaseModel):
     products: list[str]
     topics: list[str]
     sentiment: str
+    is_ai_related: bool = True
     relevance_score: float
     classification_confidence: float = 0.5
     importance_score: float

@@ -52,6 +52,7 @@ def serialize_feed_item(
     action: UserItemAction | None = None,
 ) -> FeedItem:
     data = FeedItem.model_validate(item)
+    data.is_ai_related = infer_is_ai_related(data)
     data.social_signal_score = social_signal_score_for_item(item)
     data.market_impact_type = infer_market_impact_type(data)
     data.why_it_matters = build_feed_why_it_matters(data)
@@ -64,6 +65,16 @@ def serialize_feed_item(
         data.personal_note = action.personal_note
         data.manual_tags = normalize_manual_tags(action.manual_tags)
     return data
+
+
+def infer_is_ai_related(item: FeedItem) -> bool:
+    if item.category == "noise_irrelevant":
+        return False
+    if item.relevance_score >= 0.35:
+        return True
+    if item.topics or item.products or item.tickers or item.companies:
+        return True
+    return item.category not in {"manual_submission", "noise_irrelevant"}
 
 
 def infer_market_impact_type(item: FeedItem) -> str:

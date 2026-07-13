@@ -334,3 +334,4 @@ Implementation progress:
 - Added event titles to Event Cluster timeline rows so expanded cluster evidence reads as a usable event timeline.
 - Expanded PRD category support so LLM classification, natural-language search, module routing, dashboard filters, and alert category controls understand secondary categories such as policy/regulation, funding/M&A, benchmark/evaluation, open-source release, tutorial/opinion, and noise/irrelevant.
 - Added derived market-impact type labels to feed serialization, dashboard feed/detail/alert badges, and daily digest labels so stock/company signals expose the PRD market-impact classification facet without a database migration.
+- Added a derived `is_ai_related` classification flag to feed serialization, dashboard feed/detail/alert displays, and digest labels so low-relevance manual captures or noise items can be audited against the PRD AI-relevance requirement.

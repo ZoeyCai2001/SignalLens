@@ -30,6 +30,7 @@ from app.services.feed_actions import (
     feed_interest_bonus,
     feedback_interest_adjustment,
     freshness_score,
+    infer_is_ai_related,
     infer_market_impact_type,
     list_visible_feed_items,
     normalize_feed_module_filter,
@@ -136,6 +137,47 @@ def test_serialize_feed_item_adds_market_impact_type() -> None:
     serialized = serialize_feed_item(item)
 
     assert serialized.market_impact_type == "demand_signal"
+
+
+def test_serialize_feed_item_adds_ai_relevance_flag_for_noise() -> None:
+    item = NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Unrelated office software update",
+        url="https://example.com",
+        source_name="Manual Submission",
+        language="en",
+        category="noise_irrelevant",
+        tickers=[],
+        companies=[],
+        products=[],
+        topics=[],
+        sentiment="neutral",
+        relevance_score=0.05,
+        importance_score=0.1,
+        novelty_score=0.2,
+        source_quality_score=0.4,
+        stock_impact_score=0,
+    )
+
+    serialized = serialize_feed_item(item)
+
+    assert serialized.is_ai_related is False
+
+
+def test_infer_is_ai_related_keeps_entity_matched_low_score_items() -> None:
+    item = make_feed_item(1, "Low-score AI stock note", relevance_score=0.2, importance_score=0.4)
+    item.category = "stock_company_event"
+    item.tickers = ["MRVL"]
+
+    assert infer_is_ai_related(item) is True
+
+
+def test_infer_is_ai_related_flags_unenriched_manual_submission_for_review() -> None:
+    item = make_feed_item(1, "Generic saved URL", relevance_score=0.3, importance_score=0.3)
+    item.category = "manual_submission"
+
+    assert infer_is_ai_related(item) is False
 
 
 def test_infer_market_impact_type_ignores_low_impact_non_stock_items() -> None:

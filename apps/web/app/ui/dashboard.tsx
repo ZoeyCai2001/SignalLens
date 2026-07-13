@@ -51,6 +51,7 @@ type FeedItem = {
   products: string[];
   topics: string[];
   sentiment: string;
+  is_ai_related: boolean;
   relevance_score: number;
   classification_confidence: number;
   importance_score: number;
@@ -5187,6 +5188,9 @@ function AlertPanel({
                   </span>
                 ))}
                 <span className="badge">{formatCategoryLabel(alert.item.category)}</span>
+                {!alert.item.is_ai_related ? (
+                  <span className="badge muted-badge">not AI-related</span>
+                ) : null}
                 {alert.item.market_impact_type !== "none" ? (
                   <span className="badge stock">
                     {formatMarketImpactLabel(alert.item.market_impact_type)}
@@ -6341,6 +6345,9 @@ function FeedCard({
           {item.is_important ? <span className="badge stock">important</span> : null}
           {item.is_saved ? <span className="badge">saved</span> : null}
           {item.is_read ? <span className="badge muted-badge">read</span> : null}
+          {!item.is_ai_related ? (
+            <span className="badge muted-badge">not AI-related</span>
+          ) : null}
           <span className={`badge ${item.category === "research" ? "research" : ""}`}>
             {formatCategoryLabel(item.category)}
           </span>
@@ -6613,6 +6620,12 @@ function FeedDetailPanel({
           <strong>Why it matters:</strong> {detail.why_it_matters}
         </div>
       ) : null}
+      <div className="summary">
+        <strong>AI relevance:</strong>{" "}
+        {detail.is_ai_related
+          ? "Classified as AI-related"
+          : "Not currently classified as AI-related"}
+      </div>
       {detail.market_impact_type !== "none" ? (
         <div className="summary">
           <strong>Market impact type:</strong> {formatMarketImpactLabel(detail.market_impact_type)}
