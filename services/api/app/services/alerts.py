@@ -40,6 +40,19 @@ MIN_THEME_BREAKOUT_ITEMS = 2
 MIN_THEME_BREAKOUT_SOURCES = 2
 MIN_SOCIAL_TREND_SCORE = 0.45
 
+ALERT_CATEGORY_ALIASES = {
+    "technical_trend": {
+        "technical_trend",
+        "policy_regulation",
+        "infrastructure",
+        "open_source_release",
+        "tutorial_opinion",
+    },
+    "research": {"research", "benchmark_evaluation"},
+    "stock_company_event": {"stock_company_event", "funding_mna"},
+}
+STOCK_ALERT_CATEGORIES = ALERT_CATEGORY_ALIASES["stock_company_event"]
+
 SPECIAL_STOCK_EVENT_TERMS = {
     EARNINGS_GUIDANCE_CATEGORY: [
         "earnings",
@@ -722,7 +735,7 @@ def stock_event_alert_reason(item: NormalizedItem, rule: AlertRule) -> str | Non
         return None
     if item.stock_impact_score < rule.min_stock_impact_score:
         return None
-    if not item.tickers and item.category != "stock_company_event":
+    if not item.tickers and item.category not in STOCK_ALERT_CATEGORIES:
         return None
     if rule.tickers and not set(normalize_tickers(rule.tickers)).intersection(
         normalize_tickers(item.tickers)
@@ -876,7 +889,7 @@ def cross_source_alert_reason(cluster: EventCluster, rule: AlertRule) -> str | N
 
 
 def alert_reason(item: NormalizedItem, rule: AlertRule) -> str | None:
-    if rule.category != "all" and item.category != rule.category:
+    if not alert_category_matches(rule.category, item.category):
         return None
     if item.importance_score < rule.min_importance_score:
         return None
@@ -905,6 +918,12 @@ def alert_reason(item: NormalizedItem, rule: AlertRule) -> str | None:
     if item.tickers:
         score_bits.append(f"tickers {', '.join(item.tickers[:4])}")
     return f"{rule.name}: " + ", ".join(score_bits)
+
+
+def alert_category_matches(rule_category: str, item_category: str) -> bool:
+    if rule_category == "all":
+        return True
+    return item_category in ALERT_CATEGORY_ALIASES.get(rule_category, {rule_category})
 
 
 def list_alerts(

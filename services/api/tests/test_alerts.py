@@ -21,6 +21,7 @@ from app.services.alerts import (
     SOCIAL_TREND_CATEGORY,
     STOCK_PRICE_MOVE_CATEGORY,
     THEME_BREAKOUT_CATEGORY,
+    alert_category_matches,
     alert_reason,
     build_theme_breakout_buckets,
     clean_terms,
@@ -62,6 +63,43 @@ def test_alert_reason_matches_high_impact_stock_signal() -> None:
     assert "source quality 80" in reason
     assert "stock impact 50" in reason
     assert "AVGO" in reason
+
+
+def test_alert_category_matches_secondary_prd_categories() -> None:
+    assert alert_category_matches("research", "benchmark_evaluation") is True
+    assert alert_category_matches("stock_company_event", "funding_mna") is True
+    assert alert_category_matches("technical_trend", "policy_regulation") is True
+    assert alert_category_matches("technical_trend", "open_source_release") is True
+    assert alert_category_matches("research", "funding_mna") is False
+
+
+def test_alert_reason_routes_secondary_categories_to_parent_rules() -> None:
+    benchmark_item = make_item(
+        title="New agent benchmark evaluation released",
+        category="benchmark_evaluation",
+        importance_score=0.78,
+    )
+    research_rule = make_rule(
+        name="Research watch",
+        category="research",
+        min_importance_score=0.7,
+    )
+    funding_item = make_item(
+        title="AI infrastructure startup raises new funding",
+        category="funding_mna",
+        importance_score=0.82,
+        stock_impact_score=0.45,
+    )
+    stock_rule = make_rule(
+        category="stock_company_event",
+        min_importance_score=0.68,
+        min_stock_impact_score=0.35,
+    )
+
+    assert alert_reason(benchmark_item, research_rule) is not None
+    funding_reason = alert_reason(funding_item, stock_rule)
+    assert funding_reason is not None
+    assert "stock impact 45" in funding_reason
 
 
 def test_alert_reason_skips_low_importance_items() -> None:
@@ -167,6 +205,29 @@ def test_stock_event_alert_reason_matches_earnings_guidance_terms() -> None:
     assert "guidance" in reason
     assert "ai demand" in reason
     assert "MU" in reason
+
+
+def test_stock_event_alert_reason_treats_funding_mna_as_stock_context() -> None:
+    item = make_item(
+        title="AI chip startup supply chain capacity expands after acquisition",
+        category="funding_mna",
+        importance_score=0.72,
+        stock_impact_score=0.36,
+        tickers=[],
+        topics=["semiconductors"],
+    )
+    rule = make_rule(
+        name="Supply chain signal",
+        category="supply_chain_signal",
+        min_importance_score=0.62,
+        min_stock_impact_score=0.25,
+    )
+
+    reason = stock_event_alert_reason(item, rule)
+
+    assert reason is not None
+    assert "supply chain" in reason
+    assert "capacity" in reason
 
 
 def test_stock_event_alert_reason_requires_stock_context() -> None:
