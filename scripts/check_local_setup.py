@@ -162,6 +162,17 @@ def command_check(key: str, label: str, importance: str, command: str) -> SetupC
     if shutil.which(command):
         return SetupCheck(key, label, "ok", importance, f"{command} is available on PATH.")
     status = "missing" if importance == "core" else "warn"
+    if command == "pnpm":
+        return SetupCheck(
+            key,
+            label,
+            status,
+            importance,
+            (
+                "pnpm is not available on PATH. Install Node.js/Corepack or pnpm before "
+                "using the repo-root workflow commands."
+            ),
+        )
     return SetupCheck(key, label, status, importance, f"{command} is not available on PATH.")
 
 
@@ -255,12 +266,19 @@ def print_report(checks: list[SetupCheck], summary: dict[str, int]) -> None:
         print()
 
     print("Next useful commands:")
+    print("  python3 scripts/check_local_setup.py")
+    if not is_check_ok(checks, "pnpm_command"):
+        print("  # Install pnpm first, then run the repo-root workflow commands below.")
     print("  pnpm infra:up")
     print("  pnpm api:migrate")
     print("  pnpm api:seed-demo")
     print("  pnpm api:dev")
     print("  pnpm web:dev")
     print("  pnpm verify:demo")
+
+
+def is_check_ok(checks: list[SetupCheck], key: str) -> bool:
+    return any(check.key == key and check.status == "ok" for check in checks)
 
 
 if __name__ == "__main__":

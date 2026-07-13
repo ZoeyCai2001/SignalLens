@@ -48,6 +48,12 @@ configured environment variable names needed for the demo flow:
 pnpm setup:check
 ```
 
+If `pnpm` is not on your PATH yet, run the same checker directly:
+
+```bash
+python3 scripts/check_local_setup.py
+```
+
 The Docker PostgreSQL service maps to host port `55432` to avoid conflicts with a local
 Postgres running on the default `5432`.
 
@@ -253,6 +259,7 @@ exposing secret values.
 ## Root Commands
 
 - `pnpm setup:check` checks local demo readiness without printing secret values.
+- `python3 scripts/check_local_setup.py` runs the same readiness check before pnpm is installed.
 - `pnpm infra:up` starts local PostgreSQL and Redis.
 - `pnpm infra:down` stops local infrastructure.
 - `pnpm api:migrate` applies backend migrations.
