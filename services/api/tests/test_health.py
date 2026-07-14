@@ -17,6 +17,7 @@ from app.api.routes.health import (
     digest_age_days,
     duplicate_rate_for_items,
     has_config_value,
+    has_custom_reddit_user_agent,
     has_custom_sec_user_agent,
     health_check,
     normalize_quality_title,
@@ -24,7 +25,7 @@ from app.api.routes.health import (
     quality_item_has_prd_summary,
     summarize_prd_source_family_coverage,
 )
-from app.core.config import DEFAULT_SEC_USER_AGENT, Settings
+from app.core.config import DEFAULT_REDDIT_USER_AGENT, DEFAULT_SEC_USER_AGENT, Settings
 from app.db.models import (
     Alert,
     AlertRule,
@@ -58,6 +59,13 @@ def test_has_custom_sec_user_agent_rejects_default_placeholder() -> None:
     assert has_custom_sec_user_agent("SignalLens/0.1 zoey@example.com") is True
 
 
+def test_has_custom_reddit_user_agent_rejects_default_placeholder() -> None:
+    assert has_custom_reddit_user_agent(None) is False
+    assert has_custom_reddit_user_agent("") is False
+    assert has_custom_reddit_user_agent(DEFAULT_REDDIT_USER_AGENT) is False
+    assert has_custom_reddit_user_agent("SignalLens/0.1 zoey@example.com") is True
+
+
 def fake_settings() -> Settings:
     return Settings(
         ENVIRONMENT="test",
@@ -70,6 +78,7 @@ def fake_settings() -> Settings:
         PRODUCT_HUNT_API_TOKEN="",
         ALPHA_VANTAGE_API_KEY="alpha-key",
         SEC_USER_AGENT="SignalLens/0.1 zoey@example.com",
+        REDDIT_USER_AGENT="SignalLens/0.1 zoey@example.com",
         CHINESE_RSS_FEEDS="https://example.com/feed.xml",
     )
 
@@ -93,20 +102,22 @@ async def test_health_check_reports_readiness_without_exposing_secrets(monkeypat
     assert response.integrations.product_hunt_api is False
     assert response.integrations.alpha_vantage_api is True
     assert response.integrations.sec_user_agent is True
+    assert response.integrations.reddit_user_agent is True
     assert response.integrations.chinese_rss_feeds is True
     assert {item.env_var for item in response.setup_items} == {
         "MOONSHOT_API_KEY",
         "GITHUB_TOKEN",
         "ALPHA_VANTAGE_API_KEY",
         "SEC_USER_AGENT",
+        "REDDIT_USER_AGENT",
         "PRODUCT_HUNT_API_TOKEN",
         "CHINESE_RSS_FEEDS",
     }
     assert next(
         item for item in response.setup_items if item.env_var == "PRODUCT_HUNT_API_TOKEN"
     ).configured is False
-    assert response.setup_summary.total == 6
-    assert response.setup_summary.configured == 5
+    assert response.setup_summary.total == 7
+    assert response.setup_summary.configured == 6
     assert response.setup_summary.missing == 1
     assert response.setup_summary.core_missing == 0
     assert response.setup_summary.recommended_missing == 0
@@ -135,6 +146,7 @@ def test_build_setup_items_reports_safe_env_hints_without_values() -> None:
             product_hunt_api=False,
             alpha_vantage_api=True,
             sec_user_agent=True,
+            reddit_user_agent=True,
             chinese_rss_feeds=True,
         ),
     )
@@ -144,13 +156,14 @@ def test_build_setup_items_reports_safe_env_hints_without_values() -> None:
         "github_api",
         "alpha_vantage_api",
         "sec_user_agent",
+        "reddit_user_agent",
         "product_hunt_api",
         "chinese_rss_feeds",
     ]
     assert items[0].configured is True
     assert items[0].importance == "core"
-    assert items[4].configured is False
-    assert items[4].importance == "optional"
+    assert items[5].configured is False
+    assert items[5].importance == "optional"
     assert "moonshot-key" not in " ".join(item.setup_hint for item in items)
     assert "github-key" not in " ".join(item.setup_hint for item in items)
 
@@ -164,14 +177,15 @@ def test_build_setup_summary_counts_missing_items_by_importance() -> None:
             product_hunt_api=False,
             alpha_vantage_api=True,
             sec_user_agent=True,
+            reddit_user_agent=True,
             chinese_rss_feeds=True,
         ),
     )
 
     summary = build_setup_summary(items)
 
-    assert summary.total == 6
-    assert summary.configured == 3
+    assert summary.total == 7
+    assert summary.configured == 4
     assert summary.missing == 3
     assert summary.core_missing == 1
     assert summary.recommended_missing == 1
@@ -188,6 +202,7 @@ def test_build_missing_env_template_uses_only_placeholders() -> None:
             product_hunt_api=False,
             alpha_vantage_api=True,
             sec_user_agent=False,
+            reddit_user_agent=False,
             chinese_rss_feeds=True,
         ),
     )
@@ -197,6 +212,7 @@ def test_build_missing_env_template_uses_only_placeholders() -> None:
     assert "MOONSHOT_API_KEY=sk-..." in template
     assert "GITHUB_TOKEN=ghp_..." in template
     assert "SEC_USER_AGENT=SignalLens/0.1 your-email@example.com" in template
+    assert "REDDIT_USER_AGENT=SignalLens/0.1 your-email@example.com" in template
     assert "PRODUCT_HUNT_API_TOKEN=your-product-hunt-token" in template
     assert "ALPHA_VANTAGE_API_KEY" not in template
     assert "moonshot-key" not in template
@@ -212,6 +228,7 @@ def test_build_missing_env_template_returns_empty_when_ready() -> None:
             product_hunt_api=True,
             alpha_vantage_api=True,
             sec_user_agent=True,
+            reddit_user_agent=True,
             chinese_rss_feeds=True,
         ),
     )

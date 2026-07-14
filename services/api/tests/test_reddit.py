@@ -2,6 +2,7 @@ from app.db.models import RawItem, Source
 from app.services.feed_actions import build_public_engagement_metrics, social_signal_score_for_item
 from app.services.ingestion import (
     normalize_item,
+    parse_reddit_subreddits,
     reddit_query_for_source,
     reddit_subreddits_for_source,
 )
@@ -103,5 +104,16 @@ def test_reddit_helpers_are_conservative() -> None:
     assert normalize_reddit_subreddits(["r/LocalLLaMA", "LocalLLaMA", "MachineLearning"]) == [
         "LocalLLaMA",
         "MachineLearning",
+    ]
+    assert parse_reddit_subreddits("LocalLLaMA, MachineLearning|artificial") == [
+        "LocalLLaMA",
+        "MachineLearning",
+        "artificial",
+    ]
+    assert parse_reddit_subreddits("") == [
+        "LocalLLaMA",
+        "MachineLearning",
+        "artificial",
+        "singularity",
     ]
     assert parse_reddit_datetime("not-a-timestamp") is None

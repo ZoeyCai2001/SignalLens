@@ -211,6 +211,11 @@ Product Hunt ingestion is optional and uses the official GraphQL API. Set
 `PRODUCT_HUNT_API_TOKEN` in `.env` to enable it; without a token the source run is
 recorded as `skipped`.
 
+Reddit community ingestion uses public subreddit JSON search. Set `REDDIT_USER_AGENT`
+to a descriptive app/contact string and adjust `REDDIT_SUBREDDITS` if the default
+`LocalLLaMA,MachineLearning,artificial,singularity` list is not the right watch set.
+It stores public post metadata and short self-post excerpts only.
+
 Alpha Vantage stock news ingestion is optional. Set `ALPHA_VANTAGE_API_KEY` in
 `.env` to enable watched-ticker news; without a key the source run is recorded as
 `skipped`.

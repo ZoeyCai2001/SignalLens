@@ -4,6 +4,7 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_SEC_USER_AGENT = "SignalLens/0.1 personal research; configure SEC_USER_AGENT"
+DEFAULT_REDDIT_USER_AGENT = "SignalLens/0.1 personal research; configure REDDIT_USER_AGENT"
 
 
 class Settings(BaseSettings):
@@ -56,6 +57,14 @@ class Settings(BaseSettings):
         alias="SEC_USER_AGENT",
     )
     sec_forms: str = Field(default="8-K,10-K,10-Q", alias="SEC_FORMS")
+    reddit_user_agent: str = Field(
+        default=DEFAULT_REDDIT_USER_AGENT,
+        alias="REDDIT_USER_AGENT",
+    )
+    reddit_subreddits: str = Field(
+        default="LocalLLaMA,MachineLearning,artificial,singularity",
+        alias="REDDIT_SUBREDDITS",
+    )
     chinese_rss_feeds: str | None = Field(default=None, alias="CHINESE_RSS_FEEDS")
     signallens_scheduler_mode: str = Field(default="once", alias="SIGNALLENS_SCHEDULER_MODE")
     signallens_scheduler_interval_minutes: int = Field(

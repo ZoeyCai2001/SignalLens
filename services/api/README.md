@@ -74,6 +74,9 @@ Ingest public Reddit AI community posts:
 curl -X POST "http://127.0.0.1:8000/api/ingestion/reddit?limit=25"
 ```
 
+Configure the default communities with `REDDIT_SUBREDDITS` and use a descriptive
+`REDDIT_USER_AGENT` for public Reddit JSON requests.
+
 Ingest recent arXiv AI papers:
 
 ```bash

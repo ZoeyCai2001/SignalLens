@@ -10,6 +10,7 @@ class IntegrationStatus(BaseModel):
     product_hunt_api: bool
     alpha_vantage_api: bool
     sec_user_agent: bool
+    reddit_user_agent: bool
     chinese_rss_feeds: bool
 
 

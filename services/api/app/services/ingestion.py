@@ -37,7 +37,12 @@ from app.sources.github import GitHubConnector, parse_github_repository
 from app.sources.hacker_news import HackerNewsConnector
 from app.sources.hugging_face import HuggingFaceConnector
 from app.sources.product_hunt import ProductHuntConnector
-from app.sources.reddit import DEFAULT_REDDIT_QUERY, RedditConnector, normalize_reddit_subreddits
+from app.sources.reddit import (
+    DEFAULT_REDDIT_QUERY,
+    DEFAULT_REDDIT_SUBREDDITS,
+    RedditConnector,
+    normalize_reddit_subreddits,
+)
 from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector, RssFeedSpec
 from app.sources.sec_filings import SecFilingsConnector, parse_sec_forms
 
@@ -161,14 +166,24 @@ async def run_hacker_news_ingestion(db: Session, limit: int = 30) -> IngestionRe
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
 
-async def run_reddit_ingestion(db: Session, limit: int = 25) -> IngestionResult:
-    connector = RedditConnector(limit=limit)
+async def run_reddit_ingestion(
+    db: Session,
+    limit: int = 25,
+    settings: Settings | None = None,
+) -> IngestionResult:
+    resolved_settings = settings or get_settings()
+    subreddits = parse_reddit_subreddits(resolved_settings.reddit_subreddits)
+    connector = RedditConnector(
+        limit=limit,
+        subreddits=subreddits,
+        user_agent=resolved_settings.reddit_user_agent,
+    )
     source = get_or_create_source(
         db,
         name="Reddit AI Communities",
         source_type="community",
         access_method="public_json",
-        base_url="https://www.reddit.com/r/LocalLLaMA+MachineLearning+artificial+singularity",
+        base_url="https://www.reddit.com/r/" + "+".join(subreddits),
         auth_required=False,
         rate_limit="Public subreddit JSON search; use a descriptive User-Agent and poll slowly.",
         polling_interval="6 hours",
@@ -645,6 +660,15 @@ def cleaned_social_source_name(value: str) -> str:
 
 def normalize_social_keyword_term(value: str) -> str:
     return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", value.lower()).strip()
+
+
+def parse_reddit_subreddits(value: str | None) -> list[str]:
+    configured = normalize_reddit_subreddits([
+        part.strip()
+        for part in re.split(r"[,;\n|+\s]+", value or "")
+        if part.strip()
+    ])
+    return configured or list(DEFAULT_REDDIT_SUBREDDITS)
 
 
 def reddit_subreddits_for_source(source: Source) -> list[str]:

@@ -9,7 +9,12 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import DbSession
-from app.core.config import DEFAULT_SEC_USER_AGENT, Settings, get_settings
+from app.core.config import (
+    DEFAULT_REDDIT_USER_AGENT,
+    DEFAULT_SEC_USER_AGENT,
+    Settings,
+    get_settings,
+)
 from app.db.models import (
     Alert,
     CompanyWatchlistItem,
@@ -89,6 +94,7 @@ async def health_check() -> HealthResponse:
         product_hunt_api=has_config_value(settings.product_hunt_api_token),
         alpha_vantage_api=has_config_value(settings.alpha_vantage_api_key),
         sec_user_agent=has_custom_sec_user_agent(settings.sec_user_agent),
+        reddit_user_agent=has_custom_reddit_user_agent(settings.reddit_user_agent),
         chinese_rss_feeds=has_config_value(settings.chinese_rss_feeds),
     )
     setup_items = build_setup_items(settings=settings, integrations=integrations)
@@ -128,6 +134,7 @@ async def mvp_checklist(
         product_hunt_api=has_config_value(settings.product_hunt_api_token),
         alpha_vantage_api=has_config_value(settings.alpha_vantage_api_key),
         sec_user_agent=has_custom_sec_user_agent(settings.sec_user_agent),
+        reddit_user_agent=has_custom_reddit_user_agent(settings.reddit_user_agent),
         chinese_rss_feeds=has_config_value(settings.chinese_rss_feeds),
     )
     setup_summary = build_setup_summary(
@@ -1874,6 +1881,13 @@ def has_custom_sec_user_agent(value: str | None) -> bool:
     return text != DEFAULT_SEC_USER_AGENT and "configure SEC_USER_AGENT" not in text
 
 
+def has_custom_reddit_user_agent(value: str | None) -> bool:
+    if not value or not value.strip():
+        return False
+    text = value.strip()
+    return text != DEFAULT_REDDIT_USER_AGENT and "configure REDDIT_USER_AGENT" not in text
+
+
 def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> list[SetupItem]:
     return [
         SetupItem(
@@ -1919,6 +1933,19 @@ def build_setup_items(settings: Settings, integrations: IntegrationStatus) -> li
             setup_hint=(
                 "Set SEC_USER_AGENT in .env to a descriptive app/contact string "
                 "for SEC EDGAR requests."
+            ),
+        ),
+        SetupItem(
+            key="reddit_user_agent",
+            label="Reddit User-Agent",
+            configured=integrations.reddit_user_agent,
+            importance="recommended",
+            required_for="public Reddit community ingestion",
+            env_var="REDDIT_USER_AGENT",
+            setup_hint=(
+                "Set REDDIT_USER_AGENT in .env to a descriptive app/contact string "
+                "for public Reddit JSON requests; REDDIT_SUBREDDITS controls the default "
+                f"communities ({settings.reddit_subreddits})."
             ),
         ),
         SetupItem(
@@ -1983,6 +2010,7 @@ def placeholder_for_env_var(env_var: str) -> str:
         "GITHUB_TOKEN": "ghp_...",
         "ALPHA_VANTAGE_API_KEY": "your-alpha-vantage-key",
         "SEC_USER_AGENT": "SignalLens/0.1 your-email@example.com",
+        "REDDIT_USER_AGENT": "SignalLens/0.1 your-email@example.com",
         "PRODUCT_HUNT_API_TOKEN": "your-product-hunt-token",
         "CHINESE_RSS_FEEDS": "Name|https://example.com/feed.xml",
     }

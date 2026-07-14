@@ -19,7 +19,7 @@ This document is the Phase 0 source feasibility deliverable from the PRD. It is 
 | NewsAPI | Defer | Yes | Free only for development/testing; paid plan required beyond dev use | Useful fallback for broad news, but the free Developer plan is limited to development/testing and 100 requests/day. Not needed while RSS and Alpha Vantage cover MVP. | Not implemented |
 | GDELT | Research candidate | No for public data; BigQuery costs may apply | Potentially free data, but analysis may require BigQuery usage | Strong candidate for broad global news/event discovery, but it is noisy and large. Use only after MVP source quality controls are stronger. | Not implemented |
 | X/Twitter | Defer automated ingestion | Yes for API use | Pay-per-use | High signal but cost-sensitive. X describes pay-per-use API pricing and rate limits by endpoint. Add automated ingestion only after a concrete account/query list and spend cap exist; do not scrape login-protected or restricted surfaces. | Manual URL submission plus an X Account Watch source template for attribution |
-| Reddit public JSON | Include conservatively | No for public JSON metadata | Free but policy-sensitive; keep usage light | Valuable for community signals. The MVP uses public subreddit JSON search with a descriptive user agent, conservative polling, and metadata/self-post excerpts only; OAuth API use, broad comment crawling, and commercial-scale use still need a separate review. | Implemented connector, ingestion route, source template, deterministic discussion summaries, and local demo coverage |
+| Reddit public JSON | Include conservatively | No for public JSON metadata | Free but policy-sensitive; keep usage light | Valuable for community signals. The MVP uses public subreddit JSON search with a descriptive `REDDIT_USER_AGENT`, configurable `REDDIT_SUBREDDITS`, conservative polling, and metadata/self-post excerpts only; OAuth API use, broad comment crawling, and commercial-scale use still need a separate review. | Implemented connector, ingestion route, source template, deterministic discussion summaries, and local demo coverage |
 | Xiaohongshu | Manual/public-feed prototype only; no scraping | Unknown | Unknown | Important for Chinese consumer AI signals, but SignalLens must not bypass login, captcha, anti-bot, or device controls. Use manual URL submission first; consider only official/open-platform or reputable compliant data providers later. | Manual URL submission, an XHS Manual Watch source template, and optional public Chinese/XHS RSS support |
 
 ## API Key Checklist
@@ -30,10 +30,12 @@ Required for current optional MVP features:
 - `ALPHA_VANTAGE_API_KEY`: stock news and daily price ingestion.
 - `PRODUCT_HUNT_API_TOKEN`: Product Hunt public launch metadata.
 - `SEC_USER_AGENT`: descriptive contact string for SEC EDGAR submissions access.
+- `REDDIT_USER_AGENT`: descriptive contact string for public Reddit JSON requests.
 
 Optional or future:
 
 - `GITHUB_TOKEN`: raises GitHub API limits if unauthenticated usage is too tight.
+- `REDDIT_SUBREDDITS`: comma-separated public subreddit watch set for the built-in Reddit source.
 - `HUGGING_FACE_TOKEN`: only needed if public Hub endpoints become rate-limited or gated data is intentionally supported.
 - `NEWSAPI_KEY`: only if NewsAPI is added for development/testing or a paid plan is chosen.
 - X/Twitter credentials: only after a spend cap and query/account plan are approved.
