@@ -55,6 +55,7 @@ class Settings(BaseSettings):
         default=DEFAULT_SEC_USER_AGENT,
         alias="SEC_USER_AGENT",
     )
+    sec_forms: str = Field(default="8-K,10-K,10-Q", alias="SEC_FORMS")
     chinese_rss_feeds: str | None = Field(default=None, alias="CHINESE_RSS_FEEDS")
     signallens_scheduler_mode: str = Field(default="once", alias="SIGNALLENS_SCHEDULER_MODE")
     signallens_scheduler_interval_minutes: int = Field(

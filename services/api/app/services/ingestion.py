@@ -37,7 +37,7 @@ from app.sources.hacker_news import HackerNewsConnector
 from app.sources.hugging_face import HuggingFaceConnector
 from app.sources.product_hunt import ProductHuntConnector
 from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector, RssFeedSpec
-from app.sources.sec_filings import SecFilingsConnector
+from app.sources.sec_filings import SecFilingsConnector, parse_sec_forms
 
 
 @dataclass(frozen=True)
@@ -441,6 +441,7 @@ async def run_sec_filings_ingestion(
         tickers=list_price_watchlist_tickers(db),
         limit=limit,
         user_agent=resolved_settings.sec_user_agent,
+        forms=parse_sec_forms(resolved_settings.sec_forms),
     )
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 

@@ -74,7 +74,13 @@ class SecFilingsConnector(SourceConnector):
                     continue
                 response = await client.get(f"{self.base_url}/CIK{cik}.json")
                 response.raise_for_status()
-                items.extend(self._payload_to_raw_items(ticker=ticker, cik=cik, payload=response.json()))
+                items.extend(
+                    self._payload_to_raw_items(
+                        ticker=ticker,
+                        cik=cik,
+                        payload=response.json(),
+                    )
+                )
                 if len(items) >= self.limit:
                     break
 
@@ -168,6 +174,18 @@ def parse_company_ticker_ciks(payload: dict[str, Any]) -> dict[str, str]:
         if ticker and cik:
             ticker_ciks[ticker] = cik
     return ticker_ciks
+
+
+def parse_sec_forms(value: str | None) -> set[str]:
+    if not value:
+        return set(DEFAULT_SEC_FORMS)
+
+    forms = {
+        str(part).strip().upper()
+        for part in value.replace(";", ",").replace("|", ",").split(",")
+        if str(part).strip()
+    }
+    return forms or set(DEFAULT_SEC_FORMS)
 
 
 def normalize_ticker_cik_map(mapping: Mapping[str, str]) -> dict[str, str]:

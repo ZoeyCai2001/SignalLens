@@ -219,6 +219,8 @@ SEC filings ingestion uses the official SEC submissions API for recent watched-t
 8-K, 10-Q, and 10-K metadata. The connector resolves user-added tickers through
 the official SEC company ticker map when they are not already seeded locally. Set
 `SEC_USER_AGENT` in `.env` to a descriptive contact string for compliant SEC access.
+Set `SEC_FORMS=8-K,10-K,10-Q,4` to also collect Form 4 insider ownership filings
+for watched tickers.
 
 Chinese social trend ingestion is configurable through public RSS/Atom feeds. Set
 `CHINESE_RSS_FEEDS` in `.env` as comma-separated `Name|URL` entries; without feeds

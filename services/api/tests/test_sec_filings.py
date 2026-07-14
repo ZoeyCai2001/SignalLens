@@ -9,6 +9,7 @@ from app.sources.sec_filings import (
     format_cik,
     parse_company_ticker_ciks,
     parse_sec_date,
+    parse_sec_forms,
     sec_filing_url,
 )
 
@@ -50,6 +51,40 @@ def test_sec_filings_connector_converts_recent_filings_to_raw_items() -> None:
     assert items[0].published_at is not None
 
 
+def test_sec_filings_connector_includes_insider_forms_when_configured() -> None:
+    connector = SecFilingsConnector(
+        tickers=["MU"],
+        limit=3,
+        user_agent="SignalLens test",
+        forms=parse_sec_forms("8-K,10-Q,4"),
+    )
+
+    items = connector._payload_to_raw_items(
+        ticker="MU",
+        cik="0000723125",
+        payload={
+            "name": "MICRON TECHNOLOGY INC",
+            "filings": {
+                "recent": {
+                    "form": ["8-K", "4", "10-Q"],
+                    "accessionNumber": [
+                        "0000723125-26-000010",
+                        "0000000000-26-000001",
+                        "0000723125-26-000011",
+                    ],
+                    "filingDate": ["2026-06-25", "2026-06-24", "2026-06-23"],
+                    "reportDate": ["2026-06-24", "2026-06-24", "2026-06-01"],
+                    "primaryDocument": ["mu-8k.htm", "ownership.xml", "mu-10q.htm"],
+                    "primaryDocDescription": ["Current report", "Ownership", "Quarterly report"],
+                }
+            },
+        },
+    )
+
+    assert [item.raw_metadata["form"] for item in items] == ["8-K", "4", "10-Q"]
+    assert items[1].raw_title == "MU 4: Ownership filed 2026-06-24"
+
+
 def test_sec_filings_connector_normalizes_injected_ticker_cik_map() -> None:
     connector = SecFilingsConnector(
         tickers=[" tsla ", "MU"],
@@ -75,6 +110,12 @@ def test_parse_company_ticker_ciks_reads_official_sec_mapping() -> None:
         "TSLA": "0001318605",
         "AMD": "0000002488",
     }
+
+
+def test_parse_sec_forms_keeps_defaults_and_normalizes_custom_values() -> None:
+    assert parse_sec_forms(None) == {"8-K", "10-K", "10-Q"}
+    assert parse_sec_forms(" 8-k ; 10-q | 4 ,, ") == {"8-K", "10-Q", "4"}
+    assert parse_sec_forms(" , ") == {"8-K", "10-K", "10-Q"}
 
 
 def test_fetch_company_ticker_ciks_uses_official_sec_mapping_url() -> None:
