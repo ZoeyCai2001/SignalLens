@@ -143,6 +143,10 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
                 f"Expected checklist row {key} to be ready, "
                 f"got {checklist_by_key[key]['status']}"
             )
+    if checklist_by_key["manual-submission"]["action_module"] != "submit":
+        raise AssertionError(
+            "Expected ready manual-submission checklist action to open Submit URL"
+        )
 
     digest = get_json(client, "/api/digest/daily")
     if digest["total_items"] <= 0:

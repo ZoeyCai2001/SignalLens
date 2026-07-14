@@ -62,7 +62,7 @@ class QualityFinding(BaseModel):
     recommendation: str
     action_label: str | None = None
     action_module: Literal[
-        "alerts", "dashboard", "digest", "sources", "settings", "stocks"
+        "alerts", "dashboard", "digest", "sources", "settings", "stocks", "submit"
     ] | None = None
     action_operation: Literal[
         "cycle",
@@ -92,7 +92,7 @@ class MvpChecklistItem(BaseModel):
     note: str
     action_label: str | None = None
     action_module: Literal[
-        "alerts", "dashboard", "digest", "sources", "settings", "stocks"
+        "alerts", "dashboard", "digest", "sources", "settings", "stocks", "submit"
     ] | None = None
     action_operation: Literal[
         "cycle",

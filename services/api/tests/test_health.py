@@ -551,6 +551,7 @@ def test_build_mvp_checklist_response_guides_empty_first_run() -> None:
     assert items["watchlists"].action_module == "stocks"
     assert items["watchlists"].action_target_id == "stock-watchlist-workflow"
     assert items["manual-submission"].status == "partial"
+    assert items["manual-submission"].action_module == "dashboard"
     assert items["manual-submission"].action_operation == "demo-data:seed"
 
 

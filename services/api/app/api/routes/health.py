@@ -631,7 +631,7 @@ def build_mvp_checklist_items(
                 if recent_items > 0
                 else "Seed Demo Data"
             ),
-            action_module="dashboard",
+            action_module="submit" if recent_items > 0 else "dashboard",
             action_operation=None if recent_items > 0 else "demo-data:seed",
             action_target_id="manual-submission-workflow",
         ),

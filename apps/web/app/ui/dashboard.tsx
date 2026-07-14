@@ -578,7 +578,7 @@ type QualityFinding = {
   action_label: string | null;
   action_module: Extract<
     ModuleKey,
-    "alerts" | "dashboard" | "digest" | "sources" | "settings" | "stocks"
+    "alerts" | "dashboard" | "digest" | "sources" | "settings" | "stocks" | "submit"
   > | null;
   action_operation: Extract<
     DashboardOperation,
@@ -615,7 +615,7 @@ type MvpChecklistApiItem = {
   action_label: string | null;
   action_module: Extract<
     ModuleKey,
-    "alerts" | "dashboard" | "digest" | "sources" | "settings" | "stocks"
+    "alerts" | "dashboard" | "digest" | "sources" | "settings" | "stocks" | "submit"
   > | null;
   action_operation: Extract<
     DashboardOperation,
@@ -947,6 +947,7 @@ type ModuleKey =
   | "chinese"
   | "saved"
   | "clusters"
+  | "submit"
   | "alerts"
   | "digest"
   | "sources"
@@ -1147,6 +1148,7 @@ const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[]
   { key: "chinese", label: "Chinese Social", icon: Newspaper },
   { key: "saved", label: "Saved Items", icon: Bookmark },
   { key: "clusters", label: "Clusters", icon: Flag },
+  { key: "submit", label: "Submit URL", icon: Send },
   { key: "alerts", label: "Alerts", icon: BellRing },
   { key: "digest", label: "Daily Digest", icon: CalendarDays },
   { key: "sources", label: "Source Health", icon: DatabaseZap },
@@ -3509,6 +3511,7 @@ export function Dashboard() {
     const isChineseView = activeModule === "chinese";
     const isTrendView = activeModule === "trends";
     const isResearchView = activeModule === "research";
+    const isSubmitView = activeModule === "submit";
     if (isAlertView) {
       return [
         { label: "Feed", value: feed.length },
@@ -3590,6 +3593,16 @@ export function Dashboard() {
         { label: "Sources", value: researchSources.size },
       ];
     }
+    if (isSubmitView) {
+      const manualItems = feed.filter((item) => item.category === "manual_submission");
+      return [
+        { label: "Feed", value: feed.length },
+        { label: "Manual", value: manualItems.length },
+        { label: "Saved", value: manualItems.filter((item) => item.is_saved).length },
+        { label: "Unread", value: manualItems.filter((item) => !item.is_read).length },
+        { label: "Tagged", value: manualItems.filter((item) => item.manual_tags.length).length },
+      ];
+    }
     const viewCount = isClusterView ? eventClusters.length : moduleFeed.length;
     const highImportance = isClusterView
       ? eventClusters.filter((cluster) => cluster.importance_score >= 0.75).length
@@ -3611,6 +3624,7 @@ export function Dashboard() {
     alerts,
     companies.length,
     eventClusters,
+    feed,
     feed.length,
     moduleFeed,
     productWatchlist,
@@ -3759,6 +3773,32 @@ export function Dashboard() {
     />
   );
   const researchReviewPanel = <ResearchReviewPanel items={moduleFeed} />;
+  const manualSubmissionPanel = (
+    <div id="manual-submission-workflow">
+      <ManualSubmissionPanel
+        title={manualTitle}
+        sourceName={manualSourceName}
+        url={manualUrl}
+        text={manualText}
+        personalNote={manualPersonalNote}
+        manualTags={manualTags}
+        saveItem={manualSaveItem}
+        classifyWithLlm={manualClassifyWithLlm}
+        summarizeWithLlm={manualSummarizeWithLlm}
+        disabled={loadState !== "idle"}
+        onTitleChange={setManualTitle}
+        onSourceNameChange={setManualSourceName}
+        onUrlChange={setManualUrl}
+        onTextChange={setManualText}
+        onPersonalNoteChange={setManualPersonalNote}
+        onManualTagsChange={setManualTags}
+        onSaveItemChange={setManualSaveItem}
+        onClassifyWithLlmChange={setManualClassifyWithLlm}
+        onSummarizeWithLlmChange={setManualSummarizeWithLlm}
+        onSubmit={submitManualItem}
+      />
+    </div>
+  );
   const rankedFeedPanel = (
     <section className="section" id="ranked-feed-workflow">
       <div className="section-header">
@@ -4254,6 +4294,8 @@ export function Dashboard() {
               {researchReviewPanel}
               {rankedFeedPanel}
             </section>
+          ) : activeModule === "submit" ? (
+            <section className="module-stack">{manualSubmissionPanel}</section>
           ) : (
             rankedFeedPanel
           )}
@@ -4359,30 +4401,7 @@ export function Dashboard() {
                 onExplainCluster={explainEventCluster}
               />
             )}
-            <div id="manual-submission-workflow">
-              <ManualSubmissionPanel
-                title={manualTitle}
-                sourceName={manualSourceName}
-                url={manualUrl}
-                text={manualText}
-                personalNote={manualPersonalNote}
-                manualTags={manualTags}
-                saveItem={manualSaveItem}
-                classifyWithLlm={manualClassifyWithLlm}
-                summarizeWithLlm={manualSummarizeWithLlm}
-                disabled={loadState !== "idle"}
-                onTitleChange={setManualTitle}
-                onSourceNameChange={setManualSourceName}
-                onUrlChange={setManualUrl}
-                onTextChange={setManualText}
-                onPersonalNoteChange={setManualPersonalNote}
-                onManualTagsChange={setManualTags}
-                onSaveItemChange={setManualSaveItem}
-                onClassifyWithLlmChange={setManualClassifyWithLlm}
-                onSummarizeWithLlmChange={setManualSummarizeWithLlm}
-                onSubmit={submitManualItem}
-              />
-            </div>
+            {activeModule === "submit" ? null : manualSubmissionPanel}
             {activeModule === "stocks" ? null : stockWatchlistPanel}
             {activeModule === "stocks" ? null : companyWatchlistPanel}
             {activeModule === "trends" ? null : topicWatchlistPanel}
@@ -5572,7 +5591,7 @@ function buildPrdMvpChecklist({
           ? "Recent manual submissions are flowing into the same feed pipeline."
           : "The submission flow is available; paste a URL when a source has no connector.",
       actionLabel: "Open Submission",
-      actionModule: "dashboard",
+      actionModule: "submit",
       actionTargetId: "manual-submission-workflow",
     },
   ];
@@ -10966,6 +10985,7 @@ function buildModuleCounts(
     chinese: moduleCount(feed, "chinese", moduleFeedOverrides),
     saved: savedItems.length,
     clusters: eventClusters.length,
+    submit: feed.filter((item) => item.category === "manual_submission").length,
     alerts: alerts.filter((alert) => alert.status === "active").length,
     digest: collectDigestFeedItems(digest).length,
     sources: sources.filter((source) => source.needs_attention).length,
