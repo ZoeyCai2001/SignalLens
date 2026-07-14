@@ -572,7 +572,7 @@ Data quality:
 
 - Validate arXiv, Hacker News, GitHub, Product Hunt, Hugging Face, RSS, and finance provider access.
 - Produce source feasibility table and API-key checklist.
-- Decide whether Finnhub or Alpha Vantage is the primary finance source.
+- Use Alpha Vantage as the primary MVP finance source for stock news and daily price snapshots.
 
 ### Phase 1: Backend MVP
 
@@ -614,14 +614,15 @@ Data quality:
 - Add Xiaohongshu only after compliant access is validated.
 - Add additional finance and company sources.
 
-## 16. Open Decisions
+## 16. Resolved and Open Decisions
 
-1. Primary finance provider: Finnhub or Alpha Vantage.
-2. LLM provider order and default model choices.
-3. Whether to use SQLAlchemy or SQLModel.
-4. Whether to start with a monorepo package manager such as pnpm.
-5. Whether local development should require Docker from day one.
-6. Whether portfolio note mode should be included in the first frontend release or hidden until later.
+1. Resolved: Alpha Vantage is the primary MVP finance provider for stock news and daily price snapshots.
+2. Resolved: Kimi Coding is the default MVP LLM provider, configured through `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`, `MOONSHOT_MODEL`, and `KIMI_API_FORMAT`; `KIMI_API_KEY` remains accepted as a legacy key alias.
+3. Open: Additional LLM provider fallback order can be added after the Kimi-backed MVP path is stable and actual usage cost is visible.
+4. Resolved: SQLAlchemy is the backend ORM for the MVP.
+5. Resolved: pnpm is the monorepo package-manager workflow for root commands and the Next.js app.
+6. Resolved: Docker Compose is the local infrastructure path for PostgreSQL and Redis, while the no-paid demo verifier can still run without starting Docker.
+7. Resolved: Portfolio note mode is available in the stock dashboard but remains opt-in so shares and cost basis stay hidden unless explicitly enabled.
 
 ## 17. First Build Recommendation
 

@@ -2,6 +2,18 @@ from app.core.config import Settings
 from app.llm.kimi_coding import KimiCodingClient
 
 
+def test_settings_accepts_legacy_kimi_api_key_alias() -> None:
+    settings = Settings(KIMI_API_KEY="legacy-key")
+
+    assert settings.moonshot_api_key == "legacy-key"
+
+
+def test_settings_prefers_canonical_moonshot_api_key() -> None:
+    settings = Settings(MOONSHOT_API_KEY="canonical-key", KIMI_API_KEY="legacy-key")
+
+    assert settings.moonshot_api_key == "canonical-key"
+
+
 def test_parse_message_response_extracts_text_and_usage() -> None:
     client = KimiCodingClient(
         settings=Settings(

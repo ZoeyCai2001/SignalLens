@@ -26,7 +26,7 @@ This document is the Phase 0 source feasibility deliverable from the PRD. It is 
 
 Required for current optional MVP features:
 
-- `KIMI_API_KEY`: LLM summarization/classification via Kimi Coding API.
+- `MOONSHOT_API_KEY`: LLM summarization/classification via Kimi Coding API. `KIMI_API_KEY` is accepted as a legacy compatibility alias, but new setups should use `MOONSHOT_API_KEY`.
 - `ALPHA_VANTAGE_API_KEY`: stock news and daily price ingestion.
 - `PRODUCT_HUNT_API_TOKEN`: Product Hunt public launch metadata.
 - `SEC_USER_AGENT`: descriptive contact string for SEC EDGAR submissions access.

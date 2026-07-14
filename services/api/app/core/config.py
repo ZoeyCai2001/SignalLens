@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_SEC_USER_AGENT = "SignalLens/0.1 personal research; configure SEC_USER_AGENT"
@@ -17,7 +17,10 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     llm_provider: str = Field(default="kimi_coding", alias="LLM_PROVIDER")
-    moonshot_api_key: str | None = Field(default=None, alias="MOONSHOT_API_KEY")
+    moonshot_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("MOONSHOT_API_KEY", "KIMI_API_KEY"),
+    )
     moonshot_base_url: str = Field(
         default="https://api.kimi.com/coding/v1",
         alias="MOONSHOT_BASE_URL",
@@ -66,6 +69,7 @@ class Settings(BaseSettings):
         env_file=(".env", "../../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
 
