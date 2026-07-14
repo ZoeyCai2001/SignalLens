@@ -1416,7 +1416,7 @@ tr:last-child td {
 
 .price-range-controls {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -1435,6 +1435,12 @@ tr:last-child td {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
+}
+
+.price-chart-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .price-chart-svg {

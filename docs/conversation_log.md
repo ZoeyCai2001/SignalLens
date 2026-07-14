@@ -393,3 +393,4 @@ Implementation progress:
 - Aligned the deterministic AI Stock Watchlist attention formula with the PRD weights for high-impact news, price movement, AI relevance, social discussion, source quality, and user priority.
 - Added conservative same-source same-day near-title deduplication during raw ingestion, improving the PRD duplicate filtering path without adding embedding cost or suppressing next-day follow-up coverage.
 - Added deterministic novelty scoring during ingestion, discounting recent same-source title follow-ups more than cross-source confirmations so feed ranking reflects PRD novelty and duplicate-pressure inputs.
+- Added the PRD stock-chart 1D range to the dashboard as an honest latest-daily-close view, explicitly noting that true intraday data needs a configured intraday market-data feed.

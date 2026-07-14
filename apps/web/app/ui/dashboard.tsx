@@ -155,7 +155,7 @@ type StockMarketSnapshot = {
   history: StockPricePoint[];
 };
 
-type StockPriceRangeKey = "5d" | "1m" | "6m" | "1y";
+type StockPriceRangeKey = "1d" | "5d" | "1m" | "6m" | "1y";
 type StockSortMode = "attention" | "watchlist";
 type StockDetailTabKey = "overview" | "signals" | "clusters" | "notes" | "summary";
 
@@ -8957,6 +8957,7 @@ function StockAttentionDrivers({ briefing }: { briefing: StockBriefing }) {
 }
 
 const STOCK_PRICE_RANGES: { key: StockPriceRangeKey; label: string; days: number }[] = [
+  { key: "1d", label: "1D", days: 1 },
   { key: "5d", label: "5D", days: 5 },
   { key: "1m", label: "1M", days: 31 },
   { key: "6m", label: "6M", days: 183 },
@@ -9083,22 +9084,32 @@ function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
           const ageMs = latestHistoryDate.getTime() - pointDate.getTime();
           return ageMs <= selectedRange.days * 24 * 60 * 60 * 1000;
         });
-  const visibleHistory = rangedHistory.length >= 2 ? rangedHistory : history;
+  const visibleHistory =
+    rangeKey === "1d"
+      ? (rangedHistory.length ? rangedHistory : history).slice(-1)
+      : rangedHistory.length >= 2
+        ? rangedHistory
+        : history;
 
-  if (visibleHistory.length < 2) {
+  if (!visibleHistory.length) {
     return <div className="empty-state">No price history loaded yet.</div>;
   }
 
   const width = 280;
   const height = 76;
   const padding = 8;
+  const isSinglePoint = visibleHistory.length === 1;
   const closes = visibleHistory.map((point) => point.close_price);
   const min = Math.min(...closes);
   const max = Math.max(...closes);
   const range = max - min || 1;
   const chartPoints = visibleHistory.map((point, index) => {
-    const x = padding + (index / (visibleHistory.length - 1)) * (width - padding * 2);
-    const y = height - padding - ((point.close_price - min) / range) * (height - padding * 2);
+    const x = isSinglePoint
+      ? width / 2
+      : padding + (index / (visibleHistory.length - 1)) * (width - padding * 2);
+    const y = isSinglePoint
+      ? height / 2
+      : height - padding - ((point.close_price - min) / range) * (height - padding * 2);
     return { x, y };
   });
   const points = chartPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
@@ -9125,8 +9136,13 @@ function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
           </button>
         ))}
       </div>
+      {rangeKey === "1d" ? (
+        <div className="price-chart-note">
+          Intraday feed not configured; showing latest daily close.
+        </div>
+      ) : null}
       <svg className="price-chart-svg" viewBox={`0 0 ${width} ${height}`} role="img">
-        <polyline className="price-chart-line" points={points} />
+        {isSinglePoint ? null : <polyline className="price-chart-line" points={points} />}
         <circle
           className="price-chart-dot"
           cx={latestChartPoint.x}
@@ -9135,12 +9151,20 @@ function StockPriceChart({ market }: { market: StockMarketSnapshot | null }) {
         />
       </svg>
       <div className="price-chart-meta">
-        <span>
-          {first.price_date} · {formatPrice(first.close_price)}
-        </span>
-        <span>
-          {latest.price_date} · {formatPrice(latest.close_price)}
-        </span>
+        {isSinglePoint ? (
+          <span>
+            Latest close: {latest.price_date} · {formatPrice(latest.close_price)}
+          </span>
+        ) : (
+          <>
+            <span>
+              {first.price_date} · {formatPrice(first.close_price)}
+            </span>
+            <span>
+              {latest.price_date} · {formatPrice(latest.close_price)}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
