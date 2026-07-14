@@ -354,6 +354,19 @@ a {
   white-space: pre-line;
 }
 
+.card-summary {
+  color: #34403e;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.card-summary ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .search-summary-brief {
   display: grid;
   gap: 8px;

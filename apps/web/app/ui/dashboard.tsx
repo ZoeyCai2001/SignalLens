@@ -7306,7 +7306,11 @@ function FeedCard({
   onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
 }) {
   const researchInsights = parseResearchInsights(item);
-  const displaySummary = item.summary_short || (researchInsights ? null : item.summary_detailed);
+  const cardSummary = buildCardSummaryDisplay(item);
+  const displaySummary =
+    cardSummary.oneLine || cardSummary.bullets.length
+      ? null
+      : item.summary_short || (researchInsights ? null : item.summary_detailed);
   const cardExplanation = buildFeedCardExplanation(item);
   return (
     <article className="feed-card">
@@ -7369,7 +7373,20 @@ function FeedCard({
         <Score label="Stock" value={item.stock_impact_score} />
       </div>
 
-      {displaySummary ? <div className="summary">{displaySummary}</div> : null}
+      {cardSummary.oneLine || cardSummary.bullets.length ? (
+        <div className="card-summary">
+          {cardSummary.oneLine ? <div className="summary">{cardSummary.oneLine}</div> : null}
+          {cardSummary.bullets.length ? (
+            <ul>
+              {cardSummary.bullets.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : displaySummary ? (
+        <div className="summary">{displaySummary}</div>
+      ) : null}
       {researchInsights ? <ResearchInsightsPanel insights={researchInsights} /> : null}
 
       <div className="why-card">
@@ -7482,6 +7499,31 @@ function FeedCard({
       ) : null}
     </article>
   );
+}
+
+function buildCardSummaryDisplay(item: FeedItem): { oneLine: string | null; bullets: string[] } {
+  const lines = splitSummaryLines(item.summary_short);
+  const bullets = lines.filter(isSummaryBulletLine).map(stripSummaryBulletPrefix).slice(0, 4);
+  if (!bullets.length) {
+    return { oneLine: null, bullets: [] };
+  }
+  const oneLine = lines.find((line) => !isSummaryBulletLine(line)) ?? null;
+  return { oneLine, bullets };
+}
+
+function splitSummaryLines(value: string | null): string[] {
+  return (value ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function isSummaryBulletLine(value: string): boolean {
+  return value.startsWith("- ") || value.startsWith("* ");
+}
+
+function stripSummaryBulletPrefix(value: string): string {
+  return isSummaryBulletLine(value) ? value.slice(2).trim() : value.trim();
 }
 
 function buildFeedCardExplanation(item: FeedItem): string {
