@@ -17,6 +17,7 @@ from app.db.models import (
     LlmUsageEvent,
     NormalizedItem,
     ProductWatchlistItem,
+    Source,
     SourceRun,
     StockPricePoint,
     StockWatchlistItem,
@@ -27,6 +28,8 @@ from app.schemas.health import (
     HealthResponse,
     IntegrationStatus,
     LlmOperationUsage,
+    MvpChecklistItem,
+    MvpChecklistResponse,
     QualityFinding,
     QualityMetricsResponse,
     SetupItem,
@@ -94,6 +97,34 @@ async def quality_metrics(
     window_days: int = Query(default=7, ge=1, le=90),
 ) -> QualityMetricsResponse:
     return build_quality_metrics(db=db, window_days=window_days)
+
+
+@router.get("/mvp-checklist", response_model=MvpChecklistResponse)
+async def mvp_checklist(
+    db: DbSession,
+    window_days: int = Query(default=7, ge=1, le=90),
+) -> MvpChecklistResponse:
+    settings = get_settings()
+    integrations = IntegrationStatus(
+        kimi_coding_api=has_config_value(settings.moonshot_api_key),
+        github_api=has_config_value(settings.github_token),
+        product_hunt_api=has_config_value(settings.product_hunt_api_token),
+        alpha_vantage_api=has_config_value(settings.alpha_vantage_api_key),
+        sec_user_agent=has_custom_sec_user_agent(settings.sec_user_agent),
+        chinese_rss_feeds=has_config_value(settings.chinese_rss_feeds),
+    )
+    setup_summary = build_setup_summary(
+        build_setup_items(settings=settings, integrations=integrations)
+    )
+    metrics = build_quality_metrics(db=db, window_days=window_days, settings=settings)
+    source_count, enabled_source_count = count_sources_by_enabled_state(db)
+    return build_mvp_checklist_response(
+        metrics=metrics,
+        setup_summary=setup_summary,
+        llm_configured=has_config_value(settings.moonshot_api_key),
+        source_count=source_count,
+        enabled_source_count=enabled_source_count,
+    )
 
 
 def build_quality_metrics(
@@ -307,6 +338,312 @@ def build_quality_metrics(
             llm_projected_monthly_cost_usd=llm_projected_monthly_cost_usd,
             llm_monthly_budget_usd=settings.llm_monthly_budget_usd,
         ),
+    )
+
+
+def count_sources_by_enabled_state(db: Session) -> tuple[int, int]:
+    rows = db.query(Source.enabled).all()
+    return len(rows), sum(1 for row in rows if unwrap_bool(row))
+
+
+def build_mvp_checklist_response(
+    *,
+    metrics: QualityMetricsResponse,
+    setup_summary: SetupSummary,
+    llm_configured: bool,
+    source_count: int,
+    enabled_source_count: int,
+) -> MvpChecklistResponse:
+    items = build_mvp_checklist_items(
+        metrics=metrics,
+        setup_summary=setup_summary,
+        llm_configured=llm_configured,
+        source_count=source_count,
+        enabled_source_count=enabled_source_count,
+    )
+    ready_count = sum(1 for item in items if item.status == "ready")
+    partial_count = sum(1 for item in items if item.status == "partial")
+    needs_action_count = sum(1 for item in items if item.status == "needs_action")
+    return MvpChecklistResponse(
+        generated_at=metrics.generated_at,
+        total_count=len(items),
+        ready_count=ready_count,
+        partial_count=partial_count,
+        needs_action_count=needs_action_count,
+        items=items,
+    )
+
+
+def build_mvp_checklist_items(
+    *,
+    metrics: QualityMetricsResponse,
+    setup_summary: SetupSummary,
+    llm_configured: bool,
+    source_count: int,
+    enabled_source_count: int,
+) -> list[MvpChecklistItem]:
+    recent_items = metrics.recent_item_count
+    covered_modules = metrics.covered_module_count
+    classification_coverage = metrics.classification_coverage
+    summary_coverage = metrics.summary_coverage
+    latest_stock_price = (
+        metrics.latest_stock_price_date.isoformat()
+        if metrics.latest_stock_price_date
+        else "no price"
+    )
+    latest_digest_age = metrics.latest_digest_age_days
+
+    return [
+        MvpChecklistItem(
+            key="dashboard-feed",
+            label="Ranked Dashboard",
+            status=(
+                "ready"
+                if recent_items > 0 and covered_modules >= 3
+                else "partial"
+                if recent_items > 0
+                else "needs_action"
+            ),
+            metric=f"{recent_items} recent; {covered_modules}/5 modules",
+            note=(
+                "Feed data is available across the first-class PRD modules."
+                if recent_items > 0
+                else "Run a source cycle or seed demo data to populate the ranked feed."
+            ),
+            action_label="Open Dashboard" if recent_items > 0 else "Seed Demo Data",
+            action_module="dashboard",
+            action_operation=None if recent_items > 0 else "demo-data:seed",
+            action_target_id="ranked-feed-workflow",
+        ),
+        MvpChecklistItem(
+            key="source-ingestion",
+            label="Source Ingestion",
+            status=(
+                "ready"
+                if enabled_source_count >= 5 and metrics.recent_source_count >= 3
+                else "partial"
+                if enabled_source_count > 0
+                else "needs_action"
+            ),
+            metric=(
+                f"{enabled_source_count}/{source_count} enabled; "
+                f"{metrics.recent_source_count} recent"
+            ),
+            note=(
+                "Connectors are configured; recent diversity shows whether collection "
+                "is broad enough."
+                if enabled_source_count > 0
+                else "Enable followed sources before relying on daily collection."
+            ),
+            action_label=(
+                "Run Full Cycle"
+                if enabled_source_count > 0 and metrics.recent_source_count < 3
+                else "Open Sources"
+            ),
+            action_module="sources",
+            action_operation=(
+                "cycle"
+                if enabled_source_count > 0 and metrics.recent_source_count < 3
+                else None
+            ),
+            action_source_filter=(
+                "attention"
+                if enabled_source_count > 0 and metrics.recent_source_count < 3
+                else None
+            ),
+            action_target_id="source-health-workflow",
+        ),
+        MvpChecklistItem(
+            key="llm-processing",
+            label="LLM Processing",
+            status=(
+                "ready"
+                if llm_configured
+                and classification_coverage >= 0.7
+                and summary_coverage >= 0.5
+                else "partial"
+                if llm_configured or metrics.llm_call_count > 0
+                else "needs_action"
+            ),
+            metric=(
+                f"{format_quality_percent(classification_coverage)} classified; "
+                f"{format_quality_percent(summary_coverage)} summarized"
+            ),
+            note=(
+                "Kimi is configured; coverage depends on running capped "
+                "classify/summarize batches."
+                if llm_configured
+                else "Add an LLM key before expecting model-generated summaries."
+            ),
+            action_label="Run Classification" if llm_configured else "Open Settings",
+            action_module="dashboard" if llm_configured else "settings",
+            action_operation="llm:classify" if llm_configured else None,
+            action_target_id="ranked-feed-workflow" if llm_configured else "settings-workflow",
+        ),
+        MvpChecklistItem(
+            key="watchlists",
+            label="Personal Watchlists",
+            status=(
+                "ready"
+                if metrics.watchlist_area_count >= 4
+                else "partial"
+                if total_watchlist_count(metrics) > 0
+                else "needs_action"
+            ),
+            metric=(
+                f"{metrics.watchlist_area_count}/4 areas; "
+                f"{total_watchlist_count(metrics)} rows"
+            ),
+            note=(
+                "Stock, company, topic, and product watchlists shape ranking and digest context."
+                if total_watchlist_count(metrics) > 0
+                else "Seed or create watchlists so personalization has a profile to use."
+            ),
+            action_label="Open Dashboard",
+            action_module="dashboard",
+            action_target_id="stock-watchlist-workflow",
+        ),
+        MvpChecklistItem(
+            key="stock-watchlist",
+            label="AI Stock Watchlist",
+            status=(
+                "ready"
+                if metrics.stock_watchlist_count > 0 and metrics.latest_stock_price_date
+                else "partial"
+                if metrics.stock_watchlist_count > 0
+                else "needs_action"
+            ),
+            metric=f"{metrics.stock_watchlist_count} tickers; {latest_stock_price}",
+            note=(
+                "Ticker monitoring is available; fresh prices improve market-context checks."
+                if metrics.stock_watchlist_count > 0
+                else "Add or seed watched tickers before relying on stock signals."
+            ),
+            action_label=(
+                "Refresh Prices"
+                if metrics.stock_watchlist_count > 0 and not metrics.latest_stock_price_date
+                else "Open Stocks"
+            ),
+            action_module="stocks",
+            action_operation=(
+                "stock-prices:refresh"
+                if metrics.stock_watchlist_count > 0 and not metrics.latest_stock_price_date
+                else None
+            ),
+            action_target_id="stock-watchlist-workflow",
+        ),
+        MvpChecklistItem(
+            key="search",
+            label="Searchable Archive",
+            status=(
+                "ready"
+                if recent_items > 0 and metrics.search_facet_coverage >= 0.7
+                else "partial"
+                if recent_items > 0
+                else "needs_action"
+            ),
+            metric=f"{format_quality_percent(metrics.search_facet_coverage)} faceted",
+            note=(
+                "Facet coverage indicates whether search can filter by topics, "
+                "tickers, sources, and tags."
+                if recent_items > 0
+                else "Search becomes useful after ingestion creates normalized items."
+            ),
+            action_label=(
+                "Run Classification"
+                if recent_items > 0 and metrics.search_facet_coverage < 0.7
+                else "Open Dashboard"
+            ),
+            action_module="dashboard",
+            action_operation=(
+                "llm:classify"
+                if recent_items > 0 and metrics.search_facet_coverage < 0.7
+                else None
+            ),
+            action_target_id="ranked-feed-workflow",
+        ),
+        MvpChecklistItem(
+            key="daily-digest",
+            label="Daily Digest",
+            status=(
+                "ready"
+                if latest_digest_age is not None and latest_digest_age <= 1
+                else "partial"
+                if metrics.digest_snapshot_count > 0
+                else "needs_action"
+            ),
+            metric=(
+                f"{metrics.digest_snapshot_count} snapshots"
+                if latest_digest_age is None
+                else f"{metrics.digest_snapshot_count} snapshots; {latest_digest_age}d old"
+            ),
+            note=(
+                "A saved digest exists; morning readiness depends on keeping the snapshot fresh."
+                if metrics.digest_snapshot_count > 0
+                else "Generate and save a digest snapshot to lock in a daily brief."
+            ),
+            action_label=(
+                "Open Digest"
+                if latest_digest_age is not None and latest_digest_age <= 1
+                else "Save Digest"
+            ),
+            action_module="digest",
+            action_operation=(
+                None
+                if latest_digest_age is not None and latest_digest_age <= 1
+                else "digest:save-snapshot"
+            ),
+            action_target_id="digest-workflow",
+        ),
+        MvpChecklistItem(
+            key="alerts",
+            label="Dashboard Alerts",
+            status=(
+                "ready"
+                if metrics.active_alert_count > 0
+                else "partial"
+                if metrics.dismissed_alert_count > 0
+                else "needs_action"
+            ),
+            metric=f"{metrics.active_alert_count} active",
+            note=(
+                "Dashboard alert rules are producing active signals."
+                if metrics.active_alert_count > 0
+                else "Generate alerts after ingestion to validate stock, product, and trend rules."
+            ),
+            action_label="Open Dashboard" if metrics.active_alert_count > 0 else "Generate Alerts",
+            action_module="dashboard",
+            action_operation=None if metrics.active_alert_count > 0 else "alerts:generate",
+            action_target_id="alerts-workflow",
+        ),
+        MvpChecklistItem(
+            key="manual-submission",
+            label="Manual URL Submission",
+            status="ready" if metrics.manual_submission_count > 0 else "partial",
+            metric=f"{metrics.manual_submission_count} recent",
+            note=(
+                "Recent manual submissions are flowing into the same feed pipeline."
+                if metrics.manual_submission_count > 0
+                else "The submission flow is available; paste a URL when a source has no connector."
+            ),
+            action_label=(
+                "Open Submission"
+                if recent_items > 0
+                else "Seed Demo Data"
+            ),
+            action_module="dashboard",
+            action_operation=None if recent_items > 0 else "demo-data:seed",
+            action_target_id="manual-submission-workflow",
+        ),
+    ]
+
+
+def total_watchlist_count(metrics: QualityMetricsResponse) -> int:
+    return (
+        metrics.stock_watchlist_count
+        + metrics.company_watchlist_count
+        + metrics.topic_watchlist_count
+        + metrics.product_watchlist_count
     )
 
 

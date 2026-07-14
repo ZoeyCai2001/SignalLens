@@ -17,6 +17,8 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["latest_digest_age_days"] == 0
     assert result["quality"]["manual_submission_count"] == 1
     assert result["quality"]["saved_read_later_count"] >= 1
+    assert result["mvp_checklist"]["ready_count"] >= 7
+    assert result["mvp_checklist"]["needs_action_count"] <= 1
     assert result["module_counts"] == {
         "chinese": 1,
         "products": 3,

@@ -82,6 +82,44 @@ class QualityFinding(BaseModel):
     ] | None = None
 
 
+class MvpChecklistItem(BaseModel):
+    key: str
+    label: str
+    status: Literal["ready", "partial", "needs_action"]
+    metric: str
+    note: str
+    action_label: str | None = None
+    action_module: Literal["dashboard", "digest", "sources", "settings", "stocks"] | None = None
+    action_operation: Literal[
+        "cycle",
+        "llm:classify",
+        "llm:summarize",
+        "digest:save-snapshot",
+        "stock-prices:refresh",
+        "alerts:generate",
+        "demo-data:seed",
+    ] | None = None
+    action_source_filter: Literal[
+        "all",
+        "attention",
+        "failed",
+        "stale",
+        "never_run",
+        "disabled",
+        "blocked",
+    ] | None = None
+    action_target_id: str | None = None
+
+
+class MvpChecklistResponse(BaseModel):
+    generated_at: datetime
+    total_count: int
+    ready_count: int
+    partial_count: int
+    needs_action_count: int
+    items: list[MvpChecklistItem]
+
+
 class QualityMetricsResponse(BaseModel):
     generated_at: datetime
     window_days: int

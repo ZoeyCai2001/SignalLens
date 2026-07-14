@@ -599,7 +599,39 @@ type MvpChecklistItem = {
   actionLabel?: string;
   actionModule?: ModuleKey;
   actionOperation?: DashboardOperation;
+  actionSourceFilter?: SourceHealthFilter;
   actionTargetId?: string;
+};
+
+type MvpChecklistApiItem = {
+  key: string;
+  label: string;
+  status: "ready" | "partial" | "needs_action";
+  metric: string;
+  note: string;
+  action_label: string | null;
+  action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings" | "stocks"> | null;
+  action_operation: Extract<
+    DashboardOperation,
+    | "cycle"
+    | "digest:save-snapshot"
+    | "llm:classify"
+    | "llm:summarize"
+    | "stock-prices:refresh"
+    | "alerts:generate"
+    | "demo-data:seed"
+  > | null;
+  action_source_filter: SourceHealthFilter | null;
+  action_target_id: string | null;
+};
+
+type MvpChecklistResponse = {
+  generated_at: string;
+  total_count: number;
+  ready_count: number;
+  partial_count: number;
+  needs_action_count: number;
+  items: MvpChecklistApiItem[];
 };
 
 type DemoDataSeedResponse = {
@@ -1163,6 +1195,7 @@ export function Dashboard() {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null);
+  const [mvpChecklist, setMvpChecklist] = useState<MvpChecklistItem[] | null>(null);
   const [rankingDraft, setRankingDraft] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
   const [preferredSourcesDraft, setPreferredSourcesDraft] = useState("");
   const [blockedSourcesDraft, setBlockedSourcesDraft] = useState("");
@@ -1321,6 +1354,7 @@ export function Dashboard() {
         nextSystemStatus,
         nextScheduleStatus,
         nextQualityMetrics,
+        nextMvpChecklist,
       ] =
         await Promise.all([
           fetchJson<FeedItem[]>("/api/feed?limit=30"),
@@ -1344,6 +1378,9 @@ export function Dashboard() {
           fetchJson<SystemStatus>("/api/health"),
           fetchJson<IngestionScheduleStatus>("/api/ingestion/schedule"),
           fetchJson<QualityMetrics>("/api/quality-metrics").catch(() => null),
+          fetchJson<MvpChecklistResponse>("/api/mvp-checklist")
+            .then(mapMvpChecklistResponse)
+            .catch(() => null),
         ]);
       setFeed(nextFeed);
       setSavedItems(nextSavedItems);
@@ -1364,6 +1401,7 @@ export function Dashboard() {
       setSystemStatus(nextSystemStatus);
       setScheduleStatus(nextScheduleStatus);
       setQualityMetrics(nextQualityMetrics);
+      setMvpChecklist(nextMvpChecklist);
       setModuleFeedOverrides({});
       setRankingDraft(nextPreferences.ranking_weights);
       setPreferredSourcesDraft(nextPreferences.preferred_sources.join(", "));
@@ -3304,6 +3342,10 @@ export function Dashboard() {
 
   const openMvpChecklistAction = async (item: MvpChecklistItem) => {
     if (item.actionModule) {
+      if (item.actionModule === "sources" && item.actionSourceFilter) {
+        setSourceHealthFilter(item.actionSourceFilter);
+        setSourceRunStatusFilter(item.actionSourceFilter === "failed" ? "failed" : "all");
+      }
       setActiveModule(item.actionModule);
     }
     scrollToDashboardTarget(item.actionTargetId);
@@ -3398,6 +3440,7 @@ export function Dashboard() {
         alertCount={activeAlerts.length}
         watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
         qualityMetrics={qualityMetrics}
+        mvpChecklist={mvpChecklist}
         busyCopy={busySetupCopy}
         disabled={loadState !== "idle"}
         onCopyMissingEnv={copyMissingEnvTemplate}
@@ -4327,6 +4370,7 @@ function SystemStatusPanel({
   alertCount,
   watchlistCount,
   qualityMetrics,
+  mvpChecklist,
   busyCopy,
   disabled,
   onCopyMissingEnv,
@@ -4340,6 +4384,7 @@ function SystemStatusPanel({
   alertCount: number;
   watchlistCount: number;
   qualityMetrics: QualityMetrics | null;
+  mvpChecklist: MvpChecklistItem[] | null;
   busyCopy: boolean;
   disabled: boolean;
   onCopyMissingEnv: () => void;
@@ -4419,15 +4464,18 @@ function SystemStatusPanel({
               />
             </div>
             <PrdMvpChecklist
-              items={buildPrdMvpChecklist({
-                status,
-                qualityMetrics,
-                itemCount,
-                sourceCount,
-                enabledSourceCount,
-                alertCount,
-                watchlistCount,
-              })}
+              items={
+                mvpChecklist ??
+                buildPrdMvpChecklist({
+                  status,
+                  qualityMetrics,
+                  itemCount,
+                  sourceCount,
+                  enabledSourceCount,
+                  alertCount,
+                  watchlistCount,
+                })
+              }
               disabled={disabled}
               onAction={onMvpChecklistAction}
             />
@@ -4827,6 +4875,21 @@ function qualityFindingTargetId(finding: QualityFinding): string | undefined {
     return "system-readiness-workflow";
   }
   return undefined;
+}
+
+function mapMvpChecklistResponse(response: MvpChecklistResponse): MvpChecklistItem[] {
+  return response.items.map((item) => ({
+    key: item.key,
+    label: item.label,
+    status: item.status,
+    metric: item.metric,
+    note: item.note,
+    actionLabel: item.action_label ?? undefined,
+    actionModule: item.action_module ?? undefined,
+    actionOperation: item.action_operation ?? undefined,
+    actionSourceFilter: item.action_source_filter ?? undefined,
+    actionTargetId: item.action_target_id ?? undefined,
+  }));
 }
 
 function mvpChecklistBadgeClass(status: MvpChecklistItem["status"]): string {

@@ -346,3 +346,4 @@ Implementation progress:
 - Added targeted scrolling for PRD MVP checklist actions so opening a readiness workflow lands on the relevant feed, source health, settings, stock, digest, alert, or manual submission panel.
 - Reused targeted workflow scrolling for quality-finding actions and made the scroll retry briefly after module switches so readiness recovery buttons land more reliably.
 - Updated local demo seeding to include an idempotent saved manual URL submission, and extended the no-paid-API smoke check so System Readiness can verify the manual submission/read-later PRD path after demo data is seeded.
+- Added `GET /api/mvp-checklist` as a backend PRD readiness contract, wired the dashboard to consume it with a local fallback, and extended the no-paid-API smoke check to verify checklist readiness after demo data is seeded.

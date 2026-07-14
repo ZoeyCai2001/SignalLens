@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.api.routes.health import (
     build_missing_env_template,
+    build_mvp_checklist_response,
     build_quality_findings,
     build_quality_metrics,
     build_setup_items,
@@ -508,6 +509,36 @@ def test_build_quality_findings_recommends_local_actions() -> None:
     assert findings[2].action_label == "Run Summaries"
     assert findings[2].action_operation == "llm:summarize"
     assert findings[3].action_operation == "llm:summarize"
+
+
+def test_build_mvp_checklist_response_guides_empty_first_run() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        settings = Settings(_env_file=None, MOONSHOT_API_KEY=None)
+        metrics = build_quality_metrics(db=db, window_days=7, settings=settings)
+
+    checklist = build_mvp_checklist_response(
+        metrics=metrics,
+        setup_summary=build_setup_summary([]),
+        llm_configured=False,
+        source_count=0,
+        enabled_source_count=0,
+    )
+    items = {item.key: item for item in checklist.items}
+
+    assert checklist.total_count == 9
+    assert checklist.ready_count == 0
+    assert items["dashboard-feed"].status == "needs_action"
+    assert items["dashboard-feed"].action_operation == "demo-data:seed"
+    assert items["source-ingestion"].status == "needs_action"
+    assert items["source-ingestion"].action_module == "sources"
+    assert items["llm-processing"].status == "needs_action"
+    assert items["llm-processing"].action_module == "settings"
+    assert items["manual-submission"].status == "partial"
+    assert items["manual-submission"].action_operation == "demo-data:seed"
 
 
 def test_build_quality_findings_flags_stale_digest_snapshot() -> None:

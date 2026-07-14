@@ -85,6 +85,26 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     quality_metrics = get_json(client, "/api/quality-metrics")
     assert_minimum(quality_metrics, "recent_item_count", 5)
     assert_minimum(quality_metrics, "covered_module_count", 5)
+    mvp_checklist = get_json(client, "/api/mvp-checklist")
+    if mvp_checklist["total_count"] != 9:
+        raise AssertionError(
+            f"Expected 9 PRD MVP checklist rows, got {mvp_checklist['total_count']}"
+        )
+    checklist_by_key = {item["key"]: item for item in mvp_checklist["items"]}
+    for key in [
+        "dashboard-feed",
+        "source-ingestion",
+        "watchlists",
+        "stock-watchlist",
+        "daily-digest",
+        "alerts",
+        "manual-submission",
+    ]:
+        if checklist_by_key[key]["status"] != "ready":
+            raise AssertionError(
+                f"Expected checklist row {key} to be ready, "
+                f"got {checklist_by_key[key]['status']}"
+            )
 
     digest = get_json(client, "/api/digest/daily")
     if digest["total_items"] <= 0:
@@ -117,6 +137,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
             "manual_submission_count": quality_metrics["manual_submission_count"],
             "saved_read_later_count": quality_metrics["saved_read_later_count"],
+        },
+        "mvp_checklist": {
+            "ready_count": mvp_checklist["ready_count"],
+            "partial_count": mvp_checklist["partial_count"],
+            "needs_action_count": mvp_checklist["needs_action_count"],
         },
         "health": {
             "status": health["status"],
