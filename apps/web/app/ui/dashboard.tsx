@@ -3491,6 +3491,7 @@ export function Dashboard() {
     const isProductView = activeModule === "products";
     const isChineseView = activeModule === "chinese";
     const isTrendView = activeModule === "trends";
+    const isResearchView = activeModule === "research";
     if (isAlertView) {
       return [
         { label: "Feed", value: feed.length },
@@ -3557,6 +3558,19 @@ export function Dashboard() {
           label: "Digest",
           value: topics.filter((topic) => topic.include_in_digest).length,
         },
+      ];
+    }
+    if (isResearchView) {
+      const researchSources = new Set(moduleFeed.map((item) => item.source_name));
+      return [
+        { label: "Feed", value: feed.length },
+        { label: "View", value: moduleFeed.length },
+        { label: "Papers", value: moduleFeed.filter((item) => item.category === "research").length },
+        {
+          label: "Benchmarks",
+          value: moduleFeed.filter((item) => item.category === "benchmark_evaluation").length,
+        },
+        { label: "Sources", value: researchSources.size },
       ];
     }
     const viewCount = isClusterView ? eventClusters.length : moduleFeed.length;
@@ -3704,6 +3718,7 @@ export function Dashboard() {
       limit={activeModule === "chinese" ? undefined : 5}
     />
   );
+  const researchReviewPanel = <ResearchReviewPanel items={moduleFeed} />;
   const rankedFeedPanel = (
     <section className="section" id="ranked-feed-workflow">
       <div className="section-header">
@@ -4193,6 +4208,11 @@ export function Dashboard() {
               {topicWatchlistPanel}
               {rankedFeedPanel}
             </section>
+          ) : activeModule === "research" ? (
+            <section className="module-stack">
+              {researchReviewPanel}
+              {rankedFeedPanel}
+            </section>
           ) : (
             rankedFeedPanel
           )}
@@ -4603,6 +4623,109 @@ function SettingsBackupPanel({
             }}
           />
         </div>
+      </div>
+    </section>
+  );
+}
+
+function ResearchReviewPanel({ items }: { items: FeedItem[] }) {
+  const researchItems = items.filter((item) =>
+    ["research", "benchmark_evaluation"].includes(item.category),
+  );
+  const sourceCount = new Set(researchItems.map((item) => item.source_name)).size;
+  const benchmarkCount = researchItems.filter((item) => item.category === "benchmark_evaluation")
+    .length;
+  const insightCount = researchItems.filter((item) => parseResearchInsights(item)).length;
+  const technologies = uniqueLabels(researchItems.flatMap((item) => item.technologies)).slice(0, 10);
+  const topics = uniqueLabels(researchItems.flatMap((item) => item.topics)).slice(0, 10);
+  const topItems = [...researchItems]
+    .sort(
+      (left, right) =>
+        right.importance_score + right.novelty_score - (left.importance_score + left.novelty_score),
+    )
+    .slice(0, 6);
+
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Research Review</h2>
+        <span className="small-muted">{researchItems.length} items</span>
+      </div>
+
+      <div className="score-grid">
+        <div className="score-cell">
+          <span className="score-label">Papers</span>
+          <span className="score-value">
+            {researchItems.filter((item) => item.category === "research").length}
+          </span>
+        </div>
+        <div className="score-cell">
+          <span className="score-label">Benchmarks</span>
+          <span className="score-value">{benchmarkCount}</span>
+        </div>
+        <div className="score-cell">
+          <span className="score-label">Sources</span>
+          <span className="score-value">{sourceCount}</span>
+        </div>
+        <div className="score-cell">
+          <span className="score-label">Structured</span>
+          <span className="score-value">{insightCount}</span>
+        </div>
+      </div>
+
+      <div className="badges">
+        {technologies.map((technology) => (
+          <span className="badge" key={`research-technology:${technology}`}>
+            {technology}
+          </span>
+        ))}
+        {topics.map((topic) => (
+          <span className="badge" key={`research-topic:${topic}`}>
+            {topic}
+          </span>
+        ))}
+      </div>
+
+      <div className="digest-panel">
+        {topItems.length ? (
+          topItems.map((item) => {
+            const insights = parseResearchInsights(item);
+            return (
+              <div className="digest-section" key={item.id}>
+                <div className="digest-section-title">
+                  {item.source_name}
+                  {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                </div>
+                <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
+                  {item.title}
+                </a>
+                <div className="badges">
+                  <span className={`badge ${item.category === "research" ? "research" : ""}`}>
+                    {formatCategoryLabel(item.category)}
+                  </span>
+                  {item.technologies.slice(0, 4).map((technology) => (
+                    <span className="badge" key={`${item.id}:technology:${technology}`}>
+                      {technology}
+                    </span>
+                  ))}
+                </div>
+                {insights ? (
+                  <ResearchInsightsPanel insights={insights} compact />
+                ) : item.summary_short || item.summary_detailed ? (
+                  <div className="summary">{item.summary_short ?? item.summary_detailed}</div>
+                ) : null}
+                <div className="toolbar">
+                  <a className="button secondary" href={item.url} target="_blank" rel="noreferrer">
+                    <ExternalLink size={16} />
+                    Open
+                  </a>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="empty-state">No research signals loaded.</div>
+        )}
       </div>
     </section>
   );
@@ -7421,7 +7544,7 @@ function ResearchInsightsPanel({
 }
 
 function parseResearchInsights(item: FeedItem): ResearchInsights | null {
-  if (item.category !== "research" || !item.summary_detailed) {
+  if (!["research", "benchmark_evaluation"].includes(item.category) || !item.summary_detailed) {
     return null;
   }
 

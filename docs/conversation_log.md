@@ -370,3 +370,4 @@ Implementation progress:
 - Promoted AI Products so product-category watchlists, launch briefings, digest inclusion controls, and product-specific metrics render as the main module workflow with the ranked product feed underneath.
 - Promoted Chinese Social so public-RSS/social-keyword trend summaries, product badges, experimental-source markers, and Chinese/social-specific metrics render as the main module workflow with the ranked social feed underneath.
 - Promoted AI Trends so editable topic watchlists, topic briefings, digest inclusion controls, and trend-specific metrics render as the main module workflow with the ranked trend feed underneath.
+- Promoted Research so papers, benchmark/evaluation items, structured contribution/method/relevance snippets, research technologies, and source metrics render as the main module workflow with the ranked research feed underneath.
