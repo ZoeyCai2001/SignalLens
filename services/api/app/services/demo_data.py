@@ -124,6 +124,7 @@ def seed_demo_data(db: Session, now: datetime | None = None) -> dict[str, int]:
     generated_at = now or datetime.now(UTC)
     item_count = seed_demo_feed_items(db=db, now=generated_at)
     manual_submission_count = seed_demo_manual_submission(db)
+    mark_demo_items_as_curated_classifications(db)
     price_count = seed_demo_stock_prices(db=db, today=generated_at.date())
     alert_result = generate_alerts(db)
     digest_snapshot = save_daily_digest_snapshot(db=db, digest_date=generated_at.date())
@@ -178,7 +179,13 @@ def seed_demo_manual_submission(db: Session) -> int:
 
 
 def mark_demo_items_as_curated_classifications(db: Session) -> None:
-    demo_source_names = [spec.name for spec in DEMO_SOURCES]
+    curated_relevance_by_source = {
+        "Alpha Vantage News": 0.74,
+        "Chinese RSS Feeds": 0.66,
+        "Demo Manual Capture": 0.75,
+        "Product Hunt": 0.68,
+    }
+    demo_source_names = [spec.name for spec in DEMO_SOURCES] + ["Demo Manual Capture"]
     rows = (
         db.query(NormalizedItem)
         .filter(NormalizedItem.source_name.in_(demo_source_names))
@@ -186,6 +193,9 @@ def mark_demo_items_as_curated_classifications(db: Session) -> None:
     )
     for item in rows:
         item.classification_confidence = max(item.classification_confidence or 0, 0.82)
+        curated_relevance = curated_relevance_by_source.get(item.source_name)
+        if curated_relevance is not None:
+            item.relevance_score = max(item.relevance_score or 0, curated_relevance)
         db.add(item)
     if rows:
         db.commit()

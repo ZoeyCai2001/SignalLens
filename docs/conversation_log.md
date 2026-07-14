@@ -405,3 +405,4 @@ Implementation progress:
 - Added visible elapsed-time feedback for user-triggered Daily Digest generation and snapshot saves so the digest workflow can be checked against the PRD performance target.
 - Extended the no-paid demo smoke verifier to mark the seeded Daily Digest snapshot useful, assert digest feedback quality metrics, and surfaced digest feedback rate/count in System Readiness.
 - Exposed sanitized LLM base URL and API format through health readiness and the System Readiness header so Kimi endpoint/model configuration can be checked without leaking keys.
+- Curated local demo relevance evidence for stock, product, Chinese social, and manual-capture rows, then expanded the no-paid demo smoke verifier to assert PRD quality and cost metrics including relevance precision, duplicate rate, summary coverage, source failures, high-value items, zero LLM usage, and source API call pressure.

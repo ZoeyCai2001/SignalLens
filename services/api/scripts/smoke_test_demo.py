@@ -238,8 +238,19 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "quality": {
             "recent_item_count": quality_metrics["recent_item_count"],
             "covered_module_count": quality_metrics["covered_module_count"],
+            "relevance_precision_proxy": quality_metrics["relevance_precision_proxy"],
+            "duplicate_rate": quality_metrics["duplicate_rate"],
+            "summary_coverage": quality_metrics["summary_coverage"],
             "classification_coverage": quality_metrics["classification_coverage"],
+            "low_confidence_item_count": quality_metrics["low_confidence_item_count"],
             "recent_source_count": quality_metrics["recent_source_count"],
+            "trusted_source_coverage": quality_metrics["trusted_source_coverage"],
+            "search_facet_coverage": quality_metrics["search_facet_coverage"],
+            "source_failure_rate": quality_metrics["source_failure_rate"],
+            "high_value_item_count": quality_metrics["high_value_item_count"],
+            "high_value_unsummarized_count": quality_metrics[
+                "high_value_unsummarized_count"
+            ],
             "digest_snapshot_count": quality_metrics["digest_snapshot_count"],
             "digest_feedback_count": quality_metrics["digest_feedback_count"],
             "digest_feedback_usefulness_rate": quality_metrics[
@@ -248,8 +259,21 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "digest_usefulness_proxy": quality_metrics["digest_usefulness_proxy"],
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
             "manual_submission_count": quality_metrics["manual_submission_count"],
+            "manual_enrichment_gap_count": quality_metrics["manual_enrichment_gap_count"],
             "saved_read_later_count": quality_metrics["saved_read_later_count"],
             "alert_usefulness_proxy": quality_metrics["alert_usefulness_proxy"],
+            "llm_call_count": quality_metrics["llm_call_count"],
+            "llm_total_tokens": quality_metrics["llm_total_tokens"],
+            "llm_projected_monthly_cost_usd": quality_metrics[
+                "llm_projected_monthly_cost_usd"
+            ],
+            "source_api_call_count": quality_metrics["source_api_call_count"],
+            "source_api_calls_per_recent_item": quality_metrics[
+                "source_api_calls_per_recent_item"
+            ],
+            "source_api_projected_monthly_cost_usd": quality_metrics[
+                "source_api_projected_monthly_cost_usd"
+            ],
         },
         "mvp_checklist": {
             "ready_count": mvp_checklist["ready_count"],
