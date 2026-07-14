@@ -364,6 +364,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     assert_minimum(quality_metrics, "recent_product_signal_count", 1)
     assert_minimum(quality_metrics, "high_traction_product_signal_count", 1)
     assert_minimum(quality_metrics, "product_signal_source_count", 1)
+    if quality_metrics["relevance_precision_proxy"] < 0.7:
+        raise AssertionError(
+            "Expected demo quality metrics to satisfy the PRD 70% relevance target, "
+            f"got {quality_metrics['relevance_precision_proxy']!r}"
+        )
     latest_item_age_hours = quality_metrics["latest_item_age_hours"]
     if latest_item_age_hours is None or latest_item_age_hours > 36:
         raise AssertionError(

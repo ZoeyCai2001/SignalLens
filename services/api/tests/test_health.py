@@ -761,6 +761,32 @@ def test_build_quality_findings_flags_stale_collection() -> None:
     assert findings[0].action_source_filter == "attention"
 
 
+def test_build_quality_findings_uses_prd_relevance_precision_target() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        high_value_item_count=2,
+        relevance_precision_proxy=0.65,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Low relevance precision"]
+    assert findings[0].metric == "65% relevant"
+    assert findings[0].action_label == "Tune Settings"
+    assert findings[0].action_module == "settings"
+
+
 def test_build_mvp_checklist_response_guides_empty_first_run() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -798,6 +824,79 @@ def test_build_mvp_checklist_response_guides_empty_first_run() -> None:
     assert items["manual-submission"].status == "partial"
     assert items["manual-submission"].action_module == "dashboard"
     assert items["manual-submission"].action_operation == "demo-data:seed"
+
+
+def test_mvp_checklist_requires_prd_relevance_precision_target() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    now = datetime.now(UTC)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_quality_item(
+                    1,
+                    "Agent trend",
+                    url="https://example.com/trend",
+                    published_at=now,
+                    category="technical_trend",
+                    relevance_score=0.9,
+                ),
+                make_quality_item(
+                    2,
+                    "Research paper",
+                    url="https://example.com/research",
+                    published_at=now,
+                    category="research",
+                    relevance_score=0.8,
+                ),
+                make_quality_item(
+                    3,
+                    "Product launch",
+                    url="https://example.com/product",
+                    published_at=now,
+                    category="product",
+                    products=["Agent Browser"],
+                    relevance_score=0.8,
+                ),
+                make_quality_item(
+                    4,
+                    "Weak stock rumor",
+                    url="https://example.com/stock",
+                    published_at=now,
+                    category="stock_company_event",
+                    tickers=["MU"],
+                    relevance_score=0.2,
+                ),
+                make_quality_item(
+                    5,
+                    "Weak Chinese trend",
+                    url="https://example.com/chinese",
+                    published_at=now,
+                    language="zh",
+                    relevance_score=0.2,
+                ),
+            ]
+        )
+        db.commit()
+        metrics = build_quality_metrics(db=db, window_days=7)
+
+    checklist = build_mvp_checklist_response(
+        metrics=metrics,
+        setup_summary=build_setup_summary([]),
+        llm_configured=True,
+        source_count=5,
+        enabled_source_count=5,
+    )
+    dashboard_item = {item.key: item for item in checklist.items}["dashboard-feed"]
+
+    assert metrics.relevance_precision_proxy == 0.6
+    assert dashboard_item.status == "partial"
+    assert dashboard_item.metric.endswith("60% relevant")
+    assert dashboard_item.action_label == "Tune Settings"
+    assert dashboard_item.action_module == "settings"
+    assert dashboard_item.action_operation is None
 
 
 def test_source_family_coverage_tracks_prd_connector_set() -> None:

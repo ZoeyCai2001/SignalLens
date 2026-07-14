@@ -63,6 +63,7 @@ PRD_FEED_MODULES = ("trends", "research", "products", "stocks", "chinese")
 SUMMARY_SCAN_MIN_CHARS = 40
 SUMMARY_DETAIL_MIN_CHARS = 120
 SUMMARY_CONTEXT_MIN_CHARS = 30
+RELEVANCE_PRECISION_READY_THRESHOLD = 0.7
 STOCK_SIGNAL_HIGH_IMPACT_THRESHOLD = 0.75
 
 PRD_SOURCE_FAMILIES = {
@@ -626,6 +627,7 @@ def build_mvp_checklist_items(
         if metrics.latest_item_age_hours is None
         else f"{round(metrics.latest_item_age_hours)}h old"
     )
+    relevance_ready = metrics.relevance_precision_proxy >= RELEVANCE_PRECISION_READY_THRESHOLD
 
     return [
         MvpChecklistItem(
@@ -633,14 +635,28 @@ def build_mvp_checklist_items(
             label="Ranked Dashboard",
             status=(
                 "ready"
-                if recent_items > 0 and covered_modules >= 3 and latest_item_is_fresh
+                if (
+                    recent_items > 0
+                    and covered_modules >= 3
+                    and latest_item_is_fresh
+                    and relevance_ready
+                )
                 else "partial"
                 if recent_items > 0
                 else "needs_action"
             ),
-            metric=f"{recent_items} recent; {covered_modules}/5 modules; {latest_item_age_label}",
+            metric=(
+                f"{recent_items} recent; {covered_modules}/5 modules; "
+                f"{latest_item_age_label}; "
+                f"{format_quality_percent(metrics.relevance_precision_proxy)} relevant"
+            ),
             note=(
                 "Fresh feed data is available across the first-class PRD modules."
+                if recent_items > 0 and latest_item_is_fresh and relevance_ready
+                else (
+                    "Tune sources and preferences because displayed relevance is below "
+                    "the PRD 70% target."
+                )
                 if recent_items > 0 and latest_item_is_fresh
                 else "Run a source cycle because the newest visible item is stale."
                 if recent_items > 0
@@ -648,12 +664,18 @@ def build_mvp_checklist_items(
             ),
             action_label=(
                 "Open Dashboard"
+                if recent_items > 0 and latest_item_is_fresh and relevance_ready
+                else "Tune Settings"
                 if recent_items > 0 and latest_item_is_fresh
                 else "Run Full Cycle"
                 if recent_items > 0
                 else "Seed Demo Data"
             ),
-            action_module="dashboard",
+            action_module=(
+                "dashboard"
+                if recent_items == 0 or not latest_item_is_fresh or relevance_ready
+                else "settings"
+            ),
             action_operation=(
                 None
                 if recent_items > 0 and latest_item_is_fresh
@@ -1680,7 +1702,7 @@ def build_quality_findings(
                 action_source_filter="attention",
             )
         )
-    elif relevance_precision_proxy < 0.6:
+    elif relevance_precision_proxy < RELEVANCE_PRECISION_READY_THRESHOLD:
         findings.append(
             QualityFinding(
                 severity="warning",

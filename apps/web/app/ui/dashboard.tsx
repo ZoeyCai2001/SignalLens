@@ -1454,6 +1454,7 @@ const feedModuleKeys = new Set<ModuleKey>([
   "stocks",
   "chinese",
 ]);
+const RELEVANCE_PRECISION_READY_THRESHOLD = 0.7;
 
 export function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
@@ -5919,6 +5920,8 @@ function buildPrdMvpChecklist({
   const coveredModules = qualityMetrics?.covered_module_count ?? 0;
   const latestItemAgeHours = qualityMetrics?.latest_item_age_hours ?? null;
   const latestItemIsFresh = latestItemAgeHours !== null && latestItemAgeHours <= 36;
+  const relevancePrecision = qualityMetrics?.relevance_precision_proxy ?? 0;
+  const relevanceReady = relevancePrecision >= RELEVANCE_PRECISION_READY_THRESHOLD;
   const recentSourceCount = qualityMetrics?.recent_source_count ?? 0;
   const classificationCoverage = qualityMetrics?.classification_coverage ?? 0;
   const summaryCoverage = qualityMetrics?.summary_coverage ?? 0;
@@ -5939,27 +5942,32 @@ function buildPrdMvpChecklist({
       key: "dashboard-feed",
       label: "Ranked Dashboard",
       status:
-        recentItems > 0 && coveredModules >= 3 && latestItemIsFresh
+        recentItems > 0 && coveredModules >= 3 && latestItemIsFresh && relevanceReady
           ? "ready"
           : recentItems > 0
             ? "partial"
             : "needs_action",
       metric: `${recentItems} recent · ${coveredModules}/5 modules · ${formatAgeHours(
         latestItemAgeHours,
-      )}`,
+      )} · ${formatQualityPercent(relevancePrecision)} relevant`,
       note:
-        recentItems > 0 && latestItemIsFresh
+        recentItems > 0 && latestItemIsFresh && relevanceReady
           ? "Fresh feed data is available across the first-class PRD modules."
+          : recentItems > 0 && latestItemIsFresh
+            ? "Tune sources and preferences because displayed relevance is below the PRD 70% target."
           : recentItems > 0
             ? "Run a source cycle because the newest visible item is stale."
           : "Run a source cycle or seed demo data to populate the ranked feed.",
       actionLabel:
-        recentItems > 0 && latestItemIsFresh
+        recentItems > 0 && latestItemIsFresh && relevanceReady
           ? "Open Dashboard"
+          : recentItems > 0 && latestItemIsFresh
+            ? "Tune Settings"
           : recentItems > 0
             ? "Run Full Cycle"
             : "Seed Demo Data",
-      actionModule: "dashboard",
+      actionModule:
+        recentItems > 0 && latestItemIsFresh && !relevanceReady ? "settings" : "dashboard",
       actionOperation:
         recentItems > 0 && latestItemIsFresh
           ? undefined
