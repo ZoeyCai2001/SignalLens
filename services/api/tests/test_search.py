@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.routes import search as search_routes
-from app.db.models import Base, NormalizedItem, UserItemAction
+from app.db.models import Base, NormalizedItem, RawItem, UserItemAction
 from app.schemas.preferences import RankingWeights
 from app.schemas.search import SearchIntentResponse
 from app.services.feed_actions import serialize_feed_item
@@ -144,6 +144,14 @@ def test_infer_search_intent_handles_high_importance_semiconductor_query() -> No
     assert intent.date_from == date(2026, 6, 19)
 
 
+def test_infer_search_intent_handles_popular_social_signal_query() -> None:
+    intent = infer_search_intent("Show viral AI photo tools with high engagement.")
+
+    assert intent.category == "product"
+    assert intent.query == "AI photo"
+    assert intent.min_social_signal_score == 0.65
+
+
 @pytest.mark.parametrize(
     ("query", "expected_category"),
     [
@@ -262,6 +270,7 @@ def test_search_intent_response_serializes_inferred_filters() -> None:
     assert response.query == "AI data center"
     assert response.date_from == date(2026, 6, 19)
     assert response.date_to is None
+    assert response.min_social_signal_score is None
     assert response.read_status is None
 
 
@@ -828,6 +837,62 @@ def test_search_feed_items_filters_by_language_preferences() -> None:
         results = search_feed_items(db, query="agent", language_preferences=["zh"])
 
     assert [item.title for item in results] == ["Chinese agent signal"]
+
+
+def test_search_feed_items_filters_by_inferred_social_signal() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    popular = make_search_item(
+        1,
+        "Viral AI photo workflow",
+        "AI photo workflow launch.",
+        ["AI photo"],
+        source_name="Xiaohongshu Manual Watch",
+        category="product",
+        subcategory="product_media",
+    )
+    popular.raw_item = RawItem(
+        id=1,
+        source_id=1,
+        url=popular.url,
+        raw_title=popular.title,
+        raw_metadata={
+            "likes": 1600,
+            "comments_count": 280,
+            "collects": 600,
+            "reposts": 80,
+            "views": 90000,
+        },
+        content_hash="popular",
+    )
+    quiet = make_search_item(
+        2,
+        "Quiet AI photo workflow",
+        "AI photo workflow launch.",
+        ["AI photo"],
+        source_name="Xiaohongshu Manual Watch",
+        category="product",
+        subcategory="product_media",
+    )
+    quiet.raw_item = RawItem(
+        id=2,
+        source_id=1,
+        url=quiet.url,
+        raw_title=quiet.title,
+        raw_metadata={"likes": 12, "comments_count": 1, "views": 200},
+        content_hash="quiet",
+    )
+
+    with session_factory() as db:
+        db.add_all([popular, quiet])
+        db.commit()
+
+        results = search_feed_items(db, query="Show viral AI photo tools with high engagement")
+
+    assert [item.title for item in results] == ["Viral AI photo workflow"]
+    assert results[0].social_signal_score >= 0.65
 
 
 def test_search_feed_items_applies_inferred_yesterday_date_range() -> None:

@@ -35,6 +35,7 @@ class SearchIntent:
     date_from: date | None = None
     date_to: date | None = None
     min_importance_score: float | None = None
+    min_social_signal_score: float | None = None
     saved_only: bool = False
     read_status: str | None = None
 
@@ -59,6 +60,7 @@ def search_feed_items(
     date_from: date | None = None,
     date_to: date | None = None,
     min_importance_score: float | None = None,
+    min_social_signal_score: float | None = None,
     ai_related: bool | None = None,
     saved_only: bool = False,
     read_status: str | None = None,
@@ -85,6 +87,11 @@ def search_feed_items(
         min_importance_score
         if min_importance_score is not None
         else intent.min_importance_score
+    )
+    effective_min_social_signal = (
+        min_social_signal_score
+        if min_social_signal_score is not None
+        else intent.min_social_signal_score
     )
     effective_ai_related = ai_related
     effective_saved_only = saved_only or intent.saved_only
@@ -226,6 +233,13 @@ def search_feed_items(
     )
 
     items = [serialize_feed_item(item, action) for item, action in rows]
+    normalized_min_social_signal = normalize_score(effective_min_social_signal)
+    if normalized_min_social_signal is not None:
+        items = [
+            item
+            for item in items
+            if item.social_signal_score >= normalized_min_social_signal
+        ]
     return rank_feed_items(
         items,
         ranking_weights=ranking_weights,
@@ -329,6 +343,7 @@ def has_structured_intent(intent: SearchIntent) -> bool:
         or intent.date_from
         or intent.date_to
         or intent.min_importance_score is not None
+        or intent.min_social_signal_score is not None
         or intent.saved_only
         or intent.read_status
     )
@@ -360,6 +375,7 @@ def infer_search_intent(
         )
         else None
     )
+    min_social_signal_score = infer_min_social_signal_score(lowered)
     date_from, date_to = infer_date_range(
         lowered,
         today=today,
@@ -382,9 +398,20 @@ def infer_search_intent(
         date_from=date_from,
         date_to=date_to,
         min_importance_score=min_importance_score,
+        min_social_signal_score=min_social_signal_score,
         saved_only=saved_only,
         read_status=read_status,
     )
+
+
+def infer_min_social_signal_score(lowered_query: str) -> float | None:
+    if re.search(
+        r"\b(viral|popular|high engagement|highly engaged|trending social|social traction|"
+        r"strong engagement|most discussed|widely shared|upvoted|upvotes)\b",
+        lowered_query,
+    ):
+        return 0.65
+    return None
 
 
 def infer_date_range(

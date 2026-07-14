@@ -519,6 +519,7 @@ type SearchIntent = {
   date_from: string | null;
   date_to: string | null;
   min_importance_score: number | null;
+  min_social_signal_score: number | null;
   saved_only: boolean;
   read_status: "read" | "unread" | null;
 };
@@ -12225,6 +12226,9 @@ function buildSearchIntentChips(intent: SearchIntent | null): string[] {
     intent.date_from ? `from: ${intent.date_from}` : null,
     intent.date_to ? `to: ${intent.date_to}` : null,
     intent.min_importance_score !== null ? `importance: ${intent.min_importance_score}` : null,
+    intent.min_social_signal_score !== null
+      ? `social signal: ${intent.min_social_signal_score}`
+      : null,
     intent.saved_only ? "saved" : null,
     intent.read_status ? `read: ${intent.read_status}` : null,
   ];
