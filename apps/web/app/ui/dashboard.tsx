@@ -727,6 +727,7 @@ type SourceUpdatePayload = {
   rate_limit?: string | null;
   polling_interval?: string | null;
   terms_notes?: string | null;
+  raw_content_policy?: string | null;
 };
 
 type SourceCreatePayload = {
@@ -739,6 +740,7 @@ type SourceCreatePayload = {
   rate_limit: string | null;
   polling_interval: string | null;
   terms_notes: string | null;
+  raw_content_policy: string | null;
 };
 
 type SourceFollowTemplate = {
@@ -752,6 +754,8 @@ type SourceFollowTemplate = {
   rateLimit: string;
   termsNotes: string;
   termsPlaceholder: string;
+  rawContentPolicy: string;
+  policyPlaceholder: string;
 };
 
 type SourceDraft = {
@@ -764,6 +768,7 @@ type SourceDraft = {
   polling_interval: string;
   rate_limit: string;
   terms_notes: string;
+  raw_content_policy: string;
 };
 
 type SourceHealthFilter =
@@ -1155,6 +1160,8 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     rateLimit: "Public RSS/Atom feed; keep polling conservative.",
     termsNotes: "Public blog RSS/Atom feed only.",
     termsPlaceholder: "Public blog RSS/Atom feed only.",
+    rawContentPolicy: "Store public feed metadata, title, excerpt, URL, and publication time.",
+    policyPlaceholder: "Store title, URL, source time, and short excerpt only.",
   },
   {
     key: "company_blog",
@@ -1167,6 +1174,8 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     rateLimit: "Public company RSS/Atom feed; keep polling conservative.",
     termsNotes: "Public company announcements and blog posts.",
     termsPlaceholder: "Public company announcements and blog posts.",
+    rawContentPolicy: "Store public company post metadata, title, excerpt, URL, and publication time.",
+    policyPlaceholder: "Store public announcement metadata and short excerpts only.",
   },
   {
     key: "github_repository",
@@ -1179,6 +1188,8 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     rateLimit: "GitHub public API; set GITHUB_TOKEN for higher rate limits.",
     termsNotes: "Track public repository releases, stars, and README metadata.",
     termsPlaceholder: "Track public repository releases, stars, and README metadata.",
+    rawContentPolicy: "Store public repository metadata and summaries; do not clone repository contents.",
+    policyPlaceholder: "Store public repo metadata and summaries only.",
   },
   {
     key: "product_hunt_topic",
@@ -1191,6 +1202,8 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     rateLimit: "Product Hunt API token required; keep topic polling conservative.",
     termsNotes: "AI products, developer tools, and launch metadata.",
     termsPlaceholder: "AI products, developer tools, and launch metadata.",
+    rawContentPolicy: "Store Product Hunt launch metadata returned by the official GraphQL API.",
+    policyPlaceholder: "Store launch metadata from the official API only.",
   },
   {
     key: "chinese_social_feed",
@@ -1203,6 +1216,8 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     rateLimit: "Public RSS/Atom metadata only; no login-protected social scraping.",
     termsNotes: "Chinese AI product keywords from public RSS/Atom feeds only.",
     termsPlaceholder: "AI photo, AI video, agent apps, public feed scope.",
+    rawContentPolicy: "Store public RSS/Atom metadata and snippets only; avoid login-protected content.",
+    policyPlaceholder: "Store public feed metadata and snippets only.",
   },
   {
     key: "x_account_manual",
@@ -1215,6 +1230,8 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     rateLimit: "Manual watch only; no automated X/Twitter API calls or scraping in MVP.",
     termsNotes: "Track manually submitted public X/Twitter links for this account.",
     termsPlaceholder: "Manual public links only; no automated scraping.",
+    rawContentPolicy: "Store manually submitted public URLs, titles, excerpts, and user notes only.",
+    policyPlaceholder: "Store manually submitted public link metadata only.",
   },
   {
     key: "manual_watch",
@@ -1227,6 +1244,8 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     rateLimit: "Manual watch source; no automated collection until a connector is added.",
     termsNotes: "Track manually submitted URLs for this source.",
     termsPlaceholder: "Track manually submitted URLs for this source.",
+    rawContentPolicy: "Store manually submitted URLs, titles, excerpts, and optional user-provided text.",
+    policyPlaceholder: "Store submitted URL metadata and user-provided text only.",
   },
 ];
 
@@ -1429,6 +1448,7 @@ export function Dashboard() {
   const [sourcePollingInterval, setSourcePollingInterval] = useState("");
   const [sourceRateLimit, setSourceRateLimit] = useState("");
   const [sourceTermsNotes, setSourceTermsNotes] = useState("");
+  const [sourceRawContentPolicy, setSourceRawContentPolicy] = useState("");
   const [alertRuleName, setAlertRuleName] = useState("");
   const [alertRuleCategory, setAlertRuleCategory] = useState("all");
   const [alertRuleTickers, setAlertRuleTickers] = useState("");
@@ -3461,6 +3481,11 @@ export function Dashboard() {
         ? template.termsNotes
         : current,
     );
+    setSourceRawContentPolicy((current) =>
+      !current || sourceFollowTemplates.some((item) => item.rawContentPolicy === current)
+        ? template.rawContentPolicy
+        : current,
+    );
   };
 
   const submitSource = async () => {
@@ -3483,6 +3508,7 @@ export function Dashboard() {
           rate_limit: sourceRateLimit.trim() || null,
           polling_interval: sourcePollingInterval.trim() || null,
           terms_notes: sourceTermsNotes.trim() || null,
+          raw_content_policy: sourceRawContentPolicy.trim() || null,
         } satisfies SourceCreatePayload),
       });
       setSourceName("");
@@ -3493,6 +3519,7 @@ export function Dashboard() {
       setSourcePollingInterval("");
       setSourceRateLimit("");
       setSourceTermsNotes("");
+      setSourceRawContentPolicy("");
       setSources((items) => [...items, created].sort((a, b) => a.priority - b.priority));
       await refreshAllWithStatus(`Following source ${created.name}`);
     } catch (err) {
@@ -4104,6 +4131,7 @@ export function Dashboard() {
         accessMethod={sourceAccessMethod}
         baseUrl={sourceBaseUrl}
         termsNotes={sourceTermsNotes}
+        rawContentPolicy={sourceRawContentPolicy}
         pollingInterval={sourcePollingInterval}
         rateLimit={sourceRateLimit}
         disabled={loadState !== "idle"}
@@ -4116,6 +4144,7 @@ export function Dashboard() {
         onPollingIntervalChange={setSourcePollingInterval}
         onRateLimitChange={setSourceRateLimit}
         onTermsNotesChange={setSourceTermsNotes}
+        onRawContentPolicyChange={setSourceRawContentPolicy}
         onSourceFilterChange={setSourceHealthFilter}
         onRunStatusFilterChange={setSourceRunStatusFilter}
         onRunSourceFilterChange={setSourceRunSourceFilter}
@@ -10970,6 +10999,7 @@ function SourceTable({
   pollingInterval,
   rateLimit,
   termsNotes,
+  rawContentPolicy,
   disabled,
   busySourceId,
   activeOperation,
@@ -10981,6 +11011,7 @@ function SourceTable({
   onPollingIntervalChange,
   onRateLimitChange,
   onTermsNotesChange,
+  onRawContentPolicyChange,
   onSourceFilterChange,
   onRunStatusFilterChange,
   onRunSourceFilterChange,
@@ -11007,6 +11038,7 @@ function SourceTable({
   pollingInterval: string;
   rateLimit: string;
   termsNotes: string;
+  rawContentPolicy: string;
   disabled: boolean;
   busySourceId: number | null;
   activeOperation: DashboardOperation | null;
@@ -11018,6 +11050,7 @@ function SourceTable({
   onPollingIntervalChange: (value: string) => void;
   onRateLimitChange: (value: string) => void;
   onTermsNotesChange: (value: string) => void;
+  onRawContentPolicyChange: (value: string) => void;
   onSourceFilterChange: (value: SourceHealthFilter) => void;
   onRunStatusFilterChange: (value: "all" | "failed") => void;
   onRunSourceFilterChange: (source: SourceHealth | null) => void;
@@ -11159,6 +11192,13 @@ function SourceTable({
           onChange={(event) => onTermsNotesChange(event.target.value)}
           disabled={disabled}
         />
+        <input
+          className="field"
+          placeholder={selectedTemplate.policyPlaceholder}
+          value={rawContentPolicy}
+          onChange={(event) => onRawContentPolicyChange(event.target.value)}
+          disabled={disabled}
+        />
         <button className="button primary" onClick={onSubmit} disabled={disabled}>
           {disabled ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
           Follow
@@ -11296,7 +11336,14 @@ function SourceTable({
                     />
                   </td>
                   <td>
-                    <div className="small-muted">{source.raw_content_policy}</div>
+                    <input
+                      className="field table-field source-policy-field"
+                      value={draft.raw_content_policy}
+                      onChange={(event) =>
+                        setDraftValue(source.id, "raw_content_policy", event.target.value)
+                      }
+                      placeholder="Storage policy"
+                    />
                     <div className="small-muted">{source.failure_handling}</div>
                   </td>
                   <td className={source.latest_status === "success" ? "health-ok" : ""}>
@@ -11552,6 +11599,7 @@ function buildSourceDraft(source: SourceHealth): SourceDraft {
     polling_interval: source.polling_interval ?? "",
     rate_limit: source.rate_limit ?? "",
     terms_notes: source.terms_notes ?? "",
+    raw_content_policy: source.raw_content_policy ?? "",
   };
 }
 
@@ -11568,6 +11616,7 @@ function buildSourcePayload(draft: SourceDraft): SourceUpdatePayload {
     polling_interval: draft.polling_interval.trim() || null,
     rate_limit: draft.rate_limit.trim() || null,
     terms_notes: draft.terms_notes.trim() || null,
+    raw_content_policy: draft.raw_content_policy.trim() || null,
   };
 }
 
@@ -11581,7 +11630,8 @@ function isSourceDraftChanged(source: SourceHealth, draft: SourceDraft): boolean
     String(source.priority) !== draft.priority.trim() ||
     (source.polling_interval ?? "") !== draft.polling_interval.trim() ||
     (source.rate_limit ?? "") !== draft.rate_limit.trim() ||
-    (source.terms_notes ?? "") !== draft.terms_notes.trim()
+    (source.terms_notes ?? "") !== draft.terms_notes.trim() ||
+    source.raw_content_policy !== draft.raw_content_policy.trim()
   );
 }
 

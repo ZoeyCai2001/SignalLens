@@ -511,6 +511,8 @@ Source rules:
 - Store URLs, metadata, summaries, and short excerpts only where appropriate.
 - Avoid storing full copyrighted articles unless the source permits it.
 - Keep source terms notes in `sources.terms_notes`.
+- Keep per-source raw content storage policies in `sources.raw_content_policy`, with source-type
+  defaults as a fallback for older rows and unset policies.
 
 Finance rules:
 

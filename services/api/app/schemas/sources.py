@@ -60,6 +60,7 @@ class SourceCreate(BaseModel):
     enabled: bool = True
     priority: int = 100
     terms_notes: str | None = None
+    raw_content_policy: str | None = None
 
 
 class SourceUpdate(BaseModel):
@@ -73,3 +74,4 @@ class SourceUpdate(BaseModel):
     rate_limit: str | None = None
     polling_interval: str | None = None
     terms_notes: str | None = None
+    raw_content_policy: str | None = None

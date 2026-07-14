@@ -630,6 +630,10 @@ table {
   width: 220px;
 }
 
+.source-policy-field {
+  width: 260px;
+}
+
 .source-error {
   color: var(--rose);
   max-width: 220px;

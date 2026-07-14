@@ -48,6 +48,7 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
         enabled=False,
         priority=20,
         terms_notes="Use RSS feed only.",
+        raw_content_policy="Store feed summaries only.",
     )
     run = SourceRun(
         source_id=1,
@@ -65,9 +66,7 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     assert health.polling_interval == "hourly"
     assert health.priority == 20
     assert health.terms_notes == "Use RSS feed only."
-    assert health.raw_content_policy == (
-        "Store public feed metadata, title, excerpt, URL, and publication time."
-    )
+    assert health.raw_content_policy == "Store feed summaries only."
     assert health.failure_handling == (
         "Record failures, preserve the last success time, and retry at the next polling window."
     )
@@ -109,6 +108,14 @@ def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
 
 
 def test_source_health_derives_compliance_policy_by_source_type() -> None:
+    assert raw_content_policy_for_source(
+        Source(
+            name="Custom",
+            type="rss",
+            access_method="rss",
+            raw_content_policy=" Store only linked metadata. ",
+        )
+    ) == "Store only linked metadata."
     assert raw_content_policy_for_source(
         Source(name="Manual URL", type="manual", access_method="manual_submission")
     ) == "Store the submitted URL, title, excerpt, and optional user-provided text."
@@ -292,6 +299,7 @@ def test_update_source_trims_editable_settings_and_clears_empty_notes() -> None:
             polling_interval="  every 4 hours ",
             rate_limit="  75/day  ",
             terms_notes="   ",
+            raw_content_policy="  Store linked metadata and short excerpts only.  ",
         ),
     )
 
@@ -301,6 +309,7 @@ def test_update_source_trims_editable_settings_and_clears_empty_notes() -> None:
     assert source.polling_interval == "every 4 hours"
     assert source.rate_limit == "75/day"
     assert source.terms_notes is None
+    assert source.raw_content_policy == "Store linked metadata and short excerpts only."
     assert db.commits == 1
 
 
@@ -405,8 +414,27 @@ def test_create_source_registers_followed_rss_source() -> None:
     assert source.base_url == "https://example.com/rss.xml"
     assert source.priority == 45
     assert source.terms_notes == "Public RSS feed only."
+    assert source.raw_content_policy == (
+        "Store public feed metadata, title, excerpt, URL, and publication time."
+    )
     assert db.added == [source]
     assert db.commits == 1
+
+
+def test_create_source_accepts_custom_raw_content_policy() -> None:
+    db = FakeCreateSourceDb()
+
+    source = create_source(
+        db,
+        SourceCreate(
+            name="Custom Policy RSS",
+            type="rss",
+            access_method="rss",
+            raw_content_policy=" Store URL, title, and summary only. ",
+        ),
+    )
+
+    assert source.raw_content_policy == "Store URL, title, and summary only."
 
 
 def test_create_source_uses_official_api_for_github_repository() -> None:

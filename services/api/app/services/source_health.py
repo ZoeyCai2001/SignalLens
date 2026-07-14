@@ -84,7 +84,10 @@ def create_source(db: Session, payload: SourceCreate) -> Source:
         enabled=payload.enabled,
         priority=payload.priority,
         terms_notes=normalize_optional_text(payload.terms_notes),
+        raw_content_policy=normalize_optional_text(payload.raw_content_policy),
     )
+    if source.raw_content_policy is None:
+        source.raw_content_policy = raw_content_policy_for_source(source)
     db.add(source)
     db.commit()
     db.refresh(source)
@@ -371,6 +374,10 @@ def serialize_source_health(
 
 
 def raw_content_policy_for_source(source: Source) -> str:
+    explicit_policy = normalize_optional_text(getattr(source, "raw_content_policy", None))
+    if explicit_policy:
+        return explicit_policy
+
     source_type = (source.type or "").strip().lower()
     access_method = (source.access_method or "").strip().lower()
     if source_type == "manual":

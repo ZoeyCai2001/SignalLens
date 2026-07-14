@@ -44,6 +44,7 @@ class Source(Base, TimestampMixin):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     priority: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
     terms_notes: Mapped[str | None] = mapped_column(Text)
+    raw_content_policy: Mapped[str | None] = mapped_column(Text)
 
     raw_items: Mapped[list["RawItem"]] = relationship(back_populates="source")
     runs: Mapped[list["SourceRun"]] = relationship(back_populates="source")

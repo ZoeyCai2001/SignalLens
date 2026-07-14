@@ -132,6 +132,14 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     source_health = get_json(client, "/api/sources/health")
     if len(source_health) < 8:
         raise AssertionError(f"Expected at least 8 source-health rows, got {len(source_health)}")
+    source_policy = "Store demo source metadata, summaries, attribution, and short excerpts only."
+    updated_source = patch_json(
+        client,
+        f"/api/sources/{source_health[0]['id']}",
+        json_body={"raw_content_policy": source_policy},
+    )
+    if updated_source["raw_content_policy"] != source_policy:
+        raise AssertionError("Expected source raw-content policy to round trip through the API")
 
     quality_metrics = get_json(client, "/api/quality-metrics")
     assert_minimum(quality_metrics, "recent_item_count", 5)
@@ -206,6 +214,9 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     backed_up_stocks = {stock["ticker"]: stock for stock in backup["stock_watchlist"]}
     if backed_up_stocks["MRVL"]["market_cap_usd"] != 1_200_000_000:
         raise AssertionError("Expected settings backup to include stock market cap")
+    backed_up_sources = {source["name"]: source for source in backup["sources"]}
+    if backed_up_sources[updated_source["name"]]["raw_content_policy"] != source_policy:
+        raise AssertionError("Expected settings backup to include source raw-content policy")
     assert_minimum_collection(backup["company_watchlist"], "backup company watchlist rows", 5)
     assert_minimum_collection(backup["topic_watchlist"], "backup topic watchlist rows", 5)
     assert_minimum_collection(backup["product_watchlist"], "backup product watchlist rows", 3)
@@ -231,6 +242,14 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "Expected settings restore to recover language preferences, "
             f"got {restored_preferences['language_preferences']!r}"
         )
+    restored_sources = {
+        source["name"]: source for source in get_json(client, "/api/sources/health")
+    }
+    source_policy_restored = (
+        restored_sources[updated_source["name"]]["raw_content_policy"] == source_policy
+    )
+    if not source_policy_restored:
+        raise AssertionError("Expected settings restore to recover source raw-content policy")
 
     return {
         "seed": seed_payload,
@@ -311,6 +330,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "stock_watchlist": len(backup["stock_watchlist"]),
             "stock_market_cap_restored": backed_up_stocks["MRVL"]["market_cap_usd"]
             == 1_200_000_000,
+            "source_raw_content_policy_restored": source_policy_restored,
             "company_watchlist": len(backup["company_watchlist"]),
             "topic_watchlist": len(backup["topic_watchlist"]),
             "product_watchlist": len(backup["product_watchlist"]),

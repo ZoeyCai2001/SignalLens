@@ -50,6 +50,7 @@ def test_export_personal_settings_backup_contains_only_local_configuration() -> 
                 enabled=True,
                 priority=25,
                 terms_notes="Public feed only.",
+                raw_content_policy="Store URL, title, and short excerpt only.",
             )
         )
         db.add(
@@ -90,6 +91,7 @@ def test_export_personal_settings_backup_contains_only_local_configuration() -> 
         assert backup.preferences is not None
         assert backup.preferences.preferred_sources == ["arXiv"]
         assert backup.sources[0].name == "AI Blog"
+        assert backup.sources[0].raw_content_policy == "Store URL, title, and short excerpt only."
         assert backup.alert_rules[0].name == "Agent alert"
         assert backup.stock_watchlist[0].ticker == "MU"
         assert backup.stock_watchlist[0].market_cap_usd == 100_000_000_000
@@ -168,6 +170,7 @@ def test_restore_personal_settings_backup_upserts_configuration_without_deleting
                     enabled=True,
                     priority=5,
                     polling_interval="6 hours",
+                    raw_content_policy="Store summaries and attribution only.",
                 )
             ],
             alert_rules=[
@@ -239,6 +242,7 @@ def test_restore_personal_settings_backup_upserts_configuration_without_deleting
         assert source.base_url == "https://new.example.com/rss.xml"
         assert source.enabled is True
         assert source.priority == 5
+        assert source.raw_content_policy == "Store summaries and attribution only."
         assert db.query(Source).filter(Source.name == "Keep Me").count() == 1
         assert alert_rule.severity == "high"
         assert alert_rule.topics == ["agent workflows"]
