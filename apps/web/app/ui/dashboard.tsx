@@ -5093,6 +5093,16 @@ function SystemStatusPanel({
                     value={formatQualityPercent(qualityMetrics.digest_usefulness_proxy)}
                   />
                   <ReadinessMetric
+                    label="Digest Feedback"
+                    value={
+                      qualityMetrics.digest_feedback_usefulness_rate === null
+                        ? `${qualityMetrics.digest_feedback_count} samples`
+                        : `${formatQualityPercent(
+                            qualityMetrics.digest_feedback_usefulness_rate,
+                          )} · ${qualityMetrics.digest_feedback_count}`
+                    }
+                  />
+                  <ReadinessMetric
                     label="Latest Digest"
                     value={qualityMetrics.latest_digest_snapshot_date ?? "none"}
                   />

@@ -159,6 +159,24 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     digest_snapshots = get_json(client, "/api/digest/daily/snapshots")
     if not digest_snapshots:
         raise AssertionError("Expected demo data seeding to save a daily digest snapshot")
+    feedback_snapshot = patch_json(
+        client,
+        f"/api/digest/daily/snapshots/{digest_snapshots[0]['id']}/feedback",
+        json_body={"usefulness_feedback": "useful"},
+    )
+    if feedback_snapshot["usefulness_feedback"] != "useful":
+        raise AssertionError(
+            "Expected digest snapshot feedback to round trip as useful, "
+            f"got {feedback_snapshot['usefulness_feedback']!r}"
+        )
+    quality_metrics = get_json(client, "/api/quality-metrics")
+    if quality_metrics["digest_feedback_count"] < 1:
+        raise AssertionError("Expected digest feedback to appear in quality metrics")
+    if quality_metrics["digest_feedback_usefulness_rate"] != 1:
+        raise AssertionError(
+            "Expected useful digest feedback rate to be 1, "
+            f"got {quality_metrics['digest_feedback_usefulness_rate']!r}"
+        )
 
     clusters = get_json(client, "/api/events/clusters?limit=8&min_items=1")
     alerts = get_json(client, "/api/alerts")
@@ -223,6 +241,10 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "classification_coverage": quality_metrics["classification_coverage"],
             "recent_source_count": quality_metrics["recent_source_count"],
             "digest_snapshot_count": quality_metrics["digest_snapshot_count"],
+            "digest_feedback_count": quality_metrics["digest_feedback_count"],
+            "digest_feedback_usefulness_rate": quality_metrics[
+                "digest_feedback_usefulness_rate"
+            ],
             "digest_usefulness_proxy": quality_metrics["digest_usefulness_proxy"],
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
             "manual_submission_count": quality_metrics["manual_submission_count"],
