@@ -327,7 +327,7 @@ Alert generation applies the same trust posture and local visibility rules. Sing
 - `created_at`
 - `updated_at`
 
-For MVP privacy, `shares` and `average_cost` remain nullable and hidden in the dashboard unless the user explicitly enables portfolio note mode for a selected stock. Saving ordinary stock metadata does not expose hidden portfolio fields, and saving with portfolio note mode disabled clears `is_holding`, `shares`, and `average_cost` so private position data can be removed from the dashboard. Stock watchlist ordering uses pinned status first, then a durable `display_order` value that can be changed from the dashboard with up/down controls, then priority and ticker as tie-breakers.
+For MVP privacy, `shares` and `average_cost` remain nullable and hidden in the dashboard unless the user explicitly enables portfolio note mode for a selected stock. Saving ordinary stock metadata does not expose hidden portfolio fields, and saving with portfolio note mode disabled clears `is_holding`, `shares`, and `average_cost` so private position data can be removed from the dashboard. Stock watchlist ordering uses pinned status first, then a durable `display_order` value that can be changed from the dashboard with up/down controls, then priority and ticker as tie-breakers. The stock move API normalizes the current pinned or unpinned group and swaps the selected ticker with its adjacent neighbor, keeping repeated reorder actions deterministic even after older rows have duplicate order values.
 
 ## 9. API Design
 
@@ -365,6 +365,7 @@ Natural-language search infers source, category, product use-case subcategory, t
 - `POST /api/watchlist/stocks`
 - `POST /api/watchlist/stocks/{ticker}/briefing/llm-summary`
 - `PATCH /api/watchlist/stocks/{ticker}`
+- `POST /api/watchlist/stocks/{ticker}/move`
 - `DELETE /api/watchlist/stocks/{ticker}`
 - `GET /api/watchlist/products`
 - `POST /api/watchlist/products`

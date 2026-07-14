@@ -2603,6 +2603,41 @@ export function Dashboard() {
     }
   };
 
+  const moveStock = async (ticker: string, direction: "up" | "down") => {
+    const key = `stock:${ticker}`;
+    setBusyWatchlistKey(key);
+    setError(null);
+    try {
+      const updatedStocks = await fetchJson<StockWatchlistItem[]>(
+        `/api/watchlist/stocks/${encodeURIComponent(ticker)}/move`,
+        {
+          method: "POST",
+          body: JSON.stringify({ direction }),
+        },
+      );
+      const updatedMap = new Map(updatedStocks.map((stock) => [stock.ticker, stock]));
+      setStocks(updatedStocks);
+      setStockSignals((items) =>
+        items.map((item) => ({
+          ...item,
+          stock: updatedMap.get(item.stock.ticker) ?? item.stock,
+        })),
+      );
+      if (stockBriefing?.stock.ticker) {
+        const updatedBriefingStock = updatedMap.get(stockBriefing.stock.ticker);
+        if (updatedBriefingStock) {
+          setStockBriefing({ ...stockBriefing, stock: updatedBriefingStock });
+        }
+      }
+      setStatus(`Moved ${ticker} ${direction}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Stock move failed");
+    } finally {
+      setBusyWatchlistKey(null);
+    }
+  };
+
   const submitCompany = async () => {
     if (!companyName.trim()) {
       setError("Company watchlist entries need a company name.");
@@ -4000,6 +4035,7 @@ export function Dashboard() {
                 onSelectTicker={setSelectedTicker}
                 onExplainStock={explainStockBriefing}
                 onUpdateStock={updateStock}
+                onMoveStock={moveStock}
                 onDeleteStock={deleteStock}
                 onSubmit={submitStock}
               />
@@ -7357,6 +7393,7 @@ function StockTable({
   onSelectTicker,
   onExplainStock,
   onUpdateStock,
+  onMoveStock,
   onDeleteStock,
   onSubmit,
 }: {
@@ -7385,6 +7422,7 @@ function StockTable({
     ticker: string,
     payload: Partial<Omit<StockWatchlistItem, "ticker">>,
   ) => void;
+  onMoveStock: (ticker: string, direction: "up" | "down") => void;
   onDeleteStock: (ticker: string) => void;
   onSubmit: () => void;
 }) {
@@ -7439,14 +7477,7 @@ function StockTable({
   };
 
   const reorderStock = (stock: StockWatchlistItem, direction: "up" | "down") => {
-    const peers = displayStocks.filter((item) => item.is_pinned === stock.is_pinned);
-    const index = peers.findIndex((item) => item.ticker === stock.ticker);
-    const neighbor = peers[index + (direction === "up" ? -1 : 1)];
-    if (!neighbor) {
-      return;
-    }
-    const nextOrder = neighbor.display_order + (direction === "up" ? -1 : 1);
-    onUpdateStock(stock.ticker, { display_order: nextOrder });
+    onMoveStock(stock.ticker, direction);
   };
 
   const canMoveStock = (stock: StockWatchlistItem, direction: "up" | "down") => {

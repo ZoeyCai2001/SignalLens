@@ -6,6 +6,7 @@ from app.schemas.watchlist import StockWatchlistItemCreate, StockWatchlistItemUp
 from app.services.watchlist import (
     create_stock_watchlist_item,
     list_stock_watchlist,
+    move_stock_watchlist_item,
     update_stock_watchlist_item,
 )
 
@@ -160,6 +161,48 @@ def test_update_stock_watchlist_item_can_clear_notes() -> None:
 
     assert updated is not None
     assert updated.notes is None
+
+
+def test_move_stock_watchlist_item_swaps_with_neighbor_after_normalizing_order() -> None:
+    db = make_db()
+    db.add_all(
+        [
+            make_stock("MU", display_order=10, priority="High", is_pinned=True),
+            make_stock("MRVL", display_order=10, priority="Medium", is_pinned=True),
+            make_stock("SNDK", display_order=10, priority="High", is_pinned=False),
+        ]
+    )
+    db.commit()
+
+    moved = move_stock_watchlist_item(db, "MRVL", "up")
+
+    assert moved is not None
+    assert [stock.ticker for stock in moved] == ["MRVL", "MU", "SNDK"]
+    assert [(stock.ticker, stock.display_order) for stock in moved[:2]] == [
+        ("MRVL", 10),
+        ("MU", 20),
+    ]
+
+
+def test_move_stock_watchlist_item_stays_within_pin_group() -> None:
+    db = make_db()
+    db.add_all(
+        [
+            make_stock("MU", display_order=10, priority="High", is_pinned=True),
+            make_stock("MRVL", display_order=10, priority="High", is_pinned=False),
+            make_stock("SNDK", display_order=20, priority="Medium", is_pinned=False),
+        ]
+    )
+    db.commit()
+
+    moved = move_stock_watchlist_item(db, "MRVL", "up")
+
+    assert moved is not None
+    assert [stock.ticker for stock in moved] == ["MU", "MRVL", "SNDK"]
+    assert [(stock.ticker, stock.display_order) for stock in moved[1:]] == [
+        ("MRVL", 10),
+        ("SNDK", 20),
+    ]
 
 
 def make_db():

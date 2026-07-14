@@ -20,6 +20,7 @@ from app.schemas.watchlist import (
     StockSignalSummary,
     StockWatchlistItem,
     StockWatchlistItemCreate,
+    StockWatchlistMoveRequest,
     StockWatchlistItemUpdate,
     TopicBriefing,
     TopicWatchlistItem,
@@ -47,6 +48,7 @@ from app.services.watchlist import (
     list_company_watchlist,
     list_product_watchlist,
     list_topic_watchlist,
+    move_stock_watchlist_item,
     seed_initial_company_watchlist,
     seed_initial_product_watchlist,
     seed_initial_stock_watchlist,
@@ -208,6 +210,18 @@ async def update_stock(
     if item is None:
         raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
     return StockWatchlistItem.model_validate(item)
+
+
+@router.post("/stocks/{ticker}/move", response_model=list[StockWatchlistItem])
+async def move_stock(
+    ticker: str,
+    payload: StockWatchlistMoveRequest,
+    db: DbSession,
+) -> list[StockWatchlistItem]:
+    items = move_stock_watchlist_item(db, ticker=ticker, direction=payload.direction)
+    if items is None:
+        raise HTTPException(status_code=404, detail="Stock ticker not found in watchlist.")
+    return [StockWatchlistItem.model_validate(item) for item in items]
 
 
 @router.delete("/stocks/{ticker}", status_code=204)

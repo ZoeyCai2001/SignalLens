@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -151,6 +152,10 @@ class StockWatchlistItemUpdate(BaseModel):
     related_companies: list[str] | None = None
     related_ai_themes: list[str] | None = None
     notes: str | None = None
+
+
+class StockWatchlistMoveRequest(BaseModel):
+    direction: Literal["up", "down"]
 
 
 class CompanyWatchlistItem(BaseModel):

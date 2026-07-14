@@ -319,6 +319,57 @@ def update_stock_watchlist_item(
     return item
 
 
+def move_stock_watchlist_item(
+    db: Session,
+    ticker: str,
+    direction: str,
+) -> list[StockWatchlistItem] | None:
+    item = get_stock_watchlist_item(db, ticker)
+    if item is None:
+        return None
+    normalized_direction = direction.strip().lower()
+    if normalized_direction not in {"up", "down"}:
+        raise ValueError("Stock move direction must be up or down.")
+
+    normalize_stock_display_orders(db=db, is_pinned=item.is_pinned)
+    db.flush()
+    db.refresh(item)
+    peers = list_stock_watchlist_peers(db=db, is_pinned=item.is_pinned)
+    index = next((idx for idx, peer in enumerate(peers) if peer.ticker == item.ticker), -1)
+    neighbor_index = index + (-1 if normalized_direction == "up" else 1)
+    if index < 0 or neighbor_index < 0 or neighbor_index >= len(peers):
+        db.commit()
+        return list_stock_watchlist(db)
+
+    neighbor = peers[neighbor_index]
+    item.display_order, neighbor.display_order = neighbor.display_order, item.display_order
+    db.add_all([item, neighbor])
+    db.commit()
+    return list_stock_watchlist(db)
+
+
+def list_stock_watchlist_peers(db: Session, is_pinned: bool) -> list[StockWatchlistItem]:
+    return (
+        db.query(StockWatchlistItem)
+        .filter(
+            StockWatchlistItem.user_id == LOCAL_USER_ID,
+            StockWatchlistItem.is_pinned.is_(is_pinned),
+        )
+        .order_by(
+            StockWatchlistItem.display_order.asc(),
+            stock_priority_sort_expression(),
+            StockWatchlistItem.ticker.asc(),
+        )
+        .all()
+    )
+
+
+def normalize_stock_display_orders(db: Session, is_pinned: bool) -> None:
+    for index, item in enumerate(list_stock_watchlist_peers(db=db, is_pinned=is_pinned), start=1):
+        item.display_order = index * 10
+        db.add(item)
+
+
 def next_stock_display_order(db: Session) -> int:
     current_max = (
         db.query(func.max(StockWatchlistItem.display_order))
