@@ -36,6 +36,7 @@ class SearchIntent:
     date_to: date | None = None
     min_importance_score: float | None = None
     min_social_signal_score: float | None = None
+    ai_related: bool | None = None
     saved_only: bool = False
     read_status: str | None = None
 
@@ -93,7 +94,7 @@ def search_feed_items(
         if min_social_signal_score is not None
         else intent.min_social_signal_score
     )
-    effective_ai_related = ai_related
+    effective_ai_related = ai_related if ai_related is not None else intent.ai_related
     effective_saved_only = saved_only or intent.saved_only
     effective_read_status = normalize_read_status(read_status or intent.read_status)
 
@@ -162,7 +163,10 @@ def search_feed_items(
     normalized_topic = normalize_filter_value(effective_topic)
     if normalized_topic:
         statement = statement.filter(
-            cast(NormalizedItem.topics, String).ilike(f"%{normalized_topic}%")
+            or_(
+                cast(NormalizedItem.topics, String).ilike(f"%{normalized_topic}%"),
+                cast(NormalizedItem.products, String).ilike(f"%{normalized_topic}%"),
+            )
         )
 
     normalized_manual_tag = normalize_filter_value(effective_manual_tag)
@@ -344,6 +348,7 @@ def has_structured_intent(intent: SearchIntent) -> bool:
         or intent.date_to
         or intent.min_importance_score is not None
         or intent.min_social_signal_score is not None
+        or intent.ai_related is not None
         or intent.saved_only
         or intent.read_status
     )
@@ -376,6 +381,7 @@ def infer_search_intent(
         else None
     )
     min_social_signal_score = infer_min_social_signal_score(lowered)
+    ai_related = infer_ai_related(lowered)
     date_from, date_to = infer_date_range(
         lowered,
         today=today,
@@ -399,9 +405,22 @@ def infer_search_intent(
         date_to=date_to,
         min_importance_score=min_importance_score,
         min_social_signal_score=min_social_signal_score,
+        ai_related=ai_related,
         saved_only=saved_only,
         read_status=read_status,
     )
+
+
+def infer_ai_related(lowered_query: str) -> bool | None:
+    if re.search(
+        r"\b(not\s+ai[- ]related|non[- ]ai|irrelevant|noise|not relevant|"
+        r"relevance review|needs ai relevance review|needs review)\b",
+        lowered_query,
+    ):
+        return False
+    if re.search(r"\b(ai[- ]related|ai relevant|relevant ai)\b", lowered_query):
+        return True
+    return None
 
 
 def infer_min_social_signal_score(lowered_query: str) -> float | None:
@@ -622,6 +641,8 @@ def extract_search_keywords(query: str) -> str | None:
         ("agent harness", "agent harness"),
         ("ai photo tools", "AI photo"),
         ("photo tools", "photo"),
+        ("ai search products", "AI search"),
+        ("search products", "search"),
         ("semiconductor ai", "semiconductor AI"),
         ("export controls", "export control"),
         ("export control", "export control"),
@@ -661,6 +682,13 @@ def extract_search_keywords(query: str) -> str | None:
         cleaned,
         flags=re.IGNORECASE,
     )
+    cleaned = re.sub(
+        r"\b(ai[- ]related|non[- ]ai|ai relevant|relevant ai|relevance review|"
+        r"needs ai relevance review|needs review)\b",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
     cleaned = re.sub(r"\$?[A-Z]{1,5}\b", " ", cleaned)
     cleaned = re.sub(
         r"\b(arxiv|hacker news|hn|github|git hub|hugging face|hf|product hunt|"
@@ -673,7 +701,8 @@ def extract_search_keywords(query: str) -> str | None:
         r"\b(show|me|what|are|the|latest|recent|find|about|posts|post|news|discussion|"
         r"discussions|summarize|most|important|this|week|saved|bookmarked|item|items|"
         r"manual|tag|tags|tagged|chinese|social|media|past|last|today|yesterday|"
-        r"month|months|days?|weeks?|hours?)\b",
+        r"month|months|days?|weeks?|hours?|not|non|related|relevant|irrelevant|"
+        r"noise|review|that|need|needs)\b",
         " ",
         cleaned,
         flags=re.IGNORECASE,

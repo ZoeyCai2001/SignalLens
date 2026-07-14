@@ -131,6 +131,20 @@ def test_infer_search_intent_prefers_chinese_social_context() -> None:
     assert intent.query == "AI photo"
 
 
+def test_infer_search_intent_handles_ai_relevance_review_query() -> None:
+    intent = infer_search_intent("Show not AI-related items that need relevance review.")
+
+    assert intent.ai_related is False
+    assert intent.query is None
+
+
+def test_infer_search_intent_handles_explicit_ai_related_query() -> None:
+    intent = infer_search_intent("Show AI-related stock news.")
+
+    assert intent.ai_related is True
+    assert intent.category == "stock_company_event"
+
+
 def test_infer_search_intent_handles_high_importance_semiconductor_query() -> None:
     intent = infer_search_intent(
         "Summarize the most important semiconductor AI news this week.",
@@ -336,6 +350,35 @@ def test_search_feed_items_applies_inferred_topic_filter() -> None:
         results = search_feed_items(db, query="Find agent harness discussion")
 
     assert [item.title for item in results] == ["Agent harness implementation notes"]
+
+
+def test_search_feed_items_topic_filter_matches_product_facets() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        matching = make_search_item(
+            1,
+            "Chinese social product signal",
+            "AI creator workflow.",
+            topics=["ai"],
+            category="social_trend",
+        )
+        matching.products = ["AI photo tool"]
+        non_matching = make_search_item(
+            2,
+            "Generic agent signal",
+            "Agent workflow.",
+            topics=["agent"],
+            category="technical_trend",
+        )
+        db.add_all([matching, non_matching])
+        db.commit()
+
+        results = search_feed_items(db, topic="AI photo")
+
+    assert [item.title for item in results] == ["Chinese social product signal"]
 
 
 def test_search_feed_items_applies_inferred_source_filter() -> None:
@@ -722,6 +765,7 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
 
     def fake_search_feed_items(**kwargs):
         assert kwargs["query"] == "summarize latest AI coding products"
+        assert kwargs["ai_related"] is None
         assert kwargs["limit"] == 8
         assert kwargs["ranking_weights"] == preferences.ranking_weights
         assert kwargs["preferred_sources"] == preferences.preferred_sources
@@ -747,6 +791,30 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
         result.summary
         == "No matching SignalLens items were found for this natural-language search."
     )
+
+
+@pytest.mark.anyio
+async def test_natural_language_search_route_passes_ai_relevance_intent(monkeypatch) -> None:
+    preferences = make_preferences()
+
+    monkeypatch.setattr(search_routes, "get_user_preferences", lambda db: preferences)
+    monkeypatch.setattr(search_routes, "latest_stored_item_date", lambda db: None)
+
+    def fake_search_feed_items(**kwargs):
+        assert kwargs["ai_related"] is False
+        return []
+
+    monkeypatch.setattr(search_routes, "search_feed_items", fake_search_feed_items)
+
+    result = await search_routes.search_items_with_natural_language(
+        payload=search_routes.NaturalLanguageSearchRequest(
+            query="Show not AI-related items that need relevance review.",
+            limit=8,
+        ),
+        db=object(),
+    )
+
+    assert result.intent.ai_related is False
 
 
 @pytest.mark.anyio

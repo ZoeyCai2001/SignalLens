@@ -19,6 +19,7 @@ class SearchIntentResponse(BaseModel):
     date_to: date | None = None
     min_importance_score: float | None = None
     min_social_signal_score: float | None = None
+    ai_related: bool | None = None
     saved_only: bool = False
     read_status: str | None = None
 

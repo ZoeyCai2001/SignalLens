@@ -74,3 +74,9 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
         "stocks": 1,
         "trends": 4,
     }
+    assert result["search"]["stock_items"] >= 1
+    assert result["search"]["product_items"] >= 1
+    assert result["search"]["product_intent_category"] == "product"
+    assert result["search"]["chinese_items"] >= 1
+    assert result["search"]["chinese_intent_language"] == "zh"
+    assert result["search"]["manual_tag_items"] >= 1

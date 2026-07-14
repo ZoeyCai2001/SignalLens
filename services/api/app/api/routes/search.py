@@ -95,6 +95,7 @@ async def search_items_with_natural_language(
     items = search_feed_items(
         db=db,
         query=payload.query,
+        ai_related=intent.ai_related,
         ranking_weights=preferences.ranking_weights,
         preferred_sources=preferences.preferred_sources,
         blocked_sources=preferences.blocked_sources,

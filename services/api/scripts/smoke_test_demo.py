@@ -78,6 +78,48 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             raise AssertionError(f"Expected demo feed items for module {module}")
         module_counts[module] = len(module_items)
 
+    stock_search = get_json(
+        client,
+        "/api/search?category=stock_company_event&ticker=MU&limit=10",
+    )
+    if not stock_search:
+        raise AssertionError("Expected structured stock search to find MU demo news")
+    product_search = post_json(
+        client,
+        "/api/search/natural-language",
+        json_body={
+            "query": "What are the latest AI search products?",
+            "limit": 10,
+            "module": "products",
+        },
+    )
+    if product_search["intent"]["category"] != "product":
+        raise AssertionError(
+            "Expected natural-language product search to infer product category, "
+            f"got {product_search['intent']['category']!r}"
+        )
+    if not product_search["items"]:
+        raise AssertionError("Expected natural-language product search to find demo products")
+    chinese_search = post_json(
+        client,
+        "/api/search/natural-language",
+        json_body={
+            "query": "Show Chinese social media posts about AI photo tools.",
+            "limit": 10,
+            "module": "chinese",
+        },
+    )
+    if chinese_search["intent"]["language"] != "zh":
+        raise AssertionError(
+            "Expected natural-language Chinese search to infer zh language, "
+            f"got {chinese_search['intent']['language']!r}"
+        )
+    if not chinese_search["items"]:
+        raise AssertionError("Expected natural-language Chinese search to find demo signals")
+    manual_tag_search = get_json(client, "/api/search?manual_tag=coding-agent&limit=10")
+    if not any(item["source_name"] == "Demo Manual Capture" for item in manual_tag_search):
+        raise AssertionError("Expected manual-tag search to find the saved demo capture")
+
     stocks = get_json(client, "/api/stocks/watchlist-dashboard")
     tickers = {item["stock"]["ticker"] for item in stocks}
     missing_tickers = {"MU", "MRVL", "SNDK"} - tickers
@@ -313,6 +355,14 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "feed_items": len(feed),
         "saved_items": len(saved_items),
         "module_counts": module_counts,
+        "search": {
+            "stock_items": len(stock_search),
+            "product_items": len(product_search["items"]),
+            "product_intent_category": product_search["intent"]["category"],
+            "chinese_items": len(chinese_search["items"]),
+            "chinese_intent_language": chinese_search["intent"]["language"],
+            "manual_tag_items": len(manual_tag_search),
+        },
         "stock_rows": len(stocks),
         "stock_move_order": moved_tickers,
         "company_watchlist_rows": len(companies),

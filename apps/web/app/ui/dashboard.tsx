@@ -522,6 +522,7 @@ type SearchIntent = {
   date_to: string | null;
   min_importance_score: number | null;
   min_social_signal_score: number | null;
+  ai_related: boolean | null;
   saved_only: boolean;
   read_status: "read" | "unread" | null;
 };
@@ -12418,6 +12419,11 @@ function buildSearchIntentChips(intent: SearchIntent | null): string[] {
     intent.min_social_signal_score !== null
       ? `social signal: ${intent.min_social_signal_score}`
       : null,
+    intent.ai_related === null
+      ? null
+      : intent.ai_related
+        ? "AI-related"
+        : "needs AI relevance review",
     intent.saved_only ? "saved" : null,
     intent.read_status ? `read: ${intent.read_status}` : null,
   ];
