@@ -183,4 +183,14 @@ class QualityMetricsResponse(BaseModel):
     llm_estimated_cost_per_digest_usd: float | None = None
     llm_estimated_cost_per_active_alert_usd: float | None = None
     llm_operation_usage: list[LlmOperationUsage] = Field(default_factory=list)
+    source_api_call_count: int = 0
+    source_api_calls_per_recent_item: float = 0
+    source_api_pricing_configured: bool = False
+    source_api_estimated_cost_usd: float = 0
+    source_api_projected_monthly_cost_usd: float = 0
+    source_api_monthly_budget_usd: float = 0
+    source_api_monthly_budget_usage: float | None = None
+    source_api_estimated_cost_per_recent_item_usd: float | None = None
+    source_api_estimated_cost_per_digest_usd: float | None = None
+    source_api_estimated_cost_per_active_alert_usd: float | None = None
     quality_findings: list[QualityFinding] = Field(default_factory=list)

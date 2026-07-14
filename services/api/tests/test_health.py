@@ -337,6 +337,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
                 "llm_input_cost_per_1m_tokens": 100,
                 "llm_output_cost_per_1m_tokens": 200,
                 "llm_monthly_budget_usd": 0.05,
+                "source_api_cost_per_1k_calls_usd": 10,
+                "source_api_monthly_budget_usd": 0.05,
             }
         )
 
@@ -437,16 +439,41 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
         0.01,
         abs=0.000001,
     )
+    assert metrics.source_api_call_count == 2
+    assert metrics.source_api_calls_per_recent_item == 1
+    assert metrics.source_api_pricing_configured is True
+    assert metrics.source_api_estimated_cost_usd == pytest.approx(0.02, abs=0.000001)
+    assert metrics.source_api_projected_monthly_cost_usd == pytest.approx(
+        0.085714,
+        abs=0.000001,
+    )
+    assert metrics.source_api_monthly_budget_usd == 0.05
+    assert metrics.source_api_monthly_budget_usage == pytest.approx(1.714, abs=0.001)
+    assert metrics.source_api_estimated_cost_per_recent_item_usd == pytest.approx(
+        0.01,
+        abs=0.000001,
+    )
+    assert metrics.source_api_estimated_cost_per_digest_usd == pytest.approx(
+        0.02,
+        abs=0.000001,
+    )
+    assert metrics.source_api_estimated_cost_per_active_alert_usd == pytest.approx(
+        0.02,
+        abs=0.000001,
+    )
     assert [finding.title for finding in metrics.quality_findings] == [
         "Duplicate pressure",
         "Source failures need review",
         "LLM budget projection is high",
+        "Source API budget projection is high",
     ]
     assert metrics.quality_findings[0].action_module == "sources"
     assert metrics.quality_findings[0].action_source_filter == "attention"
     assert metrics.quality_findings[1].action_label == "Show Failed Runs"
     assert metrics.quality_findings[1].action_source_filter == "failed"
     assert metrics.quality_findings[2].metric == "$0.10/mo projected vs $0.05 budget"
+    assert metrics.quality_findings[3].metric == "$0.09/mo projected vs $0.05 budget"
+    assert metrics.quality_findings[3].action_module == "sources"
 
 
 def test_digest_usefulness_proxy_combines_freshness_and_item_coverage() -> None:

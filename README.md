@@ -201,6 +201,10 @@ API. Set `LLM_INPUT_COST_PER_1M_TOKENS`, `LLM_OUTPUT_COST_PER_1M_TOKENS`, and
 `LLM_MONTHLY_BUDGET_USD` in `.env` to estimate recent spend, monthly projection,
 cost per item/digest/alert, and budget usage in System Readiness.
 
+Optional source API budget tracking uses recent source runs as a local call-volume
+proxy. Set `SOURCE_API_COST_PER_1K_CALLS_USD` and `SOURCE_API_MONTHLY_BUDGET_USD`
+to estimate source API spend without connecting to provider billing APIs.
+
 Product Hunt ingestion is optional and uses the official GraphQL API. Set
 `PRODUCT_HUNT_API_TOKEN` in `.env` to enable it; without a token the source run is
 recorded as `skipped`.

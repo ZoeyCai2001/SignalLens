@@ -255,6 +255,19 @@ def build_quality_metrics(
         if settings.llm_monthly_budget_usd > 0
         else None
     )
+    source_api_estimated_cost_usd = estimate_source_api_cost_usd(
+        call_count=source_run_count,
+        settings=settings,
+    )
+    source_api_projected_monthly_cost_usd = project_monthly_cost(
+        cost_usd=source_api_estimated_cost_usd,
+        window_days=window_days,
+    )
+    source_api_monthly_budget_usage = (
+        ratio(source_api_projected_monthly_cost_usd, settings.source_api_monthly_budget_usd)
+        if settings.source_api_monthly_budget_usd > 0
+        else None
+    )
 
     return QualityMetricsResponse(
         generated_at=generated_at,
@@ -324,6 +337,25 @@ def build_quality_metrics(
             alert_counts["active"],
         ),
         llm_operation_usage=llm_usage["operation_usage"],
+        source_api_call_count=source_run_count,
+        source_api_calls_per_recent_item=ratio(source_run_count, recent_item_count),
+        source_api_pricing_configured=is_source_api_pricing_configured(settings),
+        source_api_estimated_cost_usd=source_api_estimated_cost_usd,
+        source_api_projected_monthly_cost_usd=source_api_projected_monthly_cost_usd,
+        source_api_monthly_budget_usd=round(settings.source_api_monthly_budget_usd, 6),
+        source_api_monthly_budget_usage=source_api_monthly_budget_usage,
+        source_api_estimated_cost_per_recent_item_usd=cost_per_unit(
+            source_api_estimated_cost_usd,
+            recent_item_count,
+        ),
+        source_api_estimated_cost_per_digest_usd=cost_per_unit(
+            source_api_estimated_cost_usd,
+            digest_snapshot_count,
+        ),
+        source_api_estimated_cost_per_active_alert_usd=cost_per_unit(
+            source_api_estimated_cost_usd,
+            alert_counts["active"],
+        ),
         quality_findings=build_quality_findings(
             recent_item_count=recent_item_count,
             covered_module_count=covered_module_count,
@@ -361,6 +393,9 @@ def build_quality_metrics(
             llm_pricing_configured=llm_pricing_configured,
             llm_projected_monthly_cost_usd=llm_projected_monthly_cost_usd,
             llm_monthly_budget_usd=settings.llm_monthly_budget_usd,
+            source_api_pricing_configured=is_source_api_pricing_configured(settings),
+            source_api_projected_monthly_cost_usd=source_api_projected_monthly_cost_usd,
+            source_api_monthly_budget_usd=settings.source_api_monthly_budget_usd,
         ),
     )
 
@@ -1043,6 +1078,14 @@ def estimate_llm_cost_usd(
     return round(input_cost + output_cost, 6)
 
 
+def is_source_api_pricing_configured(settings: Settings) -> bool:
+    return settings.source_api_cost_per_1k_calls_usd > 0
+
+
+def estimate_source_api_cost_usd(*, call_count: int, settings: Settings) -> float:
+    return round((call_count / 1_000) * settings.source_api_cost_per_1k_calls_usd, 6)
+
+
 def project_monthly_cost(cost_usd: float, window_days: int) -> float:
     if window_days <= 0:
         return round(cost_usd, 6)
@@ -1212,6 +1255,9 @@ def build_quality_findings(
     llm_pricing_configured: bool = False,
     llm_projected_monthly_cost_usd: float = 0,
     llm_monthly_budget_usd: float = 0,
+    source_api_pricing_configured: bool = False,
+    source_api_projected_monthly_cost_usd: float = 0,
+    source_api_monthly_budget_usd: float = 0,
 ) -> list[QualityFinding]:
     findings: list[QualityFinding] = []
     today = current_date or latest_digest_snapshot_date or datetime.now(UTC).date()
@@ -1587,6 +1633,27 @@ def build_quality_findings(
                 ),
                 action_label="Review Settings",
                 action_module="settings",
+            )
+        )
+    if (
+        source_api_pricing_configured
+        and source_api_monthly_budget_usd > 0
+        and source_api_projected_monthly_cost_usd > source_api_monthly_budget_usd
+    ):
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="Source API budget projection is high",
+                metric=(
+                    f"${source_api_projected_monthly_cost_usd:.2f}/mo projected "
+                    f"vs ${source_api_monthly_budget_usd:.2f} budget"
+                ),
+                recommendation=(
+                    "Review Source Health, lower polling frequency, or disable optional paid "
+                    "connectors before running more ingestion cycles."
+                ),
+                action_label="Review Sources",
+                action_module="sources",
             )
         )
     return findings

@@ -587,6 +587,16 @@ type QualityMetrics = {
   llm_estimated_cost_per_digest_usd: number | null;
   llm_estimated_cost_per_active_alert_usd: number | null;
   llm_operation_usage: LlmOperationUsage[];
+  source_api_call_count: number;
+  source_api_calls_per_recent_item: number;
+  source_api_pricing_configured: boolean;
+  source_api_estimated_cost_usd: number;
+  source_api_projected_monthly_cost_usd: number;
+  source_api_monthly_budget_usd: number;
+  source_api_monthly_budget_usage: number | null;
+  source_api_estimated_cost_per_recent_item_usd: number | null;
+  source_api_estimated_cost_per_digest_usd: number | null;
+  source_api_estimated_cost_per_active_alert_usd: number | null;
   quality_findings: QualityFinding[];
 };
 
@@ -5108,6 +5118,68 @@ function SystemStatusPanel({
                       qualityMetrics.llm_pricing_configured &&
                       qualityMetrics.llm_estimated_cost_per_active_alert_usd !== null
                         ? formatUsd(qualityMetrics.llm_estimated_cost_per_active_alert_usd)
+                        : "none"
+                    }
+                  />
+                </div>
+                <div className="readiness-grid setup-summary-grid">
+                  <ReadinessMetric
+                    label="API Calls"
+                    value={qualityMetrics.source_api_call_count}
+                  />
+                  <ReadinessMetric
+                    label="API/Item"
+                    value={qualityMetrics.source_api_calls_per_recent_item.toFixed(2)}
+                  />
+                  <ReadinessMetric
+                    label="API Cost"
+                    value={
+                      qualityMetrics.source_api_pricing_configured
+                        ? formatUsd(qualityMetrics.source_api_estimated_cost_usd)
+                        : "free/default"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="API Monthly"
+                    value={
+                      qualityMetrics.source_api_pricing_configured
+                        ? formatUsd(qualityMetrics.source_api_projected_monthly_cost_usd)
+                        : "free/default"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="API Budget"
+                    value={
+                      qualityMetrics.source_api_monthly_budget_usd > 0 &&
+                      qualityMetrics.source_api_monthly_budget_usage !== null
+                        ? formatQualityPercent(qualityMetrics.source_api_monthly_budget_usage)
+                        : "not set"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="API/Item Cost"
+                    value={
+                      qualityMetrics.source_api_pricing_configured &&
+                      qualityMetrics.source_api_estimated_cost_per_recent_item_usd !== null
+                        ? formatUsd(qualityMetrics.source_api_estimated_cost_per_recent_item_usd)
+                        : "none"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="API/Digest"
+                    value={
+                      qualityMetrics.source_api_pricing_configured &&
+                      qualityMetrics.source_api_estimated_cost_per_digest_usd !== null
+                        ? formatUsd(qualityMetrics.source_api_estimated_cost_per_digest_usd)
+                        : "none"
+                    }
+                  />
+                  <ReadinessMetric
+                    label="API/Alert"
+                    value={
+                      qualityMetrics.source_api_pricing_configured &&
+                      qualityMetrics.source_api_estimated_cost_per_active_alert_usd !== null
+                        ? formatUsd(qualityMetrics.source_api_estimated_cost_per_active_alert_usd)
                         : "none"
                     }
                   />
