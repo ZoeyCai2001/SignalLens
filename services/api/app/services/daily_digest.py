@@ -28,6 +28,7 @@ from app.schemas.digest import (
 from app.schemas.feed import FeedItem
 from app.services.feed_actions import (
     LOCAL_USER_ID,
+    build_cross_source_confirmation_scores,
     get_action,
     normalize_language_codes,
     normalize_source_names,
@@ -734,18 +735,23 @@ def normalize_digest_terms(terms: set[str]) -> set[str]:
 
 
 def sort_for_digest(items: list[FeedItem]) -> list[FeedItem]:
+    confirmation_scores = build_cross_source_confirmation_scores(items)
     return sorted(
         items,
         key=lambda item: (
             item.is_important,
-            digest_rank_score(item),
+            digest_rank_score(item, confirmation_scores=confirmation_scores),
             item.published_at or datetime.min.replace(tzinfo=UTC),
         ),
         reverse=True,
     )
 
 
-def digest_rank_score(item: FeedItem) -> float:
+def digest_rank_score(
+    item: FeedItem,
+    confirmation_scores: dict[int, float] | None = None,
+) -> float:
+    confirmation_bonus = confirmation_scores.get(item.id, 0) if confirmation_scores else 0
     return round(
         0.32 * item.importance_score
         + 0.22 * item.relevance_score
@@ -753,7 +759,8 @@ def digest_rank_score(item: FeedItem) -> float:
         + 0.12 * item.classification_confidence
         + 0.08 * item.social_signal_score
         + 0.06 * item.stock_impact_score
-        + 0.04 * item.novelty_score,
+        + 0.04 * item.novelty_score
+        + confirmation_bonus,
         4,
     )
 

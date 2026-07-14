@@ -1,4 +1,6 @@
 import json
+import re
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 
@@ -36,10 +38,53 @@ from app.services.seed_data import (
 LOCAL_USER_ID = "local"
 SAVED_ITEM_RANKING_BONUS = 0.05
 PREFERRED_SOURCE_RANKING_BONUS = 0.08
+CROSS_SOURCE_CONFIRMATION_RANKING_BONUS = 0.08
+CROSS_SOURCE_CONFIRMATION_SOFT_BONUS = 0.06
+REPEATED_EVENT_RANKING_BONUS = 0.03
 FEEDBACK_INTEREST_MATCH_BONUS = 0.035
 FEEDBACK_INTEREST_MATCH_PENALTY = 0.04
 MAX_FEEDBACK_INTEREST_BONUS = 0.10
 MAX_FEEDBACK_INTEREST_PENALTY = 0.12
+
+CONFIRMATION_STOP_WORDS = {
+    "about",
+    "after",
+    "from",
+    "into",
+    "more",
+    "news",
+    "over",
+    "that",
+    "their",
+    "this",
+    "with",
+    "using",
+}
+
+CONFIRMATION_SIGNATURE_TERMS = [
+    "earnings",
+    "guidance",
+    "upgrade",
+    "downgrade",
+    "analyst",
+    "partnership",
+    "deal",
+    "chip",
+    "gpu",
+    "memory",
+    "hbm",
+    "datacenter",
+    "capex",
+    "launch",
+    "release",
+    "model",
+    "benchmark",
+    "agent",
+    "inference",
+    "training",
+    "supply",
+    "export",
+]
 
 TECHNOLOGY_TOPIC_LABELS = {
     "agent": "AI agents",
@@ -930,6 +975,7 @@ def rank_feed_items(
     weights = resolve_ranking_weights(ranking_weights)
     reference_time = now or datetime.now(UTC)
     preferred_source_names = normalize_source_names(preferred_sources)
+    confirmation_scores = build_cross_source_confirmation_scores(items)
     return sorted(
         items,
         key=lambda item: (
@@ -940,6 +986,7 @@ def rank_feed_items(
                 now=reference_time,
                 preferred_sources=preferred_source_names,
                 interest_profile=interest_profile,
+                confirmation_scores=confirmation_scores,
             ),
             item.published_at or datetime.min.replace(tzinfo=UTC),
         ),
@@ -953,6 +1000,7 @@ def weighted_feed_score(
     now: datetime | None = None,
     preferred_sources: set[str] | None = None,
     interest_profile: FeedInterestProfile | None = None,
+    confirmation_scores: dict[int, float] | None = None,
 ) -> float:
     reference_time = now or datetime.now(UTC)
     source_bonus = (
@@ -966,6 +1014,7 @@ def weighted_feed_score(
         item=item,
         interest_profile=interest_profile,
     )
+    confirmation_bonus = confirmation_scores.get(item.id, 0) if confirmation_scores else 0
     return round(
         weights.relevance * item.relevance_score
         + weights.importance * item.importance_score
@@ -977,9 +1026,70 @@ def weighted_feed_score(
         + source_bonus
         + saved_bonus
         + interest_bonus
-        + feedback_adjustment,
+        + feedback_adjustment
+        + confirmation_bonus,
         4,
     )
+
+
+def build_cross_source_confirmation_scores(items: list[FeedItem]) -> dict[int, float]:
+    grouped: dict[str, list[FeedItem]] = defaultdict(list)
+    for item in items:
+        grouped[confirmation_group_key(item)].append(item)
+
+    scores: dict[int, float] = {}
+    for group_items in grouped.values():
+        if len(group_items) <= 1:
+            continue
+        source_count = len({item.source_name for item in group_items if item.source_name})
+        if source_count >= 3 or (source_count >= 2 and len(group_items) >= 3):
+            bonus = CROSS_SOURCE_CONFIRMATION_RANKING_BONUS
+        elif source_count >= 2:
+            bonus = CROSS_SOURCE_CONFIRMATION_SOFT_BONUS
+        else:
+            bonus = REPEATED_EVENT_RANKING_BONUS
+        for item in group_items:
+            scores[item.id] = bonus
+    return scores
+
+
+def confirmation_group_key(item: FeedItem) -> str:
+    strong_terms = [*item.tickers, *item.products]
+    if strong_terms:
+        key_parts = ["strong", item.category, *sorted(term.lower() for term in strong_terms)]
+        signature = confirmation_signature_term(item)
+        if signature:
+            key_parts.append(f"event:{signature}")
+        return "|".join(key_parts)
+
+    title_terms = extract_confirmation_title_terms(item.title)
+    topic_terms = [topic.lower() for topic in item.topics[:4]]
+    key_terms = sorted(set([*topic_terms, *title_terms[:4]]))
+    return "|".join([item.category, *key_terms]) if key_terms else f"item:{item.id}"
+
+
+def confirmation_signature_term(item: FeedItem) -> str | None:
+    text = " ".join(
+        part
+        for part in [
+            item.title,
+            item.summary_short or "",
+            item.why_it_matters or "",
+            " ".join(item.topics[:4]),
+        ]
+        if part
+    ).lower()
+    for term in CONFIRMATION_SIGNATURE_TERMS:
+        if re.search(rf"\b{re.escape(term)}\b", text):
+            return term
+    for term in extract_confirmation_title_terms(item.title):
+        return term
+    return None
+
+
+def extract_confirmation_title_terms(title: str) -> list[str]:
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{2,}", title.lower())
+    return [word for word in words if word not in CONFIRMATION_STOP_WORDS]
 
 
 def resolve_ranking_weights(value: RankingWeights | dict | None) -> RankingWeights:

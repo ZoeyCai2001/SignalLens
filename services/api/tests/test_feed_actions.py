@@ -19,6 +19,7 @@ from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
 from app.services.feed_actions import (
     FeedInterestProfile,
+    build_cross_source_confirmation_scores,
     build_feed_interest_profile,
     build_feed_module_conditions,
     build_feed_topic_filter_terms,
@@ -826,6 +827,35 @@ def test_rank_feed_items_uses_social_signal_weight() -> None:
     )
 
     assert [item.title for item in ranked] == ["Popular launch", "Quiet launch"]
+
+
+def test_rank_feed_items_boosts_cross_source_confirmation() -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+    isolated = make_feed_item(1, "Isolated agent note", relevance_score=0.52)
+    first_confirmed = make_feed_item(2, "Agent routing launch", relevance_score=0.49)
+    first_confirmed.source_name = "Hacker News"
+    second_confirmed = make_feed_item(3, "Agent routing launch", relevance_score=0.49)
+    second_confirmed.source_name = "GitHub"
+
+    ranked = rank_feed_items(
+        [isolated, first_confirmed, second_confirmed],
+        ranking_weights=RankingWeights(
+            relevance=1,
+            importance=0,
+            novelty=0,
+            source_quality=0,
+            social_signal=0,
+            stock_impact=0,
+            freshness=0,
+        ),
+        now=now,
+    )
+
+    assert {item.title for item in ranked[:2]} == {"Agent routing launch"}
+    assert build_cross_source_confirmation_scores([first_confirmed, second_confirmed]) == {
+        2: 0.06,
+        3: 0.06,
+    }
 
 
 def test_weighted_feed_score_boosts_preferred_sources() -> None:

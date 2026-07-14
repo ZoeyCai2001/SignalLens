@@ -264,6 +264,40 @@ def test_sort_for_digest_uses_social_signal() -> None:
     assert digest_rank_score(popular) > digest_rank_score(quiet)
 
 
+def test_sort_for_digest_uses_cross_source_confirmation() -> None:
+    isolated = make_item(
+        1,
+        "Isolated agent signal",
+        "technical_trend",
+        0.72,
+        source_quality_score=0.7,
+        classification_confidence=0.7,
+    )
+    first_confirmed = make_item(
+        2,
+        "Agent routing launch",
+        "technical_trend",
+        0.7,
+        source_name="Hacker News",
+        source_quality_score=0.7,
+        classification_confidence=0.7,
+    )
+    second_confirmed = make_item(
+        3,
+        "Agent routing launch",
+        "technical_trend",
+        0.7,
+        source_name="GitHub",
+        source_quality_score=0.7,
+        classification_confidence=0.7,
+    )
+
+    ranked = sort_for_digest([isolated, first_confirmed, second_confirmed])
+
+    assert {item.title for item in ranked[:2]} == {"Agent routing launch"}
+    assert digest_rank_score(first_confirmed) < digest_rank_score(isolated)
+
+
 def test_build_digest_item_labels_includes_product_names_and_use_case() -> None:
     item = make_item(
         1,
