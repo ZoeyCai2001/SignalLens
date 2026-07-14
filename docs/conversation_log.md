@@ -385,3 +385,4 @@ Implementation progress:
 - Updated Daily Digest previews to render every generated item in each backend-limited section, with a visible shown-count badge, so the dashboard brief matches the generated PRD digest contents.
 - Added an Attention Drivers panel to stock detail overviews so the AI Stock Watchlist ranking exposes all deterministic ranking reasons, signal counts, high-impact counts, and freshness context.
 - Expanded Source Ingestion readiness from generic source counts to PRD source-family coverage, and enriched the no-paid demo dataset with Hacker News, Hugging Face, and selected RSS rows so the MVP verifier proves all initial source families.
+- Added digest usefulness and alert usefulness proxies to quality metrics and System Readiness, keeping PRD success tracking local, transparent, and free of external analytics.

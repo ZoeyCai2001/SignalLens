@@ -208,6 +208,10 @@ def build_quality_metrics(
         alert_counts["dismissed"],
         alert_counts["active"] + alert_counts["dismissed"],
     )
+    alert_usefulness_proxy = build_alert_usefulness_proxy(
+        active_alert_count=alert_counts["active"],
+        dismissed_alert_count=alert_counts["dismissed"],
+    )
     digest_snapshot_count = count_recent_digest_snapshots(db=db, since=since)
     latest_digest_snapshot = get_latest_digest_snapshot(db)
     latest_digest_snapshot_date = (
@@ -219,6 +223,11 @@ def build_quality_metrics(
     latest_digest_age_days = digest_age_days(
         latest_digest_snapshot_date=latest_digest_snapshot_date,
         current_date=generated_at.date(),
+    )
+    digest_usefulness_proxy = build_digest_usefulness_proxy(
+        latest_digest_age_days=latest_digest_age_days,
+        latest_digest_snapshot_item_count=latest_digest_snapshot_item_count,
+        recent_item_count=recent_item_count,
     )
     stock_watchlist_count = count_stock_watchlist_items(db)
     company_watchlist_count = count_company_watchlist_items(db)
@@ -284,7 +293,9 @@ def build_quality_metrics(
         active_alert_count=alert_counts["active"],
         dismissed_alert_count=alert_counts["dismissed"],
         alert_dismissal_rate=alert_dismissal_rate,
+        alert_usefulness_proxy=alert_usefulness_proxy,
         digest_snapshot_count=digest_snapshot_count,
+        digest_usefulness_proxy=digest_usefulness_proxy,
         latest_digest_snapshot_date=latest_digest_snapshot_date,
         latest_digest_age_days=latest_digest_age_days,
         latest_digest_snapshot_item_count=latest_digest_snapshot_item_count,
@@ -837,6 +848,40 @@ def digest_age_days(
     if latest_digest_snapshot_date is None:
         return None
     return max(0, (current_date - latest_digest_snapshot_date).days)
+
+
+def build_digest_usefulness_proxy(
+    *,
+    latest_digest_age_days: int | None,
+    latest_digest_snapshot_item_count: int | None,
+    recent_item_count: int,
+) -> float:
+    if latest_digest_age_days is None or not latest_digest_snapshot_item_count:
+        return 0
+
+    if latest_digest_age_days <= 1:
+        freshness_score = 1.0
+    elif latest_digest_age_days <= 3:
+        freshness_score = 0.65
+    elif latest_digest_age_days <= 7:
+        freshness_score = 0.35
+    else:
+        freshness_score = 0.0
+
+    target_items = min(recent_item_count, 8) if recent_item_count > 0 else 3
+    item_score = ratio(min(latest_digest_snapshot_item_count, target_items), target_items)
+    return round(0.6 * freshness_score + 0.4 * item_score, 3)
+
+
+def build_alert_usefulness_proxy(
+    *,
+    active_alert_count: int,
+    dismissed_alert_count: int,
+) -> float | None:
+    total_alerts = active_alert_count + dismissed_alert_count
+    if total_alerts == 0:
+        return None
+    return ratio(active_alert_count, total_alerts)
 
 
 def count_stock_watchlist_items(db: Session) -> int:

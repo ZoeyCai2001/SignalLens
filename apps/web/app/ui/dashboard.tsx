@@ -547,7 +547,9 @@ type QualityMetrics = {
   active_alert_count: number;
   dismissed_alert_count: number;
   alert_dismissal_rate: number;
+  alert_usefulness_proxy: number | null;
   digest_snapshot_count: number;
+  digest_usefulness_proxy: number;
   latest_digest_snapshot_date: string | null;
   latest_digest_age_days: number | null;
   latest_digest_snapshot_item_count: number | null;
@@ -4971,7 +4973,19 @@ function SystemStatusPanel({
                     label="Alert Dismiss"
                     value={formatQualityPercent(qualityMetrics.alert_dismissal_rate)}
                   />
+                  <ReadinessMetric
+                    label="Alert Use"
+                    value={
+                      qualityMetrics.alert_usefulness_proxy === null
+                        ? "none"
+                        : formatQualityPercent(qualityMetrics.alert_usefulness_proxy)
+                    }
+                  />
                   <ReadinessMetric label="Digests" value={qualityMetrics.digest_snapshot_count} />
+                  <ReadinessMetric
+                    label="Digest Use"
+                    value={formatQualityPercent(qualityMetrics.digest_usefulness_proxy)}
+                  />
                   <ReadinessMetric
                     label="Latest Digest"
                     value={qualityMetrics.latest_digest_snapshot_date ?? "none"}

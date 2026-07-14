@@ -189,9 +189,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "classification_coverage": quality_metrics["classification_coverage"],
             "recent_source_count": quality_metrics["recent_source_count"],
             "digest_snapshot_count": quality_metrics["digest_snapshot_count"],
+            "digest_usefulness_proxy": quality_metrics["digest_usefulness_proxy"],
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
             "manual_submission_count": quality_metrics["manual_submission_count"],
             "saved_read_later_count": quality_metrics["saved_read_later_count"],
+            "alert_usefulness_proxy": quality_metrics["alert_usefulness_proxy"],
         },
         "mvp_checklist": {
             "ready_count": mvp_checklist["ready_count"],

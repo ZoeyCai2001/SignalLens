@@ -5,6 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.routes.health import (
+    build_alert_usefulness_proxy,
+    build_digest_usefulness_proxy,
     build_missing_env_template,
     build_mvp_checklist_response,
     build_quality_findings,
@@ -380,6 +382,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.active_alert_count == 1
     assert metrics.dismissed_alert_count == 1
     assert metrics.alert_dismissal_rate == 0.5
+    assert metrics.alert_usefulness_proxy == 0.5
+    assert metrics.digest_usefulness_proxy == 1
     checklist = build_mvp_checklist_response(
         metrics=metrics,
         setup_summary=build_setup_summary([]),
@@ -443,6 +447,32 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.quality_findings[1].action_label == "Show Failed Runs"
     assert metrics.quality_findings[1].action_source_filter == "failed"
     assert metrics.quality_findings[2].metric == "$0.10/mo projected vs $0.05 budget"
+
+
+def test_digest_usefulness_proxy_combines_freshness_and_item_coverage() -> None:
+    assert (
+        build_digest_usefulness_proxy(
+            latest_digest_age_days=None,
+            latest_digest_snapshot_item_count=None,
+            recent_item_count=8,
+        )
+        == 0
+    )
+    assert build_digest_usefulness_proxy(
+        latest_digest_age_days=0,
+        latest_digest_snapshot_item_count=8,
+        recent_item_count=10,
+    ) == 1
+    assert build_digest_usefulness_proxy(
+        latest_digest_age_days=3,
+        latest_digest_snapshot_item_count=2,
+        recent_item_count=8,
+    ) == 0.49
+
+
+def test_alert_usefulness_proxy_uses_non_dismissed_share() -> None:
+    assert build_alert_usefulness_proxy(active_alert_count=0, dismissed_alert_count=0) is None
+    assert build_alert_usefulness_proxy(active_alert_count=3, dismissed_alert_count=1) == 0.75
 
 
 def test_build_quality_findings_recommends_local_actions() -> None:
