@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db.models import NormalizedItem, UserItemAction
-from app.schemas.llm import FeedProcessingError, FeedProcessingResponse
+from app.schemas.llm import (
+    FeedProcessingCandidatePreview,
+    FeedProcessingError,
+    FeedProcessingResponse,
+)
 from app.services.feed_actions import (
     LOCAL_USER_ID,
     build_feed_module_conditions,
@@ -219,6 +223,14 @@ async def process_llm_batch_items(
 ) -> FeedProcessingResponse:
     enabled_operation_count = int(summarize) + int(classify)
     model_call_budget = requested_limit * enabled_operation_count
+    candidate_previews = build_llm_candidate_previews(
+        items=items,
+        summarize=summarize,
+        classify=classify,
+        skip_summarized=skip_summarized,
+        skip_classified=skip_classified,
+        min_classification_confidence=min_classification_confidence,
+    )
 
     if dry_run:
         planned_model_calls, skipped_count = preview_llm_batch_model_calls(
@@ -244,6 +256,7 @@ async def process_llm_batch_items(
             model_calls_skipped=skipped_count,
             model_calls_unused=max(0, model_call_budget - planned_model_calls - skipped_count),
             item_ids=[item.id for item in items],
+            candidate_previews=candidate_previews,
             errors=[],
         )
 
@@ -322,7 +335,65 @@ async def process_llm_batch_items(
         model_calls_skipped=skipped_count,
         model_calls_unused=model_calls_unused,
         item_ids=processed_item_ids,
+        candidate_previews=candidate_previews,
         errors=errors,
+    )
+
+
+def build_llm_candidate_previews(
+    items: list[NormalizedItem],
+    summarize: bool = True,
+    classify: bool = False,
+    skip_summarized: bool = True,
+    skip_classified: bool = True,
+    min_classification_confidence: float = 0.7,
+) -> list[FeedProcessingCandidatePreview]:
+    return [
+        build_llm_candidate_preview(
+            item=item,
+            summarize=summarize,
+            classify=classify,
+            skip_summarized=skip_summarized,
+            skip_classified=skip_classified,
+            min_classification_confidence=min_classification_confidence,
+        )
+        for item in items
+    ]
+
+
+def build_llm_candidate_preview(
+    item: NormalizedItem,
+    summarize: bool = True,
+    classify: bool = False,
+    skip_summarized: bool = True,
+    skip_classified: bool = True,
+    min_classification_confidence: float = 0.7,
+) -> FeedProcessingCandidatePreview:
+    planned_operations: list[str] = []
+    skipped_operations: list[str] = []
+
+    if classify:
+        if should_classify_item(
+            item,
+            skip_classified=skip_classified,
+            min_classification_confidence=min_classification_confidence,
+        ):
+            planned_operations.append("classify")
+        else:
+            skipped_operations.append("classify")
+    if summarize:
+        if should_summarize_item(item, skip_summarized=skip_summarized):
+            planned_operations.append("summarize")
+        else:
+            skipped_operations.append("summarize")
+
+    return FeedProcessingCandidatePreview(
+        item_id=item.id,
+        title=item.title,
+        source_name=item.source_name,
+        category=item.category,
+        planned_operations=planned_operations,
+        skipped_operations=skipped_operations,
     )
 
 

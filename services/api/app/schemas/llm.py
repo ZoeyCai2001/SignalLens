@@ -31,6 +31,15 @@ class FeedProcessingError(BaseModel):
     error: str
 
 
+class FeedProcessingCandidatePreview(BaseModel):
+    item_id: int
+    title: str
+    source_name: str
+    category: str | None = None
+    planned_operations: list[str] = Field(default_factory=list)
+    skipped_operations: list[str] = Field(default_factory=list)
+
+
 class FeedProcessingResponse(BaseModel):
     requested_limit: int
     dry_run: bool = False
@@ -46,4 +55,5 @@ class FeedProcessingResponse(BaseModel):
     model_calls_skipped: int = 0
     model_calls_unused: int = 0
     item_ids: list[int]
+    candidate_previews: list[FeedProcessingCandidatePreview] = Field(default_factory=list)
     errors: list[FeedProcessingError]

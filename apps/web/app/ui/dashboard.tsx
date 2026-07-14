@@ -505,6 +505,14 @@ type FeedProcessingResponse = {
   model_calls_skipped: number;
   model_calls_unused: number;
   item_ids: number[];
+  candidate_previews: {
+    item_id: number;
+    title: string;
+    source_name: string;
+    category: string | null;
+    planned_operations: string[];
+    skipped_operations: string[];
+  }[];
   errors: { item_id: number; stage: string; error: string }[];
 };
 
@@ -2043,7 +2051,7 @@ export function Dashboard() {
         ? ` for ${formatModuleLabel(activeFeedModule)}`
         : "";
       const nextStatus = result.dry_run
-        ? `${label}${moduleText}: ${result.candidates_seen} candidates, ${result.planned_model_calls}/${result.model_call_budget} LLM calls would be attempted, ${result.skipped_count} skipped`
+        ? `${label}${moduleText}: ${result.candidates_seen} candidates, ${result.planned_model_calls}/${result.model_call_budget} LLM calls would be attempted, ${result.skipped_count} skipped${formatLlmCandidatePreview(result.candidate_previews)}`
         : `${label}${moduleText}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped${callText}`;
       if (result.errors.length) {
         setError(`${result.errors.length} LLM item errors; see API response logs.`);
@@ -12193,6 +12201,18 @@ function searchStatusText(
       ? ` in ${formatElapsedMs(performance.now() - startedAt)}`
       : "";
   return `Search returned ${resultCount} items${moduleText}${elapsedText}`;
+}
+
+function formatLlmCandidatePreview(
+  previews: FeedProcessingResponse["candidate_previews"],
+): string {
+  const planned = previews.filter((preview) => preview.planned_operations.length > 0).slice(0, 3);
+  if (!planned.length) {
+    return "";
+  }
+  const titles = planned.map((preview) => `${preview.title} (${preview.source_name})`);
+  const remaining = previews.filter((preview) => preview.planned_operations.length > 0).length - titles.length;
+  return ` · planned: ${titles.join("; ")}${remaining > 0 ? `; +${remaining} more` : ""}`;
 }
 
 function formatElapsedMs(elapsedMs: number): string {

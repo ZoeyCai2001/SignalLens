@@ -7,6 +7,7 @@ from app.core.config import Settings
 from app.db.models import Base, NormalizedItem, UserItemAction
 from app.schemas.llm import FeedProcessingRequest, FeedProcessingResponse
 from app.services.llm_processing import (
+    build_llm_candidate_preview,
     canonical_llm_candidate_url,
     dedupe_llm_processing_candidates,
     list_llm_processing_candidates,
@@ -342,6 +343,33 @@ def test_preview_llm_batch_model_calls_counts_planned_and_skipped_calls() -> Non
     assert skipped_count == 2
 
 
+def test_build_llm_candidate_preview_lists_planned_and_skipped_operations() -> None:
+    item = make_item(
+        1,
+        title="Existing high-confidence summary",
+        summary_detailed="Existing summary",
+        classification_confidence=0.9,
+        source_name="Curated Source",
+        category="research",
+    )
+
+    preview = build_llm_candidate_preview(
+        item=item,
+        summarize=True,
+        classify=True,
+        skip_summarized=True,
+        skip_classified=True,
+        min_classification_confidence=0.7,
+    )
+
+    assert preview.item_id == 1
+    assert preview.title == "Existing high-confidence summary"
+    assert preview.source_name == "Curated Source"
+    assert preview.category == "research"
+    assert preview.planned_operations == []
+    assert preview.skipped_operations == ["classify", "summarize"]
+
+
 @pytest.mark.anyio
 async def test_process_llm_batch_items_summarizes_unsummarized_items() -> None:
     items = [make_item(1), make_item(2, summary_detailed="Existing")]
@@ -418,6 +446,11 @@ async def test_process_llm_batch_items_dry_run_reports_plan_without_model_calls(
     assert result.model_calls_skipped == 2
     assert result.model_calls_unused == 0
     assert result.item_ids == [1, 2]
+    assert [preview.item_id for preview in result.candidate_previews] == [1, 2]
+    assert result.candidate_previews[0].planned_operations == []
+    assert result.candidate_previews[0].skipped_operations == ["classify", "summarize"]
+    assert result.candidate_previews[1].planned_operations == ["classify", "summarize"]
+    assert result.candidate_previews[1].skipped_operations == []
     assert result.errors == []
 
 
