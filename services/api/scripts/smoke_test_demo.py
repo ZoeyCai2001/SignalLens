@@ -58,6 +58,12 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     feed = get_json(client, "/api/feed?limit=50")
     if len(feed) < 6:
         raise AssertionError(f"Expected at least 6 feed items, got {len(feed)}")
+    useful_item = post_json(client, f"/api/feed/{feed[0]['id']}/mark-useful")
+    not_useful_item = post_json(client, f"/api/feed/{feed[1]['id']}/mark-not-useful")
+    if useful_item["usefulness_feedback"] != "useful":
+        raise AssertionError("Expected item useful feedback to round trip")
+    if not_useful_item["usefulness_feedback"] != "not_useful":
+        raise AssertionError("Expected item not-useful feedback to round trip")
     saved_items = get_json(client, "/api/feed?limit=20&saved_only=true")
     if not any(
         item["source_name"] == "Demo Manual Capture" and "coding-agent" in item["manual_tags"]
@@ -218,6 +224,16 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "Expected useful digest feedback rate to be 1, "
             f"got {quality_metrics['digest_feedback_usefulness_rate']!r}"
         )
+    if quality_metrics["item_feedback_count"] != 2:
+        raise AssertionError(
+            "Expected two item feedback samples, "
+            f"got {quality_metrics['item_feedback_count']!r}"
+        )
+    if quality_metrics["item_feedback_usefulness_rate"] != 0.5:
+        raise AssertionError(
+            "Expected item feedback usefulness rate to be 0.5, "
+            f"got {quality_metrics['item_feedback_usefulness_rate']!r}"
+        )
 
     clusters = get_json(client, "/api/events/clusters?limit=8&min_items=1")
     alerts = get_json(client, "/api/alerts")
@@ -325,6 +341,10 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
                 "digest_feedback_usefulness_rate"
             ],
             "digest_usefulness_proxy": quality_metrics["digest_usefulness_proxy"],
+            "item_feedback_count": quality_metrics["item_feedback_count"],
+            "item_feedback_usefulness_rate": quality_metrics[
+                "item_feedback_usefulness_rate"
+            ],
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
             "manual_submission_count": quality_metrics["manual_submission_count"],
             "manual_enrichment_gap_count": quality_metrics["manual_enrichment_gap_count"],

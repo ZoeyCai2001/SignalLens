@@ -38,6 +38,8 @@ class FeedItem(BaseModel):
     read_at: datetime | None = None
     personal_note: str | None = None
     manual_tags: list[str] = Field(default_factory=list)
+    usefulness_feedback: str | None = None
+    usefulness_feedback_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

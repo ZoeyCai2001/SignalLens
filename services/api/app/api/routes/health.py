@@ -159,7 +159,14 @@ def build_quality_metrics(
     ]
     save_count = count_user_actions(db=db, field_name="is_saved")
     hide_count = count_user_actions(db=db, field_name="is_hidden")
-    feedback_action_count = save_count + hide_count
+    item_feedback_counts = count_item_usefulness_feedback(db)
+    item_feedback_count = sum(item_feedback_counts.values())
+    item_feedback_usefulness_rate = (
+        ratio(item_feedback_counts["useful"], item_feedback_count)
+        if item_feedback_count
+        else None
+    )
+    feedback_action_count = save_count + hide_count + item_feedback_count
     saved_read_count, saved_read_later_count = count_saved_read_statuses(db)
     alert_counts = count_alerts_by_status(db)
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
@@ -319,6 +326,10 @@ def build_quality_metrics(
         save_count=save_count,
         hide_count=hide_count,
         feedback_action_count=feedback_action_count,
+        item_feedback_count=item_feedback_count,
+        item_useful_feedback_count=item_feedback_counts["useful"],
+        item_not_useful_feedback_count=item_feedback_counts["not_useful"],
+        item_feedback_usefulness_rate=item_feedback_usefulness_rate,
         manual_submission_count=manual_submission_count,
         manual_enrichment_gap_count=manual_enrichment_gap_count,
         stock_watchlist_count=stock_watchlist_count,
@@ -829,6 +840,22 @@ def count_user_actions(db: Session, field_name: str) -> int:
         .filter(UserItemAction.user_id == LOCAL_USER_ID, field.is_(True))
         .count()
     )
+
+
+def count_item_usefulness_feedback(db: Session) -> dict[str, int]:
+    counts = {"useful": 0, "not_useful": 0}
+    rows = (
+        db.query(UserItemAction.usefulness_feedback)
+        .filter(
+            UserItemAction.user_id == LOCAL_USER_ID,
+            UserItemAction.usefulness_feedback.in_(tuple(counts)),
+        )
+        .all()
+    )
+    for (feedback,) in rows:
+        if feedback in counts:
+            counts[feedback] += 1
+    return counts
 
 
 def count_saved_read_statuses(db: Session) -> tuple[int, int]:

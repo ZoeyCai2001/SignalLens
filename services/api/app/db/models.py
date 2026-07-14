@@ -139,6 +139,8 @@ class UserItemAction(Base, TimestampMixin):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     personal_note: Mapped[str | None] = mapped_column(Text)
     manual_tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    usefulness_feedback: Mapped[str | None] = mapped_column(String(20))
+    usefulness_feedback_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     item: Mapped[NormalizedItem] = relationship(back_populates="user_actions")
 

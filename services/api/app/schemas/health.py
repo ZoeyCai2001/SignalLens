@@ -153,6 +153,10 @@ class QualityMetricsResponse(BaseModel):
     save_count: int
     hide_count: int
     feedback_action_count: int = 0
+    item_feedback_count: int = 0
+    item_useful_feedback_count: int = 0
+    item_not_useful_feedback_count: int = 0
+    item_feedback_usefulness_rate: float | None = None
     manual_submission_count: int = 0
     manual_enrichment_gap_count: int = 0
     stock_watchlist_count: int = 0

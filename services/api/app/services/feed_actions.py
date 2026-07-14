@@ -93,6 +93,8 @@ def serialize_feed_item(
         data.read_at = action.read_at
         data.personal_note = action.personal_note
         data.manual_tags = normalize_manual_tags(action.manual_tags)
+        data.usefulness_feedback = normalize_usefulness_feedback(action.usefulness_feedback)
+        data.usefulness_feedback_at = action.usefulness_feedback_at
     return data
 
 
@@ -264,6 +266,7 @@ def serialize_feed_item_detail(
             "is_hidden": base.is_hidden,
             "is_important": base.is_important,
             "is_read": base.is_read,
+            "has_usefulness_feedback": base.usefulness_feedback is not None,
         },
     )
 
@@ -612,6 +615,10 @@ def build_score_explanation(item: FeedItem) -> str:
         reasons.append("saved by you")
     if item.is_important:
         reasons.append("marked important by you")
+    if item.usefulness_feedback == "useful":
+        reasons.append("marked useful by you")
+    elif item.usefulness_feedback == "not_useful":
+        reasons.append("marked not useful by you")
     if not reasons:
         reasons.append("matched the AI relevance prefilter")
     return "Shown because it " + "; ".join(reasons) + "."
@@ -1190,6 +1197,7 @@ def build_feed_interest_profile(db: Session) -> FeedInterestProfile:
             (UserItemAction.is_saved.is_(True))
             | (UserItemAction.is_important.is_(True))
             | (UserItemAction.is_hidden.is_(True))
+            | (UserItemAction.usefulness_feedback.in_(("useful", "not_useful")))
         )
         .all()
     )
@@ -1197,12 +1205,13 @@ def build_feed_interest_profile(db: Session) -> FeedInterestProfile:
         feedback_symbols = feedback_symbols_for_item(item)
         feedback_terms = feedback_terms_for_item(item)
         source_name = normalize_interest_source(item.source_name)
-        if action.is_saved or action.is_important:
+        feedback = normalize_usefulness_feedback(action.usefulness_feedback)
+        if action.is_saved or action.is_important or feedback == "useful":
             liked_symbols.update(feedback_symbols)
             liked_terms.update(feedback_terms)
             if source_name:
                 liked_sources.add(source_name)
-        if action.is_hidden:
+        if action.is_hidden or feedback == "not_useful":
             disliked_symbols.update(feedback_symbols)
             disliked_terms.update(feedback_terms)
             if source_name:
@@ -1418,6 +1427,15 @@ def update_item_action(
     elif action_name == "mark-unread":
         action.is_read = False
         action.read_at = None
+    elif action_name == "mark-useful":
+        action.usefulness_feedback = "useful"
+        action.usefulness_feedback_at = datetime.now(UTC)
+    elif action_name == "mark-not-useful":
+        action.usefulness_feedback = "not_useful"
+        action.usefulness_feedback_at = datetime.now(UTC)
+    elif action_name == "clear-feedback":
+        action.usefulness_feedback = None
+        action.usefulness_feedback_at = None
     else:
         raise ValueError(f"Unsupported action: {action_name}")
 
@@ -1459,3 +1477,10 @@ def normalize_manual_tags(values: list[str] | None) -> list[str]:
             tags.append(normalized[:60])
             seen.add(key)
     return tags[:12]
+
+
+def normalize_usefulness_feedback(value: str | None) -> str | None:
+    normalized = str(value or "").strip().lower().replace("-", "_")
+    if normalized in {"useful", "not_useful"}:
+        return normalized
+    return None

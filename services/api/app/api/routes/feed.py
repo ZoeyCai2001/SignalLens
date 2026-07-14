@@ -165,6 +165,24 @@ async def mark_item_unread(item_id: int, db: DbSession) -> FeedItem:
     return update_item_action(db=db, item=item, action_name="mark-unread")
 
 
+@router.post("/{item_id}/mark-useful", response_model=FeedItem)
+async def mark_item_useful(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="mark-useful")
+
+
+@router.post("/{item_id}/mark-not-useful", response_model=FeedItem)
+async def mark_item_not_useful(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="mark-not-useful")
+
+
+@router.post("/{item_id}/clear-feedback", response_model=FeedItem)
+async def clear_item_feedback(item_id: int, db: DbSession) -> FeedItem:
+    item = get_feed_item_or_404(db, item_id)
+    return update_item_action(db=db, item=item, action_name="clear-feedback")
+
+
 @router.patch("/{item_id}/personal-metadata", response_model=FeedItemDetail)
 async def update_item_personal_metadata_route(
     item_id: int,

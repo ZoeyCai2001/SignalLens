@@ -73,6 +73,8 @@ type FeedItem = {
   read_at: string | null;
   personal_note: string | null;
   manual_tags: string[];
+  usefulness_feedback: "useful" | "not_useful" | null;
+  usefulness_feedback_at: string | null;
 };
 
 type FeedItemDetail = FeedItem & {
@@ -583,6 +585,10 @@ type QualityMetrics = {
   save_count: number;
   hide_count: number;
   feedback_action_count: number;
+  item_feedback_count: number;
+  item_useful_feedback_count: number;
+  item_not_useful_feedback_count: number;
+  item_feedback_usefulness_rate: number | null;
   manual_submission_count: number;
   manual_enrichment_gap_count: number;
   stock_watchlist_count: number;
@@ -3153,7 +3159,10 @@ export function Dashboard() {
       | "mark-important"
       | "unmark-important"
       | "mark-read"
-      | "mark-unread",
+      | "mark-unread"
+      | "mark-useful"
+      | "mark-not-useful"
+      | "clear-feedback",
   ) => {
     setBusyItemId(itemId);
     setError(null);
@@ -5131,6 +5140,16 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Feedback"
                     value={qualityMetrics.feedback_action_count}
+                  />
+                  <ReadinessMetric
+                    label="Item Useful"
+                    value={
+                      qualityMetrics.item_feedback_usefulness_rate === null
+                        ? `${qualityMetrics.item_feedback_count} samples`
+                        : `${formatQualityPercent(
+                            qualityMetrics.item_feedback_usefulness_rate,
+                          )} · ${qualityMetrics.item_feedback_count}`
+                    }
                   />
                   <ReadinessMetric
                     label="Manual"
@@ -7603,7 +7622,10 @@ function FeedCard({
       | "mark-important"
       | "unmark-important"
       | "mark-read"
-      | "mark-unread",
+      | "mark-unread"
+      | "mark-useful"
+      | "mark-not-useful"
+      | "clear-feedback",
   ) => void;
   onDelete: (itemId: number) => void;
   onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
@@ -7628,6 +7650,11 @@ function FeedCard({
           {item.is_important ? <span className="badge stock">important</span> : null}
           {item.is_saved ? <span className="badge">saved</span> : null}
           {item.is_read ? <span className="badge muted-badge">read</span> : null}
+          {item.usefulness_feedback ? (
+            <span className="badge">
+              {item.usefulness_feedback === "useful" ? "useful" : "not useful"}
+            </span>
+          ) : null}
           {!item.is_ai_related ? (
             <span className="badge muted-badge">not AI-related</span>
           ) : null}
@@ -7736,6 +7763,56 @@ function FeedCard({
             aria-label={item.is_read ? "Mark unread" : "Mark read"}
           >
             {busy ? <Loader2 className="spin" size={16} /> : <CircleCheck size={16} />}
+          </button>
+          <button
+            className={`button icon-button ${
+              item.usefulness_feedback === "useful" ? "active-icon-button" : ""
+            }`}
+            onClick={() =>
+              onAction(
+                item.id,
+                item.usefulness_feedback === "useful" ? "clear-feedback" : "mark-useful",
+              )
+            }
+            disabled={busy}
+            title={
+              item.usefulness_feedback === "useful"
+                ? "Clear useful feedback"
+                : "Mark item useful"
+            }
+            aria-label={
+              item.usefulness_feedback === "useful"
+                ? "Clear useful feedback"
+                : "Mark item useful"
+            }
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <ThumbsUp size={16} />}
+          </button>
+          <button
+            className={`button icon-button ${
+              item.usefulness_feedback === "not_useful" ? "active-icon-button" : ""
+            }`}
+            onClick={() =>
+              onAction(
+                item.id,
+                item.usefulness_feedback === "not_useful"
+                  ? "clear-feedback"
+                  : "mark-not-useful",
+              )
+            }
+            disabled={busy}
+            title={
+              item.usefulness_feedback === "not_useful"
+                ? "Clear not useful feedback"
+                : "Mark item not useful"
+            }
+            aria-label={
+              item.usefulness_feedback === "not_useful"
+                ? "Clear not useful feedback"
+                : "Mark item not useful"
+            }
+          >
+            {busy ? <Loader2 className="spin" size={16} /> : <ThumbsDown size={16} />}
           </button>
           <button
             className="button icon-button"
@@ -7910,6 +7987,11 @@ function FeedDetailPanel({
         {detail.is_important ? <span className="badge stock">important</span> : null}
         {detail.is_hidden ? <span className="badge muted-badge">hidden</span> : null}
         {detail.is_read ? <span className="badge muted-badge">read</span> : null}
+        {detail.usefulness_feedback ? (
+          <span className="badge">
+            {detail.usefulness_feedback === "useful" ? "useful" : "not useful"}
+          </span>
+        ) : null}
         {detail.category === "product" && detail.subcategory ? (
           <span className="badge">{formatProductUseCaseLabel(detail.subcategory)}</span>
         ) : null}
@@ -8142,6 +8224,7 @@ function updateSelectedFeedDetail(
       is_hidden: updated.is_hidden,
       is_important: updated.is_important,
       is_read: updated.is_read,
+      has_usefulness_feedback: updated.usefulness_feedback !== null,
     },
   };
 }
@@ -8211,6 +8294,15 @@ function feedActionStatus(action: string, itemId: number): string {
   }
   if (action === "unmark-important") {
     return `Removed important mark from item ${itemId}`;
+  }
+  if (action === "mark-useful") {
+    return `Marked item ${itemId} useful`;
+  }
+  if (action === "mark-not-useful") {
+    return `Marked item ${itemId} not useful`;
+  }
+  if (action === "clear-feedback") {
+    return `Cleared feedback for item ${itemId}`;
   }
   return `Updated item ${itemId}`;
 }

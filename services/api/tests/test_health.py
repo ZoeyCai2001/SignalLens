@@ -285,8 +285,19 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
             [
                 make_quality_alert(item_id=1, rule_id=rule.id, status="active"),
                 make_quality_alert(item_id=2, rule_id=rule.id, status="dismissed"),
-                UserItemAction(user_id="local", item_id=1, is_saved=True, is_read=True),
-                UserItemAction(user_id="local", item_id=3, is_hidden=True),
+                UserItemAction(
+                    user_id="local",
+                    item_id=1,
+                    is_saved=True,
+                    is_read=True,
+                    usefulness_feedback="useful",
+                ),
+                UserItemAction(
+                    user_id="local",
+                    item_id=3,
+                    is_hidden=True,
+                    usefulness_feedback="not_useful",
+                ),
                 UserItemAction(user_id="local", item_id=4, is_hidden=True),
                 SourceRun(
                     source_id=1,
@@ -387,7 +398,11 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.source_failure_rate == 0.5
     assert metrics.save_count == 1
     assert metrics.hide_count == 2
-    assert metrics.feedback_action_count == 3
+    assert metrics.feedback_action_count == 5
+    assert metrics.item_feedback_count == 2
+    assert metrics.item_useful_feedback_count == 1
+    assert metrics.item_not_useful_feedback_count == 1
+    assert metrics.item_feedback_usefulness_rate == 0.5
     assert metrics.manual_submission_count == 0
     assert metrics.manual_enrichment_gap_count == 0
     assert metrics.stock_watchlist_count == 0

@@ -363,6 +363,7 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
         "is_hidden": False,
         "is_important": True,
         "is_read": True,
+        "has_usefulness_feedback": False,
     }
     assert "matched tickers MU" in detail.score_explanation
     assert "high source credibility" in detail.score_explanation
@@ -497,6 +498,7 @@ def test_update_item_personal_metadata_saves_note_and_normalized_tags() -> None:
         "is_hidden": False,
         "is_important": False,
         "is_read": False,
+        "has_usefulness_feedback": False,
     }
 
 
@@ -823,7 +825,7 @@ def test_feedback_interest_adjustment_uses_positive_and_negative_feedback() -> N
     assert feedback_interest_adjustment(disliked, profile) == -0.08
 
 
-def test_build_feed_interest_profile_includes_saved_and_hidden_feedback() -> None:
+def test_build_feed_interest_profile_includes_saved_hidden_and_usefulness_feedback() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine)
@@ -847,12 +849,30 @@ def test_build_feed_interest_profile_includes_saved_and_hidden_feedback() -> Non
                     products=["trading bot"],
                     source_name="Noisy RSS",
                 ),
+                make_normalized_item(
+                    3,
+                    "Useful benchmark agent",
+                    language="en",
+                    topics=["benchmark agent"],
+                    products=["eval tool"],
+                    source_name="Research Blog",
+                ),
+                make_normalized_item(
+                    4,
+                    "Not useful automation pitch",
+                    language="en",
+                    topics=["automation spam"],
+                    products=["sales bot"],
+                    source_name="Spam Feed",
+                ),
             ]
         )
         db.add_all(
             [
                 UserItemAction(user_id="local", item_id=1, is_saved=True),
                 UserItemAction(user_id="local", item_id=2, is_hidden=True),
+                UserItemAction(user_id="local", item_id=3, usefulness_feedback="useful"),
+                UserItemAction(user_id="local", item_id=4, usefulness_feedback="not_useful"),
             ]
         )
         db.commit()
@@ -862,9 +882,15 @@ def test_build_feed_interest_profile_includes_saved_and_hidden_feedback() -> Non
     assert "coding agent" in profile.liked_terms
     assert "ide agent" in profile.liked_terms
     assert "github" in profile.liked_sources
+    assert "benchmark agent" in profile.liked_terms
+    assert "eval tool" in profile.liked_terms
+    assert "research blog" in profile.liked_sources
     assert "crypto trading bot" in profile.disliked_terms
     assert "trading bot" in profile.disliked_terms
     assert "noisy rss" in profile.disliked_sources
+    assert "automation spam" in profile.disliked_terms
+    assert "sales bot" in profile.disliked_terms
+    assert "spam feed" in profile.disliked_sources
 
 
 def test_build_feed_interest_profile_includes_default_company_watchlist() -> None:
@@ -1192,6 +1218,37 @@ def test_update_item_action_can_mark_item_read_and_unread() -> None:
     assert unread_item.read_at is None
     assert unread_action.is_read is False
     assert unread_action.read_at is None
+
+
+def test_update_item_action_can_mark_and_clear_usefulness_feedback() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        item = make_normalized_item(1, "Useful signal", language="en")
+        db.add(item)
+        db.commit()
+
+        useful_item = update_item_action(db=db, item=item, action_name="mark-useful")
+        useful_action = db.query(UserItemAction).filter(UserItemAction.item_id == 1).one()
+        assert useful_item.usefulness_feedback == "useful"
+        assert useful_item.usefulness_feedback_at is not None
+        assert useful_action.usefulness_feedback == "useful"
+        assert useful_action.usefulness_feedback_at is not None
+
+        noisy_item = update_item_action(db=db, item=item, action_name="mark-not-useful")
+        noisy_action = db.query(UserItemAction).filter(UserItemAction.item_id == 1).one()
+        assert noisy_item.usefulness_feedback == "not_useful"
+        assert noisy_action.usefulness_feedback == "not_useful"
+
+        cleared_item = update_item_action(db=db, item=item, action_name="clear-feedback")
+        cleared_action = db.query(UserItemAction).filter(UserItemAction.item_id == 1).one()
+
+    assert cleared_item.usefulness_feedback is None
+    assert cleared_item.usefulness_feedback_at is None
+    assert cleared_action.usefulness_feedback is None
+    assert cleared_action.usefulness_feedback_at is None
 
 
 def test_delete_feed_item_removes_stored_content_and_linked_private_state() -> None:
