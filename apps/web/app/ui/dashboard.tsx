@@ -3490,6 +3490,7 @@ export function Dashboard() {
     const isStockView = activeModule === "stocks";
     const isProductView = activeModule === "products";
     const isChineseView = activeModule === "chinese";
+    const isTrendView = activeModule === "trends";
     if (isAlertView) {
       return [
         { label: "Feed", value: feed.length },
@@ -3543,6 +3544,21 @@ export function Dashboard() {
         },
       ];
     }
+    if (isTrendView) {
+      return [
+        { label: "Feed", value: feed.length },
+        { label: "View", value: moduleFeed.length },
+        { label: "Topics", value: topics.length },
+        {
+          label: "Trend Topics",
+          value: topics.filter((topic) => topic.category === "technical_trend").length,
+        },
+        {
+          label: "Digest",
+          value: topics.filter((topic) => topic.include_in_digest).length,
+        },
+      ];
+    }
     const viewCount = isClusterView ? eventClusters.length : moduleFeed.length;
     const highImportance = isClusterView
       ? eventClusters.filter((cluster) => cluster.importance_score >= 0.75).length
@@ -3568,6 +3584,7 @@ export function Dashboard() {
     productWatchlist,
     stockSignals,
     stocks,
+    topics,
   ]);
 
   const systemStatusPanel = (
@@ -3657,6 +3674,28 @@ export function Dashboard() {
       onUpdate={updateProductCategory}
       onDelete={deleteProductCategory}
       onSubmit={submitProductCategory}
+    />
+  );
+  const topicWatchlistPanel = (
+    <TopicTable
+      topics={topics}
+      topicBriefing={topicBriefing}
+      selectedTopic={selectedTopic}
+      busyTopicBriefing={busyTopicBriefing}
+      topic={topicName}
+      label={topicLabel}
+      category={topicCategory}
+      terms={topicTerms}
+      disabled={loadState !== "idle"}
+      busyWatchlistKey={busyWatchlistKey}
+      onTopicChange={setTopicName}
+      onLabelChange={setTopicLabel}
+      onCategoryChange={setTopicCategory}
+      onTermsChange={setTopicTerms}
+      onSelectTopic={setSelectedTopic}
+      onUpdateTopic={updateTopic}
+      onDeleteTopic={deleteTopic}
+      onSubmit={submitTopic}
     />
   );
   const chineseSocialPanel = (
@@ -4149,6 +4188,11 @@ export function Dashboard() {
               {chineseSocialPanel}
               {rankedFeedPanel}
             </section>
+          ) : activeModule === "trends" ? (
+            <section className="module-stack">
+              {topicWatchlistPanel}
+              {rankedFeedPanel}
+            </section>
           ) : (
             rankedFeedPanel
           )}
@@ -4299,26 +4343,7 @@ export function Dashboard() {
               onDelete={deleteCompany}
               onSubmit={submitCompany}
             />
-            <TopicTable
-              topics={topics}
-              topicBriefing={topicBriefing}
-              selectedTopic={selectedTopic}
-              busyTopicBriefing={busyTopicBriefing}
-              topic={topicName}
-              label={topicLabel}
-              category={topicCategory}
-              terms={topicTerms}
-              disabled={loadState !== "idle"}
-              busyWatchlistKey={busyWatchlistKey}
-              onTopicChange={setTopicName}
-              onLabelChange={setTopicLabel}
-              onCategoryChange={setTopicCategory}
-              onTermsChange={setTopicTerms}
-              onSelectTopic={setSelectedTopic}
-              onUpdateTopic={updateTopic}
-              onDeleteTopic={deleteTopic}
-              onSubmit={submitTopic}
-            />
+            {activeModule === "trends" ? null : topicWatchlistPanel}
             {activeModule === "products" ? null : productWatchlistPanel}
             {activeModule === "sources" ? null : sourceHealthPanel}
           </aside>
