@@ -3832,11 +3832,16 @@ export function Dashboard() {
             <SavedItemsPanel
               items={savedItems}
               busyItemId={busyItemId}
+              busyDetailItemId={busyDetailItemId}
+              busyMetadataItemId={busyMetadataItemId}
               busyExport={busySavedExport}
               busyDownload={busySavedDownload}
+              selectedDetail={selectedFeedDetail}
               onCopyExport={copySavedItemsExport}
               onDownloadExport={downloadSavedItemsExport}
+              onDetail={loadFeedDetail}
               onManualTagFilter={applySavedManualTagFilter}
+              onPersonalMetadataSave={saveFeedItemPersonalMetadata}
               onReadToggle={(item) =>
                 updateFeedAction(item.id, item.is_read ? "mark-unread" : "mark-read")
               }
@@ -3978,11 +3983,16 @@ export function Dashboard() {
               <SavedItemsPanel
                 items={savedItems.slice(0, 8)}
                 busyItemId={busyItemId}
+                busyDetailItemId={busyDetailItemId}
+                busyMetadataItemId={busyMetadataItemId}
                 busyExport={busySavedExport}
                 busyDownload={busySavedDownload}
+                selectedDetail={selectedFeedDetail}
                 onCopyExport={copySavedItemsExport}
                 onDownloadExport={downloadSavedItemsExport}
+                onDetail={loadFeedDetail}
                 onManualTagFilter={applySavedManualTagFilter}
+                onPersonalMetadataSave={saveFeedItemPersonalMetadata}
                 onReadToggle={(item) =>
                   updateFeedAction(item.id, item.is_read ? "mark-unread" : "mark-read")
                 }
@@ -6011,21 +6021,31 @@ function uniqueLabels(labels: string[]): string[] {
 function SavedItemsPanel({
   items,
   busyItemId,
+  busyDetailItemId,
+  busyMetadataItemId,
   busyExport,
   busyDownload,
+  selectedDetail,
   onCopyExport,
   onDownloadExport,
+  onDetail,
   onManualTagFilter,
+  onPersonalMetadataSave,
   onReadToggle,
   onUnsave,
 }: {
   items: FeedItem[];
   busyItemId: number | null;
+  busyDetailItemId: number | null;
+  busyMetadataItemId: number | null;
   busyExport: boolean;
   busyDownload: boolean;
+  selectedDetail: FeedItemDetail | null;
   onCopyExport: () => void;
   onDownloadExport: () => void;
+  onDetail: (itemId: number) => void;
   onManualTagFilter: (tag: string) => void;
+  onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
   onReadToggle: (item: FeedItem) => void;
   onUnsave: (itemId: number) => void;
 }) {
@@ -6106,6 +6126,20 @@ function SavedItemsPanel({
                 </div>
                 <div className="table-actions">
                   <button
+                    className="button icon-button"
+                    onClick={() => onDetail(item.id)}
+                    disabled={busyDetailItemId === item.id}
+                    title="Open item details"
+                    aria-label="Open item details"
+                    type="button"
+                  >
+                    {busyDetailItemId === item.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <Search size={16} />
+                    )}
+                  </button>
+                  <button
                     className={`button icon-button ${item.is_read ? "active-icon-button" : ""}`}
                     onClick={() => onReadToggle(item)}
                     disabled={busyItemId === item.id}
@@ -6134,6 +6168,15 @@ function SavedItemsPanel({
                     )}
                   </button>
                 </div>
+                {selectedDetail?.id === item.id ? (
+                  <div className="saved-row-detail">
+                    <FeedDetailPanel
+                      detail={selectedDetail}
+                      busy={busyMetadataItemId === item.id}
+                      onPersonalMetadataSave={onPersonalMetadataSave}
+                    />
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

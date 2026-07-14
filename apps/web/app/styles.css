@@ -1164,7 +1164,7 @@ table {
 
 .saved-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 36px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: start;
   border-top: 1px solid var(--line);
@@ -1180,6 +1180,10 @@ table {
   display: grid;
   gap: 5px;
   min-width: 0;
+}
+
+.saved-row-detail {
+  grid-column: 1 / -1;
 }
 
 .saved-note {

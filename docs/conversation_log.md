@@ -362,3 +362,4 @@ Implementation progress:
 - Marked curated local demo feed rows as high-confidence deterministic classifications and exposed classification coverage in the demo smoke output, improving first-run MVP readiness evidence without spending LLM budget or weakening normal ingestion confidence.
 - Improved dashboard natural-language search summaries by rendering backend-generated summary responses as scannable mini-briefings with a headline and ordered top-signal rows instead of one raw text block.
 - Promoted the Saved Items navigation module to use the full saved reading-queue panel in the main dashboard column, while keeping the shorter saved preview in the sidebar for other modules.
+- Added inline item details to the Saved Items reading queue so saved rows can open the existing detail editor for personal notes, manual tags, summaries, scores, and uncertainty without leaving the saved workflow.
