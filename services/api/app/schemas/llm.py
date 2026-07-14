@@ -18,6 +18,7 @@ class FeedProcessingRequest(BaseModel):
     limit: int = Field(default=3, ge=1, le=10)
     summarize: bool = True
     classify: bool = False
+    dry_run: bool = False
     skip_summarized: bool = True
     skip_classified: bool = True
     min_classification_confidence: float = Field(default=0.7, ge=0, le=1)
@@ -32,7 +33,9 @@ class FeedProcessingError(BaseModel):
 
 class FeedProcessingResponse(BaseModel):
     requested_limit: int
+    dry_run: bool = False
     candidates_seen: int
+    planned_model_calls: int = 0
     summarized_count: int
     classified_count: int
     skipped_count: int

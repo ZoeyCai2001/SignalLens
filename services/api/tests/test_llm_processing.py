@@ -11,6 +11,7 @@ from app.services.llm_processing import (
     dedupe_llm_processing_candidates,
     list_llm_processing_candidates,
     normalize_llm_candidate_title,
+    preview_llm_batch_model_calls,
     process_llm_batch_items,
     should_classify_item,
     should_summarize_item,
@@ -322,6 +323,25 @@ def test_should_classify_item_respects_confidence_threshold() -> None:
     )
 
 
+def test_preview_llm_batch_model_calls_counts_planned_and_skipped_calls() -> None:
+    items = [
+        make_item(1, classification_confidence=0.85, summary_detailed="Existing"),
+        make_item(2, classification_confidence=0.62),
+    ]
+
+    planned_model_calls, skipped_count = preview_llm_batch_model_calls(
+        items=items,
+        summarize=True,
+        classify=True,
+        skip_summarized=True,
+        skip_classified=True,
+        min_classification_confidence=0.7,
+    )
+
+    assert planned_model_calls == 2
+    assert skipped_count == 2
+
+
 @pytest.mark.anyio
 async def test_process_llm_batch_items_summarizes_unsummarized_items() -> None:
     items = [make_item(1), make_item(2, summary_detailed="Existing")]
@@ -354,6 +374,50 @@ async def test_process_llm_batch_items_summarizes_unsummarized_items() -> None:
     assert result.model_calls_skipped == 1
     assert result.model_calls_unused == 0
     assert result.item_ids == [1]
+    assert result.errors == []
+
+
+@pytest.mark.anyio
+async def test_process_llm_batch_items_dry_run_reports_plan_without_model_calls() -> None:
+    items = [
+        make_item(1, classification_confidence=0.85, summary_detailed="Existing"),
+        make_item(2, classification_confidence=0.62),
+    ]
+    called_processors: list[int] = []
+
+    async def fake_processor(db, item: NormalizedItem, settings: Settings) -> NormalizedItem:
+        called_processors.append(item.id)
+        return item
+
+    result = await process_llm_batch_items(
+        db=None,
+        settings=Settings(),
+        items=items,
+        requested_limit=2,
+        summarize=True,
+        classify=True,
+        dry_run=True,
+        skip_summarized=True,
+        skip_classified=True,
+        min_classification_confidence=0.7,
+        summarizer=fake_processor,
+        classifier=fake_processor,
+    )
+
+    assert called_processors == []
+    assert result.dry_run is True
+    assert result.candidates_seen == 2
+    assert result.planned_model_calls == 2
+    assert result.summarized_count == 0
+    assert result.classified_count == 0
+    assert result.skipped_count == 2
+    assert result.model_call_budget == 4
+    assert result.model_calls_attempted == 0
+    assert result.model_calls_succeeded == 0
+    assert result.model_calls_failed == 0
+    assert result.model_calls_skipped == 2
+    assert result.model_calls_unused == 0
+    assert result.item_ids == [1, 2]
     assert result.errors == []
 
 
@@ -453,6 +517,7 @@ async def test_process_feed_route_passes_blocked_sources(monkeypatch) -> None:
     async def fake_process_feed_with_llm(**kwargs) -> FeedProcessingResponse:
         assert kwargs["blocked_sources"] == ["Noisy Blog"]
         assert kwargs["module"] is None
+        assert kwargs["dry_run"] is False
         return FeedProcessingResponse(
             requested_limit=kwargs["limit"],
             candidates_seen=0,
@@ -506,3 +571,44 @@ async def test_process_feed_route_passes_module_filter(monkeypatch) -> None:
     )
 
     assert result.requested_limit == 3
+
+
+@pytest.mark.anyio
+async def test_process_feed_route_passes_dry_run(monkeypatch) -> None:
+    monkeypatch.setattr(
+        llm_routes,
+        "get_settings",
+        lambda: Settings(moonshot_api_key="test-key"),
+    )
+    monkeypatch.setattr(
+        llm_routes,
+        "get_user_preferences",
+        lambda db: type("Preferences", (), {"blocked_sources": []})(),
+    )
+
+    async def fake_process_feed_with_llm(**kwargs) -> FeedProcessingResponse:
+        assert kwargs["dry_run"] is True
+        return FeedProcessingResponse(
+            requested_limit=kwargs["limit"],
+            dry_run=True,
+            candidates_seen=0,
+            summarized_count=0,
+            classified_count=0,
+            skipped_count=0,
+            item_ids=[],
+            errors=[],
+        )
+
+    monkeypatch.setattr(llm_routes, "process_feed_with_llm", fake_process_feed_with_llm)
+
+    result = await llm_routes.process_feed_items(
+        request=FeedProcessingRequest(
+            limit=3,
+            summarize=True,
+            classify=False,
+            dry_run=True,
+        ),
+        db=object(),
+    )
+
+    assert result.dry_run is True

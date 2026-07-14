@@ -126,6 +126,14 @@ curl -X POST "http://127.0.0.1:8000/api/llm/process-feed" \
   -d '{"limit":3,"summarize":true,"classify":false,"skip_summarized":true,"module":"research"}'
 ```
 
+Preview the same capped batch without spending model calls:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/llm/process-feed" \
+  -H "Content-Type: application/json" \
+  -d '{"limit":3,"summarize":true,"classify":true,"dry_run":true,"module":"research"}'
+```
+
 Submit a manual URL:
 
 ```bash

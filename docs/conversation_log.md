@@ -433,3 +433,4 @@ Implementation progress:
 - Added high-social-signal labels and markdown notes to daily digest items so public engagement evidence is visible in morning brief previews and exports.
 - Added inferred and explicit social-signal search filtering so viral, popular, or high-engagement queries use public traction scores instead of plain keyword matching alone.
 - Exposed the minimum social-signal filter in the dashboard advanced search controls and verified explicit traction filtering against Product Hunt-style metadata.
+- Added dry-run LLM batch preview support to the API and dashboard so the same candidate selection can show planned Kimi calls before spending model budget.

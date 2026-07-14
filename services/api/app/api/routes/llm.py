@@ -8,9 +8,9 @@ from app.schemas.llm import (
     SmokeTestRequest,
     SmokeTestResponse,
 )
+from app.services.feed_actions import normalize_feed_module_filter
 from app.services.llm_processing import process_feed_with_llm
 from app.services.preferences import get_user_preferences
-from app.services.feed_actions import normalize_feed_module_filter
 
 router = APIRouter()
 
@@ -64,6 +64,7 @@ async def process_feed_items(
         limit=request.limit,
         summarize=request.summarize,
         classify=request.classify,
+        dry_run=request.dry_run,
         skip_summarized=request.skip_summarized,
         skip_classified=request.skip_classified,
         min_classification_confidence=request.min_classification_confidence,

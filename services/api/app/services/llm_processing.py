@@ -44,6 +44,7 @@ async def process_feed_with_llm(
     limit: int,
     summarize: bool = True,
     classify: bool = False,
+    dry_run: bool = False,
     skip_summarized: bool = True,
     skip_classified: bool = True,
     min_classification_confidence: float = 0.7,
@@ -70,6 +71,7 @@ async def process_feed_with_llm(
         requested_limit=limit,
         summarize=summarize,
         classify=classify,
+        dry_run=dry_run,
         skip_summarized=skip_summarized,
         skip_classified=skip_classified,
         min_classification_confidence=min_classification_confidence,
@@ -208,12 +210,43 @@ async def process_llm_batch_items(
     requested_limit: int,
     summarize: bool = True,
     classify: bool = False,
+    dry_run: bool = False,
     skip_summarized: bool = True,
     skip_classified: bool = True,
     min_classification_confidence: float = 0.7,
     summarizer: LlmItemProcessor | None = None,
     classifier: LlmItemProcessor | None = None,
 ) -> FeedProcessingResponse:
+    enabled_operation_count = int(summarize) + int(classify)
+    model_call_budget = requested_limit * enabled_operation_count
+
+    if dry_run:
+        planned_model_calls, skipped_count = preview_llm_batch_model_calls(
+            items=items,
+            summarize=summarize,
+            classify=classify,
+            skip_summarized=skip_summarized,
+            skip_classified=skip_classified,
+            min_classification_confidence=min_classification_confidence,
+        )
+        return FeedProcessingResponse(
+            requested_limit=requested_limit,
+            dry_run=True,
+            candidates_seen=len(items),
+            planned_model_calls=planned_model_calls,
+            summarized_count=0,
+            classified_count=0,
+            skipped_count=skipped_count,
+            model_call_budget=model_call_budget,
+            model_calls_attempted=0,
+            model_calls_succeeded=0,
+            model_calls_failed=0,
+            model_calls_skipped=skipped_count,
+            model_calls_unused=max(0, model_call_budget - planned_model_calls - skipped_count),
+            item_ids=[item.id for item in items],
+            errors=[],
+        )
+
     if summarize and summarizer is None:
         from app.services.summarization import summarize_feed_item
 
@@ -227,6 +260,7 @@ async def process_llm_batch_items(
     classified_count = 0
     skipped_count = 0
     model_calls_attempted = 0
+    planned_model_calls = 0
     processed_item_ids: list[int] = []
     errors: list[FeedProcessingError] = []
 
@@ -238,6 +272,7 @@ async def process_llm_batch_items(
             min_classification_confidence=min_classification_confidence,
         ):
             assert classifier is not None
+            planned_model_calls += 1
             try:
                 model_calls_attempted += 1
                 item = await classifier(db, item, settings)
@@ -252,6 +287,7 @@ async def process_llm_batch_items(
 
         if summarize and should_summarize_item(item, skip_summarized=skip_summarized):
             assert summarizer is not None
+            planned_model_calls += 1
             try:
                 model_calls_attempted += 1
                 item = await summarizer(db, item, settings)
@@ -267,15 +303,15 @@ async def process_llm_batch_items(
         if touched:
             processed_item_ids.append(item.id)
 
-    enabled_operation_count = int(summarize) + int(classify)
-    model_call_budget = requested_limit * enabled_operation_count
     model_calls_succeeded = summarized_count + classified_count
     model_calls_failed = len(errors)
     model_calls_unused = max(0, model_call_budget - model_calls_attempted - skipped_count)
 
     return FeedProcessingResponse(
         requested_limit=requested_limit,
+        dry_run=False,
         candidates_seen=len(items),
+        planned_model_calls=planned_model_calls,
         summarized_count=summarized_count,
         classified_count=classified_count,
         skipped_count=skipped_count,
@@ -288,6 +324,35 @@ async def process_llm_batch_items(
         item_ids=processed_item_ids,
         errors=errors,
     )
+
+
+def preview_llm_batch_model_calls(
+    items: list[NormalizedItem],
+    summarize: bool = True,
+    classify: bool = False,
+    skip_summarized: bool = True,
+    skip_classified: bool = True,
+    min_classification_confidence: float = 0.7,
+) -> tuple[int, int]:
+    planned_model_calls = 0
+    skipped_count = 0
+
+    for item in items:
+        if classify and should_classify_item(
+            item,
+            skip_classified=skip_classified,
+            min_classification_confidence=min_classification_confidence,
+        ):
+            planned_model_calls += 1
+        elif classify:
+            skipped_count += 1
+
+        if summarize and should_summarize_item(item, skip_summarized=skip_summarized):
+            planned_model_calls += 1
+        elif summarize:
+            skipped_count += 1
+
+    return planned_model_calls, skipped_count
 
 
 def should_summarize_item(item: NormalizedItem, skip_summarized: bool) -> bool:

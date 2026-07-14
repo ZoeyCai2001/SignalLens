@@ -492,7 +492,9 @@ type IngestionScheduleStatus = {
 
 type FeedProcessingResponse = {
   requested_limit: number;
+  dry_run: boolean;
   candidates_seen: number;
+  planned_model_calls: number;
   summarized_count: number;
   classified_count: number;
   skipped_count: number;
@@ -1035,6 +1037,7 @@ type DashboardOperation =
   | "stock-prices:refresh"
   | "alerts:generate"
   | "demo-data:seed"
+  | "llm:preview"
   | "llm:classify"
   | "llm:summarize"
   | `ingest:${IngestionSource}`;
@@ -1992,12 +1995,14 @@ export function Dashboard() {
     label,
     operation,
     moduleOverride,
+    dryRun = false,
   }: {
     summarize: boolean;
     classify: boolean;
     label: string;
     operation: DashboardOperation;
     moduleOverride?: FeedModuleKey | null;
+    dryRun?: boolean;
   }) => {
     setActiveOperation(operation);
     setLoadState("running");
@@ -2015,6 +2020,7 @@ export function Dashboard() {
           limit: 3,
           summarize,
           classify,
+          dry_run: dryRun,
           skip_summarized: true,
           skip_classified: true,
           min_classification_confidence: 0.7,
@@ -2027,7 +2033,9 @@ export function Dashboard() {
       const moduleText = activeFeedModule
         ? ` for ${formatModuleLabel(activeFeedModule)}`
         : "";
-      const nextStatus = `${label}${moduleText}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped${callText}`;
+      const nextStatus = result.dry_run
+        ? `${label}${moduleText}: ${result.candidates_seen} candidates, ${result.planned_model_calls}/${result.model_call_budget} LLM calls would be attempted, ${result.skipped_count} skipped`
+        : `${label}${moduleText}: ${result.classified_count} classified, ${result.summarized_count} summarized, ${result.skipped_count} skipped${callText}`;
       if (result.errors.length) {
         setError(`${result.errors.length} LLM item errors; see API response logs.`);
       }
@@ -4316,6 +4324,27 @@ export function Dashboard() {
               ) : (
                 <RefreshCw size={16} />
               )}
+            </button>
+            <button
+              className="button"
+              onClick={() =>
+                processTopItemsWithLlm({
+                  summarize: true,
+                  classify: true,
+                  label: "LLM preview",
+                  operation: "llm:preview",
+                  dryRun: true,
+                })
+              }
+              disabled={loadState !== "idle"}
+              title="Preview capped Kimi calls for top feed items"
+            >
+              {activeOperation === "llm:preview" ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Bot size={16} />
+              )}
+              Preview
             </button>
             <button
               className="button"
