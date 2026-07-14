@@ -361,6 +361,12 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     quality_metrics = get_json(client, "/api/quality-metrics")
     assert_minimum(quality_metrics, "recent_item_count", 5)
     assert_minimum(quality_metrics, "covered_module_count", 5)
+    latest_item_age_hours = quality_metrics["latest_item_age_hours"]
+    if latest_item_age_hours is None or latest_item_age_hours > 36:
+        raise AssertionError(
+            "Expected demo quality metrics to prove fresh daily collection, "
+            f"got latest item age {latest_item_age_hours!r}h"
+        )
     mvp_checklist = get_json(client, "/api/mvp-checklist")
     if mvp_checklist["total_count"] != 9:
         raise AssertionError(
@@ -629,6 +635,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "alert_count": len(alerts),
         "quality": {
             "recent_item_count": quality_metrics["recent_item_count"],
+            "latest_item_age_hours": quality_metrics["latest_item_age_hours"],
             "covered_module_count": quality_metrics["covered_module_count"],
             "relevance_precision_proxy": quality_metrics["relevance_precision_proxy"],
             "duplicate_rate": quality_metrics["duplicate_rate"],

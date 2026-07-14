@@ -592,6 +592,8 @@ type QualityMetrics = {
   window_days: number;
   total_item_count: number;
   recent_item_count: number;
+  latest_item_at: string | null;
+  latest_item_age_hours: number | null;
   recent_module_counts: Record<string, number>;
   covered_module_count: number;
   recent_source_count: number;
@@ -5330,6 +5332,10 @@ function SystemStatusPanel({
                     value={qualityMetrics.high_value_items_per_day.toFixed(2)}
                   />
                   <ReadinessMetric
+                    label="Newest Item"
+                    value={formatAgeHours(qualityMetrics.latest_item_age_hours)}
+                  />
+                  <ReadinessMetric
                     label="Needs Summary"
                     value={qualityMetrics.high_value_unsummarized_count}
                   />
@@ -5750,6 +5756,19 @@ function formatDuration(seconds: number): string {
   return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }
 
+function formatAgeHours(hours: number | null): string {
+  if (hours === null || !Number.isFinite(hours)) {
+    return "none";
+  }
+  if (hours < 1) {
+    return "<1h";
+  }
+  if (hours < 48) {
+    return `${Math.round(hours)}h`;
+  }
+  return `${Math.round(hours / 24)}d`;
+}
+
 function formatDigestSnapshotStatus(result: ScheduledCycleResponse): string {
   if (result.saved_digest_date) return result.saved_digest_date;
   return result.digest_snapshot_status.replaceAll("_", " ");
@@ -5887,6 +5906,8 @@ function buildPrdMvpChecklist({
 }): MvpChecklistItem[] {
   const recentItems = qualityMetrics?.recent_item_count ?? itemCount;
   const coveredModules = qualityMetrics?.covered_module_count ?? 0;
+  const latestItemAgeHours = qualityMetrics?.latest_item_age_hours ?? null;
+  const latestItemIsFresh = latestItemAgeHours !== null && latestItemAgeHours <= 36;
   const recentSourceCount = qualityMetrics?.recent_source_count ?? 0;
   const classificationCoverage = qualityMetrics?.classification_coverage ?? 0;
   const summaryCoverage = qualityMetrics?.summary_coverage ?? 0;
@@ -5907,19 +5928,33 @@ function buildPrdMvpChecklist({
       key: "dashboard-feed",
       label: "Ranked Dashboard",
       status:
-        recentItems > 0 && coveredModules >= 3
+        recentItems > 0 && coveredModules >= 3 && latestItemIsFresh
           ? "ready"
           : recentItems > 0
             ? "partial"
             : "needs_action",
-      metric: `${recentItems} recent · ${coveredModules}/5 modules`,
+      metric: `${recentItems} recent · ${coveredModules}/5 modules · ${formatAgeHours(
+        latestItemAgeHours,
+      )}`,
       note:
-        recentItems > 0
-          ? "Feed data is available across the first-class PRD modules."
+        recentItems > 0 && latestItemIsFresh
+          ? "Fresh feed data is available across the first-class PRD modules."
+          : recentItems > 0
+            ? "Run a source cycle because the newest visible item is stale."
           : "Run a source cycle or seed demo data to populate the ranked feed.",
-      actionLabel: recentItems > 0 ? "Open Dashboard" : "Seed Demo Data",
+      actionLabel:
+        recentItems > 0 && latestItemIsFresh
+          ? "Open Dashboard"
+          : recentItems > 0
+            ? "Run Full Cycle"
+            : "Seed Demo Data",
       actionModule: "dashboard",
-      actionOperation: recentItems > 0 ? undefined : "demo-data:seed",
+      actionOperation:
+        recentItems > 0 && latestItemIsFresh
+          ? undefined
+          : recentItems > 0
+            ? "cycle"
+            : "demo-data:seed",
       actionTargetId: "ranked-feed-workflow",
     },
     {

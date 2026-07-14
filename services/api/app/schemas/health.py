@@ -134,6 +134,8 @@ class QualityMetricsResponse(BaseModel):
     window_days: int
     total_item_count: int
     recent_item_count: int
+    latest_item_at: datetime | None = None
+    latest_item_age_hours: float | None = None
     recent_module_counts: dict[str, int] = Field(default_factory=dict)
     covered_module_count: int = 0
     recent_source_count: int = 0

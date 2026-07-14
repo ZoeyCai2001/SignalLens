@@ -400,6 +400,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
 
     assert metrics.total_item_count == 2
     assert metrics.recent_item_count == 2
+    assert metrics.latest_item_at is not None
+    assert 23 <= (metrics.latest_item_age_hours or 0) <= 25
     assert metrics.recent_module_counts == {
         "trends": 2,
         "research": 0,
@@ -727,6 +729,35 @@ def test_build_quality_findings_recommends_local_actions() -> None:
     assert findings[2].action_label == "Preview LLM Batch"
     assert findings[2].action_operation == "llm:preview"
     assert findings[3].action_operation == "llm:preview"
+
+
+def test_build_quality_findings_flags_stale_collection() -> None:
+    findings = build_quality_findings(
+        recent_item_count=8,
+        high_value_item_count=2,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        latest_item_age_hours=49,
+    )
+
+    assert [finding.title for finding in findings] == ["Collection is stale"]
+    assert findings[0].metric == "newest item 49h old"
+    assert findings[0].action_label == "Run Full Cycle"
+    assert findings[0].action_module == "sources"
+    assert findings[0].action_operation == "cycle"
+    assert findings[0].action_source_filter == "attention"
 
 
 def test_build_mvp_checklist_response_guides_empty_first_run() -> None:

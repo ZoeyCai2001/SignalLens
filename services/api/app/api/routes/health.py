@@ -167,6 +167,11 @@ def build_quality_metrics(
     recent_rows = [
         item for item in total_rows if quality_item_timestamp(item, generated_at) >= since
     ]
+    latest_item_at = latest_quality_item_timestamp(total_rows, generated_at)
+    latest_item_age_hours = item_age_hours(
+        latest_item_at=latest_item_at,
+        current_time=generated_at,
+    )
     save_count = count_user_actions(db=db, field_name="is_saved")
     hide_count = count_user_actions(db=db, field_name="is_hidden")
     item_feedback_counts = count_item_usefulness_feedback(db)
@@ -333,6 +338,8 @@ def build_quality_metrics(
         window_days=window_days,
         total_item_count=len(total_rows),
         recent_item_count=recent_item_count,
+        latest_item_at=latest_item_at,
+        latest_item_age_hours=latest_item_age_hours,
         recent_module_counts=recent_module_counts,
         covered_module_count=covered_module_count,
         recent_source_count=recent_source_count,
@@ -475,6 +482,7 @@ def build_quality_metrics(
             latest_stock_price_date=latest_stock_price_date,
             stock_watchlist_count=stock_watchlist_count,
             recent_stock_signal_count=recent_stock_signal_count,
+            latest_item_age_hours=latest_item_age_hours,
             current_date=generated_at.date(),
             llm_calls_per_recent_item=llm_calls_per_recent_item,
             llm_pricing_configured=llm_pricing_configured,
@@ -597,6 +605,14 @@ def build_mvp_checklist_items(
         else "no price"
     )
     latest_digest_age = metrics.latest_digest_age_days
+    latest_item_is_fresh = (
+        metrics.latest_item_age_hours is not None and metrics.latest_item_age_hours <= 36
+    )
+    latest_item_age_label = (
+        "none"
+        if metrics.latest_item_age_hours is None
+        else f"{round(metrics.latest_item_age_hours)}h old"
+    )
 
     return [
         MvpChecklistItem(
@@ -604,20 +620,34 @@ def build_mvp_checklist_items(
             label="Ranked Dashboard",
             status=(
                 "ready"
-                if recent_items > 0 and covered_modules >= 3
+                if recent_items > 0 and covered_modules >= 3 and latest_item_is_fresh
                 else "partial"
                 if recent_items > 0
                 else "needs_action"
             ),
-            metric=f"{recent_items} recent; {covered_modules}/5 modules",
+            metric=f"{recent_items} recent; {covered_modules}/5 modules; {latest_item_age_label}",
             note=(
-                "Feed data is available across the first-class PRD modules."
+                "Fresh feed data is available across the first-class PRD modules."
+                if recent_items > 0 and latest_item_is_fresh
+                else "Run a source cycle because the newest visible item is stale."
                 if recent_items > 0
                 else "Run a source cycle or seed demo data to populate the ranked feed."
             ),
-            action_label="Open Dashboard" if recent_items > 0 else "Seed Demo Data",
+            action_label=(
+                "Open Dashboard"
+                if recent_items > 0 and latest_item_is_fresh
+                else "Run Full Cycle"
+                if recent_items > 0
+                else "Seed Demo Data"
+            ),
             action_module="dashboard",
-            action_operation=None if recent_items > 0 else "demo-data:seed",
+            action_operation=(
+                None
+                if recent_items > 0 and latest_item_is_fresh
+                else "cycle"
+                if recent_items > 0
+                else "demo-data:seed"
+            ),
             action_target_id="ranked-feed-workflow",
         ),
         MvpChecklistItem(
@@ -915,6 +945,29 @@ def quality_item_timestamp(item: NormalizedItem, fallback: datetime) -> datetime
     if timestamp.tzinfo is None:
         return timestamp.replace(tzinfo=UTC)
     return timestamp
+
+
+def latest_quality_item_timestamp(
+    items: list[NormalizedItem],
+    fallback: datetime,
+) -> datetime | None:
+    if not items:
+        return None
+    return max(quality_item_timestamp(item, fallback) for item in items)
+
+
+def item_age_hours(
+    latest_item_at: datetime | None,
+    current_time: datetime,
+) -> float | None:
+    if latest_item_at is None:
+        return None
+    if latest_item_at.tzinfo is None:
+        latest_item_at = latest_item_at.replace(tzinfo=UTC)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=UTC)
+    elapsed = max((current_time - latest_item_at).total_seconds(), 0)
+    return round(elapsed / 3600, 2)
 
 
 def count_user_actions(db: Session, field_name: str) -> int:
@@ -1548,6 +1601,7 @@ def build_quality_findings(
     latest_digest_snapshot_date: date | None,
     latest_digest_snapshot_item_count: int | None,
     llm_calls_per_recent_item: float,
+    latest_item_age_hours: float | None = None,
     alert_rule_count: int = 0,
     active_alert_rule_count: int = 0,
     snoozed_alert_rule_count: int = 0,
@@ -1593,6 +1647,22 @@ def build_quality_findings(
                 action_label="Seed Demo Data",
                 action_module="dashboard",
                 action_operation="demo-data:seed",
+            )
+        )
+    elif latest_item_age_hours is not None and latest_item_age_hours > 36:
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="Collection is stale",
+                metric=f"newest item {round(latest_item_age_hours)}h old",
+                recommendation=(
+                    "Run a full ingestion cycle so the dashboard reflects current AI, "
+                    "product, research, and stock signals."
+                ),
+                action_label="Run Full Cycle",
+                action_module="sources",
+                action_operation="cycle",
+                action_source_filter="attention",
             )
         )
     elif relevance_precision_proxy < 0.6:
