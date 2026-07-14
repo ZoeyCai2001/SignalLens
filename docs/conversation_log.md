@@ -381,3 +381,4 @@ Implementation progress:
 - Anchored natural-language search response intent to the latest stored item date so recent/latest filter chips match the same data-relative search window used for results.
 - Expanded event-cluster detail review with all related sources, affected ticker/topic labels, confirmation counts, timing, scores, and the full available timeline so cluster evidence matches the PRD review fields.
 - Expanded alert cards with matched-rule evidence, source timing, score context, item summaries, and matched labels so dashboard alerts are easier to audit before acting on them.
+- Updated Daily Digest previews to render every generated item in each backend-limited section, with a visible shown-count badge, so the dashboard brief matches the generated PRD digest contents.

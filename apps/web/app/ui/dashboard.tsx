@@ -6277,6 +6277,7 @@ function DailyDigestPanel({
                   <div className="digest-section-title">{section.title}</div>
                   <div className="small-muted">{section.focus}</div>
                   <div className="digest-coverage">
+                    <span className="badge">{section.items.length} shown</span>
                     {digestSectionMetricLabels(section).map((label) => (
                       <span className="badge" key={`${section.key}:${label}`}>
                         {label}
@@ -6284,7 +6285,7 @@ function DailyDigestPanel({
                     ))}
                   </div>
                   <div className="digest-list">
-                    {section.items.slice(0, 3).map((item) => (
+                    {section.items.map((item) => (
                       <div className="digest-preview-item" key={item.id}>
                         <a
                           className="digest-link"
