@@ -454,3 +454,4 @@ Implementation progress:
 - Added explicit `REDDIT_USER_AGENT` and `REDDIT_SUBREDDITS` configuration for built-in Reddit ingestion, surfaced Reddit setup readiness in health/System Readiness, and documented the public-metadata/no-secret configuration path.
 - Added source-specific recovery hints to persistent Source Health rows so optional free sources name the relevant credential, user-agent, public RSS, or subreddit setup step without requiring a fresh manual run.
 - Added Reddit to the System Readiness integration badge row and demo smoke evidence so supported Reddit ingestion setup cannot drift out of the dashboard view.
+- Added watched-stock signal coverage metrics to System Readiness and the no-paid demo verifier, making PRD stock-news linkage and high-impact stock evidence visible outside the stock detail page.

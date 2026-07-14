@@ -62,6 +62,7 @@ PRD_FEED_MODULES = ("trends", "research", "products", "stocks", "chinese")
 SUMMARY_SCAN_MIN_CHARS = 40
 SUMMARY_DETAIL_MIN_CHARS = 120
 SUMMARY_CONTEXT_MIN_CHARS = 30
+STOCK_SIGNAL_HIGH_IMPACT_THRESHOLD = 0.75
 
 PRD_SOURCE_FAMILIES = {
     "arxiv": "arXiv",
@@ -277,6 +278,15 @@ def build_quality_metrics(
         digest_feedback_not_useful_count=digest_feedback_counts["not_useful"],
     )
     stock_watchlist_count = count_stock_watchlist_items(db)
+    watched_stock_tickers = list_watched_stock_tickers(db)
+    (
+        recent_stock_signal_count,
+        recent_stock_high_impact_count,
+        stock_signal_ticker_count,
+    ) = summarize_recent_stock_signal_coverage(
+        items=recent_rows,
+        watched_tickers=watched_stock_tickers,
+    )
     company_watchlist_count = count_company_watchlist_items(db)
     topic_watchlist_count = count_topic_watchlist_items(db)
     product_watchlist_count = count_product_watchlist_items(db)
@@ -350,6 +360,9 @@ def build_quality_metrics(
         manual_submission_count=manual_submission_count,
         manual_enrichment_gap_count=manual_enrichment_gap_count,
         stock_watchlist_count=stock_watchlist_count,
+        recent_stock_signal_count=recent_stock_signal_count,
+        recent_stock_high_impact_count=recent_stock_high_impact_count,
+        stock_signal_ticker_count=stock_signal_ticker_count,
         company_watchlist_count=company_watchlist_count,
         topic_watchlist_count=topic_watchlist_count,
         product_watchlist_count=product_watchlist_count,
@@ -699,14 +712,26 @@ def build_mvp_checklist_items(
             label="AI Stock Watchlist",
             status=(
                 "ready"
-                if metrics.stock_watchlist_count > 0 and metrics.latest_stock_price_date
+                if metrics.stock_watchlist_count > 0
+                and metrics.latest_stock_price_date
+                and metrics.recent_stock_signal_count > 0
                 else "partial"
                 if metrics.stock_watchlist_count > 0
                 else "needs_action"
             ),
-            metric=f"{metrics.stock_watchlist_count} tickers; {latest_stock_price}",
+            metric=(
+                f"{metrics.stock_watchlist_count} tickers; "
+                f"{metrics.recent_stock_signal_count} signals; {latest_stock_price}"
+            ),
             note=(
-                "Ticker monitoring is available; fresh prices improve market-context checks."
+                "Ticker monitoring has recent AI-linked stock signals and market context."
+                if metrics.stock_watchlist_count > 0
+                and metrics.latest_stock_price_date
+                and metrics.recent_stock_signal_count > 0
+                else (
+                    "Ticker monitoring is available; recent stock signals and fresh prices "
+                    "improve market-context checks."
+                )
                 if metrics.stock_watchlist_count > 0
                 else "Add or seed watched tickers before relying on stock signals."
             ),
@@ -1059,6 +1084,46 @@ def count_stock_watchlist_items(db: Session) -> int:
         .filter(StockWatchlistItem.user_id == LOCAL_USER_ID)
         .count()
     )
+
+
+def list_watched_stock_tickers(db: Session) -> set[str]:
+    rows = (
+        db.query(StockWatchlistItem.ticker)
+        .filter(StockWatchlistItem.user_id == LOCAL_USER_ID)
+        .all()
+    )
+    return {str(row[0]).strip().upper() for row in rows if row[0]}
+
+
+def summarize_recent_stock_signal_coverage(
+    *,
+    items: list[NormalizedItem],
+    watched_tickers: set[str],
+) -> tuple[int, int, int]:
+    if not watched_tickers:
+        return 0, 0, 0
+
+    signal_count = 0
+    high_impact_count = 0
+    covered_tickers: set[str] = set()
+    for item in items:
+        matched_tickers = {
+            str(ticker).strip().upper()
+            for ticker in (item.tickers or [])
+            if str(ticker).strip().upper() in watched_tickers
+        }
+        if not matched_tickers:
+            continue
+
+        signal_count += 1
+        covered_tickers.update(matched_tickers)
+        if (
+            (item.stock_impact_score or 0) >= STOCK_SIGNAL_HIGH_IMPACT_THRESHOLD
+            or item.importance_score >= STOCK_SIGNAL_HIGH_IMPACT_THRESHOLD
+        ):
+            high_impact_count += 1
+
+    return signal_count, high_impact_count, len(covered_tickers)
 
 
 def count_company_watchlist_items(db: Session) -> int:

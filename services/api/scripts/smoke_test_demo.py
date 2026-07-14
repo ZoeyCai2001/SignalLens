@@ -580,6 +580,22 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "ticker": stock_detail["stock"]["ticker"],
             "timeline_items": len(stock_detail["recent_timeline"]),
             "event_rows": len(stock_events),
+            "linked_tickers": sorted(
+                {
+                    ticker
+                    for event in stock_events
+                    for ticker in event["item"].get("tickers", [])
+                }
+            ),
+            "ai_related_event_rows": sum(
+                1 for event in stock_events if event["item"]["is_ai_related"]
+            ),
+            "high_impact_events": sum(
+                1
+                for event in stock_events
+                if event["item"]["stock_impact_score"] >= 0.75
+                or event["item"]["importance_score"] >= 0.75
+            ),
             "price_points": len(stock_price_series["history"]),
             "has_ai_relevance_summary": bool(stock_detail["ai_relevance_summary"]),
             "has_disclaimer": "does not provide investment advice"
@@ -647,6 +663,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
             "manual_submission_count": quality_metrics["manual_submission_count"],
             "manual_enrichment_gap_count": quality_metrics["manual_enrichment_gap_count"],
+            "recent_stock_signal_count": quality_metrics["recent_stock_signal_count"],
+            "recent_stock_high_impact_count": quality_metrics[
+                "recent_stock_high_impact_count"
+            ],
+            "stock_signal_ticker_count": quality_metrics["stock_signal_ticker_count"],
             "saved_read_later_count": quality_metrics["saved_read_later_count"],
             "alert_usefulness_proxy": quality_metrics["alert_usefulness_proxy"],
             "llm_call_count": quality_metrics["llm_call_count"],
@@ -667,6 +688,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "partial_count": mvp_checklist["partial_count"],
             "needs_action_count": mvp_checklist["needs_action_count"],
             "source_ingestion_metric": checklist_by_key["source-ingestion"]["metric"],
+            "stock_watchlist_metric": checklist_by_key["stock-watchlist"]["metric"],
         },
         "health": {
             "status": health["status"],

@@ -20,6 +20,8 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["stock_detail"]["ticker"] == "MU"
     assert result["stock_detail"]["timeline_items"] >= 1
     assert result["stock_detail"]["event_rows"] >= 1
+    assert result["stock_detail"]["ai_related_event_rows"] >= 1
+    assert "MU" in result["stock_detail"]["linked_tickers"]
     assert result["stock_detail"]["price_points"] >= 2
     assert result["stock_detail"]["has_ai_relevance_summary"] is True
     assert result["stock_detail"]["has_disclaimer"] is True
@@ -63,6 +65,9 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["latest_digest_age_days"] == 0
     assert result["quality"]["manual_submission_count"] == 1
     assert result["quality"]["manual_enrichment_gap_count"] == 0
+    assert result["quality"]["recent_stock_signal_count"] >= 1
+    assert result["quality"]["recent_stock_high_impact_count"] >= 0
+    assert result["quality"]["stock_signal_ticker_count"] >= 1
     assert result["quality"]["saved_read_later_count"] >= 1
     assert result["quality"]["alert_usefulness_proxy"] > 0
     assert result["quality"]["llm_call_count"] == 0
@@ -71,12 +76,15 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["source_api_call_count"] >= 8
     assert result["quality"]["source_api_calls_per_recent_item"] > 0
     assert result["quality"]["source_api_projected_monthly_cost_usd"] == 0
-    assert result["mvp_checklist"] == {
-        "ready_count": 9,
-        "partial_count": 0,
-        "needs_action_count": 0,
-        "source_ingestion_metric": "9/9 PRD families; 10 recent sources",
-    }
+    assert result["mvp_checklist"]["ready_count"] == 9
+    assert result["mvp_checklist"]["partial_count"] == 0
+    assert result["mvp_checklist"]["needs_action_count"] == 0
+    assert result["mvp_checklist"]["source_ingestion_metric"] == (
+        "9/9 PRD families; 10 recent sources"
+    )
+    assert result["mvp_checklist"]["stock_watchlist_metric"].startswith(
+        "3 tickers; 1 signals;"
+    )
     assert result["settings_backup"]["sources"] >= 8
     assert result["settings_backup"]["alert_rules"] >= 8
     assert result["settings_backup"]["stock_watchlist"] >= 3

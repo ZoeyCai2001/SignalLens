@@ -1137,6 +1137,54 @@ def test_build_quality_metrics_tracks_watchlist_area_counts() -> None:
     assert metrics.watchlist_area_count == 4
 
 
+def test_build_quality_metrics_tracks_watched_stock_signal_coverage() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    now = datetime.now(UTC)
+
+    with session_factory() as db:
+        db.add_all([make_stock_watchlist_item("MU"), make_stock_watchlist_item("MRVL")])
+        high_impact = make_quality_item(
+            1,
+            "Micron AI memory demand rises",
+            url="https://example.com/mu",
+            published_at=now,
+            category="stock_company_event",
+            tickers=["MU"],
+            importance_score=0.8,
+        )
+        high_impact.stock_impact_score = 0.82
+        lower_impact = make_quality_item(
+            2,
+            "Marvell AI networking update",
+            url="https://example.com/mrvl",
+            published_at=now,
+            category="stock_company_event",
+            tickers=["MRVL"],
+            importance_score=0.55,
+        )
+        lower_impact.stock_impact_score = 0.45
+        non_watched = make_quality_item(
+            3,
+            "Nvidia unrelated watched list gap",
+            url="https://example.com/nvda",
+            published_at=now,
+            category="stock_company_event",
+            tickers=["NVDA"],
+            importance_score=0.9,
+        )
+        non_watched.stock_impact_score = 0.95
+        db.add_all([high_impact, lower_impact, non_watched])
+        db.commit()
+
+        metrics = build_quality_metrics(db=db, window_days=7)
+
+    assert metrics.recent_stock_signal_count == 2
+    assert metrics.recent_stock_high_impact_count == 1
+    assert metrics.stock_signal_ticker_count == 2
+
+
 def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

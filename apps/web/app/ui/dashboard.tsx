@@ -621,6 +621,9 @@ type QualityMetrics = {
   manual_submission_count: number;
   manual_enrichment_gap_count: number;
   stock_watchlist_count: number;
+  recent_stock_signal_count: number;
+  recent_stock_high_impact_count: number;
+  stock_signal_ticker_count: number;
   company_watchlist_count: number;
   topic_watchlist_count: number;
   product_watchlist_count: number;
@@ -5356,6 +5359,14 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Watchlists"
                     value={`${qualityMetrics.watchlist_area_count}/4`}
+                  />
+                  <ReadinessMetric
+                    label="Stock Signals"
+                    value={`${qualityMetrics.recent_stock_signal_count} · ${qualityMetrics.stock_signal_ticker_count} tickers`}
+                  />
+                  <ReadinessMetric
+                    label="Stock High"
+                    value={qualityMetrics.recent_stock_high_impact_count}
                   />
                   <ReadinessMetric
                     label="Read Later"

@@ -163,6 +163,9 @@ class QualityMetricsResponse(BaseModel):
     manual_submission_count: int = 0
     manual_enrichment_gap_count: int = 0
     stock_watchlist_count: int = 0
+    recent_stock_signal_count: int = 0
+    recent_stock_high_impact_count: int = 0
+    stock_signal_ticker_count: int = 0
     company_watchlist_count: int = 0
     topic_watchlist_count: int = 0
     product_watchlist_count: int = 0
