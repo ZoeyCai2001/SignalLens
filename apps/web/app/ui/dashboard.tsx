@@ -548,6 +548,7 @@ type QualityMetrics = {
   search_facet_coverage: number;
   unfaceted_item_count: number;
   high_value_item_count: number;
+  high_value_items_per_day: number;
   high_value_unsummarized_count: number;
   classification_coverage: number;
   low_confidence_item_count: number;
@@ -5053,6 +5054,10 @@ function SystemStatusPanel({
                 </div>
                 <div className="readiness-grid setup-summary-grid">
                   <ReadinessMetric label="High Value" value={qualityMetrics.high_value_item_count} />
+                  <ReadinessMetric
+                    label="High Value/Day"
+                    value={qualityMetrics.high_value_items_per_day.toFixed(2)}
+                  />
                   <ReadinessMetric
                     label="Needs Summary"
                     value={qualityMetrics.high_value_unsummarized_count}

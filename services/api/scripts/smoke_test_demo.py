@@ -248,6 +248,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "search_facet_coverage": quality_metrics["search_facet_coverage"],
             "source_failure_rate": quality_metrics["source_failure_rate"],
             "high_value_item_count": quality_metrics["high_value_item_count"],
+            "high_value_items_per_day": quality_metrics["high_value_items_per_day"],
             "high_value_unsummarized_count": quality_metrics[
                 "high_value_unsummarized_count"
             ],

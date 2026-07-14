@@ -196,6 +196,7 @@ def build_quality_metrics(
     classification_coverage = ratio(high_confidence_item_count, recent_item_count)
     low_confidence_item_count = recent_item_count - high_confidence_item_count
     high_value_item_count = sum(1 for item in recent_rows if item.importance_score >= 0.75)
+    high_value_items_per_day = ratio(high_value_item_count, max(window_days, 1))
     high_value_unsummarized_count = sum(
         1
         for item in recent_rows
@@ -294,6 +295,7 @@ def build_quality_metrics(
         search_facet_coverage=search_facet_coverage,
         unfaceted_item_count=unfaceted_item_count,
         high_value_item_count=high_value_item_count,
+        high_value_items_per_day=high_value_items_per_day,
         high_value_unsummarized_count=high_value_unsummarized_count,
         classification_coverage=classification_coverage,
         low_confidence_item_count=low_confidence_item_count,

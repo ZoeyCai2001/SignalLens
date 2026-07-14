@@ -140,6 +140,7 @@ class QualityMetricsResponse(BaseModel):
     search_facet_coverage: float = 0
     unfaceted_item_count: int = 0
     high_value_item_count: int
+    high_value_items_per_day: float = 0
     high_value_unsummarized_count: int = 0
     classification_coverage: float = 0
     low_confidence_item_count: int = 0

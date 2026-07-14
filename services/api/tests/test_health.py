@@ -368,6 +368,7 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.search_facet_coverage == 1
     assert metrics.unfaceted_item_count == 0
     assert metrics.high_value_item_count == 1
+    assert metrics.high_value_items_per_day == 0.143
     assert metrics.high_value_unsummarized_count == 0
     assert metrics.classification_coverage == 1
     assert metrics.low_confidence_item_count == 0

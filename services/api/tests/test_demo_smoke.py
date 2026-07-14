@@ -29,6 +29,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["search_facet_coverage"] == 1
     assert result["quality"]["source_failure_rate"] == 0
     assert result["quality"]["high_value_item_count"] >= 1
+    assert result["quality"]["high_value_items_per_day"] > 0
     assert result["quality"]["high_value_unsummarized_count"] == 0
     assert result["quality"]["digest_snapshot_count"] == 1
     assert result["quality"]["digest_feedback_count"] == 1
