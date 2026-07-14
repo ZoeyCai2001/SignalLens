@@ -419,3 +419,4 @@ Implementation progress:
 - Added explicit feed-item useful/not-useful feedback, including durable user-action fields, API actions, dashboard thumbs controls, personalization learning, quality metrics, and no-paid demo smoke coverage.
 - Added `.icloud` placeholder detection to the local Mac setup checker so iCloud optimized-storage files are reported before dependency installs, migrations, or verification runs fail unexpectedly.
 - Accepted `KIMI_API_KEY` as a legacy compatibility alias for the canonical `MOONSHOT_API_KEY`, and aligned setup/source-design docs around Kimi Coding plus Alpha Vantage as the MVP defaults.
+- Added an explicit Xiaohongshu Manual Watch source template, keeping the Chinese social prototype visible while limiting MVP collection to manual public links or compliant public RSS/Atom feeds.
