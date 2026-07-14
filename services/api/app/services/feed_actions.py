@@ -193,13 +193,22 @@ def build_feed_why_it_matters(item: FeedItem) -> str | None:
 
 
 def primary_item_focus(item: FeedItem) -> str:
+    technology_topic_keys = {
+        topic.strip().casefold()
+        for topic in item.topics
+        if TECHNOLOGY_TOPIC_LABELS.get(topic.strip().casefold()) in item.technologies
+    }
     labels = [
         *item.tickers,
         *item.products,
         product_use_case_label(item.subcategory) if item.category == "product" else "",
         *item.companies,
         *item.technologies,
-        *item.topics,
+        *[
+            topic
+            for topic in item.topics
+            if topic.strip().casefold() not in technology_topic_keys
+        ],
     ]
     unique_labels = []
     seen = set()
@@ -221,7 +230,9 @@ def category_context(category: str) -> str:
         "product": "This may help identify AI products gaining traction.",
         "stock_company_event": "This may matter for AI-linked company and stock monitoring.",
         "social_trend": "This may indicate an emerging AI social or Chinese-language trend.",
-        "manual_submission": "This user-submitted link may need review for the personal intelligence archive.",
+        "manual_submission": (
+            "This user-submitted link may need review for the personal intelligence archive."
+        ),
     }
     return contexts.get(category, "This item matched the SignalLens AI relevance filters.")
 
@@ -903,7 +914,11 @@ def normalize_feed_module_filter(value: str | None) -> str | None:
         "social_trend": "chinese",
     }
     normalized = aliases.get(normalized, normalized)
-    return normalized if normalized in {"trends", "research", "products", "stocks", "chinese"} else None
+    return (
+        normalized
+        if normalized in {"trends", "research", "products", "stocks", "chinese"}
+        else None
+    )
 
 
 def build_feed_module_conditions(module: str | None) -> list:

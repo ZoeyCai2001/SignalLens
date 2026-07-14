@@ -83,7 +83,7 @@ def test_serialize_feed_item_includes_user_action_flags() -> None:
     assert serialized.is_important is True
     assert serialized.why_it_matters == (
         "This user-submitted link may need review for the personal intelligence archive. "
-        "It is linked to agent and shows lower classifier confidence."
+        "It is linked to AI agents and shows lower classifier confidence."
     )
 
 

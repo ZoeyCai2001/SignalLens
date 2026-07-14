@@ -1,7 +1,7 @@
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from difflib import SequenceMatcher
 from hashlib import sha256
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -102,6 +102,10 @@ TRACKING_QUERY_PARAMS = {
 }
 
 NEAR_DUPLICATE_TITLE_THRESHOLD = 0.92
+NOVELTY_TITLE_SIMILARITY_THRESHOLD = 0.84
+NOVELTY_LOOKBACK_DAYS = 7
+SAME_SOURCE_FOLLOWUP_NOVELTY = 0.65
+CROSS_SOURCE_CONFIRMATION_NOVELTY = 0.82
 TITLE_DEDUPE_STOPWORDS = {
     "a",
     "an",
@@ -728,6 +732,11 @@ def store_raw_items(db: Session, source: Source, items: list[RawItemInput]) -> i
 
         normalized = normalize_item(raw=raw, source=source)
         if normalized:
+            normalized.novelty_score = compute_ingestion_novelty_score(
+                db=db,
+                raw=raw,
+                source=source,
+            )
             db.add(normalized)
             stored_count += 1
 
@@ -832,6 +841,43 @@ def title_similarity(left: str, right: str) -> float:
     if left == right:
         return 1
     return SequenceMatcher(None, left, right).ratio()
+
+
+def compute_ingestion_novelty_score(db: Session, raw: RawItem, source: Source) -> float:
+    signature = normalized_title_signature(raw.raw_title)
+    if not signature:
+        return 1
+
+    score = 1.0
+    candidates = (
+        db.query(RawItem, Source)
+        .join(Source, Source.id == RawItem.source_id)
+        .filter(RawItem.id != raw.id)
+        .all()
+    )
+    for candidate, candidate_source in candidates:
+        if not within_novelty_lookback(raw, candidate):
+            continue
+        candidate_signature = normalized_title_signature(candidate.raw_title)
+        if not candidate_signature:
+            continue
+        if title_similarity(signature, candidate_signature) < NOVELTY_TITLE_SIMILARITY_THRESHOLD:
+            continue
+        if candidate_source.id == source.id:
+            score = min(score, SAME_SOURCE_FOLLOWUP_NOVELTY)
+        else:
+            score = min(score, CROSS_SOURCE_CONFIRMATION_NOVELTY)
+    return round(score, 3)
+
+
+def within_novelty_lookback(raw: RawItem, candidate: RawItem) -> bool:
+    raw_time = raw.published_at or raw.fetched_at
+    candidate_time = candidate.published_at or candidate.fetched_at
+    if raw_time is None or candidate_time is None:
+        return True
+    left = normalize_ingestion_datetime(raw_time)
+    right = normalize_ingestion_datetime(candidate_time)
+    return abs(left - right) <= timedelta(days=NOVELTY_LOOKBACK_DAYS)
 
 
 def same_publication_day(left: datetime | None, right: datetime | None) -> bool:

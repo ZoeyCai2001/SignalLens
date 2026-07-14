@@ -214,3 +214,65 @@ def test_store_raw_items_keeps_next_day_near_title_followup() -> None:
         assert stored_count == 2
         assert db.query(RawItem).count() == 2
         assert db.query(NormalizedItem).count() == 2
+        normalized_items = db.query(NormalizedItem).order_by(NormalizedItem.id.asc()).all()
+        assert [item.novelty_score for item in normalized_items] == [1.0, 0.65]
+
+
+def test_store_raw_items_marks_cross_source_followup_as_confirmation_not_repeat() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    published_at = datetime(2026, 6, 25, 9, 0, tzinfo=UTC)
+
+    with session_factory() as db:
+        rss_source = Source(
+            name="Selected RSS Feeds",
+            type="blog",
+            access_method="rss",
+            priority=50,
+        )
+        hn_source = Source(
+            name="Hacker News",
+            type="community",
+            access_method="official_api",
+            priority=20,
+        )
+        db.add_all([rss_source, hn_source])
+        db.commit()
+        db.refresh(rss_source)
+        db.refresh(hn_source)
+
+        first_count = store_raw_items(
+            db,
+            source=rss_source,
+            items=[
+                RawItemInput(
+                    source_name="Selected RSS Feeds",
+                    external_id=None,
+                    url="https://example.com/agent-workflow",
+                    raw_title="OpenAI releases new AI agent workflow for coding teams",
+                    raw_text="Developers can use this AI agent workflow for coding tasks.",
+                    published_at=published_at,
+                )
+            ],
+        )
+        second_count = store_raw_items(
+            db,
+            source=hn_source,
+            items=[
+                RawItemInput(
+                    source_name="Hacker News",
+                    external_id=None,
+                    url="https://news.ycombinator.com/item?id=42",
+                    raw_title="OpenAI releases new AI agent workflow for coding team",
+                    raw_text="HN discussion covers the AI agent workflow for coding tasks.",
+                    published_at=published_at + timedelta(hours=3),
+                )
+            ],
+        )
+
+        assert first_count == 1
+        assert second_count == 1
+        normalized_items = db.query(NormalizedItem).order_by(NormalizedItem.id.asc()).all()
+        assert [item.novelty_score for item in normalized_items] == [1.0, 0.82]
