@@ -1962,26 +1962,31 @@ def build_stock_briefing_timeline_item(
         market=market,
         item=item,
     )
+    price_reaction = infer_stock_price_reaction_from_change(
+        change_percent=(
+            event_price_change_percent
+            if event_price_change_percent is not None
+            else market.change_percent if market else None
+        ),
+        possible_market_impact=possible_market_impact,
+    )
     return StockBriefingTimelineItem(
         item=item,
         signal_score=compute_stock_signal_score(item),
         reason=build_stock_signal_reason(item),
         event_type=infer_stock_event_type(item),
         possible_market_impact=possible_market_impact,
-        price_reaction=infer_stock_price_reaction_from_change(
-            change_percent=(
-                event_price_change_percent
-                if event_price_change_percent is not None
-                else market.change_percent if market else None
-            ),
-            possible_market_impact=possible_market_impact,
-        ),
+        price_reaction=price_reaction,
         event_price_date=event_price_date,
         event_price_change_percent=event_price_change_percent,
         confidence=compute_stock_event_confidence(item),
         time_sensitivity=infer_stock_event_time_sensitivity(item),
         event_summary=build_stock_event_summary(item),
-        uncertainties=build_stock_event_uncertainties(item),
+        uncertainties=build_stock_event_uncertainties(
+            item=item,
+            price_reaction=price_reaction,
+            event_price_change_percent=event_price_change_percent,
+        ),
     )
 
 
@@ -2117,8 +2122,22 @@ def build_stock_event_summary(item: FeedItem) -> str:
     )
 
 
-def build_stock_event_uncertainties(item: FeedItem) -> list[str]:
+def build_stock_event_uncertainties(
+    item: FeedItem,
+    price_reaction: str = "no_price_data",
+    event_price_change_percent: float | None = None,
+) -> list[str]:
     uncertainties: list[str] = []
+    if price_reaction in {"aligned_up", "aligned_down"} and event_price_change_percent is not None:
+        uncertainties.append(
+            "The event-date price move was already aligned with the signal, so part of "
+            "the news may already be priced in."
+        )
+    if price_reaction == "opposite_move" and event_price_change_percent is not None:
+        uncertainties.append(
+            "The event-date price move went against the inferred impact, so other "
+            "market factors may dominate."
+        )
     if item.stock_impact_score < 0.75:
         uncertainties.append("Stock impact is inferred from source text and may be indirect.")
     if not item.tickers:
