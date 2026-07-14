@@ -84,6 +84,8 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["settings_backup"]["preferences_restored"] is True
     assert result["settings_backup"]["sources_upserted"] >= 8
     assert result["settings_backup"]["alert_rules_upserted"] >= 8
+    assert result["privacy_deletion"]["deleted_item_id"] > 0
+    assert result["privacy_deletion"]["detail_status_after_delete"] == 404
     assert result["module_counts"] == {
         "chinese": 1,
         "products": 4,

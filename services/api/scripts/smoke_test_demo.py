@@ -430,6 +430,33 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     if not source_policy_restored:
         raise AssertionError("Expected settings restore to recover source raw-content policy")
 
+    deletion_probe = post_json(
+        client,
+        "/api/manual-submissions",
+        json_body={
+            "title": "Temporary deletion probe for privacy workflow",
+            "url": "https://example.com/demo/delete-probe",
+            "text": (
+                "Temporary AI note used only to verify permanent deletion of stored "
+                "content and personal action state."
+            ),
+            "source_name": "Manual Submission",
+            "save_item": True,
+            "manual_tags": ["delete-probe"],
+        },
+    )
+    deletion_item_id = deletion_probe["item"]["id"]
+    saved_deletion_probe = get_json(client, f"/api/feed/{deletion_item_id}")
+    if saved_deletion_probe["action_state"]["is_saved"] is not True:
+        raise AssertionError("Expected deletion probe to be saved before deletion")
+    delete_no_content(client, f"/api/feed/{deletion_item_id}")
+    deleted_detail_status = get_status(client, f"/api/feed/{deletion_item_id}")
+    if deleted_detail_status != 404:
+        raise AssertionError(
+            "Expected deleted feed item detail to return 404, "
+            f"got {deleted_detail_status}"
+        )
+
     return {
         "seed": seed_payload,
         "feed_items": len(feed),
@@ -567,6 +594,10 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "sources_upserted": restore_result["sources_upserted"],
             "alert_rules_upserted": restore_result["alert_rules_upserted"],
         },
+        "privacy_deletion": {
+            "deleted_item_id": deletion_item_id,
+            "detail_status_after_delete": deleted_detail_status,
+        },
     }
 
 
@@ -575,6 +606,10 @@ def get_json(client: TestClient, path: str) -> Any:
     if response.status_code != 200:
         raise AssertionError(f"GET {path} failed: {response.status_code} {response.text}")
     return response.json()
+
+
+def get_status(client: TestClient, path: str) -> int:
+    return client.get(path).status_code
 
 
 def post_json(
