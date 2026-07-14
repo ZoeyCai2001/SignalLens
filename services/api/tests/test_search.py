@@ -679,6 +679,7 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
     preferences = make_preferences()
 
     monkeypatch.setattr(search_routes, "get_user_preferences", lambda db: preferences)
+    monkeypatch.setattr(search_routes, "latest_stored_item_date", lambda db: None)
 
     def fake_search_feed_items(**kwargs):
         assert kwargs["query"] == "summarize latest AI coding products"
@@ -707,6 +708,34 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
         result.summary
         == "No matching SignalLens items were found for this natural-language search."
     )
+
+
+@pytest.mark.anyio
+async def test_natural_language_search_route_returns_data_anchored_intent(
+    monkeypatch,
+) -> None:
+    preferences = make_preferences()
+
+    monkeypatch.setattr(search_routes, "get_user_preferences", lambda db: preferences)
+    monkeypatch.setattr(
+        search_routes,
+        "latest_stored_item_date",
+        lambda db: date(2026, 6, 26),
+    )
+    monkeypatch.setattr(search_routes, "search_feed_items", lambda **kwargs: [])
+
+    result = await search_routes.search_items_with_natural_language(
+        payload=search_routes.NaturalLanguageSearchRequest(
+            query="summarize latest AI coding products",
+            limit=8,
+            module="products",
+        ),
+        db=object(),
+    )
+
+    assert result.intent.category == "product"
+    assert result.intent.date_from == date(2026, 6, 19)
+    assert result.intent.date_to is None
 
 
 def test_search_feed_items_excludes_blocked_sources() -> None:

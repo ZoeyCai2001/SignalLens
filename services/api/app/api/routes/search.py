@@ -10,9 +10,14 @@ from app.schemas.search import (
     NaturalLanguageSearchResponse,
     SearchIntentResponse,
 )
-from app.services.preferences import get_user_preferences
-from app.services.search import build_search_summary, infer_search_intent, search_feed_items
 from app.services.feed_actions import normalize_feed_module_filter
+from app.services.preferences import get_user_preferences
+from app.services.search import (
+    build_search_summary,
+    infer_search_intent,
+    latest_stored_item_date,
+    search_feed_items,
+)
 
 router = APIRouter()
 
@@ -81,7 +86,10 @@ async def search_items_with_natural_language(
             detail="Unsupported feed module. Use trends, research, products, stocks, or chinese.",
         )
     preferences = get_user_preferences(db)
-    intent = infer_search_intent(payload.query)
+    intent = infer_search_intent(
+        payload.query,
+        recent_anchor_date=latest_stored_item_date(db),
+    )
     items = search_feed_items(
         db=db,
         query=payload.query,
