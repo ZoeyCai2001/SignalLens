@@ -32,11 +32,13 @@ from app.services.alerts import (
     latest_price_change_percent,
     list_alerts,
     match_alert_rules,
+    normalize_alert_feedback,
     normalize_tickers,
     price_move_alert_reason,
     social_trend_alert_reason,
     stock_event_alert_reason,
     theme_breakout_alert_reason,
+    update_alert_feedback,
     update_alert_rule,
 )
 from app.services.event_clustering import build_event_cluster
@@ -890,6 +892,47 @@ def test_list_alerts_can_include_dismissed_history() -> None:
         "Active signal": "active",
         "Dismissed signal": "dismissed",
     }
+
+
+def test_update_alert_feedback_sets_and_clears_usefulness() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        rule = make_rule(category="all", min_importance_score=0.7)
+        db.add(rule)
+        db.add(make_item(item_id=1, title="Feedback signal"))
+        db.flush()
+        db.add(make_alert(item_id=1, rule_id=rule.id, title="Feedback signal"))
+        db.commit()
+
+        useful_alert = update_alert_feedback(db=db, alert_id=1, usefulness_feedback="useful")
+        useful_feedback = useful_alert.usefulness_feedback if useful_alert else None
+        useful_feedback_at = useful_alert.usefulness_feedback_at if useful_alert else None
+        serialized = list_alerts(db, include_dismissed=True)[0]
+        cleared_alert = update_alert_feedback(db=db, alert_id=1, usefulness_feedback=None)
+
+    assert useful_alert is not None
+    assert useful_feedback == "useful"
+    assert useful_feedback_at is not None
+    assert serialized.usefulness_feedback == "useful"
+    assert serialized.usefulness_feedback_at is not None
+    assert cleared_alert is not None
+    assert cleared_alert.usefulness_feedback is None
+    assert cleared_alert.usefulness_feedback_at is None
+
+
+def test_normalize_alert_feedback_rejects_unknown_values() -> None:
+    assert normalize_alert_feedback(" useful ") == "useful"
+    assert normalize_alert_feedback("not_useful") == "not_useful"
+    assert normalize_alert_feedback(None) is None
+    try:
+        normalize_alert_feedback("maybe")
+    except ValueError as exc:
+        assert "useful, not_useful, or null" in str(exc)
+    else:
+        raise AssertionError("Expected invalid alert feedback to be rejected")
 
 
 def make_item(

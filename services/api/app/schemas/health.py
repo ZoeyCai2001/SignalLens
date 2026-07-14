@@ -172,6 +172,10 @@ class QualityMetricsResponse(BaseModel):
     active_alert_count: int
     dismissed_alert_count: int
     alert_dismissal_rate: float
+    alert_feedback_count: int = 0
+    alert_useful_feedback_count: int = 0
+    alert_not_useful_feedback_count: int = 0
+    alert_feedback_usefulness_rate: float | None = None
     alert_usefulness_proxy: float | None = None
     digest_snapshot_count: int
     digest_feedback_count: int = 0

@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
 from app.schemas.alerts import (
+    AlertFeedbackUpdate,
     AlertGenerationResult,
     AlertItem,
     AlertRule,
@@ -18,6 +19,7 @@ from app.services.alerts import (
     list_alert_rules,
     list_alerts,
     serialize_alert,
+    update_alert_feedback,
     update_alert_rule,
 )
 from app.services.preferences import get_user_preferences
@@ -89,6 +91,25 @@ async def delete_dashboard_alert_rule(rule_id: int, db: DbSession) -> None:
 @router.post("/{alert_id}/dismiss", response_model=AlertItem)
 async def dismiss_dashboard_alert(alert_id: int, db: DbSession) -> AlertItem:
     alert = dismiss_alert(db, alert_id)
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alert not found.")
+    return serialize_alert(db, alert)
+
+
+@router.patch("/{alert_id}/feedback", response_model=AlertItem)
+async def update_dashboard_alert_feedback(
+    alert_id: int,
+    payload: AlertFeedbackUpdate,
+    db: DbSession,
+) -> AlertItem:
+    try:
+        alert = update_alert_feedback(
+            db=db,
+            alert_id=alert_id,
+            usefulness_feedback=payload.usefulness_feedback,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found.")
     return serialize_alert(db, alert)

@@ -38,6 +38,8 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["digest_usefulness_proxy"] >= 0.9
     assert result["quality"]["item_feedback_count"] == 2
     assert result["quality"]["item_feedback_usefulness_rate"] == 0.5
+    assert result["quality"]["alert_feedback_count"] == 1
+    assert result["quality"]["alert_feedback_usefulness_rate"] == 1
     assert result["quality"]["latest_digest_age_days"] == 0
     assert result["quality"]["manual_submission_count"] == 1
     assert result["quality"]["manual_enrichment_gap_count"] == 0

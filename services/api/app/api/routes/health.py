@@ -169,6 +169,13 @@ def build_quality_metrics(
     feedback_action_count = save_count + hide_count + item_feedback_count
     saved_read_count, saved_read_later_count = count_saved_read_statuses(db)
     alert_counts = count_alerts_by_status(db)
+    alert_feedback_counts = count_alert_usefulness_feedback(db)
+    alert_feedback_count = sum(alert_feedback_counts.values())
+    alert_feedback_usefulness_rate = (
+        ratio(alert_feedback_counts["useful"], alert_feedback_count)
+        if alert_feedback_count
+        else None
+    )
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
     llm_usage = summarize_recent_llm_usage(db=db, since=since, settings=settings)
     recent_item_count = len(recent_rows)
@@ -232,6 +239,8 @@ def build_quality_metrics(
     alert_usefulness_proxy = build_alert_usefulness_proxy(
         active_alert_count=alert_counts["active"],
         dismissed_alert_count=alert_counts["dismissed"],
+        useful_feedback_count=alert_feedback_counts["useful"],
+        not_useful_feedback_count=alert_feedback_counts["not_useful"],
     )
     digest_snapshot_count = count_recent_digest_snapshots(db=db, since=since)
     digest_feedback_counts = count_digest_snapshot_feedback(db=db, since=since)
@@ -343,6 +352,10 @@ def build_quality_metrics(
         active_alert_count=alert_counts["active"],
         dismissed_alert_count=alert_counts["dismissed"],
         alert_dismissal_rate=alert_dismissal_rate,
+        alert_feedback_count=alert_feedback_count,
+        alert_useful_feedback_count=alert_feedback_counts["useful"],
+        alert_not_useful_feedback_count=alert_feedback_counts["not_useful"],
+        alert_feedback_usefulness_rate=alert_feedback_usefulness_rate,
         alert_usefulness_proxy=alert_usefulness_proxy,
         digest_snapshot_count=digest_snapshot_count,
         digest_feedback_count=digest_feedback_count,
@@ -900,6 +913,22 @@ def count_alerts_by_status(db: Session) -> dict[str, int]:
     return {"active": active_count, "dismissed": dismissed_count}
 
 
+def count_alert_usefulness_feedback(db: Session) -> dict[str, int]:
+    counts = {"useful": 0, "not_useful": 0}
+    rows = (
+        db.query(Alert.usefulness_feedback)
+        .filter(
+            Alert.user_id == LOCAL_USER_ID,
+            Alert.usefulness_feedback.in_(tuple(counts)),
+        )
+        .all()
+    )
+    for (feedback,) in rows:
+        if feedback in counts:
+            counts[feedback] += 1
+    return counts
+
+
 def count_recent_source_runs(db: Session, since: datetime) -> tuple[int, int]:
     query = db.query(SourceRun).filter(
         or_(
@@ -997,11 +1026,18 @@ def build_alert_usefulness_proxy(
     *,
     active_alert_count: int,
     dismissed_alert_count: int,
+    useful_feedback_count: int = 0,
+    not_useful_feedback_count: int = 0,
 ) -> float | None:
     total_alerts = active_alert_count + dismissed_alert_count
+    feedback_total = useful_feedback_count + not_useful_feedback_count
     if total_alerts == 0:
         return None
-    return ratio(active_alert_count, total_alerts)
+    dismissal_score = ratio(active_alert_count, total_alerts)
+    if feedback_total == 0:
+        return dismissal_score
+    feedback_score = ratio(useful_feedback_count, feedback_total)
+    return round(0.7 * feedback_score + 0.3 * dismissal_score, 3)
 
 
 def count_stock_watchlist_items(db: Session) -> int:

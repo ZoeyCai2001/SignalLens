@@ -620,6 +620,10 @@ type QualityMetrics = {
   active_alert_count: number;
   dismissed_alert_count: number;
   alert_dismissal_rate: number;
+  alert_feedback_count: number;
+  alert_useful_feedback_count: number;
+  alert_not_useful_feedback_count: number;
+  alert_feedback_usefulness_rate: number | null;
   alert_usefulness_proxy: number | null;
   digest_snapshot_count: number;
   digest_feedback_count: number;
@@ -945,6 +949,8 @@ type AlertItem = {
   severity: string;
   status: string;
   created_at: string;
+  usefulness_feedback: "useful" | "not_useful" | null;
+  usefulness_feedback_at: string | null;
   rule: AlertRule;
   item: FeedItem;
   disclaimer: string;
@@ -3330,6 +3336,34 @@ export function Dashboard() {
     }
   };
 
+  const updateAlertFeedback = async (
+    alert: AlertItem,
+    usefulnessFeedback: "useful" | "not_useful",
+  ) => {
+    setBusyAlertId(alert.id);
+    setError(null);
+    try {
+      const nextFeedback =
+        alert.usefulness_feedback === usefulnessFeedback ? null : usefulnessFeedback;
+      const updated = await fetchJson<AlertItem>(`/api/alerts/${alert.id}/feedback`, {
+        method: "PATCH",
+        body: JSON.stringify({ usefulness_feedback: nextFeedback }),
+      });
+      setAlerts((items) => items.map((item) => (item.id === alert.id ? updated : item)));
+      await refreshQualityMetrics();
+      setStatus(
+        nextFeedback
+          ? `Marked alert ${alert.id} ${nextFeedback === "useful" ? "useful" : "not useful"}`
+          : `Cleared alert ${alert.id} feedback`,
+      );
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert feedback failed");
+    } finally {
+      setBusyAlertId(null);
+    }
+  };
+
   const generateDashboardAlerts = async () => {
     setBusyAlertGenerate(true);
     setError(null);
@@ -4451,6 +4485,7 @@ export function Dashboard() {
               ruleSeverity={alertRuleSeverity}
               disabled={loadState !== "idle"}
               onDismiss={dismissAlert}
+              onFeedback={updateAlertFeedback}
               onGenerate={generateDashboardAlerts}
               onIncludeDismissedChange={setAlertIncludeDismissed}
               onRuleToggle={toggleAlertRule}
@@ -4571,6 +4606,7 @@ export function Dashboard() {
                   ruleSeverity={alertRuleSeverity}
                   disabled={loadState !== "idle"}
                   onDismiss={dismissAlert}
+                  onFeedback={updateAlertFeedback}
                   onGenerate={generateDashboardAlerts}
                   onIncludeDismissedChange={setAlertIncludeDismissed}
                   onRuleToggle={toggleAlertRule}
@@ -5296,6 +5332,16 @@ function SystemStatusPanel({
                         : formatQualityPercent(qualityMetrics.alert_usefulness_proxy)
                     }
                   />
+                  <ReadinessMetric
+                    label="Alert Feedback"
+                    value={
+                      qualityMetrics.alert_feedback_usefulness_rate === null
+                        ? `${qualityMetrics.alert_feedback_count} samples`
+                        : `${formatQualityPercent(
+                            qualityMetrics.alert_feedback_usefulness_rate,
+                          )} · ${qualityMetrics.alert_feedback_count}`
+                    }
+                  />
                   <ReadinessMetric label="Digests" value={qualityMetrics.digest_snapshot_count} />
                   <ReadinessMetric
                     label="Digest Use"
@@ -5988,6 +6034,7 @@ function AlertPanel({
   ruleSeverity,
   disabled,
   onDismiss,
+  onFeedback,
   onGenerate,
   onIncludeDismissedChange,
   onRuleToggle,
@@ -6018,6 +6065,7 @@ function AlertPanel({
   ruleSeverity: string;
   disabled: boolean;
   onDismiss: (alertId: number) => void;
+  onFeedback: (alert: AlertItem, usefulnessFeedback: "useful" | "not_useful") => void;
   onGenerate: () => void;
   onIncludeDismissedChange: (value: boolean) => void;
   onRuleToggle: (rule: AlertRule) => void;
@@ -6258,9 +6306,61 @@ function AlertPanel({
                   <div className="alert-title">{alert.title}</div>
                   <div className="small-muted">
                     {alert.severity} · {alert.status} · {formatDate(alert.created_at)}
+                    {alert.usefulness_feedback
+                      ? ` · ${formatAlertFeedback(alert.usefulness_feedback)}`
+                      : ""}
                   </div>
                 </div>
-                {alert.status === "active" ? (
+                <div className="table-actions">
+                  <button
+                    className={`button icon-button ${
+                      alert.usefulness_feedback === "useful" ? "active-icon-button" : ""
+                    }`}
+                    onClick={() => onFeedback(alert, "useful")}
+                    disabled={busyAlertId === alert.id}
+                    title={
+                      alert.usefulness_feedback === "useful"
+                        ? "Clear useful feedback"
+                        : "Mark alert useful"
+                    }
+                    aria-label={
+                      alert.usefulness_feedback === "useful"
+                        ? "Clear useful alert feedback"
+                        : "Mark alert useful"
+                    }
+                    type="button"
+                  >
+                    {busyAlertId === alert.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <ThumbsUp size={16} />
+                    )}
+                  </button>
+                  <button
+                    className={`button icon-button ${
+                      alert.usefulness_feedback === "not_useful" ? "active-icon-button" : ""
+                    }`}
+                    onClick={() => onFeedback(alert, "not_useful")}
+                    disabled={busyAlertId === alert.id}
+                    title={
+                      alert.usefulness_feedback === "not_useful"
+                        ? "Clear not useful feedback"
+                        : "Mark alert not useful"
+                    }
+                    aria-label={
+                      alert.usefulness_feedback === "not_useful"
+                        ? "Clear not useful alert feedback"
+                        : "Mark alert not useful"
+                    }
+                    type="button"
+                  >
+                    {busyAlertId === alert.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <ThumbsDown size={16} />
+                    )}
+                  </button>
+                  {alert.status === "active" ? (
                   <button
                     className="button icon-button"
                     onClick={() => onDismiss(alert.id)}
@@ -6274,9 +6374,10 @@ function AlertPanel({
                       <X size={16} />
                     )}
                   </button>
-                ) : (
-                  <span className="badge muted-badge">dismissed</span>
-                )}
+                  ) : (
+                    <span className="badge muted-badge">dismissed</span>
+                  )}
+                </div>
               </div>
               <div className="summary">{alert.reason}</div>
               <AlertEvidenceSummary alert={alert} />
@@ -6840,6 +6941,10 @@ function countMarkdownLines(markdown: string): number {
 }
 
 function formatDigestFeedback(feedback: "useful" | "not_useful"): string {
+  return feedback === "useful" ? "useful" : "not useful";
+}
+
+function formatAlertFeedback(feedback: "useful" | "not_useful"): string {
   return feedback === "useful" ? "useful" : "not useful";
 }
 

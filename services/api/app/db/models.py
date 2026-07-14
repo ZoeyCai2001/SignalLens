@@ -308,6 +308,8 @@ class Alert(Base, TimestampMixin):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     severity: Mapped[str] = mapped_column(String(40), default="medium", nullable=False)
     status: Mapped[str] = mapped_column(String(40), default="active", nullable=False)
+    usefulness_feedback: Mapped[str | None] = mapped_column(String(20))
+    usefulness_feedback_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     item: Mapped[NormalizedItem] = relationship(back_populates="alerts")
     rule: Mapped[AlertRule] = relationship(back_populates="alerts")

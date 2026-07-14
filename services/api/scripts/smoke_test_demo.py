@@ -200,6 +200,20 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             f"got {checklist_by_key['source-ingestion']['metric']!r}"
         )
 
+    alerts = get_json(client, "/api/alerts?limit=20")
+    if not alerts:
+        raise AssertionError("Expected demo alert generation to create dashboard alerts")
+    feedback_alert = patch_json(
+        client,
+        f"/api/alerts/{alerts[0]['id']}/feedback",
+        json_body={"usefulness_feedback": "useful"},
+    )
+    if feedback_alert["usefulness_feedback"] != "useful":
+        raise AssertionError(
+            "Expected alert feedback to round trip as useful, "
+            f"got {feedback_alert['usefulness_feedback']!r}"
+        )
+
     digest = get_json(client, "/api/digest/daily")
     if digest["total_items"] <= 0:
         raise AssertionError("Expected the demo daily digest to contain items")
@@ -233,6 +247,13 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         raise AssertionError(
             "Expected item feedback usefulness rate to be 0.5, "
             f"got {quality_metrics['item_feedback_usefulness_rate']!r}"
+        )
+    if quality_metrics["alert_feedback_count"] < 1:
+        raise AssertionError("Expected alert feedback to appear in quality metrics")
+    if quality_metrics["alert_feedback_usefulness_rate"] != 1:
+        raise AssertionError(
+            "Expected alert feedback usefulness rate to be useful, "
+            f"got {quality_metrics['alert_feedback_usefulness_rate']!r}"
         )
 
     clusters = get_json(client, "/api/events/clusters?limit=8&min_items=1")
@@ -344,6 +365,10 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "item_feedback_count": quality_metrics["item_feedback_count"],
             "item_feedback_usefulness_rate": quality_metrics[
                 "item_feedback_usefulness_rate"
+            ],
+            "alert_feedback_count": quality_metrics["alert_feedback_count"],
+            "alert_feedback_usefulness_rate": quality_metrics[
+                "alert_feedback_usefulness_rate"
             ],
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
             "manual_submission_count": quality_metrics["manual_submission_count"],

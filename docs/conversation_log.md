@@ -436,3 +436,4 @@ Implementation progress:
 - Added dry-run LLM batch preview support to the API and dashboard so the same candidate selection can show planned Kimi calls before spending model budget.
 - Routed System Readiness and MVP checklist LLM recommendations to the dry-run preview action first, keeping guided next steps budget-safe before real Kimi classification or summarization.
 - Expanded saved-item Markdown exports with PRD signal labels, technology labels, social/stock impact scores, and read timestamps so local archives preserve the same audit context shown in the dashboard.
+- Added explicit useful/not-useful feedback for dashboard alerts, including persistence, API updates, alert-card controls, and quality metrics that blend alert feedback into the PRD alert-usefulness proxy.

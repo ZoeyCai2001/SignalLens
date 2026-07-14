@@ -54,11 +54,17 @@ class AlertItem(BaseModel):
     severity: str
     status: str
     created_at: datetime
+    usefulness_feedback: str | None = None
+    usefulness_feedback_at: datetime | None = None
     rule: AlertRule
     item: FeedItem
     disclaimer: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AlertFeedbackUpdate(BaseModel):
+    usefulness_feedback: str | None = None
 
 
 class AlertGenerationResult(BaseModel):

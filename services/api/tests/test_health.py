@@ -284,7 +284,18 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
         db.add_all(
             [
                 make_quality_alert(item_id=1, rule_id=rule.id, status="active"),
-                make_quality_alert(item_id=2, rule_id=rule.id, status="dismissed"),
+                make_quality_alert(
+                    item_id=2,
+                    rule_id=rule.id,
+                    status="dismissed",
+                    usefulness_feedback="not_useful",
+                ),
+                make_quality_alert(
+                    item_id=3,
+                    rule_id=rule.id,
+                    status="dismissed",
+                    usefulness_feedback="useful",
+                ),
                 UserItemAction(
                     user_id="local",
                     item_id=1,
@@ -414,9 +425,13 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.saved_read_later_count == 0
     assert metrics.save_hide_ratio == 0.5
     assert metrics.active_alert_count == 1
-    assert metrics.dismissed_alert_count == 1
-    assert metrics.alert_dismissal_rate == 0.5
-    assert metrics.alert_usefulness_proxy == 0.5
+    assert metrics.dismissed_alert_count == 2
+    assert metrics.alert_dismissal_rate == 0.667
+    assert metrics.alert_feedback_count == 2
+    assert metrics.alert_useful_feedback_count == 1
+    assert metrics.alert_not_useful_feedback_count == 1
+    assert metrics.alert_feedback_usefulness_rate == 0.5
+    assert metrics.alert_usefulness_proxy == 0.45
     assert metrics.digest_usefulness_proxy == 1
     checklist = build_mvp_checklist_response(
         metrics=metrics,
@@ -542,6 +557,15 @@ def test_digest_usefulness_proxy_combines_freshness_and_item_coverage() -> None:
 def test_alert_usefulness_proxy_uses_non_dismissed_share() -> None:
     assert build_alert_usefulness_proxy(active_alert_count=0, dismissed_alert_count=0) is None
     assert build_alert_usefulness_proxy(active_alert_count=3, dismissed_alert_count=1) == 0.75
+    assert (
+        build_alert_usefulness_proxy(
+            active_alert_count=1,
+            dismissed_alert_count=2,
+            useful_feedback_count=1,
+            not_useful_feedback_count=1,
+        )
+        == 0.45
+    )
 
 
 def test_build_quality_findings_recommends_local_actions() -> None:
@@ -1577,7 +1601,12 @@ def make_quality_item(
     )
 
 
-def make_quality_alert(item_id: int, rule_id: int, status: str) -> Alert:
+def make_quality_alert(
+    item_id: int,
+    rule_id: int,
+    status: str,
+    usefulness_feedback: str | None = None,
+) -> Alert:
     return Alert(
         user_id="local",
         item_id=item_id,
@@ -1586,6 +1615,10 @@ def make_quality_alert(item_id: int, rule_id: int, status: str) -> Alert:
         reason="Test reason",
         severity="high",
         status=status,
+        usefulness_feedback=usefulness_feedback,
+        usefulness_feedback_at=(
+            datetime(2026, 6, 26, 9, 0, tzinfo=UTC) if usefulness_feedback else None
+        ),
     )
 
 

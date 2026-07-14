@@ -1028,6 +1028,27 @@ def dismiss_alert(db: Session, alert_id: int) -> Alert | None:
     return alert
 
 
+def update_alert_feedback(
+    db: Session,
+    alert_id: int,
+    usefulness_feedback: str | None,
+) -> Alert | None:
+    alert = (
+        db.query(Alert)
+        .filter(Alert.user_id == LOCAL_USER_ID, Alert.id == alert_id)
+        .one_or_none()
+    )
+    if alert is None:
+        return None
+    feedback = normalize_alert_feedback(usefulness_feedback)
+    alert.usefulness_feedback = feedback
+    alert.usefulness_feedback_at = datetime.now(UTC) if feedback else None
+    db.add(alert)
+    db.commit()
+    db.refresh(alert)
+    return alert
+
+
 def dismiss_active_alerts_for_rule(db: Session, rule_id: int) -> int:
     return (
         db.query(Alert)
@@ -1066,10 +1087,21 @@ def serialize_alert(db: Session, alert: Alert) -> AlertItem:
         severity=alert.severity,
         status=alert.status,
         created_at=alert.created_at,
+        usefulness_feedback=normalize_alert_feedback(alert.usefulness_feedback),
+        usefulness_feedback_at=alert.usefulness_feedback_at,
         rule=alert.rule,
         item=serialize_feed_item(alert.item, get_action(db, alert.item_id)),
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
     )
+
+
+def normalize_alert_feedback(value: str | None) -> str | None:
+    normalized = (value or "").strip().lower()
+    if normalized in {"useful", "not_useful"}:
+        return normalized
+    if normalized:
+        raise ValueError("Alert feedback must be useful, not_useful, or null.")
+    return None
 
 
 def normalize_list(values: list[str]) -> list[str]:
