@@ -23,6 +23,21 @@ from app.main import create_app
 
 
 DEMO_MODULES = ("trends", "research", "products", "stocks", "chinese")
+SOURCE_HEALTH_OPERATIONAL_FIELDS = {
+    "raw_content_policy",
+    "failure_handling",
+    "latest_status",
+    "latest_duration_seconds",
+    "last_success_at",
+    "next_run_due_at",
+    "is_stale",
+    "needs_attention",
+    "recent_run_count",
+    "recent_success_rate",
+    "recent_store_rate",
+    "recent_items_fetched",
+    "recent_items_stored",
+}
 
 
 def create_demo_smoke_client() -> TestClient:
@@ -260,6 +275,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     source_health = get_json(client, "/api/sources/health")
     if len(source_health) < 8:
         raise AssertionError(f"Expected at least 8 source-health rows, got {len(source_health)}")
+    source_health_evidence = assert_source_health_operational_contract(source_health)
     scheduler_status = get_json(client, "/api/ingestion/schedule")
     if scheduler_status["interval_minutes"] < 1:
         raise AssertionError(
@@ -507,6 +523,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             len(briefing["discovery_scores"]) for briefing in product_briefings
         ),
         "source_health_rows": len(source_health),
+        "source_health": source_health_evidence,
         "scheduler": {
             "mode": scheduler_status["mode"],
             "interval_minutes": scheduler_status["interval_minutes"],
@@ -651,6 +668,52 @@ def assert_minimum_collection(items: list[Any], label: str, minimum: int) -> Non
 def assert_any_positive(values: list[int], label: str) -> None:
     if not any(value > 0 for value in values):
         raise AssertionError(f"Expected at least one positive {label}, got {values}")
+
+
+def assert_source_health_operational_contract(
+    source_health: list[dict[str, Any]],
+) -> dict[str, int]:
+    missing_fields_by_source = {
+        source["name"]: sorted(SOURCE_HEALTH_OPERATIONAL_FIELDS - set(source))
+        for source in source_health
+        if SOURCE_HEALTH_OPERATIONAL_FIELDS - set(source)
+    }
+    if missing_fields_by_source:
+        raise AssertionError(
+            "Expected source health rows to expose operational dashboard fields, "
+            f"missing {missing_fields_by_source!r}"
+        )
+
+    policy_rows = [
+        source
+        for source in source_health
+        if source["raw_content_policy"] and source["failure_handling"]
+    ]
+    recent_run_rows = [source for source in source_health if source["recent_run_count"] > 0]
+    quality_rows = [
+        source
+        for source in recent_run_rows
+        if source["recent_success_rate"] is not None
+        and source["recent_store_rate"] is not None
+        and source["recent_items_fetched"] >= source["recent_items_stored"] >= 0
+    ]
+    if len(policy_rows) != len(source_health):
+        raise AssertionError("Expected every source-health row to expose policy guidance")
+    if len(recent_run_rows) < 8:
+        raise AssertionError(
+            "Expected demo source health to include recent run evidence for PRD source families, "
+            f"got {len(recent_run_rows)} rows"
+        )
+    if len(quality_rows) != len(recent_run_rows):
+        raise AssertionError(
+            "Expected recent source runs to include success and store-rate metrics"
+        )
+
+    return {
+        "policy_rows": len(policy_rows),
+        "recent_run_rows": len(recent_run_rows),
+        "quality_rows": len(quality_rows),
+    }
 
 
 def main() -> None:

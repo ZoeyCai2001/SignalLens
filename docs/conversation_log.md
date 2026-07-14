@@ -441,3 +441,4 @@ Implementation progress:
 - Expanded the no-paid demo verifier to cover the PRD stock-watchlist acceptance path, including stock detail summaries, stock-news events, price series, non-financial-advice disclaimer, and temporary add/remove stock watchlist flow.
 - Expanded the no-paid demo verifier to cover core dashboard feed behavior, including feed card fields, why-am-I-seeing-this detail explanations, summary profiles, save, hide, unhide, and important-item actions.
 - Expanded the no-paid demo verifier to cover PRD privacy deletion by creating a temporary manual item, deleting it through the feed API, and confirming its detail endpoint returns 404.
+- Strengthened the no-paid demo verifier to assert Source Health operational coverage, including storage policy, failure-handling guidance, recent-run counts, success rates, and store-rate quality metrics.

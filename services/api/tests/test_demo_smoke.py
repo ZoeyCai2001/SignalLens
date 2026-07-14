@@ -34,6 +34,9 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert max(result["product_briefing_counts"]) > 0
     assert result["product_discovery_score_count"] > 0
     assert result["source_health_rows"] >= 8
+    assert result["source_health"]["policy_rows"] == result["source_health_rows"]
+    assert result["source_health"]["recent_run_rows"] >= 8
+    assert result["source_health"]["quality_rows"] == result["source_health"]["recent_run_rows"]
     assert result["digest_items"] >= 1
     assert result["digest_snapshot_count"] == 1
     assert result["latest_digest_snapshot_items"] >= 1
