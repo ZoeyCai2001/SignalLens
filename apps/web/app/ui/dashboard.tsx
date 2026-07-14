@@ -83,6 +83,7 @@ type FeedItemDetail = FeedItem & {
   card_summary: string[];
   technical_summary: string | null;
   market_watch_summary: string | null;
+  public_engagement: PublicEngagementMetric[];
   stock_reaction_summary: {
     ticker: string;
     possible_market_impact: string;
@@ -96,6 +97,12 @@ type FeedItemDetail = FeedItem & {
   uncertainty_notes: string[];
   personalization_notes: string[];
   action_state: Record<string, boolean>;
+};
+
+type PublicEngagementMetric = {
+  key: string;
+  label: string;
+  value: number;
 };
 
 type ManualSubmissionResponse = {
@@ -8018,6 +8025,7 @@ function FeedDetailPanel({
         <Score label="Importance" value={detail.importance_score} />
         <Score label="Stock" value={detail.stock_impact_score} />
       </div>
+      <PublicEngagementPanel metrics={detail.public_engagement} />
       <div className="summary">
         <strong>Classification audit:</strong>{" "}
         {detail.is_ai_related ? "AI-related" : "Needs AI relevance review"} ·{" "}
@@ -8142,6 +8150,22 @@ function FeedDetailPanel({
         </div>
       ) : null}
       {detail.text ? <div className="detail-text">{detail.text}</div> : null}
+    </div>
+  );
+}
+
+function PublicEngagementPanel({ metrics }: { metrics: PublicEngagementMetric[] }) {
+  if (!metrics.length) {
+    return null;
+  }
+  return (
+    <div className="public-engagement-grid" aria-label="Public engagement evidence">
+      {metrics.map((metric) => (
+        <div className="public-engagement-metric" key={metric.key}>
+          <div className="field-label">{metric.label}</div>
+          <div className="score-value">{formatCompactNumber(metric.value)}</div>
+        </div>
+      ))}
     </div>
   );
 }

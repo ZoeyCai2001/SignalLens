@@ -21,6 +21,7 @@ from app.db.models import (
 from app.schemas.feed import (
     FeedItem,
     FeedItemDetail,
+    FeedPublicEngagementMetric,
     FeedStockReactionSummary,
     SavedItemsMarkdownExport,
 )
@@ -258,6 +259,7 @@ def serialize_feed_item_detail(
         text=item.text,
         **summary_profile,
         stock_reaction_summary=build_feed_stock_reaction_summary(db=db, item=base),
+        public_engagement=build_public_engagement_metrics(item),
         score_explanation=build_score_explanation(base),
         uncertainty_notes=build_feed_uncertainty_notes(base),
         personalization_notes=build_personalization_notes(base, interest_profile),
@@ -1033,6 +1035,40 @@ def social_signal_score_for_item(item: NormalizedItem) -> float:
             300,
         )
     )
+
+
+def build_public_engagement_metrics(item: NormalizedItem) -> list[FeedPublicEngagementMetric]:
+    raw_metadata = item.raw_item.raw_metadata if item.raw_item else {}
+    metric_defs = [
+        ("likes", "Likes", ("likes", "like_count")),
+        ("comments", "Comments", ("comments", "comments_count", "reply_count")),
+        ("views", "Views", ("views", "view_count")),
+        (
+            "collects",
+            "Collects",
+            ("collects", "collects_count", "saves", "save_count", "favorites", "bookmarks"),
+        ),
+        ("reposts", "Reposts", ("reposts", "reposts_count", "shares", "share_count", "retweets")),
+    ]
+    metrics: list[FeedPublicEngagementMetric] = []
+    for key, label, metadata_keys in metric_defs:
+        value = first_metadata_value(raw_metadata, *metadata_keys)
+        parsed = parse_public_engagement_value(value)
+        if parsed is not None:
+            metrics.append(FeedPublicEngagementMetric(key=key, label=label, value=parsed))
+    return metrics
+
+
+def parse_public_engagement_value(value: object | None) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        parsed = float(str(value).replace(",", ""))
+    except ValueError:
+        return None
+    if parsed < 0:
+        return None
+    return int(parsed)
 
 
 def first_metadata_value(metadata: dict, *keys: str) -> object | None:

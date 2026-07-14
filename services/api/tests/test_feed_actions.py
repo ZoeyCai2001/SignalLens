@@ -347,6 +347,53 @@ def test_social_signal_uses_collects_reposts_and_comment_aliases() -> None:
     assert social_signal_score_for_item(item) == 0.65
 
 
+def test_feed_item_detail_exposes_public_engagement_metrics() -> None:
+    item = NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Xiaohongshu AI photo workflow",
+        url="https://example.com/xhs",
+        source_name="Xiaohongshu Manual Watch",
+        language="zh",
+        category="social_trend",
+        tickers=[],
+        companies=[],
+        products=["AI photo tool"],
+        topics=["AI photo"],
+        sentiment="neutral",
+        relevance_score=0.5,
+        importance_score=0.4,
+        novelty_score=1.0,
+        source_quality_score=0.58,
+        stock_impact_score=0,
+        raw_item=RawItem(
+            id=1,
+            source_id=1,
+            url="https://example.com/xhs",
+            raw_title="Xiaohongshu AI photo workflow",
+            raw_metadata={
+                "likes": "1,200",
+                "reply_count": 80,
+                "bookmarks": 420,
+                "share_count": 24,
+                "view_count": 33000,
+                "note": "private",
+            },
+            content_hash="hash",
+        ),
+    )
+
+    detail = serialize_feed_item_detail(item)
+
+    assert [metric.model_dump() for metric in detail.public_engagement] == [
+        {"key": "likes", "label": "Likes", "value": 1200},
+        {"key": "comments", "label": "Comments", "value": 80},
+        {"key": "views", "label": "Views", "value": 33000},
+        {"key": "collects", "label": "Collects", "value": 420},
+        {"key": "reposts", "label": "Reposts", "value": 24},
+    ]
+
+
 def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> None:
     item = NormalizedItem(
         id=1,

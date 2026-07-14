@@ -58,6 +58,12 @@ class FeedStockReactionSummary(BaseModel):
     summary: str
 
 
+class FeedPublicEngagementMetric(BaseModel):
+    key: str
+    label: str
+    value: int
+
+
 class FeedItemDetail(FeedItem):
     text: str | None = None
     one_line_summary: str | None = None
@@ -65,6 +71,7 @@ class FeedItemDetail(FeedItem):
     technical_summary: str | None = None
     market_watch_summary: str | None = None
     stock_reaction_summary: FeedStockReactionSummary | None = None
+    public_engagement: list[FeedPublicEngagementMetric] = Field(default_factory=list)
     summary_source: str = "deterministic"
     score_explanation: str
     uncertainty_notes: list[str]

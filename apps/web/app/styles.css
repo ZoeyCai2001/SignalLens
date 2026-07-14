@@ -319,6 +319,19 @@ a {
   gap: 8px;
 }
 
+.public-engagement-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(82px, 1fr));
+  gap: 8px;
+}
+
+.public-engagement-metric {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  padding: 8px;
+}
+
 .score-cell {
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -1736,7 +1749,8 @@ tr:last-child td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .score-grid {
+  .score-grid,
+  .public-engagement-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
