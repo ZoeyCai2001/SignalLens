@@ -337,7 +337,10 @@ def serialize_source_health(
 ) -> SourceHealth:
     latest_status = run.status if run else "never_run"
     quality = recent_quality or RecentSourceRunQuality()
-    next_run_due_at = source_next_run_due_at(last_success_at, source.polling_interval)
+    next_run_due_at = source_next_run_due_at(
+        source_retry_reference_at(run=run, last_success_at=last_success_at),
+        source.polling_interval,
+    )
     is_stale = bool(source.enabled) and source_is_stale(last_success_at, source.polling_interval)
     return SourceHealth(
         id=source.id,
@@ -416,6 +419,18 @@ def source_next_run_due_at(
     if last_success_at is None or interval is None:
         return None
     return normalize_source_health_datetime(last_success_at) + interval
+
+
+def source_retry_reference_at(
+    run: SourceRun | None,
+    last_success_at: datetime | None,
+) -> datetime | None:
+    if run is not None:
+        if run.started_at is not None:
+            return run.started_at
+        if run.finished_at is not None:
+            return run.finished_at
+    return last_success_at
 
 
 def source_is_stale(

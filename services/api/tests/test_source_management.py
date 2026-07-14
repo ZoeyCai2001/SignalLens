@@ -108,6 +108,38 @@ def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
     assert health.needs_attention is True
 
 
+def test_serialize_source_health_uses_latest_attempt_for_retry_due_time() -> None:
+    last_success_at = datetime(2026, 6, 27, 8, 0, tzinfo=UTC)
+    source = Source(
+        id=20,
+        name="Retry RSS",
+        type="rss",
+        access_method="rss",
+        enabled=True,
+        polling_interval="hourly",
+    )
+    run = SourceRun(
+        source_id=20,
+        status="failed",
+        items_fetched=0,
+        items_stored=0,
+        error_message="timeout",
+        started_at=datetime(2026, 6, 27, 8, 45, tzinfo=UTC),
+    )
+
+    health = serialize_source_health(
+        source,
+        run,
+        failure_count=1,
+        last_success_at=last_success_at,
+    )
+
+    assert health.last_success_at == last_success_at
+    assert health.next_run_due_at == datetime(2026, 6, 27, 9, 45, tzinfo=UTC)
+    assert health.latest_status == "failed"
+    assert health.needs_attention is True
+
+
 def test_source_health_derives_compliance_policy_by_source_type() -> None:
     assert raw_content_policy_for_source(
         Source(

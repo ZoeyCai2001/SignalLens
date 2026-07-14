@@ -467,6 +467,15 @@ def test_source_due_for_cycle_respects_latest_run_and_interval() -> None:
         ),
         now=now,
     )
+    assert not source_due_for_cycle(
+        source=source,
+        latest_run=SourceRun(
+            source_id=1,
+            status="failed",
+            started_at=datetime(2026, 6, 28, 9, 0, tzinfo=UTC),
+        ),
+        now=now,
+    )
     assert source_due_for_cycle(
         source=source,
         latest_run=SourceRun(
