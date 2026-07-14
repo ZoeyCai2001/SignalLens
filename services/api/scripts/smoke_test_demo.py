@@ -132,6 +132,26 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     source_health = get_json(client, "/api/sources/health")
     if len(source_health) < 8:
         raise AssertionError(f"Expected at least 8 source-health rows, got {len(source_health)}")
+    scheduler_status = get_json(client, "/api/ingestion/schedule")
+    if scheduler_status["interval_minutes"] < 1:
+        raise AssertionError(
+            "Expected scheduler interval to be positive, "
+            f"got {scheduler_status['interval_minutes']!r}"
+        )
+    if not scheduler_status["built_in_jobs"]:
+        raise AssertionError("Expected scheduler status to expose built-in ingestion jobs")
+    if "python scripts/run_scheduler.py" not in scheduler_status["command_hint"]:
+        raise AssertionError("Expected scheduler status to include the runnable command hint")
+    if (
+        scheduler_status["digest_target_hour_utc"] < 0
+        or scheduler_status["digest_target_hour_utc"] > 23
+    ):
+        raise AssertionError(
+            "Expected digest target hour to stay in UTC hour range, "
+            f"got {scheduler_status['digest_target_hour_utc']!r}"
+        )
+    if scheduler_status["due_custom_source_count"] != len(scheduler_status["due_custom_sources"]):
+        raise AssertionError("Expected due custom source count to match listed due sources")
     source_policy = "Store demo source metadata, summaries, attribution, and short excerpts only."
     updated_source = patch_json(
         client,
@@ -268,6 +288,13 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             len(briefing["discovery_scores"]) for briefing in product_briefings
         ),
         "source_health_rows": len(source_health),
+        "scheduler": {
+            "mode": scheduler_status["mode"],
+            "interval_minutes": scheduler_status["interval_minutes"],
+            "built_in_job_count": len(scheduler_status["built_in_jobs"]),
+            "due_custom_source_count": scheduler_status["due_custom_source_count"],
+            "digest_snapshot_fresh": scheduler_status["digest_snapshot_fresh"],
+        },
         "digest_items": digest["total_items"],
         "digest_snapshot_count": len(digest_snapshots),
         "latest_digest_snapshot_items": digest_snapshots[0]["total_items"],
