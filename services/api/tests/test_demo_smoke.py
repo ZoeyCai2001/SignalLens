@@ -9,6 +9,10 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["feed_detail"]["has_score_explanation"] is True
     assert result["feed_detail"]["has_one_line_summary"] is True
     assert result["feed_detail"]["card_summary_count"] >= 1
+    assert result["feed_detail"]["has_detailed_summary"] is True
+    assert result["feed_detail"]["has_why_it_matters"] is True
+    assert result["feed_detail"]["has_technical_summary"] is True
+    assert result["feed_detail"]["has_market_watch_summary"] is True
     assert result["feed_detail"]["has_action_state"] is True
     assert result["feed_actions"]["saved_item_id"] > 0
     assert result["feed_actions"]["important_item_id"] == result["feed_actions"]["saved_item_id"]

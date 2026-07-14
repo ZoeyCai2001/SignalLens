@@ -100,6 +100,44 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         raise AssertionError("Expected item detail to include a one-line summary profile")
     if not item_detail["card_summary"]:
         raise AssertionError("Expected item detail to include a card summary profile")
+    if not item_detail["why_it_matters"]:
+        raise AssertionError("Expected item detail to include why-it-matters context")
+    detailed_item = next((item for item in feed if item["summary_detailed"]), None)
+    if detailed_item is None:
+        raise AssertionError("Expected demo feed to include an item with a detailed summary")
+    detailed_detail = get_json(client, f"/api/feed/{detailed_item['id']}")
+    if not detailed_detail["summary_detailed"]:
+        raise AssertionError("Expected item detail to include a detailed summary")
+    technical_item = next(
+        (
+            item
+            for item in feed
+            if item["category"]
+            in {
+                "research",
+                "technical_trend",
+                "infrastructure",
+                "benchmark_evaluation",
+                "open_source_release",
+            }
+        ),
+        None,
+    )
+    if technical_item is None:
+        raise AssertionError("Expected demo feed to include a technical or research item")
+    technical_detail = get_json(client, f"/api/feed/{technical_item['id']}")
+    if not technical_detail["technical_summary"]:
+        raise AssertionError(
+            "Expected technical/research item detail to include a technical summary profile"
+        )
+    market_item = next((item for item in feed if item["tickers"]), None)
+    if market_item is None:
+        raise AssertionError("Expected demo feed to include a stock-linked item")
+    market_detail = get_json(client, f"/api/feed/{market_item['id']}")
+    if not market_detail["market_watch_summary"]:
+        raise AssertionError(
+            "Expected stock-linked item detail to include a market-watch summary profile"
+        )
     if not isinstance(item_detail["action_state"], dict):
         raise AssertionError("Expected item detail to include action state")
     action_item = next(
@@ -556,6 +594,10 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "has_score_explanation": bool(item_detail["score_explanation"]),
             "has_one_line_summary": bool(item_detail["one_line_summary"]),
             "card_summary_count": len(item_detail["card_summary"]),
+            "has_detailed_summary": bool(detailed_detail["summary_detailed"]),
+            "has_why_it_matters": bool(item_detail["why_it_matters"]),
+            "has_technical_summary": bool(technical_detail["technical_summary"]),
+            "has_market_watch_summary": bool(market_detail["market_watch_summary"]),
             "has_action_state": isinstance(item_detail["action_state"], dict),
         },
         "feed_actions": {
