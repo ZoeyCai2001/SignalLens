@@ -453,3 +453,4 @@ Implementation progress:
 - Extended natural-language search source inference to Reddit/subreddit queries, added coding-agent keyword extraction, and expanded the no-paid demo smoke verifier to prove Reddit community search and response-time budget coverage.
 - Added explicit `REDDIT_USER_AGENT` and `REDDIT_SUBREDDITS` configuration for built-in Reddit ingestion, surfaced Reddit setup readiness in health/System Readiness, and documented the public-metadata/no-secret configuration path.
 - Added source-specific recovery hints to persistent Source Health rows so optional free sources name the relevant credential, user-agent, public RSS, or subreddit setup step without requiring a fresh manual run.
+- Added Reddit to the System Readiness integration badge row and demo smoke evidence so supported Reddit ingestion setup cannot drift out of the dashboard view.

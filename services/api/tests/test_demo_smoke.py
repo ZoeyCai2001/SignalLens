@@ -101,6 +101,8 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["search"]["product_intent_category"] == "product"
     assert result["search"]["reddit_items"] >= 1
     assert result["search"]["reddit_intent_source"] == "Reddit"
+    assert result["health"]["reddit_user_agent_ready"] is False
+    assert "REDDIT_USER_AGENT" in result["health"]["setup_env_vars"]
     assert result["search"]["chinese_items"] >= 1
     assert result["search"]["chinese_intent_language"] == "zh"
     assert result["search"]["manual_tag_items"] >= 1

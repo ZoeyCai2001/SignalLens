@@ -548,6 +548,7 @@ type IntegrationStatus = {
   product_hunt_api: boolean;
   alpha_vantage_api: boolean;
   sec_user_agent: boolean;
+  reddit_user_agent: boolean;
   chinese_rss_feeds: boolean;
 };
 
@@ -5181,6 +5182,7 @@ function SystemStatusPanel({
         ["GitHub", status.integrations.github_api],
         ["Alpha Vantage", status.integrations.alpha_vantage_api],
         ["SEC", status.integrations.sec_user_agent],
+        ["Reddit", status.integrations.reddit_user_agent],
         ["Product Hunt", status.integrations.product_hunt_api],
         ["Chinese RSS", status.integrations.chinese_rss_feeds],
       ]

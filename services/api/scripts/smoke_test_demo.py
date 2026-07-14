@@ -671,6 +671,8 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "health": {
             "status": health["status"],
             "core_ready": health["setup_summary"]["core_ready"],
+            "reddit_user_agent_ready": health["integrations"]["reddit_user_agent"],
+            "setup_env_vars": [item["env_var"] for item in health["setup_items"]],
         },
         "settings_backup": {
             "sources": len(backup["sources"]),
