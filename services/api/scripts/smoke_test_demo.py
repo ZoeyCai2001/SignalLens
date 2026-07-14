@@ -141,6 +141,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "quality": {
             "recent_item_count": quality_metrics["recent_item_count"],
             "covered_module_count": quality_metrics["covered_module_count"],
+            "classification_coverage": quality_metrics["classification_coverage"],
             "recent_source_count": quality_metrics["recent_source_count"],
             "digest_snapshot_count": quality_metrics["digest_snapshot_count"],
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],

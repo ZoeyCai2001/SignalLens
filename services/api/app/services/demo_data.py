@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Source, SourceRun, StockPricePoint
+from app.db.models import NormalizedItem, Source, SourceRun, StockPricePoint
 from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.alerts import generate_alerts
 from app.services.daily_digest import save_daily_digest_snapshot
@@ -122,8 +122,9 @@ def seed_demo_feed_items(db: Session, now: datetime | None = None) -> int:
                 now=generated_at,
                 items_fetched=len(items),
                 items_stored=stored_count,
-            )
+        )
         total_stored += stored_count
+    mark_demo_items_as_curated_classifications(db)
     return total_stored
 
 
@@ -144,6 +145,20 @@ def seed_demo_manual_submission(db: Session) -> int:
         ),
     )
     return 1 if result.created else 0
+
+
+def mark_demo_items_as_curated_classifications(db: Session) -> None:
+    demo_source_names = [spec.name for spec in DEMO_SOURCES]
+    rows = (
+        db.query(NormalizedItem)
+        .filter(NormalizedItem.source_name.in_(demo_source_names))
+        .all()
+    )
+    for item in rows:
+        item.classification_confidence = max(item.classification_confidence or 0, 0.82)
+        db.add(item)
+    if rows:
+        db.commit()
 
 
 def get_or_create_demo_source(db: Session, spec: DemoSourceSpec) -> Source:

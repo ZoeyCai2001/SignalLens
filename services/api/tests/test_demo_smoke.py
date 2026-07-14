@@ -14,6 +14,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["digest_snapshot_count"] == 1
     assert result["latest_digest_snapshot_items"] >= 1
     assert result["quality"]["covered_module_count"] == 5
+    assert result["quality"]["classification_coverage"] >= 0.7
     assert result["quality"]["digest_snapshot_count"] == 1
     assert result["quality"]["latest_digest_age_days"] == 0
     assert result["quality"]["manual_submission_count"] == 1

@@ -154,6 +154,15 @@ def test_seed_demo_data_populates_first_run_dashboard_examples() -> None:
             "social_trend",
         }
         assert expected_categories.issubset(categories)
+        assert (
+            db.query(NormalizedItem)
+            .filter(
+                NormalizedItem.source_name != "Demo Manual Capture",
+                NormalizedItem.classification_confidence >= 0.82,
+            )
+            .count()
+            == 5
+        )
         assert db.query(SourceRun).count() == 5
         assert db.query(StockPricePoint).count() == 6
         assert db.query(DailyDigestSnapshot).count() == 1
