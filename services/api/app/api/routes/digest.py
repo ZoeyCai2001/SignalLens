@@ -4,7 +4,12 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession
-from app.schemas.digest import DailyDigest, DailyDigestMarkdown, DailyDigestSnapshot
+from app.schemas.digest import (
+    DailyDigest,
+    DailyDigestMarkdown,
+    DailyDigestSnapshot,
+    DailyDigestSnapshotFeedback,
+)
 from app.services.daily_digest import (
     delete_daily_digest_snapshot,
     generate_daily_digest,
@@ -12,6 +17,7 @@ from app.services.daily_digest import (
     render_digest_markdown,
     save_daily_digest_snapshot,
     serialize_daily_digest_snapshot,
+    update_daily_digest_snapshot_feedback,
 )
 
 router = APIRouter()
@@ -91,3 +97,19 @@ async def delete_saved_daily_digest_snapshot(snapshot_id: int, db: DbSession) ->
     deleted = delete_daily_digest_snapshot(db=db, snapshot_id=snapshot_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Digest snapshot not found.")
+
+
+@router.patch("/daily/snapshots/{snapshot_id}/feedback", response_model=DailyDigestSnapshot)
+async def update_saved_daily_digest_snapshot_feedback(
+    snapshot_id: int,
+    payload: DailyDigestSnapshotFeedback,
+    db: DbSession,
+) -> DailyDigestSnapshot:
+    snapshot = update_daily_digest_snapshot_feedback(
+        db=db,
+        snapshot_id=snapshot_id,
+        usefulness_feedback=payload.usefulness_feedback,
+    )
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Digest snapshot not found.")
+    return serialize_daily_digest_snapshot(snapshot)

@@ -213,6 +213,13 @@ def build_quality_metrics(
         dismissed_alert_count=alert_counts["dismissed"],
     )
     digest_snapshot_count = count_recent_digest_snapshots(db=db, since=since)
+    digest_feedback_counts = count_digest_snapshot_feedback(db=db, since=since)
+    digest_feedback_count = sum(digest_feedback_counts.values())
+    digest_feedback_usefulness_rate = (
+        ratio(digest_feedback_counts["useful"], digest_feedback_count)
+        if digest_feedback_count
+        else None
+    )
     latest_digest_snapshot = get_latest_digest_snapshot(db)
     latest_digest_snapshot_date = (
         latest_digest_snapshot.digest_date if latest_digest_snapshot else None
@@ -228,6 +235,8 @@ def build_quality_metrics(
         latest_digest_age_days=latest_digest_age_days,
         latest_digest_snapshot_item_count=latest_digest_snapshot_item_count,
         recent_item_count=recent_item_count,
+        digest_feedback_useful_count=digest_feedback_counts["useful"],
+        digest_feedback_not_useful_count=digest_feedback_counts["not_useful"],
     )
     stock_watchlist_count = count_stock_watchlist_items(db)
     company_watchlist_count = count_company_watchlist_items(db)
@@ -308,6 +317,10 @@ def build_quality_metrics(
         alert_dismissal_rate=alert_dismissal_rate,
         alert_usefulness_proxy=alert_usefulness_proxy,
         digest_snapshot_count=digest_snapshot_count,
+        digest_feedback_count=digest_feedback_count,
+        digest_useful_feedback_count=digest_feedback_counts["useful"],
+        digest_not_useful_feedback_count=digest_feedback_counts["not_useful"],
+        digest_feedback_usefulness_rate=digest_feedback_usefulness_rate,
         digest_usefulness_proxy=digest_usefulness_proxy,
         latest_digest_snapshot_date=latest_digest_snapshot_date,
         latest_digest_age_days=latest_digest_age_days,
@@ -876,6 +889,23 @@ def get_latest_digest_snapshot(db: Session) -> DailyDigestSnapshot | None:
     )
 
 
+def count_digest_snapshot_feedback(db: Session, since: datetime) -> dict[str, int]:
+    counts = {"useful": 0, "not_useful": 0}
+    snapshots = (
+        db.query(DailyDigestSnapshot.payload)
+        .filter(
+            DailyDigestSnapshot.user_id == LOCAL_USER_ID,
+            DailyDigestSnapshot.generated_at >= since,
+        )
+        .all()
+    )
+    for (payload,) in snapshots:
+        feedback = (payload or {}).get("usefulness_feedback")
+        if feedback in counts:
+            counts[feedback] += 1
+    return counts
+
+
 def digest_age_days(
     latest_digest_snapshot_date: date | None,
     current_date: date,
@@ -890,22 +920,31 @@ def build_digest_usefulness_proxy(
     latest_digest_age_days: int | None,
     latest_digest_snapshot_item_count: int | None,
     recent_item_count: int,
+    digest_feedback_useful_count: int = 0,
+    digest_feedback_not_useful_count: int = 0,
 ) -> float:
     if latest_digest_age_days is None or not latest_digest_snapshot_item_count:
-        return 0
-
-    if latest_digest_age_days <= 1:
-        freshness_score = 1.0
-    elif latest_digest_age_days <= 3:
-        freshness_score = 0.65
-    elif latest_digest_age_days <= 7:
-        freshness_score = 0.35
+        base_score = 0.0
     else:
-        freshness_score = 0.0
+        if latest_digest_age_days <= 1:
+            freshness_score = 1.0
+        elif latest_digest_age_days <= 3:
+            freshness_score = 0.65
+        elif latest_digest_age_days <= 7:
+            freshness_score = 0.35
+        else:
+            freshness_score = 0.0
 
-    target_items = min(recent_item_count, 8) if recent_item_count > 0 else 3
-    item_score = ratio(min(latest_digest_snapshot_item_count, target_items), target_items)
-    return round(0.6 * freshness_score + 0.4 * item_score, 3)
+        target_items = min(recent_item_count, 8) if recent_item_count > 0 else 3
+        item_score = ratio(min(latest_digest_snapshot_item_count, target_items), target_items)
+        base_score = round(0.6 * freshness_score + 0.4 * item_score, 3)
+
+    feedback_total = digest_feedback_useful_count + digest_feedback_not_useful_count
+    if feedback_total == 0:
+        return base_score
+
+    feedback_score = ratio(digest_feedback_useful_count, feedback_total)
+    return round(0.65 * feedback_score + 0.35 * base_score, 3)
 
 
 def build_alert_usefulness_proxy(

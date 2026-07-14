@@ -44,6 +44,7 @@ from app.services.daily_digest import (
     select_latest_digest_date,
     serialize_daily_digest_snapshot,
     sort_for_digest,
+    update_daily_digest_snapshot_feedback,
 )
 
 
@@ -792,6 +793,51 @@ def test_serialize_daily_digest_snapshot_round_trips_payload() -> None:
     assert serialized.id == 7
     assert serialized.digest.headline == "Snapshot headline"
     assert serialized.markdown == "# Snapshot\n"
+
+
+def test_update_daily_digest_snapshot_feedback_round_trips_payload() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    digest = DailyDigest(
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+        headline="Snapshot headline",
+        total_items=0,
+        sections=[],
+        source_coverage=[],
+        watchlist_tickers=[],
+        watchlist_companies=[],
+        disclaimer="Informational only.",
+    )
+    timestamp = datetime(2026, 6, 25, 13, 5, tzinfo=UTC)
+    with session_factory() as db:
+        snapshot = DailyDigestSnapshotModel(
+            user_id="local",
+            digest_date=digest.digest_date,
+            generated_at=digest.generated_at,
+            headline=digest.headline,
+            total_items=digest.total_items,
+            limit_per_section=5,
+            payload=digest.model_dump(mode="json"),
+            markdown="# Snapshot\n",
+            created_at=timestamp,
+            updated_at=timestamp,
+        )
+        db.add(snapshot)
+        db.commit()
+        db.refresh(snapshot)
+
+        updated = update_daily_digest_snapshot_feedback(db, snapshot.id, "useful")
+        assert updated is not None
+        serialized = serialize_daily_digest_snapshot(updated)
+        assert serialized.usefulness_feedback == "useful"
+        assert updated.payload["usefulness_feedback_at"]
+
+        cleared = update_daily_digest_snapshot_feedback(db, snapshot.id, None)
+        assert cleared is not None
+        assert serialize_daily_digest_snapshot(cleared).usefulness_feedback is None
+        assert "usefulness_feedback_at" not in cleared.payload
 
 
 def test_serialize_daily_digest_snapshot_handles_legacy_payload_without_companies() -> None:

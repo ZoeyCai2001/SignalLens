@@ -163,6 +163,10 @@ class QualityMetricsResponse(BaseModel):
     alert_dismissal_rate: float
     alert_usefulness_proxy: float | None = None
     digest_snapshot_count: int
+    digest_feedback_count: int = 0
+    digest_useful_feedback_count: int = 0
+    digest_not_useful_feedback_count: int = 0
+    digest_feedback_usefulness_rate: float | None = None
     digest_usefulness_proxy: float = 0
     latest_digest_snapshot_date: date | None = None
     latest_digest_age_days: int | None = None

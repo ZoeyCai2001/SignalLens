@@ -322,6 +322,37 @@ def delete_daily_digest_snapshot(db: Session, snapshot_id: int) -> bool:
     return True
 
 
+def update_daily_digest_snapshot_feedback(
+    db: Session,
+    snapshot_id: int,
+    usefulness_feedback: str | None,
+) -> DailyDigestSnapshotModel | None:
+    snapshot = (
+        db.query(DailyDigestSnapshotModel)
+        .filter(
+            DailyDigestSnapshotModel.user_id == LOCAL_USER_ID,
+            DailyDigestSnapshotModel.id == snapshot_id,
+        )
+        .one_or_none()
+    )
+    if snapshot is None:
+        return None
+
+    payload = dict(snapshot.payload or {})
+    if usefulness_feedback is None:
+        payload.pop("usefulness_feedback", None)
+        payload.pop("usefulness_feedback_at", None)
+    else:
+        payload["usefulness_feedback"] = usefulness_feedback
+        payload["usefulness_feedback_at"] = datetime.now(UTC).isoformat()
+    snapshot.payload = payload
+
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot
+
+
 def serialize_daily_digest_snapshot(snapshot: DailyDigestSnapshotModel) -> DailyDigestSnapshot:
     digest = DailyDigest.model_validate(snapshot.payload)
     return DailyDigestSnapshot(
@@ -331,6 +362,7 @@ def serialize_daily_digest_snapshot(snapshot: DailyDigestSnapshotModel) -> Daily
         headline=snapshot.headline,
         total_items=snapshot.total_items,
         limit_per_section=snapshot.limit_per_section,
+        usefulness_feedback=snapshot.payload.get("usefulness_feedback"),
         digest=digest,
         markdown=snapshot.markdown,
         created_at=snapshot.created_at,

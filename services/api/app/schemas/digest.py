@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -69,7 +70,12 @@ class DailyDigestSnapshot(BaseModel):
     headline: str
     total_items: int
     limit_per_section: int
+    usefulness_feedback: Literal["useful", "not_useful"] | None = None
     digest: DailyDigest
     markdown: str
     created_at: datetime
     updated_at: datetime
+
+
+class DailyDigestSnapshotFeedback(BaseModel):
+    usefulness_feedback: Literal["useful", "not_useful"] | None

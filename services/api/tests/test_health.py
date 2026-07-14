@@ -495,6 +495,13 @@ def test_digest_usefulness_proxy_combines_freshness_and_item_coverage() -> None:
         latest_digest_snapshot_item_count=2,
         recent_item_count=8,
     ) == 0.49
+    assert build_digest_usefulness_proxy(
+        latest_digest_age_days=0,
+        latest_digest_snapshot_item_count=8,
+        recent_item_count=10,
+        digest_feedback_useful_count=1,
+        digest_feedback_not_useful_count=1,
+    ) == 0.675
 
 
 def test_alert_usefulness_proxy_uses_non_dismissed_share() -> None:

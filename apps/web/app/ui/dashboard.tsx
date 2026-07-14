@@ -30,6 +30,8 @@ import {
   Send,
   SlidersHorizontal,
   Star,
+  ThumbsDown,
+  ThumbsUp,
   TrendingUp,
   Trash2,
   X,
@@ -569,6 +571,10 @@ type QualityMetrics = {
   alert_dismissal_rate: number;
   alert_usefulness_proxy: number | null;
   digest_snapshot_count: number;
+  digest_feedback_count: number;
+  digest_useful_feedback_count: number;
+  digest_not_useful_feedback_count: number;
+  digest_feedback_usefulness_rate: number | null;
   digest_usefulness_proxy: number;
   latest_digest_snapshot_date: string | null;
   latest_digest_age_days: number | null;
@@ -822,6 +828,7 @@ type DailyDigestSnapshot = {
   headline: string;
   total_items: number;
   limit_per_section: number;
+  usefulness_feedback: "useful" | "not_useful" | null;
   digest: DailyDigest;
   markdown: string;
   created_at: string;
@@ -2499,6 +2506,43 @@ export function Dashboard() {
     } catch (err) {
       setError(readError(err));
       setStatus("Digest snapshot delete failed");
+    } finally {
+      setBusyDigestSnapshotId(null);
+    }
+  };
+
+  const updateDailyDigestSnapshotFeedback = async (
+    snapshot: DailyDigestSnapshot,
+    usefulnessFeedback: "useful" | "not_useful",
+  ) => {
+    setBusyDigestSnapshotId(snapshot.id);
+    setError(null);
+    try {
+      const nextFeedback =
+        snapshot.usefulness_feedback === usefulnessFeedback ? null : usefulnessFeedback;
+      const updated = await fetchJson<DailyDigestSnapshot>(
+        `/api/digest/daily/snapshots/${snapshot.id}/feedback`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ usefulness_feedback: nextFeedback }),
+        },
+      );
+      setDigestSnapshots((items) =>
+        items.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      if (activeDigestSnapshot?.id === updated.id) {
+        setActiveDigestSnapshot(updated);
+        setDigest(updated.digest);
+      }
+      await refreshReadinessState();
+      setStatus(
+        nextFeedback
+          ? `Marked digest snapshot ${updated.digest_date} ${formatDigestFeedback(nextFeedback)}`
+          : `Cleared digest feedback ${updated.digest_date}`,
+      );
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Digest feedback failed");
     } finally {
       setBusyDigestSnapshotId(null);
     }
@@ -4275,6 +4319,7 @@ export function Dashboard() {
               onSave={saveDailyDigestSnapshot}
               onSnapshotOpen={loadDigestSnapshot}
               onSnapshotDelete={deleteDailyDigestSnapshot}
+              onSnapshotFeedback={updateDailyDigestSnapshotFeedback}
             />
           ) : activeModule === "stocks" ? (
             <section className="module-stack">
@@ -4367,6 +4412,7 @@ export function Dashboard() {
                   onSave={saveDailyDigestSnapshot}
                   onSnapshotOpen={loadDigestSnapshot}
                   onSnapshotDelete={deleteDailyDigestSnapshot}
+                  onSnapshotFeedback={updateDailyDigestSnapshotFeedback}
                 />
               </div>
             )}
@@ -6237,6 +6283,7 @@ function DailyDigestPanel({
   onSave,
   onSnapshotOpen,
   onSnapshotDelete,
+  onSnapshotFeedback,
 }: {
   digest: DailyDigest | null;
   snapshots: DailyDigestSnapshot[];
@@ -6256,6 +6303,10 @@ function DailyDigestPanel({
   onSave: () => void;
   onSnapshotOpen: (snapshot: DailyDigestSnapshot) => void;
   onSnapshotDelete: (snapshot: DailyDigestSnapshot) => void;
+  onSnapshotFeedback: (
+    snapshot: DailyDigestSnapshot,
+    usefulnessFeedback: "useful" | "not_useful",
+  ) => void;
 }) {
   const digestSections = digest?.sections ?? [];
   const digestActiveAlerts = digest?.active_alerts ?? [];
@@ -6470,23 +6521,52 @@ function DailyDigestPanel({
                       </div>
                       <span className="small-muted">
                         {snapshot.total_items} items · {countMarkdownLines(snapshot.markdown)} lines
+                        {snapshot.usefulness_feedback
+                          ? ` · ${formatDigestFeedback(snapshot.usefulness_feedback)}`
+                          : ""}
                         {activeSnapshotId === snapshot.id ? " · open" : ""}
                       </span>
                     </button>
-                    <button
-                      className="button icon-button"
-                      onClick={() => onSnapshotDelete(snapshot)}
-                      disabled={busySnapshotId === snapshot.id}
-                      title="Delete digest snapshot"
-                      aria-label={`Delete digest snapshot ${snapshot.digest_date}`}
-                      type="button"
-                    >
-                      {busySnapshotId === snapshot.id ? (
-                        <Loader2 className="spin" size={16} />
-                      ) : (
+                    <div className="snapshot-actions">
+                      <button
+                        className={`button icon-button ${
+                          snapshot.usefulness_feedback === "useful" ? "active-icon-button" : ""
+                        }`}
+                        onClick={() => onSnapshotFeedback(snapshot, "useful")}
+                        disabled={busySnapshotId === snapshot.id}
+                        title="Mark digest useful"
+                        aria-label={`Mark digest snapshot ${snapshot.digest_date} useful`}
+                        type="button"
+                      >
+                        {busySnapshotId === snapshot.id ? (
+                          <Loader2 className="spin" size={16} />
+                        ) : (
+                          <ThumbsUp size={16} />
+                        )}
+                      </button>
+                      <button
+                        className={`button icon-button ${
+                          snapshot.usefulness_feedback === "not_useful" ? "active-icon-button" : ""
+                        }`}
+                        onClick={() => onSnapshotFeedback(snapshot, "not_useful")}
+                        disabled={busySnapshotId === snapshot.id}
+                        title="Mark digest not useful"
+                        aria-label={`Mark digest snapshot ${snapshot.digest_date} not useful`}
+                        type="button"
+                      >
+                        <ThumbsDown size={16} />
+                      </button>
+                      <button
+                        className="button icon-button"
+                        onClick={() => onSnapshotDelete(snapshot)}
+                        disabled={busySnapshotId === snapshot.id}
+                        title="Delete digest snapshot"
+                        aria-label={`Delete digest snapshot ${snapshot.digest_date}`}
+                        type="button"
+                      >
                         <Trash2 size={16} />
-                      )}
-                    </button>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -6505,6 +6585,10 @@ function DailyDigestPanel({
 
 function countMarkdownLines(markdown: string): number {
   return markdown.split(/\r?\n/).filter((line) => line.trim()).length;
+}
+
+function formatDigestFeedback(feedback: "useful" | "not_useful"): string {
+  return feedback === "useful" ? "useful" : "not useful";
 }
 
 function digestItemSummary(item: FeedItem): string | null {
