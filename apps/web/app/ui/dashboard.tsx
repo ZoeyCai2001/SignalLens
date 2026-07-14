@@ -241,6 +241,11 @@ type StockBriefingLlmSummary = {
   total_tokens: number;
 };
 
+type StockLlmSummarySection = {
+  heading: string;
+  body: string[];
+};
+
 type CompanyWatchlistItem = {
   company_key: string;
   company_name: string;
@@ -8890,13 +8895,7 @@ function StockBriefingPanel({
       {activeTab === "summary" ? (
         <div className="stock-detail-tab-panel">
           {llmSummary ? (
-            <div className="digest-section">
-              <div className="digest-section-title">LLM Summary</div>
-              <div className="llm-explanation">{llmSummary.summary}</div>
-              <div className="small-muted">
-                {llmSummary.model} · {llmSummary.total_tokens} tokens
-              </div>
-            </div>
+            <StockLlmSummaryPanel summary={llmSummary} />
           ) : (
             <div className="empty-state">No LLM stock summary generated yet.</div>
           )}
@@ -8904,6 +8903,87 @@ function StockBriefingPanel({
       ) : null}
     </div>
   );
+}
+
+function StockLlmSummaryPanel({ summary }: { summary: StockBriefingLlmSummary }) {
+  const sections = parseStockLlmSummarySections(summary.summary);
+
+  return (
+    <div className="digest-section">
+      <div className="digest-section-title">LLM Summary</div>
+      <div className="stock-llm-summary-grid">
+        {sections.map((section) => (
+          <section className="stock-llm-summary-section" key={section.heading}>
+            <div className="stock-llm-summary-heading">{section.heading}</div>
+            <div className="llm-explanation">
+              {section.body.map((line, index) => (
+                <p key={`${section.heading}-${index}`}>{line}</p>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="small-muted">
+        {summary.model} · {summary.total_tokens} tokens
+      </div>
+    </div>
+  );
+}
+
+const STOCK_LLM_SUMMARY_HEADINGS = [
+  "What happened",
+  "Why it matters",
+  "Possible market relevance",
+  "Uncertainties",
+];
+
+function parseStockLlmSummarySections(summary: string): StockLlmSummarySection[] {
+  const sections = STOCK_LLM_SUMMARY_HEADINGS.map((heading) => ({ heading, body: [] as string[] }));
+  let currentIndex = -1;
+  const fallbackLines: string[] = [];
+
+  for (const line of splitSummaryLines(summary)) {
+    const headingMatch = matchStockLlmSummaryHeading(line);
+    if (headingMatch) {
+      currentIndex = headingMatch.index;
+      if (headingMatch.remainder) {
+        sections[currentIndex]!.body.push(headingMatch.remainder);
+      }
+      continue;
+    }
+
+    if (currentIndex >= 0) {
+      sections[currentIndex]!.body.push(line);
+    } else {
+      fallbackLines.push(line);
+    }
+  }
+
+  const parsedSections = sections.filter((section) => section.body.length > 0);
+  if (parsedSections.length >= 2) {
+    return parsedSections;
+  }
+
+  const body = fallbackLines.length ? fallbackLines : splitSummaryLines(summary);
+  return [{ heading: "Summary", body: body.length ? body : ["No summary text returned."] }];
+}
+
+function matchStockLlmSummaryHeading(line: string): { index: number; remainder: string } | null {
+  for (const [index, heading] of STOCK_LLM_SUMMARY_HEADINGS.entries()) {
+    const pattern = new RegExp(
+      `^(?:#+\\s*)?(?:\\*\\*)?${escapeRegExp(heading)}(?:\\*\\*)?\\s*:?\\s*(.*)$`,
+      "i",
+    );
+    const match = line.match(pattern);
+    if (match) {
+      return { index, remainder: (match[1] ?? "").trim() };
+    }
+  }
+  return null;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function StockAttentionDrivers({ briefing }: { briefing: StockBriefing }) {

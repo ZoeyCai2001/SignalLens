@@ -1128,6 +1128,28 @@ table {
   padding: 8px;
 }
 
+.llm-explanation p {
+  margin: 0;
+}
+
+.stock-llm-summary-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stock-llm-summary-section {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stock-llm-summary-heading {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .cluster-market-context {
   display: grid;
   gap: 6px;
@@ -1705,7 +1727,8 @@ tr:last-child td {
   .mvp-checklist-grid,
   .source-health-summary,
   .stock-detail-grid,
-  .stock-detail-grid-view {
+  .stock-detail-grid-view,
+  .stock-llm-summary-grid {
     grid-template-columns: 1fr;
   }
 

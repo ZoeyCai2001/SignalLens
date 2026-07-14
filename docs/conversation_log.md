@@ -394,3 +394,4 @@ Implementation progress:
 - Added conservative same-source same-day near-title deduplication during raw ingestion, improving the PRD duplicate filtering path without adding embedding cost or suppressing next-day follow-up coverage.
 - Added deterministic novelty scoring during ingestion, discounting recent same-source title follow-ups more than cross-source confirmations so feed ranking reflects PRD novelty and duplicate-pressure inputs.
 - Added the PRD stock-chart 1D range to the dashboard as an honest latest-daily-close view, explicitly noting that true intraday data needs a configured intraday market-data feed.
+- Structured stock LLM summaries into the PRD review sections for what happened, why it matters, possible market relevance, and uncertainties, with a fallback for older free-form summaries.
