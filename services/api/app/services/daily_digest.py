@@ -90,11 +90,13 @@ def generate_daily_digest(
     companies = list_watchlist_companies(db)
     topics = list_watchlist_topics(db)
     products = list_watchlist_products(db)
+    stock_terms = list_included_digest_stock_terms(db)
     topic_terms = list_included_digest_topic_terms(db)
     product_terms = list_included_digest_product_terms(db)
     sections = build_digest_sections(
         feed_items,
         limit_per_section=limit_per_section,
+        stock_watchlist_terms=stock_terms,
         topic_watchlist_terms=topic_terms,
         product_watchlist_terms=product_terms,
     )
@@ -479,10 +481,12 @@ def serialize_digest_alert(db: Session, alert: Alert) -> DigestAlertItem:
 def build_digest_sections(
     items: list[FeedItem],
     limit_per_section: int = 5,
+    stock_watchlist_terms: set[str] | None = None,
     topic_watchlist_terms: set[str] | None = None,
     product_watchlist_terms: set[str] | None = None,
 ) -> list[DigestSection]:
     ranked_items = sort_for_digest(items)
+    normalized_stock_watchlist_terms = normalize_digest_terms(stock_watchlist_terms or set())
     normalized_topic_watchlist_terms = normalize_digest_terms(topic_watchlist_terms or set())
     normalized_product_watchlist_terms = normalize_digest_terms(product_watchlist_terms or set())
     section_specs = [
@@ -531,8 +535,11 @@ def build_digest_sections(
         (
             "stock_watchlist",
             "AI Stock Watchlist",
-            "Company and ticker-linked AI signals, informational only.",
-            is_digest_stock_item,
+            "Watched ticker-linked AI signals, informational only.",
+            lambda item: matches_digest_stock_watchlist_item(
+                item,
+                normalized_stock_watchlist_terms,
+            ),
         ),
         (
             "chinese_social",
@@ -579,6 +586,12 @@ def is_digest_technical_trend_item(item: FeedItem) -> bool:
 
 def is_digest_stock_item(item: FeedItem) -> bool:
     return item.category in STOCK_DIGEST_CATEGORIES or bool(item.tickers)
+
+
+def matches_digest_stock_watchlist_item(item: FeedItem, terms: set[str]) -> bool:
+    if not terms:
+        return is_digest_stock_item(item)
+    return is_digest_stock_item(item) and matches_digest_watchlist_terms(item, terms)
 
 
 def is_digest_developer_highlight_item(item: FeedItem) -> bool:
@@ -735,6 +748,28 @@ def list_watchlist_tickers(db: Session) -> list[str]:
         .all()
     )
     return [row[0] for row in rows]
+
+
+def list_included_digest_stock_terms(db: Session) -> set[str]:
+    rows = (
+        db.query(StockWatchlistItem)
+        .filter(StockWatchlistItem.user_id == LOCAL_USER_ID)
+        .all()
+    )
+    terms: set[str] = set()
+    for row in rows:
+        terms.update(
+            term.strip().lower()
+            for term in [
+                row.ticker,
+                row.company_name,
+                *row.related_keywords,
+                *row.related_companies,
+                *row.related_ai_themes,
+            ]
+            if term.strip()
+        )
+    return terms
 
 
 def list_watchlist_companies(db: Session) -> list[str]:

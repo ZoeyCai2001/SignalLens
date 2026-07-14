@@ -358,3 +358,4 @@ Implementation progress:
 - Added company names to Daily Digest item labels in both markdown and the web preview so company-watchlist signals show their PRD context even when no ticker is attached.
 - Added product watchlist labels to Daily Digest payloads, markdown, and dashboard preview context so product-category preferences are visible beside ticker, company, and topic watchlists.
 - Added a Product Watchlist Updates section to Daily Digest generation, matching included product watchlist labels, categories, related terms, and inferred use-case buckets so product preferences become actionable briefing sections instead of context-only badges.
+- Tightened the AI Stock Watchlist digest section so generated briefings match the user's watched ticker profile, including tickers, company names, related keywords, related companies, and AI themes, while preserving generic stock grouping for callers without watchlist terms.

@@ -12,6 +12,7 @@ from app.db.models import (
     CompanyWatchlistItem,
     NormalizedItem,
     ProductWatchlistItem,
+    StockWatchlistItem,
     TopicWatchlistItem,
     UserItemAction,
     UserPreference,
@@ -33,6 +34,7 @@ from app.services.daily_digest import (
     list_excluded_digest_company_terms,
     list_excluded_digest_product_terms,
     list_included_digest_product_terms,
+    list_included_digest_stock_terms,
     list_included_digest_topic_terms,
     list_visible_items_for_digest_date,
     list_watchlist_companies,
@@ -92,6 +94,25 @@ def test_daily_digest_sections_include_topic_watchlist_matches() -> None:
         "Coding agent launch",
     ]
     assert section_map["topic_watchlist"].metrics.item_count == 2
+
+
+def test_daily_digest_sections_limit_stock_watchlist_to_watched_terms() -> None:
+    items = [
+        make_item(1, "Micron HBM demand rises", "stock_company_event", 0.9, tickers=["MU"]),
+        make_item(2, "HBM memory pricing note", "stock_company_event", 0.8),
+        make_item(3, "Unwatched retailer earnings", "stock_company_event", 0.7, tickers=["SHOP"]),
+    ]
+
+    sections = build_digest_sections(
+        items,
+        stock_watchlist_terms={"mu", "micron technology", "hbm memory"},
+    )
+    section_map = {section.key: section for section in sections}
+
+    assert [item.title for item in section_map["stock_watchlist"].items] == [
+        "Micron HBM demand rises",
+        "HBM memory pricing note",
+    ]
 
 
 def test_daily_digest_sections_include_product_watchlist_matches() -> None:
@@ -577,6 +598,34 @@ def test_list_watchlist_products_returns_digest_included_labels() -> None:
     assert products == ["AI coding tools"]
 
 
+def test_list_included_digest_stock_terms_uses_local_stock_profile() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            StockWatchlistItem(
+                user_id="local",
+                ticker="MU",
+                company_name="Micron Technology",
+                exchange="NASDAQ",
+                sector="Technology",
+                industry="Semiconductors",
+                priority="High",
+                group_name="Memory",
+                related_keywords=["HBM"],
+                related_companies=["NVDA"],
+                related_ai_themes=["AI server memory"],
+            )
+        )
+        db.commit()
+
+        terms = list_included_digest_stock_terms(db)
+
+    assert {"mu", "micron technology", "hbm", "nvda", "ai server memory"}.issubset(terms)
+
+
 def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None:
     items = [
         make_item(1, "Research", "research", 0.9, topics=["llm"], companies=["OpenAI"]),
@@ -957,6 +1006,56 @@ def test_generate_daily_digest_includes_product_watchlist_updates() -> None:
     assert digest.watchlist_products == ["AI coding tools"]
     assert [item.title for item in section_map["product_watchlist"].items] == [
         "Developer agent launch for coding teams"
+    ]
+
+
+def test_generate_daily_digest_limits_stock_watchlist_updates_to_watched_terms() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            StockWatchlistItem(
+                user_id="local",
+                ticker="MU",
+                company_name="Micron Technology",
+                exchange="NASDAQ",
+                sector="Technology",
+                industry="Semiconductors",
+                priority="High",
+                group_name="Memory",
+                related_keywords=["HBM"],
+                related_companies=[],
+                related_ai_themes=["AI server memory"],
+            )
+        )
+        watched = make_normalized_item(
+            1,
+            "Micron HBM memory demand rises",
+            source_name="Trusted Blog",
+        )
+        watched.category = "stock_company_event"
+        watched.tickers = ["MU"]
+        unwatched = make_normalized_item(
+            2,
+            "Retailer earnings beat estimates",
+            source_name="Trusted Blog",
+        )
+        unwatched.category = "stock_company_event"
+        unwatched.tickers = ["SHOP"]
+        db.add_all([watched, unwatched])
+        db.commit()
+
+        digest = generate_daily_digest(
+            db,
+            digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        )
+
+    section_map = {section.key: section for section in digest.sections}
+    assert digest.watchlist_tickers == ["MU"]
+    assert [item.title for item in section_map["stock_watchlist"].items] == [
+        "Micron HBM memory demand rises"
     ]
 
 
