@@ -3255,6 +3255,7 @@ export function Dashboard() {
       setSourceRunStatusFilter(finding.action_source_filter === "failed" ? "failed" : "all");
     }
     setActiveModule(finding.action_module);
+    scrollToDashboardTarget(qualityFindingTargetId(finding));
     if (finding.action_operation === "cycle") {
       await runFullCycle();
       return;
@@ -3340,15 +3341,22 @@ export function Dashboard() {
     setStatus(`${item.actionLabel ?? "Opened"}: ${item.label}`);
   };
 
-  const scrollToDashboardTarget = (targetId?: string) => {
+  const scrollToDashboardTarget = (targetId?: string, attempt = 0) => {
     if (!targetId) {
       return;
     }
     window.requestAnimationFrame(() => {
-      document.getElementById(targetId)?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      const target = document.getElementById(targetId);
+      if (target) {
+        target.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+        return;
+      }
+      if (attempt < 4) {
+        window.setTimeout(() => scrollToDashboardTarget(targetId, attempt + 1), 50);
+      }
     });
   };
 
@@ -4780,6 +4788,44 @@ function qualityFindingBadgeClass(severity: QualityFinding["severity"]): string 
     return "alert-badge";
   }
   return "muted-badge";
+}
+
+function qualityFindingTargetId(finding: QualityFinding): string | undefined {
+  if (finding.action_operation === "cycle") {
+    return "source-health-workflow";
+  }
+  if (
+    finding.action_operation === "llm:classify" ||
+    finding.action_operation === "llm:summarize" ||
+    finding.action_operation === "demo-data:seed"
+  ) {
+    return "ranked-feed-workflow";
+  }
+  if (finding.action_operation === "digest:save-snapshot") {
+    return "digest-workflow";
+  }
+  if (finding.action_operation === "stock-prices:refresh") {
+    return "stock-watchlist-workflow";
+  }
+  if (finding.action_operation === "alerts:generate") {
+    return "alerts-workflow";
+  }
+  if (finding.action_module === "sources") {
+    return "source-health-workflow";
+  }
+  if (finding.action_module === "digest") {
+    return "digest-workflow";
+  }
+  if (finding.action_module === "stocks") {
+    return "stock-watchlist-workflow";
+  }
+  if (finding.action_module === "settings") {
+    return "settings-workflow";
+  }
+  if (finding.action_module === "dashboard") {
+    return "system-readiness-workflow";
+  }
+  return undefined;
 }
 
 function mvpChecklistBadgeClass(status: MvpChecklistItem["status"]): string {
