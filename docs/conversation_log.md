@@ -448,3 +448,4 @@ Implementation progress:
 - Added item-level candidate previews to LLM batch dry-runs so the dashboard can show which source items would be classified or summarized before spending Kimi calls.
 - Made LLM batch dry-runs available without `MOONSHOT_API_KEY`, while keeping real classify/summarize calls guarded by the configured Kimi key.
 - Aligned Source Health retry due times with scheduler polling windows after failed runs, while preserving the separate last-success timestamp for reliability context.
+- Mirrored manual-submission backend limits in the dashboard, disabled form edits during submit, added long-field counters, enforced the manual-tag count before submission, and showed a compact Kimi data-sharing cue only when optional model actions are selected.

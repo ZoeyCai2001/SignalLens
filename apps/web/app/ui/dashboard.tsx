@@ -1109,6 +1109,12 @@ const emptyManualEngagementDraft: ManualEngagementDraft = {
   views: "",
 };
 
+const MANUAL_TITLE_MAX_LENGTH = 500;
+const MANUAL_SOURCE_NAME_MAX_LENGTH = 120;
+const MANUAL_TEXT_MAX_LENGTH = 12000;
+const MANUAL_PERSONAL_NOTE_MAX_LENGTH = 4000;
+const MANUAL_TAG_LIMIT = 12;
+
 const manualEngagementFields: { key: keyof ManualEngagementDraft; label: string }[] = [
   { key: "likes", label: "Likes" },
   { key: "comments_count", label: "Comments" },
@@ -8628,6 +8634,8 @@ function ManualSubmissionPanel({
   onSubmit: () => void;
 }) {
   const hasLlmAction = classifyWithLlm || summarizeWithLlm;
+  const manualTagCount = splitTerms(manualTags).length;
+  const tagsWithinLimit = manualTagCount <= MANUAL_TAG_LIMIT;
   const submitLabel = hasLlmAction
     ? `Submit & ${[
         classifyWithLlm ? "Classify" : null,
@@ -8652,6 +8660,8 @@ function ManualSubmissionPanel({
           className="field"
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
+          maxLength={MANUAL_TITLE_MAX_LENGTH}
+          disabled={disabled}
           placeholder="Paste an AI item title or leave blank"
         />
         <label className="field-label" htmlFor="manual-source-name">
@@ -8662,6 +8672,8 @@ function ManualSubmissionPanel({
           className="field"
           value={sourceName}
           onChange={(event) => onSourceNameChange(event.target.value)}
+          maxLength={MANUAL_SOURCE_NAME_MAX_LENGTH}
+          disabled={disabled}
           placeholder="Manual Submission"
         />
         <label className="field-label" htmlFor="manual-url">
@@ -8672,6 +8684,7 @@ function ManualSubmissionPanel({
           className="field"
           value={url}
           onChange={(event) => onUrlChange(event.target.value)}
+          disabled={disabled}
           placeholder="https://..."
         />
         <label className="field-label" htmlFor="manual-text">
@@ -8682,8 +8695,16 @@ function ManualSubmissionPanel({
           className="field textarea"
           value={text}
           onChange={(event) => onTextChange(event.target.value)}
+          maxLength={MANUAL_TEXT_MAX_LENGTH}
+          disabled={disabled}
           placeholder="Optional context for classification and summary"
         />
+        <div className="field-meta">
+          <span>{text.length.toLocaleString()} / {MANUAL_TEXT_MAX_LENGTH.toLocaleString()}</span>
+          {hasLlmAction ? (
+            <span>Kimi receives submitted title, URL, source, and notes.</span>
+          ) : null}
+        </div>
         <div className="manual-engagement-grid" aria-label="Public engagement metrics">
           {manualEngagementFields.map((field) => (
             <label className="weight-field" key={field.key}>
@@ -8709,8 +8730,16 @@ function ManualSubmissionPanel({
           className="field textarea"
           value={personalNote}
           onChange={(event) => onPersonalNoteChange(event.target.value)}
+          maxLength={MANUAL_PERSONAL_NOTE_MAX_LENGTH}
+          disabled={disabled}
           placeholder="Private note for your reading list"
         />
+        <div className="field-meta">
+          <span>
+            {personalNote.length.toLocaleString()} /{" "}
+            {MANUAL_PERSONAL_NOTE_MAX_LENGTH.toLocaleString()}
+          </span>
+        </div>
         <label className="field-label" htmlFor="manual-tags">
           Manual tags
         </label>
@@ -8719,8 +8748,14 @@ function ManualSubmissionPanel({
           className="field"
           value={manualTags}
           onChange={(event) => onManualTagsChange(event.target.value)}
+          disabled={disabled}
           placeholder="agent, market impact"
         />
+        <div className={tagsWithinLimit ? "field-meta" : "field-meta source-error"}>
+          <span>
+            {manualTagCount} / {MANUAL_TAG_LIMIT} tags
+          </span>
+        </div>
         <label className="checkbox-row">
           <input
             type="checkbox"
@@ -8748,7 +8783,11 @@ function ManualSubmissionPanel({
           />
           Summarize with Kimi
         </label>
-        <button className="button primary" onClick={onSubmit} disabled={disabled}>
+        <button
+          className="button primary"
+          onClick={onSubmit}
+          disabled={disabled || !tagsWithinLimit}
+        >
           {disabled ? (
             <Loader2 className="spin" size={16} />
           ) : hasLlmAction ? (
