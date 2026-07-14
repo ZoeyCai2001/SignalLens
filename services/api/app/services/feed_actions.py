@@ -355,6 +355,16 @@ def extract_labeled_summary_parts(text: str | None, labels: list[str]) -> list[s
     return parts
 
 
+def extract_summary_uncertainties(text: str | None) -> list[str]:
+    notes: list[str] = []
+    for value in extract_labeled_summary_parts(text, ["Uncertainties"]):
+        for note in value.split(";"):
+            cleaned = note.strip()
+            if cleaned:
+                notes.append(cleaned)
+    return notes[:3]
+
+
 def split_summary_lines(text: str | None) -> list[str]:
     if not text:
         return []
@@ -483,7 +493,7 @@ def product_use_case_label(subcategory: str | None) -> str:
 
 
 def build_feed_uncertainty_notes(item: FeedItem) -> list[str]:
-    notes: list[str] = []
+    notes = extract_summary_uncertainties(item.summary_detailed)
     if item.classification_confidence < 0.6:
         notes.append("Classifier confidence is low, so category and entity labels may need review.")
     if item.source_quality_score < 0.6:
@@ -496,7 +506,15 @@ def build_feed_uncertainty_notes(item: FeedItem) -> list[str]:
         notes.append("No generated summary is stored yet; review the original source text.")
     if item.source_name == "Manual Submission":
         notes.append("Manual submissions depend on the supplied URL and note context.")
-    return notes or ["No major uncertainty flags from the stored item signals."]
+    unique_notes: list[str] = []
+    seen_notes: set[str] = set()
+    for note in notes:
+        normalized = note.casefold()
+        if normalized in seen_notes:
+            continue
+        seen_notes.add(normalized)
+        unique_notes.append(note)
+    return unique_notes or ["No major uncertainty flags from the stored item signals."]
 
 
 def build_personalization_notes(

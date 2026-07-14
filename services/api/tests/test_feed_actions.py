@@ -335,7 +335,8 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
         summary_detailed=(
             "Micron demand signal.\n"
             "Market relevance: This is relevant to watched memory tickers.\n"
-            "Technical relevance: HBM supply affects AI accelerator deployment."
+            "Technical relevance: HBM supply affects AI accelerator deployment.\n"
+            "Uncertainties: Demand durability is still unclear.; Market impact is indirect."
         ),
     )
     action = UserItemAction(
@@ -367,7 +368,10 @@ def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> N
     assert "high stock-impact score" in detail.score_explanation
     assert "saved by you" in detail.score_explanation
     assert "marked important by you" in detail.score_explanation
-    assert detail.uncertainty_notes == ["No major uncertainty flags from the stored item signals."]
+    assert detail.uncertainty_notes == [
+        "Demand durability is still unclear.",
+        "Market impact is indirect.",
+    ]
     assert detail.personalization_notes == []
 
 
@@ -563,6 +567,23 @@ def test_build_feed_uncertainty_notes_flags_review_risks() -> None:
     assert "Market direction is unclear from the available signal." in notes
     assert "No generated summary is stored yet; review the original source text." in notes
     assert "Manual submissions depend on the supplied URL and note context." in notes
+
+
+def test_build_feed_uncertainty_notes_uses_stored_summary_uncertainties() -> None:
+    item = make_feed_item(1, "Structured summary")
+    item.classification_confidence = 0.82
+    item.source_quality_score = 0.82
+    item.summary_detailed = (
+        "Structured summary.\n"
+        "Uncertainties: Vendor claims need independent validation.; Adoption timing is unclear."
+    )
+
+    notes = build_feed_uncertainty_notes(item)
+
+    assert notes == [
+        "Vendor claims need independent validation.",
+        "Adoption timing is unclear.",
+    ]
 
 
 def test_build_score_explanation_has_default_reason() -> None:
