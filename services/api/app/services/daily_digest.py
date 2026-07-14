@@ -89,6 +89,7 @@ def generate_daily_digest(
     tickers = list_watchlist_tickers(db)
     companies = list_watchlist_companies(db)
     topics = list_watchlist_topics(db)
+    products = list_watchlist_products(db)
     topic_terms = list_included_digest_topic_terms(db)
     sections = build_digest_sections(
         feed_items,
@@ -118,6 +119,7 @@ def generate_daily_digest(
         watchlist_tickers=tickers,
         watchlist_companies=companies,
         watchlist_topics=topics,
+        watchlist_products=products,
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
     )
 
@@ -147,6 +149,13 @@ def render_digest_markdown(digest: DailyDigest) -> str:
         lines.extend(
             [
                 f"Topic watchlist: {', '.join(digest.watchlist_topics)}",
+                "",
+            ]
+        )
+    if digest.watchlist_products:
+        lines.extend(
+            [
+                f"Product watchlist: {', '.join(digest.watchlist_products)}",
                 "",
             ]
         )
@@ -746,6 +755,23 @@ def list_watchlist_topics(db: Session) -> list[str]:
             TopicWatchlistItem.is_pinned.desc(),
             TopicWatchlistItem.priority.asc(),
             TopicWatchlistItem.label.asc(),
+        )
+        .all()
+    )
+    return [row.label for row in rows]
+
+
+def list_watchlist_products(db: Session) -> list[str]:
+    rows = (
+        db.query(ProductWatchlistItem)
+        .filter(
+            ProductWatchlistItem.user_id == LOCAL_USER_ID,
+            ProductWatchlistItem.include_in_digest.is_(True),
+        )
+        .order_by(
+            ProductWatchlistItem.is_pinned.desc(),
+            ProductWatchlistItem.priority.asc(),
+            ProductWatchlistItem.label.asc(),
         )
         .all()
     )

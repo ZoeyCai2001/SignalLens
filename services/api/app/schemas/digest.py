@@ -52,6 +52,7 @@ class DailyDigest(BaseModel):
     watchlist_tickers: list[str] = Field(default_factory=list)
     watchlist_companies: list[str] = Field(default_factory=list)
     watchlist_topics: list[str] = Field(default_factory=list)
+    watchlist_products: list[str] = Field(default_factory=list)
     disclaimer: str
 
 

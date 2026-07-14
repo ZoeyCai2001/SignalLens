@@ -761,6 +761,7 @@ type DailyDigest = {
   watchlist_tickers?: string[];
   watchlist_companies?: string[];
   watchlist_topics?: string[];
+  watchlist_products?: string[];
   disclaimer: string;
 };
 
@@ -5703,6 +5704,7 @@ function DailyDigestPanel({
   const digestWatchlistTickers = digest?.watchlist_tickers ?? [];
   const digestWatchlistCompanies = digest?.watchlist_companies ?? [];
   const digestWatchlistTopics = digest?.watchlist_topics ?? [];
+  const digestWatchlistProducts = digest?.watchlist_products ?? [];
   const sectionsWithItems = digestSections.filter((section) => section.items.length);
   return (
     <section className="section">
@@ -5795,6 +5797,11 @@ function DailyDigestPanel({
             {digestWatchlistTopics.slice(0, 4).map((topic) => (
               <span className="badge" key={`topic:${topic}`}>
                 {topic}
+              </span>
+            ))}
+            {digestWatchlistProducts.slice(0, 4).map((product) => (
+              <span className="badge" key={`product:${product}`}>
+                {product}
               </span>
             ))}
           </div>

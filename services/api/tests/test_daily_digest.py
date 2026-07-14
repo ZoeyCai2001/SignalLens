@@ -35,6 +35,7 @@ from app.services.daily_digest import (
     list_included_digest_topic_terms,
     list_visible_items_for_digest_date,
     list_watchlist_companies,
+    list_watchlist_products,
     list_watchlist_topics,
     render_digest_markdown,
     select_latest_digest_date,
@@ -475,6 +476,40 @@ def test_list_watchlist_topics_returns_included_labels_and_terms() -> None:
     assert "ai photo" not in terms
 
 
+def test_list_watchlist_products_returns_digest_included_labels() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                ProductWatchlistItem(
+                    user_id="local",
+                    category="ai-coding-tools",
+                    label="AI coding tools",
+                    priority="High",
+                    is_pinned=True,
+                    include_in_digest=True,
+                    related_terms=["developer agent"],
+                ),
+                ProductWatchlistItem(
+                    user_id="local",
+                    category="ai-photo",
+                    label="AI photo tools",
+                    priority="Medium",
+                    include_in_digest=False,
+                    related_terms=["image generation"],
+                ),
+            ]
+        )
+        db.commit()
+
+        products = list_watchlist_products(db)
+
+    assert products == ["AI coding tools"]
+
+
 def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None:
     items = [
         make_item(1, "Research", "research", 0.9, topics=["llm"], companies=["OpenAI"]),
@@ -498,6 +533,7 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
         watchlist_tickers=["MU", "MRVL"],
         watchlist_companies=["OpenAI", "Anthropic"],
         watchlist_topics=["Agent Harness", "AI Coding"],
+        watchlist_products=["AI coding tools", "AI search tools"],
         disclaimer="Informational only.",
     )
 
@@ -507,6 +543,7 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert "Ticker watchlist: MU, MRVL" in markdown
     assert "Company watchlist: OpenAI, Anthropic" in markdown
     assert "Topic watchlist: Agent Harness, AI Coding" in markdown
+    assert "Product watchlist: AI coding tools, AI search tools" in markdown
     assert "## AI Research" in markdown
     assert "Papers, benchmarks, and research discussions." in markdown
     assert "_Section signals: 1 items, 1 sources, 1 high-impact_" in markdown
