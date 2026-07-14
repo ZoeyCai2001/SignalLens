@@ -32,6 +32,7 @@ from app.services.daily_digest import (
     list_active_digest_alerts,
     list_excluded_digest_company_terms,
     list_excluded_digest_product_terms,
+    list_included_digest_product_terms,
     list_included_digest_topic_terms,
     list_visible_items_for_digest_date,
     list_watchlist_companies,
@@ -91,6 +92,38 @@ def test_daily_digest_sections_include_topic_watchlist_matches() -> None:
         "Coding agent launch",
     ]
     assert section_map["topic_watchlist"].metrics.item_count == 2
+
+
+def test_daily_digest_sections_include_product_watchlist_matches() -> None:
+    items = [
+        make_item(
+            1,
+            "CodePilot developer agent launch",
+            "product",
+            0.9,
+            products=["CodePilot"],
+        ),
+        make_item(
+            2,
+            "AI coding assistant benchmark",
+            "technical_trend",
+            0.8,
+            subcategory="product_coding",
+        ),
+        make_item(3, "Photo model update", "product", 0.7, products=["AI photo"]),
+    ]
+
+    sections = build_digest_sections(
+        items,
+        product_watchlist_terms={"ai coding tools", "developer agent", "product_coding"},
+    )
+    section_map = {section.key: section for section in sections}
+
+    assert [item.title for item in section_map["product_watchlist"].items] == [
+        "CodePilot developer agent launch",
+        "AI coding assistant benchmark",
+    ]
+    assert section_map["product_watchlist"].metrics.item_count == 2
 
 
 def test_daily_digest_sections_include_prd_secondary_categories() -> None:
@@ -353,6 +386,40 @@ def test_list_excluded_digest_product_terms_includes_use_case_terms() -> None:
         terms
     )
     assert "product_productivity" not in terms
+
+
+def test_list_included_digest_product_terms_includes_use_case_terms() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                ProductWatchlistItem(
+                    user_id="local",
+                    category="ai-coding-tools",
+                    label="AI coding tools",
+                    include_in_digest=True,
+                    related_terms=["developer agent"],
+                ),
+                ProductWatchlistItem(
+                    user_id="local",
+                    category="ai-photo",
+                    label="AI photo tools",
+                    include_in_digest=False,
+                    related_terms=["image generation"],
+                ),
+            ]
+        )
+        db.commit()
+
+        terms = list_included_digest_product_terms(db)
+
+    assert {"ai-coding-tools", "ai coding tools", "developer agent", "product_coding"}.issubset(
+        terms
+    )
+    assert "ai photo tools" not in terms
 
 
 def test_filter_items_by_excluded_topics_checks_companies_and_tickers() -> None:
@@ -845,6 +912,51 @@ def test_generate_daily_digest_includes_topic_watchlist_updates() -> None:
     assert digest.watchlist_topics == ["Agent Harness"]
     assert [item.title for item in section_map["topic_watchlist"].items] == [
         "Agent harness reliability signal"
+    ]
+
+
+def test_generate_daily_digest_includes_product_watchlist_updates() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            ProductWatchlistItem(
+                user_id="local",
+                category="ai-coding-tools",
+                label="AI coding tools",
+                priority="High",
+                is_pinned=True,
+                include_in_digest=True,
+                related_terms=["developer agent"],
+            )
+        )
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Developer agent launch for coding teams",
+                    source_name="Trusted Blog",
+                ),
+                make_normalized_item(
+                    2,
+                    "AI photo workflow update",
+                    source_name="Trusted Blog",
+                ),
+            ]
+        )
+        db.commit()
+
+        digest = generate_daily_digest(
+            db,
+            digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        )
+
+    section_map = {section.key: section for section in digest.sections}
+    assert digest.watchlist_products == ["AI coding tools"]
+    assert [item.title for item in section_map["product_watchlist"].items] == [
+        "Developer agent launch for coding teams"
     ]
 
 

@@ -91,10 +91,12 @@ def generate_daily_digest(
     topics = list_watchlist_topics(db)
     products = list_watchlist_products(db)
     topic_terms = list_included_digest_topic_terms(db)
+    product_terms = list_included_digest_product_terms(db)
     sections = build_digest_sections(
         feed_items,
         limit_per_section=limit_per_section,
         topic_watchlist_terms=topic_terms,
+        product_watchlist_terms=product_terms,
     )
     metrics = build_digest_overview_metrics(feed_items, coverage)
     active_alerts = list_active_digest_alerts(
@@ -478,9 +480,11 @@ def build_digest_sections(
     items: list[FeedItem],
     limit_per_section: int = 5,
     topic_watchlist_terms: set[str] | None = None,
+    product_watchlist_terms: set[str] | None = None,
 ) -> list[DigestSection]:
     ranked_items = sort_for_digest(items)
     normalized_topic_watchlist_terms = normalize_digest_terms(topic_watchlist_terms or set())
+    normalized_product_watchlist_terms = normalize_digest_terms(product_watchlist_terms or set())
     section_specs = [
         (
             "top_signals",
@@ -505,6 +509,12 @@ def build_digest_sections(
             "Topic Watchlist Updates",
             "Signals matching the included personal topic watchlist.",
             lambda item: matches_digest_watchlist_terms(item, normalized_topic_watchlist_terms),
+        ),
+        (
+            "product_watchlist",
+            "Product Watchlist Updates",
+            "Signals matching the included personal product watchlist.",
+            lambda item: matches_digest_watchlist_terms(item, normalized_product_watchlist_terms),
         ),
         (
             "products",
@@ -792,6 +802,26 @@ def list_included_digest_topic_terms(db: Session) -> set[str]:
         terms.update(
             term.strip().lower()
             for term in [row.topic, row.label, *row.related_terms]
+            if term.strip()
+        )
+    return terms
+
+
+def list_included_digest_product_terms(db: Session) -> set[str]:
+    rows = (
+        db.query(ProductWatchlistItem)
+        .filter(
+            ProductWatchlistItem.user_id == LOCAL_USER_ID,
+            ProductWatchlistItem.include_in_digest.is_(True),
+        )
+        .all()
+    )
+    terms: set[str] = set()
+    for row in rows:
+        use_case_terms = build_product_use_case_terms(row)
+        terms.update(
+            term.strip().lower()
+            for term in [row.category, row.label, *row.related_terms, *use_case_terms]
             if term.strip()
         )
     return terms

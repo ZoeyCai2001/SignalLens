@@ -357,3 +357,4 @@ Implementation progress:
 - Hardened the web Daily Digest panel against older saved snapshot payloads that may omit new array fields such as topic watchlists, alerts, sections, or source coverage.
 - Added company names to Daily Digest item labels in both markdown and the web preview so company-watchlist signals show their PRD context even when no ticker is attached.
 - Added product watchlist labels to Daily Digest payloads, markdown, and dashboard preview context so product-category preferences are visible beside ticker, company, and topic watchlists.
+- Added a Product Watchlist Updates section to Daily Digest generation, matching included product watchlist labels, categories, related terms, and inferred use-case buckets so product preferences become actionable briefing sections instead of context-only badges.
