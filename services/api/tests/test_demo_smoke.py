@@ -33,6 +33,15 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
         "needs_action_count": 0,
         "source_ingestion_metric": "8/8 PRD families; 9 recent sources",
     }
+    assert result["settings_backup"]["sources"] >= 8
+    assert result["settings_backup"]["alert_rules"] >= 8
+    assert result["settings_backup"]["stock_watchlist"] >= 3
+    assert result["settings_backup"]["company_watchlist"] >= 5
+    assert result["settings_backup"]["topic_watchlist"] >= 5
+    assert result["settings_backup"]["product_watchlist"] >= 3
+    assert result["settings_backup"]["preferences_restored"] is True
+    assert result["settings_backup"]["sources_upserted"] >= 8
+    assert result["settings_backup"]["alert_rules_upserted"] >= 8
     assert result["module_counts"] == {
         "chinese": 1,
         "products": 4,

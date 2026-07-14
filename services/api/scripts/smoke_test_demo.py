@@ -163,6 +163,40 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     clusters = get_json(client, "/api/events/clusters?limit=8&min_items=1")
     alerts = get_json(client, "/api/alerts")
     health = get_json(client, "/api/health")
+    backup = get_json(client, "/api/settings/backup")
+    backup_text = json.dumps(backup).lower()
+    if backup["version"] != 1:
+        raise AssertionError(f"Expected settings backup version 1, got {backup['version']!r}")
+    if "api_key" in backup_text or "moonshot" in backup_text or "raw_items" in backup_text:
+        raise AssertionError("Settings backup exposed secret or raw-item fields")
+    assert_minimum_collection(backup["sources"], "backup sources", 8)
+    assert_minimum_collection(backup["alert_rules"], "backup alert rules", 8)
+    assert_minimum_collection(backup["stock_watchlist"], "backup stock watchlist rows", 3)
+    assert_minimum_collection(backup["company_watchlist"], "backup company watchlist rows", 5)
+    assert_minimum_collection(backup["topic_watchlist"], "backup topic watchlist rows", 5)
+    assert_minimum_collection(backup["product_watchlist"], "backup product watchlist rows", 3)
+    patch_json(
+        client,
+        "/api/preferences",
+        json_body={
+            "blocked_sources": ["Temporary Noisy Source"],
+            "language_preferences": ["zh"],
+        },
+    )
+    restore_result = post_json(client, "/api/settings/restore", json_body=backup)
+    restored_preferences = get_json(client, "/api/preferences")
+    expected_blocked_sources = backup["preferences"]["blocked_sources"]
+    expected_languages = backup["preferences"]["language_preferences"]
+    if restored_preferences["blocked_sources"] != expected_blocked_sources:
+        raise AssertionError(
+            "Expected settings restore to recover blocked sources, "
+            f"got {restored_preferences['blocked_sources']!r}"
+        )
+    if restored_preferences["language_preferences"] != expected_languages:
+        raise AssertionError(
+            "Expected settings restore to recover language preferences, "
+            f"got {restored_preferences['language_preferences']!r}"
+        )
 
     return {
         "seed": seed_payload,
@@ -205,6 +239,17 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "status": health["status"],
             "core_ready": health["setup_summary"]["core_ready"],
         },
+        "settings_backup": {
+            "sources": len(backup["sources"]),
+            "alert_rules": len(backup["alert_rules"]),
+            "stock_watchlist": len(backup["stock_watchlist"]),
+            "company_watchlist": len(backup["company_watchlist"]),
+            "topic_watchlist": len(backup["topic_watchlist"]),
+            "product_watchlist": len(backup["product_watchlist"]),
+            "preferences_restored": restore_result["preferences_updated"],
+            "sources_upserted": restore_result["sources_upserted"],
+            "alert_rules_upserted": restore_result["alert_rules_upserted"],
+        },
     }
 
 
@@ -219,6 +264,13 @@ def post_json(client: TestClient, path: str, json_body: dict[str, Any] | None = 
     response = client.post(path, json=json_body)
     if response.status_code != 200:
         raise AssertionError(f"POST {path} failed: {response.status_code} {response.text}")
+    return response.json()
+
+
+def patch_json(client: TestClient, path: str, json_body: dict[str, Any] | None = None) -> Any:
+    response = client.patch(path, json=json_body)
+    if response.status_code != 200:
+        raise AssertionError(f"PATCH {path} failed: {response.status_code} {response.text}")
     return response.json()
 
 
