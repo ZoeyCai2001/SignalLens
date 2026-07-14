@@ -373,3 +373,4 @@ Implementation progress:
 - Promoted Research so papers, benchmark/evaluation items, structured contribution/method/relevance snippets, research technologies, and source metrics render as the main module workflow with the ranked research feed underneath.
 - Folded Company Watchlist into the AI Stocks module so public-company/private-lab monitoring, company briefings, and company-count metrics sit beside ticker watchlists instead of only appearing as a sidebar utility.
 - Extended the no-paid-API demo smoke verifier to exercise company, topic, and product watchlist briefing APIs and to require all PRD MVP checklist rows to be ready.
+- Aligned promoted workflow navigation by making module badges count editable watchlist rows for Trends, Products, and AI Stocks, and by routing PRD Personal Watchlists readiness actions directly to the AI Stocks watchlist workflow.

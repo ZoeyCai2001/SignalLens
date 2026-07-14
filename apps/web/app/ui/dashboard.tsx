@@ -3470,8 +3470,25 @@ export function Dashboard() {
         preferences,
         moduleFeedOverrides,
         alerts,
+        stocks,
+        companies,
+        topics,
+        productWatchlist,
       ),
-    [alerts, digest, eventClusters, feed, moduleFeedOverrides, preferences, savedItems, sources],
+    [
+      alerts,
+      companies,
+      digest,
+      eventClusters,
+      feed,
+      moduleFeedOverrides,
+      preferences,
+      productWatchlist,
+      savedItems,
+      sources,
+      stocks,
+      topics,
+    ],
   );
   const moduleFeed = useMemo(
     () => filterFeedByModule(feed, activeModule, digest, savedItems, moduleFeedOverrides),
@@ -5454,8 +5471,8 @@ function buildPrdMvpChecklist({
         watchlistCount > 0
           ? "Stock, company, topic, and product watchlists shape ranking and digest context."
           : "Seed or create watchlists so personalization has a profile to use.",
-      actionLabel: "Open Dashboard",
-      actionModule: "dashboard",
+      actionLabel: "Open Watchlists",
+      actionModule: "stocks",
       actionTargetId: "stock-watchlist-workflow",
     },
     {
@@ -10928,6 +10945,10 @@ function buildModuleCounts(
   preferences: UserPreferences | null,
   moduleFeedOverrides: Partial<Record<FeedModuleKey, FeedItem[]>>,
   alerts: AlertItem[],
+  stocks: StockWatchlistItem[],
+  companies: CompanyWatchlistItem[],
+  topics: TopicWatchlistItem[],
+  products: ProductWatchlistItem[],
 ): Record<ModuleKey, number> {
   const settingsCount =
     Object.values(preferences?.ranking_weights ?? DEFAULT_RANKING_WEIGHTS).filter(
@@ -10938,10 +10959,10 @@ function buildModuleCounts(
     (preferences?.language_preferences.length ?? 0);
   return {
     dashboard: feed.length,
-    trends: moduleCount(feed, "trends", moduleFeedOverrides),
+    trends: topics.length || moduleCount(feed, "trends", moduleFeedOverrides),
     research: moduleCount(feed, "research", moduleFeedOverrides),
-    products: moduleCount(feed, "products", moduleFeedOverrides),
-    stocks: moduleCount(feed, "stocks", moduleFeedOverrides),
+    products: products.length || moduleCount(feed, "products", moduleFeedOverrides),
+    stocks: stocks.length + companies.length || moduleCount(feed, "stocks", moduleFeedOverrides),
     chinese: moduleCount(feed, "chinese", moduleFeedOverrides),
     saved: savedItems.length,
     clusters: eventClusters.length,

@@ -547,6 +547,9 @@ def test_build_mvp_checklist_response_guides_empty_first_run() -> None:
     assert items["source-ingestion"].action_module == "sources"
     assert items["llm-processing"].status == "needs_action"
     assert items["llm-processing"].action_module == "settings"
+    assert items["watchlists"].action_label == "Open Watchlists"
+    assert items["watchlists"].action_module == "stocks"
+    assert items["watchlists"].action_target_id == "stock-watchlist-workflow"
     assert items["manual-submission"].status == "partial"
     assert items["manual-submission"].action_operation == "demo-data:seed"
 

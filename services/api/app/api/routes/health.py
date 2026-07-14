@@ -499,8 +499,8 @@ def build_mvp_checklist_items(
                 if total_watchlist_count(metrics) > 0
                 else "Seed or create watchlists so personalization has a profile to use."
             ),
-            action_label="Open Dashboard",
-            action_module="dashboard",
+            action_label="Open Watchlists",
+            action_module="stocks",
             action_target_id="stock-watchlist-workflow",
         ),
         MvpChecklistItem(
