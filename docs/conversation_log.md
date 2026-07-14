@@ -397,3 +397,4 @@ Implementation progress:
 - Structured stock LLM summaries into the PRD review sections for what happened, why it matters, possible market relevance, and uncertainties, with a fallback for older free-form summaries.
 - Added source API cost tracking to System Readiness using recent source runs as the MVP call-volume proxy, with zero-cost defaults and optional local price and monthly budget assumptions.
 - Added source-run duration fields to Source Health and run history so ingestion latency is visible beside source status, counts, failures, and retry context.
+- Added elapsed-time feedback to dashboard search results so normal keyword and natural-language searches can be checked against the PRD search response target while using the app.

@@ -2044,6 +2044,7 @@ export function Dashboard() {
   const runSearch = async () => {
     setLoadState("loading");
     setError(null);
+    const startedAt = performance.now();
     try {
       const activeFeedModule = isFeedModuleKey(activeModule) ? activeModule : null;
       const hasManualFilters = [
@@ -2077,7 +2078,7 @@ export function Dashboard() {
         applySearchResults(result.items, activeFeedModule);
         setSearchIntent(result.intent);
         setSearchSummary(result.summary);
-        setStatus(searchStatusText(result.items.length, activeFeedModule));
+        setStatus(searchStatusText(result.items.length, activeFeedModule, startedAt));
         return;
       }
 
@@ -2106,7 +2107,7 @@ export function Dashboard() {
       applySearchResults(results, activeFeedModule);
       setSearchIntent(null);
       setSearchSummary(null);
-      setStatus(searchStatusText(results.length, activeFeedModule));
+      setStatus(searchStatusText(results.length, activeFeedModule, startedAt));
     } catch (err) {
       setError(readError(err));
       setStatus("Search failed");
@@ -11531,9 +11532,27 @@ function formatModuleLabel(moduleKey: FeedModuleKey): string {
   return moduleNavItems.find((item) => item.key === moduleKey)?.label ?? moduleKey;
 }
 
-function searchStatusText(resultCount: number, moduleKey: FeedModuleKey | null): string {
+function searchStatusText(
+  resultCount: number,
+  moduleKey: FeedModuleKey | null,
+  startedAt?: number,
+): string {
   const moduleText = moduleKey ? ` in ${formatModuleLabel(moduleKey)}` : "";
-  return `Search returned ${resultCount} items${moduleText}`;
+  const elapsedText =
+    typeof startedAt === "number"
+      ? ` in ${formatSearchElapsedMs(performance.now() - startedAt)}`
+      : "";
+  return `Search returned ${resultCount} items${moduleText}${elapsedText}`;
+}
+
+function formatSearchElapsedMs(elapsedMs: number): string {
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+    return "0s";
+  }
+  if (elapsedMs < 1000) {
+    return `${Math.max(1, Math.round(elapsedMs))}ms`;
+  }
+  return `${(elapsedMs / 1000).toFixed(1)}s`;
 }
 
 function itemMatchesModule(item: FeedItem, moduleKey: ModuleKey): boolean {
