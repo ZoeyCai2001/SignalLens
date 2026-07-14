@@ -611,7 +611,7 @@ async def test_process_feed_route_passes_dry_run(monkeypatch) -> None:
     monkeypatch.setattr(
         llm_routes,
         "get_settings",
-        lambda: Settings(moonshot_api_key="test-key"),
+        lambda: Settings(moonshot_api_key=None),
     )
     monkeypatch.setattr(
         llm_routes,
@@ -645,3 +645,26 @@ async def test_process_feed_route_passes_dry_run(monkeypatch) -> None:
     )
 
     assert result.dry_run is True
+
+
+@pytest.mark.anyio
+async def test_process_feed_route_requires_key_for_real_model_calls(monkeypatch) -> None:
+    monkeypatch.setattr(
+        llm_routes,
+        "get_settings",
+        lambda: Settings(moonshot_api_key=None),
+    )
+
+    with pytest.raises(llm_routes.HTTPException) as exc_info:
+        await llm_routes.process_feed_items(
+            request=FeedProcessingRequest(
+                limit=3,
+                summarize=True,
+                classify=False,
+                dry_run=False,
+            ),
+            db=object(),
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "MOONSHOT_API_KEY is not configured."

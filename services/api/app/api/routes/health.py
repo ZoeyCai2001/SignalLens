@@ -651,12 +651,15 @@ def build_mvp_checklist_items(
                 "Kimi is configured; coverage depends on running capped "
                 "classify/summarize batches."
                 if llm_configured
-                else "Add an LLM key before expecting model-generated summaries."
+                else (
+                    "Preview candidates without a key; add an LLM key before "
+                    "model-generated summaries."
+                )
             ),
-            action_label="Preview LLM Batch" if llm_configured else "Open Settings",
-            action_module="dashboard" if llm_configured else "settings",
-            action_operation="llm:preview" if llm_configured else None,
-            action_target_id="ranked-feed-workflow" if llm_configured else "settings-workflow",
+            action_label="Preview LLM Batch",
+            action_module="dashboard",
+            action_operation="llm:preview",
+            action_target_id="ranked-feed-workflow",
         ),
         MvpChecklistItem(
             key="watchlists",

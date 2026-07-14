@@ -5898,11 +5898,11 @@ function buildPrdMvpChecklist({
       metric: `${formatQualityPercent(classificationCoverage)} classified · ${formatQualityPercent(summaryCoverage)} summarized`,
       note: status.llm_configured
         ? "Kimi is configured; coverage depends on running capped classify/summarize batches."
-        : "Add an LLM key before expecting model-generated summaries.",
-      actionLabel: status.llm_configured ? "Preview LLM Batch" : "Open Settings",
-      actionModule: status.llm_configured ? "dashboard" : "settings",
-      actionOperation: status.llm_configured ? "llm:preview" : undefined,
-      actionTargetId: status.llm_configured ? "ranked-feed-workflow" : "settings-workflow",
+        : "Preview candidates without a key; add an LLM key before model-generated summaries.",
+      actionLabel: "Preview LLM Batch",
+      actionModule: "dashboard",
+      actionOperation: "llm:preview",
+      actionTargetId: "ranked-feed-workflow",
     },
     {
       key: "watchlists",

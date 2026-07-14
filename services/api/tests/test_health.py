@@ -672,7 +672,12 @@ def test_build_mvp_checklist_response_guides_empty_first_run() -> None:
     assert items["source-ingestion"].status == "needs_action"
     assert items["source-ingestion"].action_module == "sources"
     assert items["llm-processing"].status == "needs_action"
-    assert items["llm-processing"].action_module == "settings"
+    assert items["llm-processing"].note == (
+        "Preview candidates without a key; add an LLM key before model-generated summaries."
+    )
+    assert items["llm-processing"].action_label == "Preview LLM Batch"
+    assert items["llm-processing"].action_module == "dashboard"
+    assert items["llm-processing"].action_operation == "llm:preview"
     assert items["watchlists"].action_label == "Open Watchlists"
     assert items["watchlists"].action_module == "stocks"
     assert items["watchlists"].action_target_id == "stock-watchlist-workflow"

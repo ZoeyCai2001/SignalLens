@@ -47,7 +47,7 @@ async def process_feed_items(
     db: DbSession,
 ) -> FeedProcessingResponse:
     settings = get_settings()
-    if not settings.moonshot_api_key:
+    if not request.dry_run and not settings.moonshot_api_key:
         raise HTTPException(status_code=400, detail="MOONSHOT_API_KEY is not configured.")
     if not request.summarize and not request.classify:
         raise HTTPException(status_code=400, detail="Enable summarize or classify.")

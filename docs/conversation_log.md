@@ -446,3 +446,4 @@ Implementation progress:
 - Added exception logging for connector, built-in scheduled, and custom scheduled source failures so the PRD reliability path records operational errors while continuing later ingestion work.
 - Added daily digest generation timing to the no-paid demo verifier so the PRD under-five-minute digest budget is checked through the explicit generate endpoint.
 - Added item-level candidate previews to LLM batch dry-runs so the dashboard can show which source items would be classified or summarized before spending Kimi calls.
+- Made LLM batch dry-runs available without `MOONSHOT_API_KEY`, while keeping real classify/summarize calls guarded by the configured Kimi key.
