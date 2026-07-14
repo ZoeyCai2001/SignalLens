@@ -628,6 +628,23 @@ table {
   gap: 6px;
 }
 
+.source-run-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.source-run-panel-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .source-run-toolbar {
   display: flex;
   flex-wrap: wrap;

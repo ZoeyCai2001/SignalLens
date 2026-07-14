@@ -926,6 +926,13 @@ type IngestionSource =
   | "hugging-face"
   | "product-hunt"
   | "rss";
+type IngestionSourceAction = {
+  source: IngestionSource;
+  label: string;
+  shortLabel: string;
+  title: string;
+  icon: typeof Activity;
+};
 
 type LoadState = "idle" | "loading" | "running";
 type DashboardOperation =
@@ -989,6 +996,79 @@ const sourceHealthFilterOptions: { key: SourceHealthFilter; label: string }[] = 
   { key: "never_run", label: "Never Run" },
   { key: "disabled", label: "Disabled" },
   { key: "blocked", label: "Blocked" },
+];
+
+const ingestionSourceActions: IngestionSourceAction[] = [
+  {
+    source: "hacker-news",
+    label: "Hacker News",
+    shortLabel: "HN",
+    title: "Run Hacker News ingestion",
+    icon: Newspaper,
+  },
+  {
+    source: "alpha-vantage-news",
+    label: "Stock News",
+    shortLabel: "Stocks",
+    title: "Run Alpha Vantage stock news ingestion",
+    icon: BarChart3,
+  },
+  {
+    source: "alpha-vantage-prices",
+    label: "Stock Prices",
+    shortLabel: "Prices",
+    title: "Run Alpha Vantage daily price ingestion",
+    icon: TrendingUp,
+  },
+  {
+    source: "sec-filings",
+    label: "SEC Filings",
+    shortLabel: "SEC",
+    title: "Run SEC filings ingestion",
+    icon: FileText,
+  },
+  {
+    source: "arxiv",
+    label: "arXiv",
+    shortLabel: "arXiv",
+    title: "Run arXiv ingestion",
+    icon: FlaskConical,
+  },
+  {
+    source: "chinese-rss",
+    label: "Chinese RSS",
+    shortLabel: "CN",
+    title: "Run configured Chinese RSS ingestion",
+    icon: Newspaper,
+  },
+  {
+    source: "github",
+    label: "GitHub",
+    shortLabel: "GitHub",
+    title: "Run GitHub repository ingestion",
+    icon: Github,
+  },
+  {
+    source: "hugging-face",
+    label: "Hugging Face",
+    shortLabel: "HF",
+    title: "Run Hugging Face model ingestion",
+    icon: Bot,
+  },
+  {
+    source: "product-hunt",
+    label: "Product Hunt",
+    shortLabel: "PH",
+    title: "Run Product Hunt launch ingestion",
+    icon: Rocket,
+  },
+  {
+    source: "rss",
+    label: "RSS",
+    shortLabel: "RSS",
+    title: "Run selected RSS feed ingestion",
+    icon: Newspaper,
+  },
 ];
 
 const sourceTypeOptions: { value: string; label: string }[] = [
@@ -3922,6 +4002,8 @@ export function Dashboard() {
         onRunSourceFilterChange={setSourceRunSourceFilter}
         onSubmit={submitSource}
         onRunSource={runSourceNow}
+        activeOperation={activeOperation}
+        onRunBuiltInSource={runIngestion}
         onToggleSource={toggleSource}
         onUpdateSource={updateSource}
         onToggleSourceBlock={toggleSourceBlockFromHealth}
@@ -3979,136 +4061,12 @@ export function Dashboard() {
               )}
               Cycle
             </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("hacker-news")}
+            <IngestionActionButtons
+              activeOperation={activeOperation}
               disabled={loadState !== "idle"}
-              title="Run Hacker News ingestion"
-            >
-              {activeOperation === "ingest:hacker-news" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <Newspaper size={16} />
-              )}
-              HN
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("alpha-vantage-news")}
-              disabled={loadState !== "idle"}
-              title="Run Alpha Vantage stock news ingestion"
-            >
-              {activeOperation === "ingest:alpha-vantage-news" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <BarChart3 size={16} />
-              )}
-              Stocks
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("alpha-vantage-prices")}
-              disabled={loadState !== "idle"}
-              title="Run Alpha Vantage daily price ingestion"
-            >
-              {activeOperation === "ingest:alpha-vantage-prices" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <TrendingUp size={16} />
-              )}
-              Prices
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("sec-filings")}
-              disabled={loadState !== "idle"}
-              title="Run SEC filings ingestion"
-            >
-              {activeOperation === "ingest:sec-filings" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <FileText size={16} />
-              )}
-              SEC
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("arxiv")}
-              disabled={loadState !== "idle"}
-              title="Run arXiv ingestion"
-            >
-              {activeOperation === "ingest:arxiv" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <FlaskConical size={16} />
-              )}
-              arXiv
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("chinese-rss")}
-              disabled={loadState !== "idle"}
-              title="Run configured Chinese RSS ingestion"
-            >
-              {activeOperation === "ingest:chinese-rss" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <Newspaper size={16} />
-              )}
-              CN
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("github")}
-              disabled={loadState !== "idle"}
-              title="Run GitHub repository ingestion"
-            >
-              {activeOperation === "ingest:github" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <Github size={16} />
-              )}
-              GitHub
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("hugging-face")}
-              disabled={loadState !== "idle"}
-              title="Run Hugging Face model ingestion"
-            >
-              {activeOperation === "ingest:hugging-face" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <Bot size={16} />
-              )}
-              HF
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("product-hunt")}
-              disabled={loadState !== "idle"}
-              title="Run Product Hunt launch ingestion"
-            >
-              {activeOperation === "ingest:product-hunt" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <Rocket size={16} />
-              )}
-              PH
-            </button>
-            <button
-              className="button"
-              onClick={() => runIngestion("rss")}
-              disabled={loadState !== "idle"}
-              title="Run selected RSS feed ingestion"
-            >
-              {activeOperation === "ingest:rss" ? (
-                <Loader2 className="spin" size={16} />
-              ) : (
-                <Newspaper size={16} />
-              )}
-              RSS
-            </button>
+              onRunSource={runIngestion}
+              labelMode="short"
+            />
             <button
               className="button icon-button"
               onClick={() => refreshAll("refresh")}
@@ -10293,6 +10251,41 @@ function ProductBriefingPanel({
   );
 }
 
+function IngestionActionButtons({
+  activeOperation,
+  disabled,
+  onRunSource,
+  labelMode = "long",
+}: {
+  activeOperation: DashboardOperation | null;
+  disabled: boolean;
+  onRunSource: (source: IngestionSource) => void;
+  labelMode?: "short" | "long";
+}) {
+  return (
+    <>
+      {ingestionSourceActions.map((action) => {
+        const Icon = action.icon;
+        const operation: DashboardOperation = `ingest:${action.source}`;
+        const running = activeOperation === operation;
+        return (
+          <button
+            className="button"
+            onClick={() => onRunSource(action.source)}
+            disabled={disabled}
+            title={action.title}
+            type="button"
+            key={action.source}
+          >
+            {running ? <Loader2 className="spin" size={16} /> : <Icon size={16} />}
+            {labelMode === "short" ? action.shortLabel : action.label}
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
 function SourceTable({
   sources,
   runs,
@@ -10311,6 +10304,7 @@ function SourceTable({
   termsNotes,
   disabled,
   busySourceId,
+  activeOperation,
   onSourceTemplateChange,
   onNameChange,
   onTypeChange,
@@ -10324,6 +10318,7 @@ function SourceTable({
   onRunSourceFilterChange,
   onSubmit,
   onRunSource,
+  onRunBuiltInSource,
   onToggleSource,
   onUpdateSource,
   onToggleSourceBlock,
@@ -10346,6 +10341,7 @@ function SourceTable({
   termsNotes: string;
   disabled: boolean;
   busySourceId: number | null;
+  activeOperation: DashboardOperation | null;
   onSourceTemplateChange: (value: string) => void;
   onNameChange: (value: string) => void;
   onTypeChange: (value: string) => void;
@@ -10359,6 +10355,7 @@ function SourceTable({
   onRunSourceFilterChange: (source: SourceHealth | null) => void;
   onSubmit: () => void;
   onRunSource: (source: SourceHealth) => void;
+  onRunBuiltInSource: (source: IngestionSource) => void;
   onToggleSource: (source: SourceHealth) => void;
   onUpdateSource: (source: SourceHealth, payload: SourceUpdatePayload) => void;
   onToggleSourceBlock: (source: SourceHealth) => void;
@@ -10404,6 +10401,22 @@ function SourceTable({
       <div className="section-header">
         <h2 className="section-title">Source Health</h2>
         <DatabaseZap size={16} aria-hidden="true" />
+      </div>
+      <div className="source-run-panel">
+        <div className="source-run-panel-head">
+          <div>
+            <div className="digest-section-title">Built-in Source Runs</div>
+            <div className="small-muted">Stable APIs, public feeds, and configured stock sources</div>
+          </div>
+          <span className="tag">{ingestionSourceActions.length} runners</span>
+        </div>
+        <div className="source-run-toolbar" aria-label="Built-in source ingestion actions">
+          <IngestionActionButtons
+            activeOperation={activeOperation}
+            disabled={disabled}
+            onRunSource={onRunBuiltInSource}
+          />
+        </div>
       </div>
       <div className="form-panel compact-form source-follow-form">
         <select

@@ -377,3 +377,4 @@ Implementation progress:
 - Added a focused `web:dashboard-check` transpile verifier and updated `verify:demo` to use the no-paid-API API smoke test plus that stable dashboard check, while keeping full `web:lint` and `web:build` available separately.
 - Aligned System Readiness quality-finding actions so thin watchlist coverage opens the promoted AI Stocks watchlist workflow and empty alert coverage opens the first-class Alerts workflow before generating alerts.
 - Promoted Manual URL Submission into a first-class Submit URL navigation workflow and routed the ready PRD checklist action there while keeping first-run demo seeding on the dashboard.
+- Added built-in ingestion runner controls to Source Health and reused the same connector action metadata in the global toolbar, making the PRD source-ingestion workflow manageable from the source module itself.
