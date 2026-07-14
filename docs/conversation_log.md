@@ -386,3 +386,4 @@ Implementation progress:
 - Added an Attention Drivers panel to stock detail overviews so the AI Stock Watchlist ranking exposes all deterministic ranking reasons, signal counts, high-impact counts, and freshness context.
 - Expanded Source Ingestion readiness from generic source counts to PRD source-family coverage, and enriched the no-paid demo dataset with Hacker News, Hugging Face, and selected RSS rows so the MVP verifier proves all initial source families.
 - Added digest usefulness and alert usefulness proxies to quality metrics and System Readiness, keeping PRD success tracking local, transparent, and free of external analytics.
+- Hardened remaining dashboard external-source links with consistent `rel="noreferrer"` handling for feed, alert, and Chinese social source-opening actions.

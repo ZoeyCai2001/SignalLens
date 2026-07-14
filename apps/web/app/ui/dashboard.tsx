@@ -4750,7 +4750,7 @@ function ChineseSocialPanel({ items, limit }: { items: FeedItem[]; limit?: numbe
               <div className="digest-section-title">
                 {item.source_name} {item.published_at ? `· ${formatDate(item.published_at)}` : ""}
               </div>
-              <a className="digest-link" href={item.url} target="_blank">
+              <a className="digest-link" href={item.url} target="_blank" rel="noreferrer">
                 {item.title}
               </a>
               <div className="badges">
@@ -5901,7 +5901,7 @@ function AlertPanel({
                   </span>
                 ))}
               </div>
-              <a className="digest-link" href={alert.item.url} target="_blank">
+              <a className="digest-link" href={alert.item.url} target="_blank" rel="noreferrer">
                 {alert.item.source_name}
               </a>
               <div className="small-muted">{alert.disclaimer}</div>
@@ -7462,7 +7462,13 @@ function FeedCard({
             {busy ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
             Classify
           </button>
-          <a className="button icon-button" href={item.url} target="_blank" title="Open source">
+          <a
+            className="button icon-button"
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            title="Open source"
+          >
             <ExternalLink size={16} />
           </a>
         </div>
