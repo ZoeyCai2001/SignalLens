@@ -3489,6 +3489,7 @@ export function Dashboard() {
     const isAlertView = activeModule === "alerts";
     const isStockView = activeModule === "stocks";
     const isProductView = activeModule === "products";
+    const isChineseView = activeModule === "chinese";
     if (isAlertView) {
       return [
         { label: "Feed", value: feed.length },
@@ -3525,6 +3526,20 @@ export function Dashboard() {
         {
           label: "Digest",
           value: productWatchlist.filter((item) => item.include_in_digest).length,
+        },
+      ];
+    }
+    if (isChineseView) {
+      const chineseSources = new Set(moduleFeed.map((item) => item.source_name));
+      const chineseProducts = new Set(moduleFeed.flatMap((item) => item.products));
+      return [
+        { label: "Feed", value: feed.length },
+        { label: "View", value: moduleFeed.length },
+        { label: "Sources", value: chineseSources.size },
+        { label: "Products", value: chineseProducts.size },
+        {
+          label: "Experimental",
+          value: moduleFeed.filter((item) => item.subcategory?.includes("social_keyword")).length,
         },
       ];
     }
@@ -3642,6 +3657,12 @@ export function Dashboard() {
       onUpdate={updateProductCategory}
       onDelete={deleteProductCategory}
       onSubmit={submitProductCategory}
+    />
+  );
+  const chineseSocialPanel = (
+    <ChineseSocialPanel
+      items={activeModule === "chinese" ? moduleFeed : feed}
+      limit={activeModule === "chinese" ? undefined : 5}
     />
   );
   const rankedFeedPanel = (
@@ -4123,6 +4144,11 @@ export function Dashboard() {
               {productWatchlistPanel}
               {rankedFeedPanel}
             </section>
+          ) : activeModule === "chinese" ? (
+            <section className="module-stack">
+              {chineseSocialPanel}
+              {rankedFeedPanel}
+            </section>
           ) : (
             rankedFeedPanel
           )}
@@ -4215,7 +4241,7 @@ export function Dashboard() {
               onUnhide={(itemId) => updateFeedAction(itemId, "unhide")}
               onDelete={deleteFeedItem}
             />
-            <ChineseSocialPanel items={feed} />
+            {activeModule === "chinese" ? null : chineseSocialPanel}
             {activeModule === "clusters" ? null : (
               <EventClusterPanel
                 clusters={eventClusters}
@@ -4557,10 +4583,11 @@ function SettingsBackupPanel({
   );
 }
 
-function ChineseSocialPanel({ items }: { items: FeedItem[] }) {
+function ChineseSocialPanel({ items, limit }: { items: FeedItem[]; limit?: number }) {
   const chineseItems = items.filter(
     (item) => item.category === "social_trend" || item.language === "zh",
   );
+  const visibleItems = limit ? chineseItems.slice(0, limit) : chineseItems;
   return (
     <section className="section">
       <div className="section-header">
@@ -4568,8 +4595,8 @@ function ChineseSocialPanel({ items }: { items: FeedItem[] }) {
         <span className="small-muted">{chineseItems.length} items</span>
       </div>
       <div className="digest-panel">
-        {chineseItems.length ? (
-          chineseItems.slice(0, 5).map((item) => (
+        {visibleItems.length ? (
+          visibleItems.map((item) => (
             <div className="digest-section" key={item.id}>
               <div className="digest-section-title">
                 {item.source_name} {item.published_at ? `· ${formatDate(item.published_at)}` : ""}
