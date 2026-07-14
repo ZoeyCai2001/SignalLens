@@ -73,6 +73,7 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     )
     assert health.latest_status == "skipped"
     assert health.latest_error == "disabled"
+    assert health.latest_duration_seconds is None
     assert health.last_success_at == last_success_at
     assert health.next_run_due_at == datetime(2026, 6, 27, 9, 0, tzinfo=UTC)
     assert health.is_stale is False
@@ -191,6 +192,7 @@ def test_serialize_source_health_marks_enabled_overdue_sources_stale() -> None:
     assert health.next_run_due_at == datetime(2026, 6, 28, 8, 5, tzinfo=UTC)
     assert health.is_stale is True
     assert health.needs_attention is True
+    assert health.latest_duration_seconds == 300
 
 
 def test_summarize_recent_source_runs_reports_quality_metrics() -> None:
@@ -624,6 +626,7 @@ def test_serialize_source_run_history_item_includes_source_name_and_counts() -> 
     assert item.items_fetched == 4
     assert item.items_stored == 2
     assert item.error_message == "rate limited"
+    assert item.duration_seconds == 60
 
 
 def test_list_source_run_history_filters_by_status() -> None:
@@ -633,7 +636,12 @@ def test_list_source_run_history_filters_by_status() -> None:
 
     with session_factory() as db:
         source = Source(name="arXiv", type="research", access_method="api", enabled=True)
-        other_source = Source(name="Hacker News", type="community", access_method="api", enabled=True)
+        other_source = Source(
+            name="Hacker News",
+            type="community",
+            access_method="api",
+            enabled=True,
+        )
         db.add_all([source, other_source])
         db.flush()
         db.add_all(

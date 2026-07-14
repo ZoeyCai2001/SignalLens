@@ -21,6 +21,7 @@ class SourceHealth(BaseModel):
     latest_error: str | None
     last_started_at: datetime | None
     last_finished_at: datetime | None
+    latest_duration_seconds: float | None = None
     last_success_at: datetime | None
     next_run_due_at: datetime | None = None
     is_stale: bool = False
@@ -45,6 +46,7 @@ class SourceRunHistoryItem(BaseModel):
     error_message: str | None
     started_at: datetime
     finished_at: datetime | None
+    duration_seconds: float | None = None
 
 
 class SourceCreate(BaseModel):

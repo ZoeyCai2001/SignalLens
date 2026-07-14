@@ -100,7 +100,11 @@ def update_source(db: Session, source_id: int, payload: SourceUpdate) -> Source 
     if "name" in updates:
         name = normalize_optional_text(updates.pop("name"))
         if name:
-            existing = db.query(Source).filter(Source.name == name, Source.id != source.id).one_or_none()
+            existing = (
+                db.query(Source)
+                .filter(Source.name == name, Source.id != source.id)
+                .one_or_none()
+            )
             if existing is not None:
                 raise ValueError(f"{name} is already registered.")
             source.name = name
@@ -350,6 +354,7 @@ def serialize_source_health(
         latest_error=run.error_message if run else None,
         last_started_at=run.started_at if run else None,
         last_finished_at=run.finished_at if run else None,
+        latest_duration_seconds=source_run_duration_seconds(run),
         last_success_at=last_success_at,
         next_run_due_at=next_run_due_at,
         is_stale=is_stale,
@@ -389,7 +394,10 @@ def failure_handling_for_source(source: Source) -> str:
     if source.auth_required:
         return "Record the failed run and latest error; update credentials or disable the source."
     if parse_polling_interval(source.polling_interval) is not None:
-        return "Record failures, preserve the last success time, and retry at the next polling window."
+        return (
+            "Record failures, preserve the last success time, and retry at the next polling "
+            "window."
+        )
     return "Record failures in run history; use a manual run after fixing source configuration."
 
 
@@ -435,4 +443,13 @@ def serialize_source_run_history_item(
         error_message=run.error_message,
         started_at=run.started_at,
         finished_at=run.finished_at,
+        duration_seconds=source_run_duration_seconds(run),
     )
+
+
+def source_run_duration_seconds(run: SourceRun | None) -> float | None:
+    if run is None or run.started_at is None or run.finished_at is None:
+        return None
+    started_at = normalize_source_health_datetime(run.started_at)
+    finished_at = normalize_source_health_datetime(run.finished_at)
+    return round(max(0.0, (finished_at - started_at).total_seconds()), 3)

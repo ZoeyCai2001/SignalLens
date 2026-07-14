@@ -370,6 +370,7 @@ type SourceHealth = {
   latest_error: string | null;
   last_started_at: string | null;
   last_finished_at: string | null;
+  latest_duration_seconds: number | null;
   last_success_at: string | null;
   next_run_due_at: string | null;
   is_stale: boolean;
@@ -394,6 +395,7 @@ type SourceRunHistoryItem = {
   error_message: string | null;
   started_at: string;
   finished_at: string | null;
+  duration_seconds: number | null;
 };
 
 type IngestionRunResponse = {
@@ -11136,6 +11138,11 @@ function SourceTable({
                   </td>
                   <td>
                     <div>{source.last_finished_at ? formatDate(source.last_finished_at) : "never"}</div>
+                    {source.latest_duration_seconds !== null ? (
+                      <div className="small-muted">
+                        duration {formatDuration(source.latest_duration_seconds)}
+                      </div>
+                    ) : null}
                     {source.last_success_at ? (
                       <div className="small-muted">success {formatDate(source.last_success_at)}</div>
                     ) : null}
@@ -11214,7 +11221,7 @@ function SourceTable({
             })}
             {!displayedSources.length ? (
               <tr>
-                <td colSpan={14}>
+                <td colSpan={15}>
                   <div className="empty-state">No sources match this health filter.</div>
                 </td>
               </tr>
@@ -11322,6 +11329,7 @@ function SourceTable({
                 <div className="small-muted">
                   {formatDate(run.started_at)} · fetched {run.items_fetched} · stored{" "}
                   {run.items_stored}
+                  {run.duration_seconds !== null ? ` · ${formatDuration(run.duration_seconds)}` : ""}
                   {run.error_message ? ` · ${run.error_message}` : ""}
                 </div>
               </div>

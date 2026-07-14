@@ -396,3 +396,4 @@ Implementation progress:
 - Added the PRD stock-chart 1D range to the dashboard as an honest latest-daily-close view, explicitly noting that true intraday data needs a configured intraday market-data feed.
 - Structured stock LLM summaries into the PRD review sections for what happened, why it matters, possible market relevance, and uncertainties, with a fallback for older free-form summaries.
 - Added source API cost tracking to System Readiness using recent source runs as the MVP call-volume proxy, with zero-cost defaults and optional local price and monthly budget assumptions.
+- Added source-run duration fields to Source Health and run history so ingestion latency is visible beside source status, counts, failures, and retry context.
