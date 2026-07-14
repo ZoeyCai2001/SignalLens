@@ -361,6 +361,9 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     quality_metrics = get_json(client, "/api/quality-metrics")
     assert_minimum(quality_metrics, "recent_item_count", 5)
     assert_minimum(quality_metrics, "covered_module_count", 5)
+    assert_minimum(quality_metrics, "recent_product_signal_count", 1)
+    assert_minimum(quality_metrics, "high_traction_product_signal_count", 1)
+    assert_minimum(quality_metrics, "product_signal_source_count", 1)
     latest_item_age_hours = quality_metrics["latest_item_age_hours"]
     if latest_item_age_hours is None or latest_item_age_hours > 36:
         raise AssertionError(
@@ -670,6 +673,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
             "manual_submission_count": quality_metrics["manual_submission_count"],
             "manual_enrichment_gap_count": quality_metrics["manual_enrichment_gap_count"],
+            "recent_product_signal_count": quality_metrics["recent_product_signal_count"],
+            "high_traction_product_signal_count": quality_metrics[
+                "high_traction_product_signal_count"
+            ],
+            "product_signal_source_count": quality_metrics["product_signal_source_count"],
             "recent_stock_signal_count": quality_metrics["recent_stock_signal_count"],
             "recent_stock_high_impact_count": quality_metrics[
                 "recent_stock_high_impact_count"

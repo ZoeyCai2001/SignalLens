@@ -41,7 +41,7 @@ from app.schemas.health import (
     SetupItem,
     SetupSummary,
 )
-from app.services.feed_actions import LOCAL_USER_ID
+from app.services.feed_actions import LOCAL_USER_ID, social_signal_score_for_item
 
 router = APIRouter()
 
@@ -218,6 +218,14 @@ def build_quality_metrics(
     manual_enrichment_gap_count = sum(
         1 for item in recent_manual_rows if quality_item_needs_manual_enrichment(item)
     )
+    recent_product_rows = [
+        item for item in recent_rows if quality_item_matches_module(item, "products")
+    ]
+    recent_product_signal_count = len(recent_product_rows)
+    high_traction_product_signal_count = sum(
+        1 for item in recent_product_rows if social_signal_score_for_item(item) >= 0.65
+    )
+    product_signal_source_count = len({item.source_name for item in recent_product_rows})
     relevance_precision_proxy = ratio(
         sum(1 for item in recent_rows if item.relevance_score >= 0.5),
         recent_item_count,
@@ -368,6 +376,9 @@ def build_quality_metrics(
         item_feedback_usefulness_rate=item_feedback_usefulness_rate,
         manual_submission_count=manual_submission_count,
         manual_enrichment_gap_count=manual_enrichment_gap_count,
+        recent_product_signal_count=recent_product_signal_count,
+        high_traction_product_signal_count=high_traction_product_signal_count,
+        product_signal_source_count=product_signal_source_count,
         stock_watchlist_count=stock_watchlist_count,
         recent_stock_signal_count=recent_stock_signal_count,
         recent_stock_high_impact_count=recent_stock_high_impact_count,
@@ -469,6 +480,8 @@ def build_quality_metrics(
             feedback_action_count=feedback_action_count,
             manual_submission_count=manual_submission_count,
             manual_enrichment_gap_count=manual_enrichment_gap_count,
+            recent_product_signal_count=recent_product_signal_count,
+            high_traction_product_signal_count=high_traction_product_signal_count,
             watchlist_area_count=watchlist_area_count,
             alert_rule_count=alert_rule_counts["total"],
             active_alert_rule_count=alert_rule_counts["active"],
@@ -1608,6 +1621,8 @@ def build_quality_findings(
     feedback_action_count: int | None = None,
     manual_submission_count: int = 0,
     manual_enrichment_gap_count: int = 0,
+    recent_product_signal_count: int | None = None,
+    high_traction_product_signal_count: int = 0,
     watchlist_area_count: int | None = None,
     classification_coverage: float = 0,
     low_confidence_item_count: int = 0,
@@ -1883,6 +1898,45 @@ def build_quality_findings(
                 action_label="Preview LLM Batch",
                 action_module="dashboard",
                 action_operation="llm:preview",
+            )
+        )
+    if (
+        recent_product_signal_count is not None
+        and recent_item_count >= 5
+        and recent_product_signal_count == 0
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Product launch coverage is empty",
+                metric="0 recent product signals",
+                recommendation=(
+                    "Run a full ingestion cycle and review Product Hunt, GitHub, Hugging Face, "
+                    "and product RSS sources before relying on product discovery."
+                ),
+                action_label="Run Full Cycle",
+                action_module="sources",
+                action_operation="cycle",
+                action_source_filter="attention",
+            )
+        )
+    elif (
+        recent_product_signal_count is not None
+        and recent_product_signal_count >= 3
+        and high_traction_product_signal_count == 0
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Product traction signals are thin",
+                metric=f"{recent_product_signal_count} product signals, 0 high-traction",
+                recommendation=(
+                    "Review product launch sources and public engagement metadata so AI "
+                    "products can be ranked without checking launch sites manually."
+                ),
+                action_label="Review Sources",
+                action_module="sources",
+                action_source_filter="attention",
             )
         )
     if (

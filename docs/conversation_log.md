@@ -458,3 +458,4 @@ Implementation progress:
 - Added a quality finding for watched stock lists with no recent stock-linked signals, pointing the user back to a full ingestion cycle and Source Health review.
 - Added alert-rule readiness metrics for total, enabled, active, and snoozed rules, and taught System Readiness to distinguish paused/disabled alert rules from alert generation gaps.
 - Added latest-item freshness metrics and a stale-collection readiness finding so the PRD daily-collection success metric triggers a full ingestion cycle when the dashboard feed is too old.
+- Added product-discovery quality metrics for recent product signals, high-traction product signals, and product-source diversity, plus readiness findings for empty or traction-thin product launch coverage.

@@ -622,6 +622,9 @@ type QualityMetrics = {
   item_feedback_usefulness_rate: number | null;
   manual_submission_count: number;
   manual_enrichment_gap_count: number;
+  recent_product_signal_count: number;
+  high_traction_product_signal_count: number;
+  product_signal_source_count: number;
   stock_watchlist_count: number;
   recent_stock_signal_count: number;
   recent_stock_high_impact_count: number;
@@ -5365,6 +5368,14 @@ function SystemStatusPanel({
                   <ReadinessMetric
                     label="Manual"
                     value={`${qualityMetrics.manual_submission_count} · ${qualityMetrics.manual_enrichment_gap_count} gap`}
+                  />
+                  <ReadinessMetric
+                    label="Product Signals"
+                    value={`${qualityMetrics.recent_product_signal_count} · ${qualityMetrics.product_signal_source_count} src`}
+                  />
+                  <ReadinessMetric
+                    label="Product Traction"
+                    value={qualityMetrics.high_traction_product_signal_count}
                   />
                   <ReadinessMetric
                     label="Watchlists"

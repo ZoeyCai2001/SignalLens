@@ -164,6 +164,9 @@ class QualityMetricsResponse(BaseModel):
     item_feedback_usefulness_rate: float | None = None
     manual_submission_count: int = 0
     manual_enrichment_gap_count: int = 0
+    recent_product_signal_count: int = 0
+    high_traction_product_signal_count: int = 0
+    product_signal_source_count: int = 0
     stock_watchlist_count: int = 0
     recent_stock_signal_count: int = 0
     recent_stock_high_impact_count: int = 0

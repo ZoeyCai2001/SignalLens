@@ -36,6 +36,7 @@ from app.db.models import (
     LlmUsageEvent,
     NormalizedItem,
     ProductWatchlistItem,
+    RawItem,
     Source,
     SourceRun,
     StockPricePoint,
@@ -1315,6 +1316,7 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
                     category="technical_trend",
                     products=["Agent IDE"],
                     source_name="Product Hunt",
+                    raw_metadata={"votes_count": 900, "comments_count": 120},
                 ),
                 make_quality_item(
                     4,
@@ -1348,6 +1350,9 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
         "chinese": 1,
     }
     assert metrics.covered_module_count == 5
+    assert metrics.recent_product_signal_count == 1
+    assert metrics.high_traction_product_signal_count == 1
+    assert metrics.product_signal_source_count == 1
     assert metrics.recent_source_count == 5
     assert metrics.dominant_source_share == 0.2
     assert "Module coverage is thin" not in [
@@ -1545,6 +1550,64 @@ def test_build_quality_findings_flags_manual_submission_enrichment_gap() -> None
     assert findings[0].action_label == "Preview LLM Batch"
     assert findings[0].action_module == "dashboard"
     assert findings[0].action_operation == "llm:preview"
+
+
+def test_build_quality_findings_flags_empty_product_launch_coverage() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        high_value_item_count=2,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        recent_product_signal_count=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Product launch coverage is empty"]
+    assert findings[0].metric == "0 recent product signals"
+    assert findings[0].action_label == "Run Full Cycle"
+    assert findings[0].action_module == "sources"
+    assert findings[0].action_operation == "cycle"
+    assert findings[0].action_source_filter == "attention"
+
+
+def test_build_quality_findings_flags_thin_product_traction() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        high_value_item_count=2,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        recent_product_signal_count=3,
+        high_traction_product_signal_count=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Product traction signals are thin"]
+    assert findings[0].metric == "3 product signals, 0 high-traction"
+    assert findings[0].action_label == "Review Sources"
+    assert findings[0].action_module == "sources"
+    assert findings[0].action_source_filter == "attention"
 
 
 def test_build_quality_findings_flags_thin_watchlist_coverage() -> None:
@@ -1809,10 +1872,11 @@ def make_quality_item(
     language: str = "en",
     source_name: str = "Test Source",
     source_quality_score: float = 0.7,
+    raw_metadata: dict | None = None,
     products: list[str] | None = None,
     tickers: list[str] | None = None,
 ) -> NormalizedItem:
-    return NormalizedItem(
+    item = NormalizedItem(
         id=item_id,
         raw_item_id=item_id,
         title=title,
@@ -1837,6 +1901,20 @@ def make_quality_item(
         summary_detailed=summary_detailed,
         why_it_matters=why_it_matters,
     )
+    if raw_metadata is not None:
+        item.raw_item = RawItem(
+            id=item_id,
+            source_id=item_id,
+            external_id=f"test-{item_id}",
+            url=url,
+            raw_title=title,
+            raw_text=title,
+            raw_author=None,
+            raw_metadata=raw_metadata,
+            content_hash=f"hash-{item_id}",
+            published_at=published_at or datetime.now(UTC),
+        )
+    return item
 
 
 def make_quality_alert(
