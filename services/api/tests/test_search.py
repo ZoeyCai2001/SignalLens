@@ -895,6 +895,57 @@ def test_search_feed_items_filters_by_inferred_social_signal() -> None:
     assert results[0].social_signal_score >= 0.65
 
 
+def test_search_feed_items_filters_by_explicit_social_signal() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    popular = make_search_item(
+        1,
+        "Popular AI workflow",
+        "AI workflow launch.",
+        ["agent"],
+        source_name="Product Hunt",
+        category="product",
+    )
+    popular.raw_item = RawItem(
+        id=1,
+        source_id=1,
+        url=popular.url,
+        raw_title=popular.title,
+        raw_metadata={"votes_count": 900, "comments_count": 130},
+        content_hash="popular-explicit",
+    )
+    quiet = make_search_item(
+        2,
+        "Quiet AI workflow",
+        "AI workflow launch.",
+        ["agent"],
+        source_name="Product Hunt",
+        category="product",
+    )
+    quiet.raw_item = RawItem(
+        id=2,
+        source_id=1,
+        url=quiet.url,
+        raw_title=quiet.title,
+        raw_metadata={"votes_count": 20, "comments_count": 1},
+        content_hash="quiet-explicit",
+    )
+
+    with session_factory() as db:
+        db.add_all([popular, quiet])
+        db.commit()
+
+        results = search_feed_items(
+            db,
+            query="AI workflow",
+            min_social_signal_score=0.65,
+        )
+
+    assert [item.title for item in results] == ["Popular AI workflow"]
+
+
 def test_search_feed_items_applies_inferred_yesterday_date_range() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

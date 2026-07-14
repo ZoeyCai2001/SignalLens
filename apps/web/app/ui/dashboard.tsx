@@ -1535,6 +1535,7 @@ export function Dashboard() {
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
   const [searchMinImportance, setSearchMinImportance] = useState("");
+  const [searchMinSocialSignal, setSearchMinSocialSignal] = useState("");
   const [searchReadStatus, setSearchReadStatus] = useState("");
   const [searchAiRelated, setSearchAiRelated] = useState("");
   const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
@@ -2176,6 +2177,7 @@ export function Dashboard() {
         searchDateFrom,
         searchDateTo,
         searchMinImportance,
+        searchMinSocialSignal,
         searchReadStatus,
         searchAiRelated,
       ].some((value) => value.trim()) || savedOnly;
@@ -2213,6 +2215,9 @@ export function Dashboard() {
       if (searchDateTo.trim()) params.set("date_to", searchDateTo.trim());
       if (searchMinImportance.trim()) {
         params.set("min_importance_score", searchMinImportance.trim());
+      }
+      if (searchMinSocialSignal.trim()) {
+        params.set("min_social_signal_score", searchMinSocialSignal.trim());
       }
       if (searchReadStatus.trim()) params.set("read_status", searchReadStatus.trim());
       if (searchAiRelated.trim()) params.set("ai_related", searchAiRelated.trim());
@@ -2259,6 +2264,7 @@ export function Dashboard() {
     setSearchDateFrom("");
     setSearchDateTo("");
     setSearchMinImportance("");
+    setSearchMinSocialSignal("");
     setSearchReadStatus("");
     setSearchAiRelated("");
     setSearchIntent(null);
@@ -2319,6 +2325,7 @@ export function Dashboard() {
       setSearchDateFrom("");
       setSearchDateTo("");
       setSearchMinImportance("");
+      setSearchMinSocialSignal("");
       setSearchReadStatus("");
       setSearchAiRelated("");
       setSavedOnly(false);
@@ -2356,6 +2363,7 @@ export function Dashboard() {
       setSearchDateFrom("");
       setSearchDateTo("");
       setSearchMinImportance("");
+      setSearchMinSocialSignal("");
       setSearchReadStatus("");
       setSearchAiRelated("");
       setSavedOnly(false);
@@ -2394,6 +2402,7 @@ export function Dashboard() {
       setSearchDateFrom("");
       setSearchDateTo("");
       setSearchMinImportance("");
+      setSearchMinSocialSignal("");
       setSearchReadStatus("");
       setSearchAiRelated("");
       setSavedOnly(true);
@@ -4124,6 +4133,7 @@ export function Dashboard() {
         dateFrom={searchDateFrom}
         dateTo={searchDateTo}
         minImportance={searchMinImportance}
+        minSocialSignal={searchMinSocialSignal}
         readStatus={searchReadStatus}
         aiRelated={searchAiRelated}
         intent={searchIntent}
@@ -4144,6 +4154,9 @@ export function Dashboard() {
         onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
         onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
         onMinImportanceChange={(value) => updateSearchField(setSearchMinImportance, value)}
+        onMinSocialSignalChange={(value) =>
+          updateSearchField(setSearchMinSocialSignal, value)
+        }
         onReadStatusChange={(value) => updateSearchField(setSearchReadStatus, value)}
         onAiRelatedChange={(value) => updateSearchField(setSearchAiRelated, value)}
         onSavedOnlyChange={updateSavedOnlySearchFilter}
@@ -7365,6 +7378,7 @@ function SearchPanel({
   dateFrom,
   dateTo,
   minImportance,
+  minSocialSignal,
   readStatus,
   aiRelated,
   intent,
@@ -7385,6 +7399,7 @@ function SearchPanel({
   onDateFromChange,
   onDateToChange,
   onMinImportanceChange,
+  onMinSocialSignalChange,
   onReadStatusChange,
   onAiRelatedChange,
   onSavedOnlyChange,
@@ -7405,6 +7420,7 @@ function SearchPanel({
   dateFrom: string;
   dateTo: string;
   minImportance: string;
+  minSocialSignal: string;
   readStatus: string;
   aiRelated: string;
   intent: SearchIntent | null;
@@ -7425,6 +7441,7 @@ function SearchPanel({
   onDateFromChange: (value: string) => void;
   onDateToChange: (value: string) => void;
   onMinImportanceChange: (value: string) => void;
+  onMinSocialSignalChange: (value: string) => void;
   onReadStatusChange: (value: string) => void;
   onAiRelatedChange: (value: string) => void;
   onSavedOnlyChange: (value: boolean) => void;
@@ -7576,6 +7593,17 @@ function SearchPanel({
           onChange={(event) => onMinImportanceChange(event.target.value)}
           placeholder="Min importance"
           aria-label="Minimum importance score"
+        />
+        <input
+          className="field"
+          type="number"
+          min="0"
+          max="1"
+          step="0.05"
+          value={minSocialSignal}
+          onChange={(event) => onMinSocialSignalChange(event.target.value)}
+          placeholder="Min social"
+          aria-label="Minimum social signal score"
         />
         <select
           className="field"

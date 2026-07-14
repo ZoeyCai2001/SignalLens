@@ -850,7 +850,7 @@ table {
 }
 
 .advanced-filter-row {
-  grid-template-columns: repeat(4, minmax(130px, 1fr)) auto;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
 }
 
 .intent-row {

@@ -432,3 +432,4 @@ Implementation progress:
 - Exposed recognized public engagement metrics in expanded feed item details, keeping social signal scoring auditable without returning arbitrary raw source metadata.
 - Added high-social-signal labels and markdown notes to daily digest items so public engagement evidence is visible in morning brief previews and exports.
 - Added inferred and explicit social-signal search filtering so viral, popular, or high-engagement queries use public traction scores instead of plain keyword matching alone.
+- Exposed the minimum social-signal filter in the dashboard advanced search controls and verified explicit traction filtering against Product Hunt-style metadata.
