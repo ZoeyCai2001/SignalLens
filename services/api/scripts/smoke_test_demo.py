@@ -117,8 +117,8 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     assert_any_positive(product_briefing_counts, "product briefing item counts")
 
     source_health = get_json(client, "/api/sources/health")
-    if len(source_health) < 5:
-        raise AssertionError(f"Expected at least 5 source-health rows, got {len(source_health)}")
+    if len(source_health) < 8:
+        raise AssertionError(f"Expected at least 8 source-health rows, got {len(source_health)}")
 
     quality_metrics = get_json(client, "/api/quality-metrics")
     assert_minimum(quality_metrics, "recent_item_count", 5)
@@ -146,6 +146,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     if checklist_by_key["manual-submission"]["action_module"] != "submit":
         raise AssertionError(
             "Expected ready manual-submission checklist action to open Submit URL"
+        )
+    if not checklist_by_key["source-ingestion"]["metric"].startswith("8/8 PRD families"):
+        raise AssertionError(
+            "Expected source-ingestion checklist to show full PRD source-family coverage, "
+            f"got {checklist_by_key['source-ingestion']['metric']!r}"
         )
 
     digest = get_json(client, "/api/digest/daily")
@@ -192,6 +197,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "ready_count": mvp_checklist["ready_count"],
             "partial_count": mvp_checklist["partial_count"],
             "needs_action_count": mvp_checklist["needs_action_count"],
+            "source_ingestion_metric": checklist_by_key["source-ingestion"]["metric"],
         },
         "health": {
             "status": health["status"],

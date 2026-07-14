@@ -55,6 +55,17 @@ TRACKING_QUERY_PARAMS = {
 
 PRD_FEED_MODULES = ("trends", "research", "products", "stocks", "chinese")
 
+PRD_SOURCE_FAMILIES = {
+    "arxiv": "arXiv",
+    "hacker_news": "Hacker News",
+    "rss": "selected RSS",
+    "alpha_vantage": "Alpha Vantage",
+    "product_hunt": "Product Hunt",
+    "github": "GitHub",
+    "hugging_face": "Hugging Face",
+    "chinese_rss": "Chinese RSS",
+}
+
 
 class LlmUsageSummary(TypedDict):
     call_count: int
@@ -118,12 +129,14 @@ async def mvp_checklist(
     )
     metrics = build_quality_metrics(db=db, window_days=window_days, settings=settings)
     source_count, enabled_source_count = count_sources_by_enabled_state(db)
+    source_family_coverage = summarize_prd_source_family_coverage(db)
     return build_mvp_checklist_response(
         metrics=metrics,
         setup_summary=setup_summary,
         llm_configured=has_config_value(settings.moonshot_api_key),
         source_count=source_count,
         enabled_source_count=enabled_source_count,
+        source_family_coverage=source_family_coverage,
     )
 
 
@@ -346,6 +359,53 @@ def count_sources_by_enabled_state(db: Session) -> tuple[int, int]:
     return len(rows), sum(1 for row in rows if unwrap_bool(row))
 
 
+def summarize_prd_source_family_coverage(db: Session) -> tuple[int, int, list[str], list[str]]:
+    covered_keys: set[str] = set()
+    for source in db.query(Source).filter(Source.enabled.is_(True)).all():
+        covered_keys.update(prd_source_family_keys_for_source(source))
+
+    ordered_keys = list(PRD_SOURCE_FAMILIES)
+    covered_labels = [
+        PRD_SOURCE_FAMILIES[key] for key in ordered_keys if key in covered_keys
+    ]
+    missing_labels = [
+        PRD_SOURCE_FAMILIES[key] for key in ordered_keys if key not in covered_keys
+    ]
+    return len(covered_labels), len(PRD_SOURCE_FAMILIES), covered_labels, missing_labels
+
+
+def prd_source_family_keys_for_source(source: Source) -> set[str]:
+    name = normalize_source_family_text(source.name)
+    source_type = normalize_source_family_text(source.type)
+    access_method = normalize_source_family_text(source.access_method)
+    base_url = normalize_source_family_text(source.base_url)
+    combined = " ".join([name, source_type, access_method, base_url])
+
+    keys: set[str] = set()
+    if "arxiv" in combined:
+        keys.add("arxiv")
+    if "hacker news" in combined or "firebaseio" in combined:
+        keys.add("hacker_news")
+    if "github" in combined:
+        keys.add("github")
+    if "hugging face" in combined or "huggingface" in combined:
+        keys.add("hugging_face")
+    if "product hunt" in combined or "producthunt" in combined:
+        keys.add("product_hunt")
+    if "alpha vantage" in combined or "alphavantage" in combined:
+        keys.add("alpha_vantage")
+    if "chinese rss" in combined or source_type == "chinese social":
+        keys.add("chinese_rss")
+    if "rss" in combined or "atom" in combined or source_type in {"rss", "company blog"}:
+        if "chinese" not in combined:
+            keys.add("rss")
+    return keys
+
+
+def normalize_source_family_text(value: str | None) -> str:
+    return " ".join(str(value or "").strip().lower().replace("_", " ").split())
+
+
 def build_mvp_checklist_response(
     *,
     metrics: QualityMetricsResponse,
@@ -353,6 +413,7 @@ def build_mvp_checklist_response(
     llm_configured: bool,
     source_count: int,
     enabled_source_count: int,
+    source_family_coverage: tuple[int, int, list[str], list[str]] | None = None,
 ) -> MvpChecklistResponse:
     items = build_mvp_checklist_items(
         metrics=metrics,
@@ -360,6 +421,7 @@ def build_mvp_checklist_response(
         llm_configured=llm_configured,
         source_count=source_count,
         enabled_source_count=enabled_source_count,
+        source_family_coverage=source_family_coverage,
     )
     ready_count = sum(1 for item in items if item.status == "ready")
     partial_count = sum(1 for item in items if item.status == "partial")
@@ -381,11 +443,19 @@ def build_mvp_checklist_items(
     llm_configured: bool,
     source_count: int,
     enabled_source_count: int,
+    source_family_coverage: tuple[int, int, list[str], list[str]] | None = None,
 ) -> list[MvpChecklistItem]:
     recent_items = metrics.recent_item_count
     covered_modules = metrics.covered_module_count
     classification_coverage = metrics.classification_coverage
     summary_coverage = metrics.summary_coverage
+    source_family_coverage = source_family_coverage or (0, len(PRD_SOURCE_FAMILIES), [], [])
+    (
+        covered_source_families,
+        total_source_families,
+        covered_source_family_labels,
+        missing_source_family_labels,
+    ) = source_family_coverage
     latest_stock_price = (
         metrics.latest_stock_price_date.isoformat()
         if metrics.latest_stock_price_date
@@ -420,20 +490,26 @@ def build_mvp_checklist_items(
             label="Source Ingestion",
             status=(
                 "ready"
-                if enabled_source_count >= 5 and metrics.recent_source_count >= 3
+                if covered_source_families >= 6 and metrics.recent_source_count >= 3
                 else "partial"
                 if enabled_source_count > 0
                 else "needs_action"
             ),
             metric=(
-                f"{enabled_source_count}/{source_count} enabled; "
-                f"{metrics.recent_source_count} recent"
+                f"{covered_source_families}/{total_source_families} PRD families; "
+                f"{metrics.recent_source_count} recent sources"
             ),
             note=(
-                "Connectors are configured; recent diversity shows whether collection "
-                "is broad enough."
-                if enabled_source_count > 0
+                "Covered: "
+                f"{', '.join(covered_source_family_labels[:5])}"
+                f"{'...' if len(covered_source_family_labels) > 5 else ''}."
+                if covered_source_family_labels
                 else "Enable followed sources before relying on daily collection."
+            )
+            + (
+                " Missing: " + ", ".join(missing_source_family_labels[:3]) + "."
+                if missing_source_family_labels and enabled_source_count > 0
+                else ""
             ),
             action_label=(
                 "Run Full Cycle"

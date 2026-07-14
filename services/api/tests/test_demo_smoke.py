@@ -15,7 +15,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert max(result["company_briefing_counts"]) > 0
     assert max(result["topic_briefing_counts"]) > 0
     assert max(result["product_briefing_counts"]) > 0
-    assert result["source_health_rows"] >= 5
+    assert result["source_health_rows"] >= 8
     assert result["digest_items"] >= 1
     assert result["digest_snapshot_count"] == 1
     assert result["latest_digest_snapshot_items"] >= 1
@@ -29,11 +29,12 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
         "ready_count": 9,
         "partial_count": 0,
         "needs_action_count": 0,
+        "source_ingestion_metric": "8/8 PRD families; 9 recent sources",
     }
     assert result["module_counts"] == {
         "chinese": 1,
-        "products": 3,
+        "products": 4,
         "research": 1,
         "stocks": 1,
-        "trends": 2,
+        "trends": 4,
     }

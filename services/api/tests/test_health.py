@@ -18,6 +18,8 @@ from app.api.routes.health import (
     has_custom_sec_user_agent,
     health_check,
     normalize_quality_title,
+    prd_source_family_keys_for_source,
+    summarize_prd_source_family_coverage,
 )
 from app.core.config import DEFAULT_SEC_USER_AGENT, Settings
 from app.db.models import (
@@ -29,6 +31,7 @@ from app.db.models import (
     LlmUsageEvent,
     NormalizedItem,
     ProductWatchlistItem,
+    Source,
     SourceRun,
     StockPricePoint,
     StockWatchlistItem,
@@ -553,6 +556,116 @@ def test_build_mvp_checklist_response_guides_empty_first_run() -> None:
     assert items["manual-submission"].status == "partial"
     assert items["manual-submission"].action_module == "dashboard"
     assert items["manual-submission"].action_operation == "demo-data:seed"
+
+
+def test_source_family_coverage_tracks_prd_connector_set() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                Source(
+                    name="arXiv",
+                    type="research",
+                    access_method="official_api",
+                    base_url="https://export.arxiv.org/api/query",
+                    enabled=True,
+                ),
+                Source(
+                    name="Hacker News",
+                    type="developer_community",
+                    access_method="official_api",
+                    base_url="https://hacker-news.firebaseio.com/v0",
+                    enabled=True,
+                ),
+                Source(
+                    name="GitHub",
+                    type="developer",
+                    access_method="official_api",
+                    base_url="https://api.github.com/search/repositories",
+                    enabled=True,
+                ),
+                Source(
+                    name="Product Hunt",
+                    type="product_launch",
+                    access_method="official_graphql_api",
+                    base_url="https://api.producthunt.com/v2/api/graphql",
+                    enabled=False,
+                ),
+                Source(
+                    name="Chinese RSS Feeds",
+                    type="chinese_social",
+                    access_method="rss",
+                    base_url="configured via CHINESE_RSS_FEEDS",
+                    enabled=True,
+                ),
+            ]
+        )
+        db.commit()
+
+        covered_count, total_count, covered_labels, missing_labels = (
+            summarize_prd_source_family_coverage(db)
+        )
+
+    assert covered_count == 4
+    assert total_count == 8
+    assert covered_labels == ["arXiv", "Hacker News", "GitHub", "Chinese RSS"]
+    assert "Product Hunt" in missing_labels
+    assert "selected RSS" in missing_labels
+
+
+def test_source_ingestion_checklist_reports_prd_family_coverage() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        settings = Settings(_env_file=None, MOONSHOT_API_KEY="test")
+        metrics = build_quality_metrics(db=db, window_days=7, settings=settings)
+
+    checklist = build_mvp_checklist_response(
+        metrics=metrics,
+        setup_summary=build_setup_summary([]),
+        llm_configured=True,
+        source_count=8,
+        enabled_source_count=8,
+        source_family_coverage=(
+            7,
+            8,
+            [
+                "arXiv",
+                "Hacker News",
+                "selected RSS",
+                "Alpha Vantage",
+                "Product Hunt",
+                "GitHub",
+                "Hugging Face",
+            ],
+            ["Chinese RSS"],
+        ),
+    )
+    source_item = {item.key: item for item in checklist.items}["source-ingestion"]
+
+    assert source_item.metric == "7/8 PRD families; 0 recent sources"
+    assert source_item.status == "partial"
+    assert "Covered: arXiv, Hacker News, selected RSS, Alpha Vantage, Product Hunt..." in (
+        source_item.note
+    )
+    assert "Missing: Chinese RSS." in source_item.note
+
+
+def test_prd_source_family_keys_detects_selected_rss() -> None:
+    source = Source(
+        name="Selected RSS Feeds",
+        type="company_blog",
+        access_method="rss",
+        base_url="https://example.com/feed.xml",
+        enabled=True,
+    )
+
+    assert prd_source_family_keys_for_source(source) == {"rss"}
 
 
 def test_build_quality_findings_flags_stale_digest_snapshot() -> None:

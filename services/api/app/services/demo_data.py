@@ -48,6 +48,16 @@ DEMO_SOURCES = [
         terms_notes="Demo rows mirror arXiv metadata fields without fetching external data.",
     ),
     DemoSourceSpec(
+        name="Hacker News",
+        source_type="developer_community",
+        access_method="official_api",
+        base_url="https://hacker-news.firebaseio.com/v0",
+        rate_limit="Public API; demo rows are local examples only.",
+        polling_interval="6 hours",
+        priority=12,
+        terms_notes="Demo rows mirror public Hacker News discussion metadata without fetching.",
+    ),
+    DemoSourceSpec(
         name="GitHub",
         source_type="developer",
         access_method="official_api",
@@ -56,6 +66,26 @@ DEMO_SOURCES = [
         polling_interval="6 hours",
         priority=15,
         terms_notes="Demo rows mirror public repository metadata without fetching external data.",
+    ),
+    DemoSourceSpec(
+        name="Hugging Face",
+        source_type="model_hub",
+        access_method="official_api",
+        base_url="https://huggingface.co/api",
+        rate_limit="Public API; demo rows are local examples only.",
+        polling_interval="6 hours",
+        priority=18,
+        terms_notes="Demo rows mirror public Hub model, dataset, and Space metadata.",
+    ),
+    DemoSourceSpec(
+        name="Selected RSS Feeds",
+        source_type="company_blog",
+        access_method="rss",
+        base_url="configured RSS/Atom feeds",
+        rate_limit="Public RSS/Atom feeds; demo rows are local examples only.",
+        polling_interval="6 hours",
+        priority=20,
+        terms_notes="Demo rows represent selected public AI company or research RSS feeds.",
     ),
     DemoSourceSpec(
         name="Product Hunt",
@@ -250,6 +280,19 @@ def demo_feed_items(now: datetime) -> list[RawItemInput]:
             published_at=now - timedelta(hours=8),
         ),
         RawItemInput(
+            source_name="Hacker News",
+            external_id="demo-hn-agent-discussion",
+            url="https://example.com/demo/hn-agent-discussion",
+            raw_title="Show HN: local AI agent runner for coding workflows",
+            raw_text=(
+                "Developer discussion compares a local AI agent runner, MCP tools, code "
+                "review automation, and retrieval memory for long software engineering tasks."
+            ),
+            raw_author="demo_hn_user",
+            raw_metadata={"score": 438, "descendants": 96},
+            published_at=now - timedelta(hours=7),
+        ),
+        RawItemInput(
             source_name="GitHub",
             external_id="demo-github-coding-agent",
             url="https://example.com/demo/github-coding-agent",
@@ -261,6 +304,37 @@ def demo_feed_items(now: datetime) -> list[RawItemInput]:
             raw_author="demo-builder",
             raw_metadata={"stars": 4200, "stars_per_day": 64, "forks": 520},
             published_at=now - timedelta(hours=5),
+        ),
+        RawItemInput(
+            source_name="Hugging Face",
+            external_id="demo-hf-research-space",
+            url="https://example.com/demo/hf-research-space",
+            raw_title="Hugging Face Space demos multimodal agent evaluation",
+            raw_text=(
+                "A Hugging Face Space launches an AI demo for multimodal agent evaluation, "
+                "benchmark comparison, and open-source model inspection."
+            ),
+            raw_author="demo-hf-lab",
+            raw_metadata={
+                "hf_kind": "space",
+                "likes": 1320,
+                "downloads": 42000,
+                "product_name": "AgentEval Space",
+            },
+            published_at=now - timedelta(hours=9),
+        ),
+        RawItemInput(
+            source_name="Selected RSS Feeds",
+            external_id="demo-rss-lab-agent-release",
+            url="https://example.com/demo/rss-lab-agent-release",
+            raw_title="AI lab blog details new agent skill routing architecture",
+            raw_text=(
+                "A public AI lab RSS post explains agent skill routing, model selection, "
+                "tool-use evaluation, and inference infrastructure updates."
+            ),
+            raw_author="Demo AI Lab",
+            raw_metadata={"feed_name": "Demo AI Lab Blog"},
+            published_at=now - timedelta(hours=10),
         ),
         RawItemInput(
             source_name="Product Hunt",
