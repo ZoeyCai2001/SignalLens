@@ -5862,6 +5862,7 @@ function AlertPanel({
                 )}
               </div>
               <div className="summary">{alert.reason}</div>
+              <AlertEvidenceSummary alert={alert} />
               <div className="badges">
                 {alert.item.tickers.map((ticker) => (
                   <span className="badge stock" key={ticker}>
@@ -5899,6 +5900,72 @@ function AlertPanel({
         )}
       </div>
     </section>
+  );
+}
+
+function AlertEvidenceSummary({ alert }: { alert: AlertItem }) {
+  const item = alert.item;
+  const rule = alert.rule;
+  const itemSummary = item.summary_short || item.why_it_matters || item.summary_detailed;
+  const matchedLabels = uniqueLabels([
+    ...rule.tickers,
+    ...rule.topics,
+    ...item.tickers,
+    ...item.topics.slice(0, 4),
+    ...item.products.slice(0, 3),
+  ]);
+
+  return (
+    <div className="alert-evidence-grid">
+      <div className="alert-evidence-card">
+        <div className="field-label">Matched Rule</div>
+        <div className="alert-evidence-title">{rule.name}</div>
+        <div className="small-muted">
+          {formatCategoryLabel(rule.category)} · {rule.severity} · min{" "}
+          {Math.round(rule.min_importance_score * 100)}
+          {rule.min_stock_impact_score > 0
+            ? ` · stock ${Math.round(rule.min_stock_impact_score * 100)}`
+            : ""}
+        </div>
+      </div>
+      <div className="alert-evidence-card">
+        <div className="field-label">Source Evidence</div>
+        <div className="alert-evidence-title">{item.source_name}</div>
+        <div className="small-muted">
+          {item.published_at ? formatDate(item.published_at) : "undated"} ·{" "}
+          {formatCategoryLabel(item.category)}
+        </div>
+      </div>
+      <div className="alert-evidence-card">
+        <div className="field-label">Scores</div>
+        <div className="alert-evidence-title">
+          Importance {Math.round(item.importance_score * 100)}
+        </div>
+        <div className="small-muted">
+          Relevance {Math.round(item.relevance_score * 100)} · Confidence{" "}
+          {Math.round(item.classification_confidence * 100)} · Stock{" "}
+          {Math.round(item.stock_impact_score * 100)}
+        </div>
+      </div>
+      {itemSummary ? (
+        <div className="alert-evidence-card wide">
+          <div className="field-label">Item Summary</div>
+          <div className="small-muted">{itemSummary}</div>
+        </div>
+      ) : null}
+      {matchedLabels.length ? (
+        <div className="alert-evidence-card wide">
+          <div className="field-label">Matched Labels</div>
+          <div className="badges">
+            {matchedLabels.map((label) => (
+              <span className="badge" key={`alert-evidence-${alert.id}-${label}`}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

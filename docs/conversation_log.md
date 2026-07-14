@@ -380,3 +380,4 @@ Implementation progress:
 - Added built-in ingestion runner controls to Source Health and reused the same connector action metadata in the global toolbar, making the PRD source-ingestion workflow manageable from the source module itself.
 - Anchored natural-language search response intent to the latest stored item date so recent/latest filter chips match the same data-relative search window used for results.
 - Expanded event-cluster detail review with all related sources, affected ticker/topic labels, confirmation counts, timing, scores, and the full available timeline so cluster evidence matches the PRD review fields.
+- Expanded alert cards with matched-rule evidence, source timing, score context, item summaries, and matched labels so dashboard alerts are easier to audit before acting on them.
