@@ -162,6 +162,9 @@ def save_raw_manual_item(
         raw_metadata={
             "submission_type": "manual",
             "title_was_inferred": request.title is None,
+            **extract_manual_engagement_metadata(
+                " ".join(part for part in [title, request.text or ""] if part)
+            ),
         },
         published_at=datetime.now(UTC),
     )
@@ -287,6 +290,54 @@ def source_base_url_from_request(request: ManualSubmissionRequest) -> str:
     parsed = urlparse(str(request.url))
     host = normalized_manual_host(parsed.netloc)
     return f"{parsed.scheme}://{host}" if parsed.scheme and host else ""
+
+
+def extract_manual_engagement_metadata(text: str) -> dict[str, int]:
+    metrics = {
+        "likes": ["likes", "like", "点赞"],
+        "comments_count": ["comments", "comment", "replies", "reply", "评论"],
+        "collects": ["collects", "collect", "saves", "save", "bookmarks", "bookmark", "收藏"],
+        "reposts": ["reposts", "repost", "shares", "share", "retweets", "retweet", "转发"],
+        "views": ["views", "view", "浏览", "阅读"],
+    }
+    extracted: dict[str, int] = {}
+    for metric_key, labels in metrics.items():
+        value = first_manual_engagement_count(text, labels)
+        if value is not None:
+            extracted[metric_key] = value
+    return extracted
+
+
+def first_manual_engagement_count(text: str, labels: list[str]) -> int | None:
+    for label in labels:
+        label_pattern = re.escape(label)
+        patterns = [
+            rf"(?:^|[\s,;|，；。]){label_pattern}\s*[:：]?\s*([0-9][0-9,.]*\s*[kKmM万]?)",
+            rf"([0-9][0-9,.]*\s*[kKmM万]?)\s*{label_pattern}\b",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if match and (count := parse_manual_engagement_count(match.group(1))) is not None:
+                return count
+    return None
+
+
+def parse_manual_engagement_count(value: str) -> int | None:
+    cleaned = value.strip().replace(",", "")
+    multiplier = 1
+    if cleaned[-1:] in {"k", "K"}:
+        multiplier = 1_000
+        cleaned = cleaned[:-1]
+    elif cleaned[-1:] in {"m", "M"}:
+        multiplier = 1_000_000
+        cleaned = cleaned[:-1]
+    elif cleaned[-1:] == "万":
+        multiplier = 10_000
+        cleaned = cleaned[:-1]
+    try:
+        return max(0, int(float(cleaned.strip()) * multiplier))
+    except ValueError:
+        return None
 
 
 def normalized_manual_host(netloc: str) -> str:

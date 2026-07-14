@@ -138,6 +138,37 @@ def test_manual_enrichment_prefers_chinese_social_context() -> None:
     assert "Manual source: user-submitted public URL" in item.summary_detailed
 
 
+def test_manual_submission_extracts_public_social_engagement_counts() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        result = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="小红书 AI写真工具 workflow",
+                url="https://example.com/xhs-ai-photo",
+                source_name="Xiaohongshu Manual Watch",
+                text=(
+                    "小红书用户讨论人工智能修图。 "
+                    "likes: 1,800; collects: 500; comments: 260; "
+                    "reposts: 60; views: 88,000."
+                ),
+            ),
+        )
+
+        raw = db.query(RawItem).one()
+
+    assert raw.raw_metadata["likes"] == 1800
+    assert raw.raw_metadata["collects"] == 500
+    assert raw.raw_metadata["comments_count"] == 260
+    assert raw.raw_metadata["reposts"] == 60
+    assert raw.raw_metadata["views"] == 88000
+    assert result.item.category == "social_trend"
+    assert result.item.social_signal_score == 1
+
+
 def test_manual_enrichment_keeps_non_ai_submission_as_manual() -> None:
     source = make_source()
     raw = make_raw(

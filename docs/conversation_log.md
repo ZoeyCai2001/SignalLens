@@ -427,3 +427,4 @@ Implementation progress:
 - Added deterministic stock timeline uncertainty notes for aligned event-date price moves that may already be priced in and opposite moves where other market factors may dominate.
 - Extended manual Chinese/social submissions with deterministic English summaries, inferred product/use-case labels, and manual public-source notes before any LLM enrichment.
 - Expanded generic social signal scoring to include public collect/save/bookmark and repost/share engagement aliases alongside likes, comments, and views.
+- Parsed user-provided public engagement counts from manual social submissions into raw metadata so pasted likes, collects, comments, reposts, and views influence social signal scoring without crawling.
