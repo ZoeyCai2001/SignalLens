@@ -7,7 +7,6 @@ import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 PLACEHOLDER_VALUES = {
@@ -274,6 +273,7 @@ def print_report(checks: list[SetupCheck], summary: dict[str, int]) -> None:
     print("  pnpm api:seed-demo")
     print("  pnpm api:dev")
     print("  pnpm web:dev")
+    print("  pnpm web:dashboard-check")
     print("  pnpm verify:demo")
 
 

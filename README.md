@@ -169,10 +169,18 @@ cd services/api
 .venv/bin/python scripts/smoke_test_demo.py
 ```
 
-From the repository root, run the combined MVP demo verification:
+From the repository root, run the fast local MVP demo verification:
 
 ```bash
 pnpm verify:demo
+```
+
+This runs the no-paid-API backend demo smoke check plus a focused web dashboard
+transpile check. Full production web checks are still available separately:
+
+```bash
+pnpm web:lint
+pnpm web:build
 ```
 
 Run the Kimi API smoke test:
@@ -267,4 +275,5 @@ which integration environment variables are configured without exposing secret v
 - `pnpm api:seed-demo` seeds the no-paid-API demo dashboard data.
 - `pnpm api:dev` starts the FastAPI backend.
 - `pnpm web:dev` starts the Next.js dashboard.
-- `pnpm verify:demo` runs the local demo smoke check, web lint, and web build.
+- `pnpm web:dashboard-check` runs the focused web dashboard transpile check.
+- `pnpm verify:demo` runs the local demo smoke check and focused web dashboard check.

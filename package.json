@@ -11,7 +11,8 @@
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
     "setup:check": "python3 scripts/check_local_setup.py",
-    "verify:demo": "pnpm api:demo-smoke && pnpm web:lint && pnpm web:build",
+    "verify:demo": "pnpm api:demo-smoke && pnpm web:dashboard-check",
+    "web:dashboard-check": "node scripts/check_web_dashboard.mjs",
     "web:dev": "pnpm --filter @signallens/web dev",
     "web:build": "pnpm --filter @signallens/web build",
     "web:lint": "pnpm --filter @signallens/web lint"
