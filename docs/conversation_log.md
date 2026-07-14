@@ -456,3 +456,4 @@ Implementation progress:
 - Added Reddit to the System Readiness integration badge row and demo smoke evidence so supported Reddit ingestion setup cannot drift out of the dashboard view.
 - Added watched-stock signal coverage metrics to System Readiness and the no-paid demo verifier, making PRD stock-news linkage and high-impact stock evidence visible outside the stock detail page.
 - Added a quality finding for watched stock lists with no recent stock-linked signals, pointing the user back to a full ingestion cycle and Source Health review.
+- Added alert-rule readiness metrics for total, enabled, active, and snoozed rules, and taught System Readiness to distinguish paused/disabled alert rules from alert generation gaps.

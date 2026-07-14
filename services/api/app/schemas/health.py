@@ -173,6 +173,10 @@ class QualityMetricsResponse(BaseModel):
     saved_read_count: int = 0
     saved_read_later_count: int = 0
     save_hide_ratio: float | None
+    alert_rule_count: int = 0
+    enabled_alert_rule_count: int = 0
+    active_alert_rule_count: int = 0
+    snoozed_alert_rule_count: int = 0
     active_alert_count: int
     dismissed_alert_count: int
     alert_dismissal_rate: float

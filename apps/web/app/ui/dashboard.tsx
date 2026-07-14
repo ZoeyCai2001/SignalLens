@@ -631,6 +631,10 @@ type QualityMetrics = {
   saved_read_count: number;
   saved_read_later_count: number;
   save_hide_ratio: number | null;
+  alert_rule_count: number;
+  enabled_alert_rule_count: number;
+  active_alert_rule_count: number;
+  snoozed_alert_rule_count: number;
   active_alert_count: number;
   dismissed_alert_count: number;
   alert_dismissal_rate: number;
@@ -5377,6 +5381,14 @@ function SystemStatusPanel({
                     value={formatQualityPercent(qualityMetrics.alert_dismissal_rate)}
                   />
                   <ReadinessMetric
+                    label="Alert Rules"
+                    value={`${qualityMetrics.active_alert_rule_count}/${qualityMetrics.alert_rule_count}`}
+                  />
+                  <ReadinessMetric
+                    label="Snoozed Rules"
+                    value={qualityMetrics.snoozed_alert_rule_count}
+                  />
+                  <ReadinessMetric
                     label="Alert Use"
                     value={
                       qualityMetrics.alert_usefulness_proxy === null
@@ -5887,6 +5899,8 @@ function buildPrdMvpChecklist({
   const searchFacetCoverage = qualityMetrics?.search_facet_coverage ?? 0;
   const llmCallCount = qualityMetrics?.llm_call_count ?? 0;
   const dismissedAlertCount = qualityMetrics?.dismissed_alert_count ?? 0;
+  const alertRuleCount = qualityMetrics?.alert_rule_count ?? 0;
+  const activeAlertRuleCount = qualityMetrics?.active_alert_rule_count ?? 0;
 
   return [
     {
@@ -6041,17 +6055,29 @@ function buildPrdMvpChecklist({
       status:
         alertCount > 0
           ? "ready"
-          : dismissedAlertCount > 0
+          : activeAlertRuleCount > 0 || dismissedAlertCount > 0
             ? "partial"
             : "needs_action",
-      metric: `${alertCount} active`,
+      metric: `${alertCount} active · ${activeAlertRuleCount}/${alertRuleCount} rules`,
       note:
         alertCount > 0
           ? "Dashboard alert rules are producing active signals."
-          : "Generate alerts after ingestion to validate stock, product, and trend rules.",
-      actionLabel: alertCount > 0 ? "Open Alerts" : "Generate Alerts",
+          : activeAlertRuleCount > 0
+            ? "Alert rules are configured; generate alerts after ingestion to validate stock, product, and trend rules."
+            : "Resume, create, or generate alert rules before relying on urgent dashboard signals.",
+      actionLabel:
+        alertCount > 0
+          ? "Open Alerts"
+          : activeAlertRuleCount > 0 || alertRuleCount === 0
+            ? "Generate Alerts"
+            : "Open Alerts",
       actionModule: "alerts",
-      actionOperation: alertCount > 0 ? undefined : "alerts:generate",
+      actionOperation:
+        alertCount > 0
+          ? undefined
+          : activeAlertRuleCount > 0 || alertRuleCount === 0
+            ? "alerts:generate"
+            : undefined,
       actionTargetId: "alerts-workflow",
     },
     {

@@ -17,6 +17,7 @@ from app.core.config import (
 )
 from app.db.models import (
     Alert,
+    AlertRule,
     CompanyWatchlistItem,
     DailyDigestSnapshot,
     LlmUsageEvent,
@@ -177,6 +178,7 @@ def build_quality_metrics(
     )
     feedback_action_count = save_count + hide_count + item_feedback_count
     saved_read_count, saved_read_later_count = count_saved_read_statuses(db)
+    alert_rule_counts = count_alert_rules_by_readiness(db=db, now=generated_at)
     alert_counts = count_alerts_by_status(db)
     alert_feedback_counts = count_alert_usefulness_feedback(db)
     alert_feedback_count = sum(alert_feedback_counts.values())
@@ -370,6 +372,10 @@ def build_quality_metrics(
         saved_read_count=saved_read_count,
         saved_read_later_count=saved_read_later_count,
         save_hide_ratio=round(save_count / hide_count, 3) if hide_count else None,
+        alert_rule_count=alert_rule_counts["total"],
+        enabled_alert_rule_count=alert_rule_counts["enabled"],
+        active_alert_rule_count=alert_rule_counts["active"],
+        snoozed_alert_rule_count=alert_rule_counts["snoozed"],
         active_alert_count=alert_counts["active"],
         dismissed_alert_count=alert_counts["dismissed"],
         alert_dismissal_rate=alert_dismissal_rate,
@@ -457,6 +463,9 @@ def build_quality_metrics(
             manual_submission_count=manual_submission_count,
             manual_enrichment_gap_count=manual_enrichment_gap_count,
             watchlist_area_count=watchlist_area_count,
+            alert_rule_count=alert_rule_counts["total"],
+            active_alert_rule_count=alert_rule_counts["active"],
+            snoozed_alert_rule_count=alert_rule_counts["snoozed"],
             active_alert_count=alert_counts["active"],
             dismissed_alert_count=alert_counts["dismissed"],
             alert_dismissal_rate=alert_dismissal_rate,
@@ -819,18 +828,41 @@ def build_mvp_checklist_items(
                 "ready"
                 if metrics.active_alert_count > 0
                 else "partial"
-                if metrics.dismissed_alert_count > 0
+                if metrics.active_alert_rule_count > 0 or metrics.dismissed_alert_count > 0
                 else "needs_action"
             ),
-            metric=f"{metrics.active_alert_count} active",
+            metric=(
+                f"{metrics.active_alert_count} active; "
+                f"{metrics.active_alert_rule_count}/{metrics.alert_rule_count} rules"
+            ),
             note=(
                 "Dashboard alert rules are producing active signals."
                 if metrics.active_alert_count > 0
-                else "Generate alerts after ingestion to validate stock, product, and trend rules."
+                else (
+                    "Alert rules are configured; generate alerts after ingestion to validate "
+                    "stock, product, and trend rules."
+                )
+                if metrics.active_alert_rule_count > 0
+                else (
+                    "Resume, create, or generate alert rules before relying on urgent "
+                    "dashboard signals."
+                )
             ),
-            action_label="Open Alerts" if metrics.active_alert_count > 0 else "Generate Alerts",
+            action_label=(
+                "Open Alerts"
+                if metrics.active_alert_count > 0
+                else "Generate Alerts"
+                if metrics.active_alert_rule_count > 0 or metrics.alert_rule_count == 0
+                else "Open Alerts"
+            ),
             action_module="alerts",
-            action_operation=None if metrics.active_alert_count > 0 else "alerts:generate",
+            action_operation=(
+                None
+                if metrics.active_alert_count > 0
+                else "alerts:generate"
+                if metrics.active_alert_rule_count > 0 or metrics.alert_rule_count == 0
+                else None
+            ),
             action_target_id="alerts-workflow",
         ),
         MvpChecklistItem(
@@ -950,6 +982,40 @@ def count_alerts_by_status(db: Session) -> dict[str, int]:
         .count()
     )
     return {"active": active_count, "dismissed": dismissed_count}
+
+
+def count_alert_rules_by_readiness(db: Session, now: datetime) -> dict[str, int]:
+    total_count = db.query(AlertRule).filter(AlertRule.user_id == LOCAL_USER_ID).count()
+    enabled_count = (
+        db.query(AlertRule)
+        .filter(AlertRule.user_id == LOCAL_USER_ID, AlertRule.enabled.is_(True))
+        .count()
+    )
+    snoozed_count = (
+        db.query(AlertRule)
+        .filter(
+            AlertRule.user_id == LOCAL_USER_ID,
+            AlertRule.enabled.is_(True),
+            AlertRule.snoozed_until.is_not(None),
+            AlertRule.snoozed_until > now,
+        )
+        .count()
+    )
+    active_count = (
+        db.query(AlertRule)
+        .filter(
+            AlertRule.user_id == LOCAL_USER_ID,
+            AlertRule.enabled.is_(True),
+            or_(AlertRule.snoozed_until.is_(None), AlertRule.snoozed_until <= now),
+        )
+        .count()
+    )
+    return {
+        "total": total_count,
+        "enabled": enabled_count,
+        "active": active_count,
+        "snoozed": snoozed_count,
+    }
 
 
 def count_alert_usefulness_feedback(db: Session) -> dict[str, int]:
@@ -1482,6 +1548,9 @@ def build_quality_findings(
     latest_digest_snapshot_date: date | None,
     latest_digest_snapshot_item_count: int | None,
     llm_calls_per_recent_item: float,
+    alert_rule_count: int = 0,
+    active_alert_rule_count: int = 0,
+    snoozed_alert_rule_count: int = 0,
     feedback_action_count: int | None = None,
     manual_submission_count: int = 0,
     manual_enrichment_gap_count: int = 0,
@@ -1784,7 +1853,27 @@ def build_quality_findings(
                 action_source_filter="attention",
             )
         )
-    if recent_item_count > 0 and high_value_item_count > 0 and active_alert_count == 0:
+    if (
+        recent_item_count > 0
+        and high_value_item_count > 0
+        and active_alert_count == 0
+        and alert_rule_count > 0
+        and active_alert_rule_count == 0
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Alert rules are paused",
+                metric=f"{alert_rule_count} rules, {snoozed_alert_rule_count} snoozed",
+                recommendation=(
+                    "Resume or enable alert rules before generating urgent stock, product, "
+                    "and cross-source dashboard signals."
+                ),
+                action_label="Open Alerts",
+                action_module="alerts",
+            )
+        )
+    elif recent_item_count > 0 and high_value_item_count > 0 and active_alert_count == 0:
         findings.append(
             QualityFinding(
                 severity="info",

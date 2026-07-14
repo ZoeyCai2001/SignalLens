@@ -14,6 +14,7 @@ from app.api.routes.health import (
     build_setup_items,
     build_setup_summary,
     canonical_quality_url,
+    count_alert_rules_by_readiness,
     digest_age_days,
     duplicate_rate_for_items,
     has_config_value,
@@ -441,6 +442,10 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.saved_read_count == 1
     assert metrics.saved_read_later_count == 0
     assert metrics.save_hide_ratio == 0.5
+    assert metrics.alert_rule_count == 1
+    assert metrics.enabled_alert_rule_count == 1
+    assert metrics.active_alert_rule_count == 1
+    assert metrics.snoozed_alert_rule_count == 0
     assert metrics.active_alert_count == 1
     assert metrics.dismissed_alert_count == 2
     assert metrics.alert_dismissal_rate == 0.667
@@ -569,6 +574,66 @@ def test_digest_usefulness_proxy_combines_freshness_and_item_coverage() -> None:
         digest_feedback_useful_count=1,
         digest_feedback_not_useful_count=1,
     ) == 0.675
+
+
+def test_count_alert_rules_by_readiness_splits_active_snoozed_and_disabled() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    now = datetime(2026, 7, 1, tzinfo=UTC)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                AlertRule(
+                    id=1,
+                    user_id="local",
+                    name="Active rule",
+                    category="all",
+                    severity="high",
+                    min_importance_score=0.75,
+                    min_stock_impact_score=0,
+                    enabled=True,
+                ),
+                AlertRule(
+                    id=2,
+                    user_id="local",
+                    name="Future snooze",
+                    category="all",
+                    severity="high",
+                    min_importance_score=0.75,
+                    min_stock_impact_score=0,
+                    enabled=True,
+                    snoozed_until=now + timedelta(hours=2),
+                ),
+                AlertRule(
+                    id=3,
+                    user_id="local",
+                    name="Expired snooze",
+                    category="all",
+                    severity="high",
+                    min_importance_score=0.75,
+                    min_stock_impact_score=0,
+                    enabled=True,
+                    snoozed_until=now - timedelta(minutes=1),
+                ),
+                AlertRule(
+                    id=4,
+                    user_id="local",
+                    name="Disabled rule",
+                    category="all",
+                    severity="high",
+                    min_importance_score=0.75,
+                    min_stock_impact_score=0,
+                    enabled=False,
+                ),
+            ]
+        )
+        db.commit()
+
+        counts = count_alert_rules_by_readiness(db=db, now=now)
+
+    assert counts == {"total": 4, "enabled": 3, "active": 2, "snoozed": 1}
 
 
 def test_alert_usefulness_proxy_uses_non_dismissed_share() -> None:
@@ -1560,6 +1625,36 @@ def test_build_quality_findings_flags_empty_alert_coverage_for_high_value_items(
     assert findings[0].action_label == "Generate Alerts"
     assert findings[0].action_module == "alerts"
     assert findings[0].action_operation == "alerts:generate"
+
+
+def test_build_quality_findings_flags_paused_alert_rules_before_generation() -> None:
+    findings = build_quality_findings(
+        recent_item_count=10,
+        high_value_item_count=3,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        alert_rule_count=4,
+        active_alert_rule_count=0,
+        snoozed_alert_rule_count=2,
+    )
+
+    assert [finding.title for finding in findings] == ["Alert rules are paused"]
+    assert findings[0].metric == "4 rules, 2 snoozed"
+    assert findings[0].action_label == "Open Alerts"
+    assert findings[0].action_module == "alerts"
+    assert findings[0].action_operation is None
 
 
 def test_build_quality_findings_flags_noisy_alert_rules() -> None:
