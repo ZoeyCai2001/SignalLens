@@ -444,3 +444,4 @@ Implementation progress:
 - Strengthened the no-paid demo verifier to assert Source Health operational coverage, including storage policy, failure-handling guidance, recent-run counts, success rates, and store-rate quality metrics.
 - Added PRD performance-budget evidence to the no-paid demo verifier for the initial feed, structured search, natural-language product search, Chinese search, and manual-tag search paths.
 - Added exception logging for connector, built-in scheduled, and custom scheduled source failures so the PRD reliability path records operational errors while continuing later ingestion work.
+- Added daily digest generation timing to the no-paid demo verifier so the PRD under-five-minute digest budget is checked through the explicit generate endpoint.

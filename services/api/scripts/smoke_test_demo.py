@@ -26,6 +26,7 @@ from app.main import create_app
 DEMO_MODULES = ("trends", "research", "products", "stocks", "chinese")
 FEED_RESPONSE_BUDGET_SECONDS = 3.0
 SEARCH_RESPONSE_BUDGET_SECONDS = 5.0
+DIGEST_RESPONSE_BUDGET_SECONDS = 300.0
 SOURCE_HEALTH_OPERATIONAL_FIELDS = {
     "raw_content_policy",
     "failure_handling",
@@ -383,7 +384,15 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             f"got {feedback_alert['usefulness_feedback']!r}"
         )
 
-    digest = get_json(client, "/api/digest/daily")
+    digest, digest_generation_elapsed_seconds = timed_post_json(
+        client,
+        "/api/digest/daily/generate",
+    )
+    assert_response_budget(
+        label="Daily digest generation",
+        elapsed_seconds=digest_generation_elapsed_seconds,
+        budget_seconds=DIGEST_RESPONSE_BUDGET_SECONDS,
+    )
     if digest["total_items"] <= 0:
         raise AssertionError("Expected the demo daily digest to contain items")
     digest_snapshots = get_json(client, "/api/digest/daily/snapshots")
@@ -537,8 +546,10 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "product_natural_search_ms": elapsed_milliseconds(product_search_elapsed_seconds),
             "chinese_natural_search_ms": elapsed_milliseconds(chinese_search_elapsed_seconds),
             "manual_tag_search_ms": elapsed_milliseconds(manual_tag_search_elapsed_seconds),
+            "digest_generation_ms": elapsed_milliseconds(digest_generation_elapsed_seconds),
             "feed_budget_ms": elapsed_milliseconds(FEED_RESPONSE_BUDGET_SECONDS),
             "search_budget_ms": elapsed_milliseconds(SEARCH_RESPONSE_BUDGET_SECONDS),
+            "digest_budget_ms": elapsed_milliseconds(DIGEST_RESPONSE_BUDGET_SECONDS),
         },
         "stock_rows": len(stocks),
         "stock_detail": {

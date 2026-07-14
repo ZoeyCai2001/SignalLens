@@ -119,3 +119,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
         result["performance"]["manual_tag_search_ms"]
         <= result["performance"]["search_budget_ms"]
     )
+    assert (
+        result["performance"]["digest_generation_ms"]
+        <= result["performance"]["digest_budget_ms"]
+    )
