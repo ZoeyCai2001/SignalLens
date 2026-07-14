@@ -524,7 +524,9 @@ type SystemStatus = {
   service: string;
   environment: string;
   llm_provider: string;
+  llm_base_url: string;
   llm_model: string;
+  llm_api_format: string;
   llm_configured: boolean;
   integrations: IntegrationStatus;
   setup_items: SetupItem[];
@@ -4940,6 +4942,10 @@ function SystemStatusPanel({
                 <div className="digest-headline">
                   {status.llm_provider} · {status.llm_model}
                 </div>
+                <div className="small-muted">
+                  {status.llm_base_url || "no endpoint"} ·{" "}
+                  {formatLlmApiFormat(status.llm_api_format)}
+                </div>
               </div>
               <div className="readiness-actions">
                 {status.missing_env_template ? (
@@ -5434,6 +5440,14 @@ function formatDuration(seconds: number): string {
 function formatLlmOperationLabel(operation: string): string {
   return operation
     .split("_")
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatLlmApiFormat(format: string): string {
+  return format
+    .split(/[_-]/)
     .filter(Boolean)
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(" ");

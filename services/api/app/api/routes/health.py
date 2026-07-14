@@ -93,7 +93,9 @@ async def health_check() -> HealthResponse:
         service="signallens-api",
         environment=settings.environment,
         llm_provider=settings.llm_provider,
+        llm_base_url=sanitize_public_url(settings.moonshot_base_url),
         llm_model=settings.moonshot_model,
+        llm_api_format=settings.kimi_api_format,
         llm_configured=has_config_value(settings.moonshot_api_key),
         integrations=integrations,
         setup_items=setup_items,
@@ -1184,6 +1186,21 @@ def canonical_quality_url(url: str | None) -> str | None:
             "",
         )
     )
+
+
+def sanitize_public_url(url: str | None) -> str:
+    if not url:
+        return ""
+    try:
+        parsed = urlsplit(url.strip())
+    except ValueError:
+        return url.strip()
+    if not parsed.scheme and not parsed.netloc:
+        return url.strip()
+    host = parsed.hostname or ""
+    if parsed.port is not None:
+        host = f"{host}:{parsed.port}"
+    return urlunsplit((parsed.scheme, host, parsed.path.rstrip("/"), "", ""))
 
 
 def normalize_quality_title(title: str | None) -> str | None:

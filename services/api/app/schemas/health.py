@@ -38,7 +38,9 @@ class HealthResponse(BaseModel):
     service: str
     environment: str
     llm_provider: str
+    llm_base_url: str
     llm_model: str
+    llm_api_format: str
     llm_configured: bool
     integrations: IntegrationStatus
     setup_items: list[SetupItem]

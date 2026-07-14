@@ -62,7 +62,9 @@ def fake_settings() -> Settings:
         ENVIRONMENT="test",
         LLM_PROVIDER="kimi_coding",
         MOONSHOT_API_KEY="moonshot-key",
+        MOONSHOT_BASE_URL="https://user:pass@api.kimi.com/coding/v1?api_key=secret",
         MOONSHOT_MODEL="kimi-for-coding",
+        KIMI_API_FORMAT="anthropic_messages",
         GITHUB_TOKEN="github-key",
         PRODUCT_HUNT_API_TOKEN="",
         ALPHA_VANTAGE_API_KEY="alpha-key",
@@ -80,7 +82,10 @@ async def test_health_check_reports_readiness_without_exposing_secrets(monkeypat
 
     assert response.status == "ok"
     assert response.environment == "test"
+    assert response.llm_provider == "kimi_coding"
+    assert response.llm_base_url == "https://api.kimi.com/coding/v1"
     assert response.llm_model == "kimi-for-coding"
+    assert response.llm_api_format == "anthropic_messages"
     assert response.llm_configured is True
     assert response.integrations.kimi_coding_api is True
     assert response.integrations.github_api is True
@@ -116,6 +121,8 @@ async def test_health_check_reports_readiness_without_exposing_secrets(monkeypat
     assert product_hunt_setup.importance == "optional"
     assert "moonshot-key" not in response.model_dump_json()
     assert "github-key" not in response.model_dump_json()
+    assert "user:pass" not in response.model_dump_json()
+    assert "api_key=secret" not in response.model_dump_json()
 
 
 def test_build_setup_items_reports_safe_env_hints_without_values() -> None:
