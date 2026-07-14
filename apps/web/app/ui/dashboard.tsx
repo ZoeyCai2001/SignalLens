@@ -3828,6 +3828,20 @@ export function Dashboard() {
               {rankingPreferencesPanel}
               {settingsBackupPanel}
             </section>
+          ) : activeModule === "saved" ? (
+            <SavedItemsPanel
+              items={savedItems}
+              busyItemId={busyItemId}
+              busyExport={busySavedExport}
+              busyDownload={busySavedDownload}
+              onCopyExport={copySavedItemsExport}
+              onDownloadExport={downloadSavedItemsExport}
+              onManualTagFilter={applySavedManualTagFilter}
+              onReadToggle={(item) =>
+                updateFeedAction(item.id, item.is_read ? "mark-unread" : "mark-read")
+              }
+              onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
+            />
           ) : (
             <section className="section" id="ranked-feed-workflow">
               <div className="section-header">
@@ -3960,19 +3974,21 @@ export function Dashboard() {
                 onSnapshotDelete={deleteDailyDigestSnapshot}
               />
             </div>
-            <SavedItemsPanel
-              items={savedItems.slice(0, 8)}
-              busyItemId={busyItemId}
-              busyExport={busySavedExport}
-              busyDownload={busySavedDownload}
-              onCopyExport={copySavedItemsExport}
-              onDownloadExport={downloadSavedItemsExport}
-              onManualTagFilter={applySavedManualTagFilter}
-              onReadToggle={(item) =>
-                updateFeedAction(item.id, item.is_read ? "mark-unread" : "mark-read")
-              }
-              onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
-            />
+            {activeModule === "saved" ? null : (
+              <SavedItemsPanel
+                items={savedItems.slice(0, 8)}
+                busyItemId={busyItemId}
+                busyExport={busySavedExport}
+                busyDownload={busySavedDownload}
+                onCopyExport={copySavedItemsExport}
+                onDownloadExport={downloadSavedItemsExport}
+                onManualTagFilter={applySavedManualTagFilter}
+                onReadToggle={(item) =>
+                  updateFeedAction(item.id, item.is_read ? "mark-unread" : "mark-read")
+                }
+                onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
+              />
+            )}
             <HiddenItemsPanel
               items={hiddenItems.slice(0, 8)}
               busyItemId={busyItemId}

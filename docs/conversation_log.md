@@ -361,3 +361,4 @@ Implementation progress:
 - Tightened the AI Stock Watchlist digest section so generated briefings match the user's watched ticker profile, including tickers, company names, related keywords, related companies, and AI themes, while preserving generic stock grouping for callers without watchlist terms.
 - Marked curated local demo feed rows as high-confidence deterministic classifications and exposed classification coverage in the demo smoke output, improving first-run MVP readiness evidence without spending LLM budget or weakening normal ingestion confidence.
 - Improved dashboard natural-language search summaries by rendering backend-generated summary responses as scannable mini-briefings with a headline and ordered top-signal rows instead of one raw text block.
+- Promoted the Saved Items navigation module to use the full saved reading-queue panel in the main dashboard column, while keeping the shorter saved preview in the sidebar for other modules.
