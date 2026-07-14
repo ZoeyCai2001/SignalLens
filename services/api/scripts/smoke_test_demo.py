@@ -86,6 +86,36 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     if moved_tickers[:2] != ["MRVL", "MU"]:
         raise AssertionError(f"Expected MRVL to move above MU, got {moved_tickers}")
 
+    companies = get_json(client, "/api/watchlist/companies")
+    topics = get_json(client, "/api/watchlist/topics")
+    products = get_json(client, "/api/watchlist/products")
+    assert_minimum_collection(companies, "company watchlist rows", 5)
+    assert_minimum_collection(topics, "topic watchlist rows", 5)
+    assert_minimum_collection(products, "product watchlist rows", 3)
+    company_briefing_counts = [
+        get_json(
+            client,
+            f"/api/watchlist/companies/{company['company_key']}/briefing?limit=20",
+        )["item_count"]
+        for company in companies[:5]
+    ]
+    topic_briefing_counts = [
+        get_json(client, f"/api/watchlist/topics/{topic['topic']}/briefing?limit=20")[
+            "item_count"
+        ]
+        for topic in topics[:5]
+    ]
+    product_briefing_counts = [
+        get_json(
+            client,
+            f"/api/watchlist/products/{product['category']}/briefing?limit=20",
+        )["item_count"]
+        for product in products[:3]
+    ]
+    assert_any_positive(company_briefing_counts, "company briefing item counts")
+    assert_any_positive(topic_briefing_counts, "topic briefing item counts")
+    assert_any_positive(product_briefing_counts, "product briefing item counts")
+
     source_health = get_json(client, "/api/sources/health")
     if len(source_health) < 5:
         raise AssertionError(f"Expected at least 5 source-health rows, got {len(source_health)}")
@@ -132,6 +162,12 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "module_counts": module_counts,
         "stock_rows": len(stocks),
         "stock_move_order": moved_tickers,
+        "company_watchlist_rows": len(companies),
+        "topic_watchlist_rows": len(topics),
+        "product_watchlist_rows": len(products),
+        "company_briefing_counts": company_briefing_counts,
+        "topic_briefing_counts": topic_briefing_counts,
+        "product_briefing_counts": product_briefing_counts,
         "source_health_rows": len(source_health),
         "digest_items": digest["total_items"],
         "digest_snapshot_count": len(digest_snapshots),
@@ -178,6 +214,16 @@ def assert_minimum(payload: dict[str, Any], key: str, minimum: int) -> None:
     value = payload.get(key)
     if not isinstance(value, int) or value < minimum:
         raise AssertionError(f"Expected {key} >= {minimum}, got {value!r}")
+
+
+def assert_minimum_collection(items: list[Any], label: str, minimum: int) -> None:
+    if len(items) < minimum:
+        raise AssertionError(f"Expected at least {minimum} {label}, got {len(items)}")
+
+
+def assert_any_positive(values: list[int], label: str) -> None:
+    if not any(value > 0 for value in values):
+        raise AssertionError(f"Expected at least one positive {label}, got {values}")
 
 
 def main() -> None:

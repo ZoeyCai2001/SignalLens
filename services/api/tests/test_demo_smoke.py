@@ -9,6 +9,12 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["saved_items"] >= 1
     assert result["stock_rows"] >= 3
     assert result["stock_move_order"][:2] == ["MRVL", "MU"]
+    assert result["company_watchlist_rows"] >= 5
+    assert result["topic_watchlist_rows"] >= 5
+    assert result["product_watchlist_rows"] >= 3
+    assert max(result["company_briefing_counts"]) > 0
+    assert max(result["topic_briefing_counts"]) > 0
+    assert max(result["product_briefing_counts"]) > 0
     assert result["source_health_rows"] >= 5
     assert result["digest_items"] >= 1
     assert result["digest_snapshot_count"] == 1
@@ -19,8 +25,11 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["latest_digest_age_days"] == 0
     assert result["quality"]["manual_submission_count"] == 1
     assert result["quality"]["saved_read_later_count"] >= 1
-    assert result["mvp_checklist"]["ready_count"] >= 7
-    assert result["mvp_checklist"]["needs_action_count"] <= 1
+    assert result["mvp_checklist"] == {
+        "ready_count": 9,
+        "partial_count": 0,
+        "needs_action_count": 0,
+    }
     assert result["module_counts"] == {
         "chinese": 1,
         "products": 3,
