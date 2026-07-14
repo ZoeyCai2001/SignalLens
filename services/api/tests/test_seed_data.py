@@ -9,6 +9,7 @@ from app.db.models import (
     NormalizedItem,
     SourceRun,
     StockPricePoint,
+    UserItemAction,
 )
 from app.schemas.watchlist import StockWatchlistItemUpdate
 from app.services.demo_data import seed_demo_data
@@ -109,6 +110,7 @@ def test_seed_database_script_can_include_demo_data(monkeypatch: pytest.MonkeyPa
         "seed_demo_data",
         lambda seed_db: {
             "seeded_demo_item_count": 5,
+            "seeded_demo_manual_submission_count": 1,
             "seeded_demo_price_count": 6,
             "seeded_demo_alert_count": 2,
             "seeded_demo_alert_rule_count": 9,
@@ -132,13 +134,15 @@ def test_seed_demo_data_populates_first_run_dashboard_examples() -> None:
 
         categories = {item.category for item in db.query(NormalizedItem).all()}
 
-        assert first["seeded_demo_item_count"] == 5
+        assert first["seeded_demo_item_count"] == 6
+        assert first["seeded_demo_manual_submission_count"] == 1
         assert first["seeded_demo_price_count"] == 6
         assert first["seeded_demo_alert_rule_count"] == 9
         assert first["seeded_demo_alert_count"] >= 1
         assert first["seeded_demo_digest_snapshot_count"] == 1
         assert first["seeded_demo_digest_item_count"] >= 1
         assert second["seeded_demo_item_count"] == 0
+        assert second["seeded_demo_manual_submission_count"] == 0
         assert second["seeded_demo_price_count"] == 0
         assert second["seeded_demo_digest_snapshot_count"] == 1
         assert second["seeded_demo_digest_item_count"] >= 1
@@ -153,6 +157,20 @@ def test_seed_demo_data_populates_first_run_dashboard_examples() -> None:
         assert db.query(SourceRun).count() == 5
         assert db.query(StockPricePoint).count() == 6
         assert db.query(DailyDigestSnapshot).count() == 1
+        manual_item = (
+            db.query(NormalizedItem)
+            .filter(NormalizedItem.source_name == "Demo Manual Capture")
+            .one()
+        )
+        manual_action = (
+            db.query(UserItemAction)
+            .filter(UserItemAction.item_id == manual_item.id)
+            .one()
+        )
+        assert manual_item.category == "technical_trend"
+        assert "coding-agent" in manual_action.manual_tags
+        assert manual_action.is_saved is True
+        assert manual_action.is_read is False
 
 
 def test_stock_match_terms_include_ticker_company_and_related_terms() -> None:

@@ -345,3 +345,4 @@ Implementation progress:
 - Added action buttons to the PRD MVP checklist so readiness rows can open the relevant module or run existing recovery actions such as seed demo data, full ingestion, classification, stock price refresh, digest save, and alert generation.
 - Added targeted scrolling for PRD MVP checklist actions so opening a readiness workflow lands on the relevant feed, source health, settings, stock, digest, alert, or manual submission panel.
 - Reused targeted workflow scrolling for quality-finding actions and made the scroll retry briefly after module switches so readiness recovery buttons land more reliably.
+- Updated local demo seeding to include an idempotent saved manual URL submission, and extended the no-paid-API smoke check so System Readiness can verify the manual submission/read-later PRD path after demo data is seeded.

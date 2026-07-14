@@ -49,14 +49,21 @@ def create_demo_smoke_client() -> TestClient:
 def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     seed_payload = post_json(client, "/api/ingestion/demo-data")
     assert_minimum(seed_payload, "seeded_demo_item_count", 5)
+    assert_minimum(seed_payload, "seeded_demo_manual_submission_count", 1)
     assert_minimum(seed_payload, "seeded_demo_price_count", 6)
     assert_minimum(seed_payload, "seeded_demo_alert_rule_count", 9)
     assert_minimum(seed_payload, "seeded_demo_digest_snapshot_count", 1)
     assert_minimum(seed_payload, "seeded_demo_digest_item_count", 1)
 
     feed = get_json(client, "/api/feed?limit=50")
-    if len(feed) < 5:
-        raise AssertionError(f"Expected at least 5 feed items, got {len(feed)}")
+    if len(feed) < 6:
+        raise AssertionError(f"Expected at least 6 feed items, got {len(feed)}")
+    saved_items = get_json(client, "/api/feed?limit=20&saved_only=true")
+    if not any(
+        item["source_name"] == "Demo Manual Capture" and "coding-agent" in item["manual_tags"]
+        for item in saved_items
+    ):
+        raise AssertionError("Expected demo manual submission to be saved/read-later")
 
     module_counts = {}
     for module in DEMO_MODULES:
@@ -93,6 +100,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     return {
         "seed": seed_payload,
         "feed_items": len(feed),
+        "saved_items": len(saved_items),
         "module_counts": module_counts,
         "stock_rows": len(stocks),
         "source_health_rows": len(source_health),
@@ -107,6 +115,8 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "recent_source_count": quality_metrics["recent_source_count"],
             "digest_snapshot_count": quality_metrics["digest_snapshot_count"],
             "latest_digest_age_days": quality_metrics["latest_digest_age_days"],
+            "manual_submission_count": quality_metrics["manual_submission_count"],
+            "saved_read_later_count": quality_metrics["saved_read_later_count"],
         },
         "health": {
             "status": health["status"],

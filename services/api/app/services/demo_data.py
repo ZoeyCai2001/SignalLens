@@ -4,9 +4,11 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.db.models import Source, SourceRun, StockPricePoint
+from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.alerts import generate_alerts
 from app.services.daily_digest import save_daily_digest_snapshot
 from app.services.ingestion import get_or_create_source, store_raw_items
+from app.services.manual_submissions import create_manual_submission_result
 from app.sources.base import RawItemInput
 
 
@@ -91,11 +93,13 @@ DEMO_SOURCES = [
 def seed_demo_data(db: Session, now: datetime | None = None) -> dict[str, int]:
     generated_at = now or datetime.now(UTC)
     item_count = seed_demo_feed_items(db=db, now=generated_at)
+    manual_submission_count = seed_demo_manual_submission(db)
     price_count = seed_demo_stock_prices(db=db, today=generated_at.date())
     alert_result = generate_alerts(db)
     digest_snapshot = save_daily_digest_snapshot(db=db, digest_date=generated_at.date())
     return {
-        "seeded_demo_item_count": item_count,
+        "seeded_demo_item_count": item_count + manual_submission_count,
+        "seeded_demo_manual_submission_count": manual_submission_count,
         "seeded_demo_price_count": price_count,
         "seeded_demo_alert_count": alert_result.alerts_created,
         "seeded_demo_alert_rule_count": alert_result.rules_seeded,
@@ -121,6 +125,25 @@ def seed_demo_feed_items(db: Session, now: datetime | None = None) -> int:
             )
         total_stored += stored_count
     return total_stored
+
+
+def seed_demo_manual_submission(db: Session) -> int:
+    result = create_manual_submission_result(
+        db=db,
+        request=ManualSubmissionRequest(
+            title="Manual capture: AI coding agent note",
+            url="https://example.com/demo/manual-ai-coding-agent-note",
+            source_name="Demo Manual Capture",
+            text=(
+                "A manually captured AI coding agent note mentions MCP routing, RAG memory, "
+                "long-context planning, and developer automation signals for later review."
+            ),
+            save_item=True,
+            personal_note="Demo manual capture saved into the read-later queue.",
+            manual_tags=["demo", "manual", "coding-agent"],
+        ),
+    )
+    return 1 if result.created else 0
 
 
 def get_or_create_demo_source(db: Session, spec: DemoSourceSpec) -> Source:
