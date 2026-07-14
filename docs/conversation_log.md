@@ -366,3 +366,4 @@ Implementation progress:
 - Added Event Clusters as a first-class dashboard navigation module with full cluster review in the main column, while preserving a shorter sidebar cluster preview for other modules.
 - Promoted the Daily Digest navigation module to render the full digest workflow in the main dashboard column, while keeping the sidebar digest preview available for other modules.
 - Promoted Alerts as a first-class dashboard navigation module, including active-alert nav counts, alert-specific top metrics, and MVP checklist actions that open the alert workflow directly.
+- Promoted AI Stocks so the stock watchlist, stock briefings, price context, reorder controls, and stock-specific metrics render as the main module workflow instead of only living in the sidebar beside a feed filter.

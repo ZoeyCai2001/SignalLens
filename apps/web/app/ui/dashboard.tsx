@@ -3487,6 +3487,7 @@ export function Dashboard() {
   const metrics = useMemo(() => {
     const isClusterView = activeModule === "clusters";
     const isAlertView = activeModule === "alerts";
+    const isStockView = activeModule === "stocks";
     if (isAlertView) {
       return [
         { label: "Feed", value: feed.length },
@@ -3494,6 +3495,21 @@ export function Dashboard() {
         { label: "Active", value: activeAlerts.length },
         { label: "Rules", value: alertRules.length },
         { label: "Dismissed", value: alerts.filter((alert) => alert.status !== "active").length },
+      ];
+    }
+    if (isStockView) {
+      return [
+        { label: "Feed", value: feed.length },
+        { label: "Watchlist", value: stocks.length },
+        {
+          label: "Signals",
+          value: stockSignals.reduce((total, summary) => total + summary.signal_count, 0),
+        },
+        {
+          label: "High",
+          value: stockSignals.reduce((total, summary) => total + summary.high_impact_count, 0),
+        },
+        { label: "Holdings", value: stocks.filter((stock) => stock.is_holding).length },
       ];
     }
     const viewCount = isClusterView ? eventClusters.length : moduleFeed.length;
@@ -3518,6 +3534,8 @@ export function Dashboard() {
     eventClusters,
     feed.length,
     moduleFeed,
+    stockSignals,
+    stocks,
   ]);
 
   const systemStatusPanel = (
@@ -3557,6 +3575,110 @@ export function Dashboard() {
         onSave={saveRankingPreferences}
       />
     </div>
+  );
+  const stockWatchlistPanel = (
+    <div id="stock-watchlist-workflow">
+      <StockTable
+        stocks={stocks}
+        signalSummaries={stockSignals}
+        stockBriefing={stockBriefing}
+        stockPriceSnapshot={stockPriceSnapshot}
+        stockLlmSummary={selectedTicker ? stockLlmSummaries[selectedTicker] ?? null : null}
+        eventClusters={eventClusters}
+        selectedTicker={selectedTicker}
+        busyStockTicker={busyStockTicker}
+        busyStockSummaryTicker={busyStockSummaryTicker}
+        busyWatchlistKey={busyWatchlistKey}
+        ticker={stockTicker}
+        company={stockCompany}
+        themes={stockThemes}
+        keywords={stockKeywords}
+        disabled={loadState !== "idle"}
+        onTickerChange={setStockTicker}
+        onCompanyChange={setStockCompany}
+        onThemesChange={setStockThemes}
+        onKeywordsChange={setStockKeywords}
+        onSelectTicker={setSelectedTicker}
+        onExplainStock={explainStockBriefing}
+        onUpdateStock={updateStock}
+        onMoveStock={moveStock}
+        onDeleteStock={deleteStock}
+        onSubmit={submitStock}
+      />
+    </div>
+  );
+  const rankedFeedPanel = (
+    <section className="section" id="ranked-feed-workflow">
+      <div className="section-header">
+        <h2 className="section-title">
+          {activeModule === "dashboard" ? "Ranked Feed" : `${activeModuleLabel} Feed`}
+        </h2>
+        <span className="small-muted">{moduleFeed.length} items</span>
+      </div>
+      <SearchPanel
+        query={searchQuery}
+        source={searchSource}
+        category={searchCategory}
+        subcategory={searchSubcategory}
+        ticker={searchTicker}
+        company={searchCompany}
+        topic={searchTopic}
+        manualTag={searchManualTag}
+        stockOptions={stocks}
+        topicOptions={topics}
+        language={searchLanguage}
+        dateFrom={searchDateFrom}
+        dateTo={searchDateTo}
+        minImportance={searchMinImportance}
+        readStatus={searchReadStatus}
+        aiRelated={searchAiRelated}
+        intent={searchIntent}
+        summary={searchSummary}
+        savedOnly={savedOnly}
+        disabled={loadState !== "idle"}
+        onQueryChange={(value) => updateSearchField(setSearchQuery, value)}
+        onSourceChange={(value) => updateSearchField(setSearchSource, value)}
+        onCategoryChange={(value) => updateSearchField(setSearchCategory, value)}
+        onSubcategoryChange={(value) => updateSearchField(setSearchSubcategory, value)}
+        onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
+        onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
+        onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
+        onManualTagChange={(value) => updateSearchField(setSearchManualTag, value)}
+        onTickerFilter={applyTickerFeedFilter}
+        onTopicFilter={applyTopicFeedFilter}
+        onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
+        onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
+        onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
+        onMinImportanceChange={(value) => updateSearchField(setSearchMinImportance, value)}
+        onReadStatusChange={(value) => updateSearchField(setSearchReadStatus, value)}
+        onAiRelatedChange={(value) => updateSearchField(setSearchAiRelated, value)}
+        onSavedOnlyChange={updateSavedOnlySearchFilter}
+        onSearch={runSearch}
+        onClear={clearSearch}
+      />
+      <div className="feed-list">
+        {moduleFeed.length ? (
+          moduleFeed.map((item) => (
+            <FeedCard
+              item={item}
+              key={item.id}
+              busy={busyItemId === item.id}
+              detail={selectedFeedDetail?.id === item.id ? selectedFeedDetail : null}
+              busyDetail={busyDetailItemId === item.id}
+              busyMetadata={busyMetadataItemId === item.id}
+              onSummarize={summarizeItem}
+              onClassify={classifyItem}
+              onDetail={loadFeedDetail}
+              onAction={updateFeedAction}
+              onDelete={deleteFeedItem}
+              onPersonalMetadataSave={saveFeedItemPersonalMetadata}
+            />
+          ))
+        ) : (
+          <div className="empty-state">No items for this module.</div>
+        )}
+      </div>
+    </section>
   );
   const schedulerStatusPanel = (
     <SchedulerStatusPanel
@@ -3954,78 +4076,13 @@ export function Dashboard() {
               onSnapshotOpen={loadDigestSnapshot}
               onSnapshotDelete={deleteDailyDigestSnapshot}
             />
-          ) : (
-            <section className="section" id="ranked-feed-workflow">
-              <div className="section-header">
-                <h2 className="section-title">
-                  {activeModule === "dashboard" ? "Ranked Feed" : `${activeModuleLabel} Feed`}
-                </h2>
-                <span className="small-muted">{moduleFeed.length} items</span>
-              </div>
-              <SearchPanel
-                query={searchQuery}
-                source={searchSource}
-                category={searchCategory}
-                subcategory={searchSubcategory}
-                ticker={searchTicker}
-                company={searchCompany}
-                topic={searchTopic}
-                manualTag={searchManualTag}
-                stockOptions={stocks}
-                topicOptions={topics}
-                language={searchLanguage}
-                dateFrom={searchDateFrom}
-                dateTo={searchDateTo}
-                minImportance={searchMinImportance}
-                readStatus={searchReadStatus}
-                aiRelated={searchAiRelated}
-                intent={searchIntent}
-                summary={searchSummary}
-                savedOnly={savedOnly}
-                disabled={loadState !== "idle"}
-                onQueryChange={(value) => updateSearchField(setSearchQuery, value)}
-                onSourceChange={(value) => updateSearchField(setSearchSource, value)}
-                onCategoryChange={(value) => updateSearchField(setSearchCategory, value)}
-                onSubcategoryChange={(value) => updateSearchField(setSearchSubcategory, value)}
-                onTickerChange={(value) => updateSearchField(setSearchTicker, value)}
-                onCompanyChange={(value) => updateSearchField(setSearchCompany, value)}
-                onTopicChange={(value) => updateSearchField(setSearchTopic, value)}
-                onManualTagChange={(value) => updateSearchField(setSearchManualTag, value)}
-                onTickerFilter={applyTickerFeedFilter}
-                onTopicFilter={applyTopicFeedFilter}
-                onLanguageChange={(value) => updateSearchField(setSearchLanguage, value)}
-                onDateFromChange={(value) => updateSearchField(setSearchDateFrom, value)}
-                onDateToChange={(value) => updateSearchField(setSearchDateTo, value)}
-                onMinImportanceChange={(value) => updateSearchField(setSearchMinImportance, value)}
-                onReadStatusChange={(value) => updateSearchField(setSearchReadStatus, value)}
-                onAiRelatedChange={(value) => updateSearchField(setSearchAiRelated, value)}
-                onSavedOnlyChange={updateSavedOnlySearchFilter}
-                onSearch={runSearch}
-                onClear={clearSearch}
-              />
-              <div className="feed-list">
-                {moduleFeed.length ? (
-                  moduleFeed.map((item) => (
-                    <FeedCard
-                      item={item}
-                      key={item.id}
-                      busy={busyItemId === item.id}
-                      detail={selectedFeedDetail?.id === item.id ? selectedFeedDetail : null}
-                      busyDetail={busyDetailItemId === item.id}
-                      busyMetadata={busyMetadataItemId === item.id}
-                      onSummarize={summarizeItem}
-                      onClassify={classifyItem}
-                      onDetail={loadFeedDetail}
-                      onAction={updateFeedAction}
-                      onDelete={deleteFeedItem}
-                      onPersonalMetadataSave={saveFeedItemPersonalMetadata}
-                    />
-                  ))
-                ) : (
-                  <div className="empty-state">No items for this module.</div>
-                )}
-              </div>
+          ) : activeModule === "stocks" ? (
+            <section className="module-stack">
+              {stockWatchlistPanel}
+              {rankedFeedPanel}
             </section>
+          ) : (
+            rankedFeedPanel
           )}
 
           <aside className="stack">
@@ -4153,35 +4210,7 @@ export function Dashboard() {
                 onSubmit={submitManualItem}
               />
             </div>
-            <div id="stock-watchlist-workflow">
-              <StockTable
-                stocks={stocks}
-                signalSummaries={stockSignals}
-                stockBriefing={stockBriefing}
-                stockPriceSnapshot={stockPriceSnapshot}
-                stockLlmSummary={selectedTicker ? stockLlmSummaries[selectedTicker] ?? null : null}
-                eventClusters={eventClusters}
-                selectedTicker={selectedTicker}
-                busyStockTicker={busyStockTicker}
-                busyStockSummaryTicker={busyStockSummaryTicker}
-                busyWatchlistKey={busyWatchlistKey}
-                ticker={stockTicker}
-                company={stockCompany}
-                themes={stockThemes}
-                keywords={stockKeywords}
-                disabled={loadState !== "idle"}
-                onTickerChange={setStockTicker}
-                onCompanyChange={setStockCompany}
-                onThemesChange={setStockThemes}
-                onKeywordsChange={setStockKeywords}
-                onSelectTicker={setSelectedTicker}
-                onExplainStock={explainStockBriefing}
-                onUpdateStock={updateStock}
-                onMoveStock={moveStock}
-                onDeleteStock={deleteStock}
-                onSubmit={submitStock}
-              />
-            </div>
+            {activeModule === "stocks" ? null : stockWatchlistPanel}
             <CompanyWatchlistPanel
               companies={companies}
               briefing={companyBriefing}
