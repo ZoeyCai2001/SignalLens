@@ -455,3 +455,4 @@ Implementation progress:
 - Added source-specific recovery hints to persistent Source Health rows so optional free sources name the relevant credential, user-agent, public RSS, or subreddit setup step without requiring a fresh manual run.
 - Added Reddit to the System Readiness integration badge row and demo smoke evidence so supported Reddit ingestion setup cannot drift out of the dashboard view.
 - Added watched-stock signal coverage metrics to System Readiness and the no-paid demo verifier, making PRD stock-news linkage and high-impact stock evidence visible outside the stock detail page.
+- Added a quality finding for watched stock lists with no recent stock-linked signals, pointing the user back to a full ingestion cycle and Source Health review.

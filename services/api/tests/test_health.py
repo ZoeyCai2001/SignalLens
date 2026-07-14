@@ -1076,6 +1076,7 @@ def test_build_quality_findings_flags_stale_stock_prices() -> None:
         llm_calls_per_recent_item=0,
         latest_stock_price_date=date(2026, 6, 27),
         stock_watchlist_count=2,
+        recent_stock_signal_count=1,
         current_date=date(2026, 6, 30),
     )
 
@@ -1476,6 +1477,39 @@ def test_build_quality_findings_flags_thin_watchlist_coverage() -> None:
     assert findings[0].action_label == "Open Watchlists"
     assert findings[0].action_module == "stocks"
     assert findings[0].action_operation is None
+
+
+def test_build_quality_findings_flags_empty_stock_signal_coverage() -> None:
+    findings = build_quality_findings(
+        recent_item_count=8,
+        high_value_item_count=0,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=1,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+        latest_stock_price_date=date(2026, 6, 30),
+        stock_watchlist_count=3,
+        recent_stock_signal_count=0,
+    )
+
+    assert [finding.title for finding in findings] == [
+        "Stock watchlist has no recent signals"
+    ]
+    assert findings[0].metric == "3 watched tickers, 0 recent stock signals"
+    assert findings[0].action_label == "Run Full Cycle"
+    assert findings[0].action_module == "sources"
+    assert findings[0].action_operation == "cycle"
+    assert findings[0].action_source_filter == "attention"
 
 
 def test_build_quality_findings_ignores_small_read_later_queue() -> None:

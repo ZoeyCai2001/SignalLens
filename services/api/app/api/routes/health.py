@@ -465,6 +465,7 @@ def build_quality_metrics(
             latest_digest_snapshot_item_count=latest_digest_snapshot_item_count,
             latest_stock_price_date=latest_stock_price_date,
             stock_watchlist_count=stock_watchlist_count,
+            recent_stock_signal_count=recent_stock_signal_count,
             current_date=generated_at.date(),
             llm_calls_per_recent_item=llm_calls_per_recent_item,
             llm_pricing_configured=llm_pricing_configured,
@@ -1497,6 +1498,7 @@ def build_quality_findings(
     unfaceted_item_count: int = 0,
     latest_stock_price_date: date | None = None,
     stock_watchlist_count: int = 0,
+    recent_stock_signal_count: int = 0,
     current_date: date | None = None,
     llm_pricing_configured: bool = False,
     llm_projected_monthly_cost_usd: float = 0,
@@ -1760,6 +1762,26 @@ def build_quality_findings(
                 ),
                 action_label="Open Watchlists",
                 action_module="stocks",
+            )
+        )
+    if (
+        stock_watchlist_count > 0
+        and recent_item_count > 0
+        and recent_stock_signal_count == 0
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Stock watchlist has no recent signals",
+                metric=f"{stock_watchlist_count} watched tickers, 0 recent stock signals",
+                recommendation=(
+                    "Run a full ingestion cycle and review finance/company sources so watched "
+                    "tickers get AI-linked news before stock alerts and briefings are trusted."
+                ),
+                action_label="Run Full Cycle",
+                action_module="sources",
+                action_operation="cycle",
+                action_source_filter="attention",
             )
         )
     if recent_item_count > 0 and high_value_item_count > 0 and active_alert_count == 0:
