@@ -13,6 +13,7 @@ from app.schemas.watchlist import (
     StockWatchlistItem,
 )
 from app.services.watchlist import (
+    build_stock_attention_components,
     build_stock_attention_reasons,
     build_stock_briefing,
     build_stock_briefing_llm_prompt,
@@ -39,6 +40,7 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
             related_ai_themes=["memory"],
         ),
         signal_count=2,
+        today_signal_count=1,
         high_impact_count=1,
         attention_score=0.812,
         market=StockMarketSnapshot(
@@ -90,12 +92,15 @@ def test_build_stock_briefing_summarizes_signal_state() -> None:
 
     assert briefing.attention_score == 0.812
     assert briefing.attention_reasons == []
+    assert briefing.today_signal_count == 1
+    assert briefing.high_impact_count == 1
     assert summary.high_impact_count == 1
     assert summary.latest_event_title == "Micron discusses HBM demand"
     assert briefing.market is not None
     assert briefing.market.change_percent == 2.27
     assert briefing.urgency == "high"
     assert briefing.latest_signal_at == datetime(2026, 6, 25, 10, 0, tzinfo=UTC)
+    assert briefing.last_updated_at == datetime(2026, 6, 25, 10, 0, tzinfo=UTC)
     assert briefing.sentiment_counts == {"positive": 1, "mixed": 1}
     assert briefing.key_themes[:2] == ["HBM", "Micron"]
     assert "Micron (MU) is watched for memory" in briefing.ai_relevance_summary
@@ -282,8 +287,18 @@ def test_compute_stock_attention_score_combines_signal_volume_and_preferences() 
     ]
 
     score = compute_stock_attention_score(stock=stock, top_signals=signals, signal_count=4)
+    components = build_stock_attention_components(stock=stock, top_signals=signals, signal_count=4)
 
     assert score == 0.74
+    assert [
+        (component.key, component.value, component.weight, component.contribution)
+        for component in components
+    ] == [
+        ("strongest_signal", 0.8, 0.55, 0.44),
+        ("signal_volume", 0.4, 0.25, 0.1),
+        ("watchlist_priority", 1.0, 0.15, 0.15),
+        ("pinned_boost", 1, 0.05, 0.05),
+    ]
 
 
 def test_build_stock_attention_reasons_explains_score_inputs() -> None:

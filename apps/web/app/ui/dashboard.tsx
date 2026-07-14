@@ -159,6 +159,14 @@ type StockPriceRangeKey = "5d" | "1m" | "6m" | "1y";
 type StockSortMode = "attention" | "watchlist";
 type StockDetailTabKey = "overview" | "signals" | "clusters" | "notes" | "summary";
 
+type StockAttentionComponent = {
+  key: string;
+  label: string;
+  value: number;
+  weight: number;
+  contribution: number;
+};
+
 type StockSignalSummary = {
   stock: StockWatchlistItem;
   signal_count: number;
@@ -166,6 +174,7 @@ type StockSignalSummary = {
   high_impact_count: number;
   attention_score: number;
   attention_reasons: string[];
+  attention_components: StockAttentionComponent[];
   market: StockMarketSnapshot | null;
   latest_event_title: string | null;
   latest_event_at: string | null;
@@ -205,11 +214,15 @@ type StockMarketImpactEvent = {
 type StockBriefing = {
   stock: StockWatchlistItem;
   signal_count: number;
+  today_signal_count: number;
+  high_impact_count: number;
   attention_score: number;
   attention_reasons: string[];
+  attention_components: StockAttentionComponent[];
   market: StockMarketSnapshot | null;
   urgency: string;
   latest_signal_at: string | null;
+  last_updated_at: string | null;
   sentiment_counts: Record<string, number>;
   key_themes: string[];
   ai_relevance_summary: string;
@@ -8916,6 +8929,22 @@ function StockAttentionDrivers({ briefing }: { briefing: StockBriefing }) {
           <span className="badge muted-badge">updated {formatDate(briefing.last_updated_at)}</span>
         ) : null}
       </div>
+      {briefing.attention_components.length ? (
+        <div className="attention-component-grid">
+          {briefing.attention_components.map((component) => (
+            <div className="attention-component" key={component.key}>
+              <div className="attention-component-head">
+                <span>{component.label}</span>
+                <span>{Math.round(component.contribution * 100)} pts</span>
+              </div>
+              <div className="score-note">
+                {Math.round(component.value * 100)} value · {Math.round(component.weight * 100)}%
+                weight
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="attention-driver-list">
         {drivers.map((driver) => (
           <div className="attention-driver-row" key={driver}>

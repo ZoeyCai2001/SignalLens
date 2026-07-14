@@ -22,6 +22,7 @@ from app.schemas.watchlist import (
     ProductBriefing,
     ProductWatchlistItemCreate,
     ProductWatchlistItemUpdate,
+    StockAttentionComponent,
     StockBriefing,
     StockBriefingTimelineItem,
     StockMarketImpactEvent,
@@ -1477,6 +1478,11 @@ def build_stock_signal_summary(
             top_signals=top_signals,
             signal_count=signal_count,
         ),
+        attention_components=build_stock_attention_components(
+            stock=stock_schema,
+            top_signals=top_signals,
+            signal_count=signal_count,
+        ),
         attention_reasons=build_stock_attention_reasons(
             stock=stock_schema,
             top_signals=top_signals,
@@ -1505,11 +1511,15 @@ def build_stock_briefing(summary: StockSignalSummary) -> StockBriefing:
     return StockBriefing(
         stock=summary.stock,
         signal_count=summary.signal_count,
+        today_signal_count=summary.today_signal_count,
+        high_impact_count=summary.high_impact_count,
         attention_score=summary.attention_score,
         attention_reasons=summary.attention_reasons,
+        attention_components=summary.attention_components,
         market=summary.market,
         urgency=classify_stock_urgency(summary),
         latest_signal_at=latest_signal_at,
+        last_updated_at=summary.last_updated_at,
         sentiment_counts=summary.sentiment_counts,
         key_themes=build_stock_briefing_themes(summary.top_signals),
         ai_relevance_summary=build_stock_ai_relevance_summary(summary),
@@ -1603,6 +1613,27 @@ def compute_stock_attention_score(
     top_signals: list[FeedItem],
     signal_count: int,
 ) -> float:
+    return round(
+        min(
+            1,
+            sum(
+                component.contribution
+                for component in build_stock_attention_components(
+                    stock=stock,
+                    top_signals=top_signals,
+                    signal_count=signal_count,
+                )
+            ),
+        ),
+        3,
+    )
+
+
+def build_stock_attention_components(
+    stock: StockWatchlistSchema,
+    top_signals: list[FeedItem],
+    signal_count: int,
+) -> list[StockAttentionComponent]:
     strongest_signal = max(
         (compute_stock_signal_score(item) for item in top_signals),
         default=0,
@@ -1610,16 +1641,22 @@ def compute_stock_attention_score(
     signal_volume = min(signal_count / 10, 1)
     priority = priority_score(stock.priority)
     pinned_bonus = 1 if stock.is_pinned else 0
-    return round(
-        min(
-            1,
-            0.55 * strongest_signal
-            + 0.25 * signal_volume
-            + 0.15 * priority
-            + 0.05 * pinned_bonus,
-        ),
-        3,
-    )
+    component_specs = [
+        ("strongest_signal", "Strongest signal", strongest_signal, 0.55),
+        ("signal_volume", "Signal volume", signal_volume, 0.25),
+        ("watchlist_priority", "Watchlist priority", priority, 0.15),
+        ("pinned_boost", "Pinned boost", pinned_bonus, 0.05),
+    ]
+    return [
+        StockAttentionComponent(
+            key=key,
+            label=label,
+            value=round(value, 3),
+            weight=weight,
+            contribution=round(value * weight, 3),
+        )
+        for key, label, value, weight in component_specs
+    ]
 
 
 def build_stock_attention_reasons(

@@ -1469,6 +1469,31 @@ tr:last-child td {
   gap: 5px;
 }
 
+.attention-component-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 7px;
+}
+
+.attention-component {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  display: grid;
+  gap: 4px;
+  padding: 7px 8px;
+}
+
+.attention-component-head {
+  align-items: center;
+  color: #23302d;
+  display: flex;
+  font-size: 13px;
+  font-weight: 760;
+  gap: 8px;
+  justify-content: space-between;
+}
+
 .attention-driver-row {
   border: 1px solid var(--line);
   border-radius: 7px;

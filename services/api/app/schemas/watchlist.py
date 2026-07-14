@@ -48,6 +48,14 @@ class StockMarketSnapshot(BaseModel):
     history: list[StockPricePoint] = Field(default_factory=list)
 
 
+class StockAttentionComponent(BaseModel):
+    key: str
+    label: str
+    value: float
+    weight: float
+    contribution: float
+
+
 class StockSignalSummary(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
@@ -55,6 +63,7 @@ class StockSignalSummary(BaseModel):
     high_impact_count: int = 0
     attention_score: float
     attention_reasons: list[str] = Field(default_factory=list)
+    attention_components: list[StockAttentionComponent] = Field(default_factory=list)
     market: StockMarketSnapshot | None = None
     latest_event_title: str | None = None
     latest_event_at: datetime | None = None
@@ -94,11 +103,15 @@ class StockMarketImpactEvent(BaseModel):
 class StockBriefing(BaseModel):
     stock: StockWatchlistItem
     signal_count: int
+    today_signal_count: int = 0
+    high_impact_count: int = 0
     attention_score: float
     attention_reasons: list[str] = Field(default_factory=list)
+    attention_components: list[StockAttentionComponent] = Field(default_factory=list)
     market: StockMarketSnapshot | None = None
     urgency: str
     latest_signal_at: datetime | None
+    last_updated_at: datetime | None = None
     sentiment_counts: dict[str, int]
     key_themes: list[str]
     ai_relevance_summary: str
