@@ -13,6 +13,7 @@ from app.services.feed_actions import serialize_feed_item
 from app.services.search import (
     build_search_summary,
     infer_search_intent,
+    latest_stored_item_date,
     normalize_filter_value,
     normalize_read_status,
     normalize_score,
@@ -90,6 +91,36 @@ def test_infer_search_intent_handles_product_discovery_query() -> None:
     assert intent.topic == "ai coding"
     assert intent.query == "AI coding"
     assert intent.date_from == date(2026, 6, 19)
+
+
+def test_infer_search_intent_can_anchor_recent_queries_to_stored_data() -> None:
+    intent = infer_search_intent(
+        "What are the latest AI coding products?",
+        today=date(2026, 7, 15),
+        recent_anchor_date=date(2026, 6, 26),
+    )
+
+    assert intent.date_from == date(2026, 6, 19)
+
+
+def test_latest_stored_item_date_uses_created_at_when_publish_date_is_missing() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        item = make_search_item(
+            1,
+            "Manual agent note",
+            "Agent note.",
+            topics=["agent"],
+        )
+        item.published_at = None
+        item.created_at = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
+        db.add(item)
+        db.commit()
+
+        assert latest_stored_item_date(db) == date(2026, 6, 25)
 
 
 def test_infer_search_intent_prefers_chinese_social_context() -> None:
@@ -672,7 +703,10 @@ async def test_natural_language_search_route_passes_user_preferences(monkeypatch
 
     assert result.items == []
     assert result.intent.category == "product"
-    assert result.summary == "No matching SignalLens items were found for this natural-language search."
+    assert (
+        result.summary
+        == "No matching SignalLens items were found for this natural-language search."
+    )
 
 
 def test_search_feed_items_excludes_blocked_sources() -> None:
@@ -714,8 +748,20 @@ def test_search_feed_items_filters_by_language_preferences() -> None:
     with session_factory() as db:
         db.add_all(
             [
-                make_search_item(1, "English agent signal", "Agent launch.", ["agent"], language="en"),
-                make_search_item(2, "Chinese agent signal", "Agent launch.", ["agent"], language="zh"),
+                make_search_item(
+                    1,
+                    "English agent signal",
+                    "Agent launch.",
+                    ["agent"],
+                    language="en",
+                ),
+                make_search_item(
+                    2,
+                    "Chinese agent signal",
+                    "Agent launch.",
+                    ["agent"],
+                    language="zh",
+                ),
             ]
         )
         db.commit()
@@ -766,8 +812,20 @@ def test_search_feed_items_explicit_language_overrides_preferences() -> None:
     with session_factory() as db:
         db.add_all(
             [
-                make_search_item(1, "English agent signal", "Agent launch.", ["agent"], language="en"),
-                make_search_item(2, "Chinese agent signal", "Agent launch.", ["agent"], language="zh"),
+                make_search_item(
+                    1,
+                    "English agent signal",
+                    "Agent launch.",
+                    ["agent"],
+                    language="en",
+                ),
+                make_search_item(
+                    2,
+                    "Chinese agent signal",
+                    "Agent launch.",
+                    ["agent"],
+                    language="zh",
+                ),
             ]
         )
         db.commit()

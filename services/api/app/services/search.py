@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import String, cast, or_
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import NormalizedItem, UserItemAction
@@ -69,7 +69,7 @@ def search_feed_items(
     module: str | None = None,
     limit: int = 30,
 ) -> list[FeedItem]:
-    intent = infer_search_intent(query)
+    intent = infer_search_intent(query, recent_anchor_date=latest_stored_item_date(db))
     effective_query = resolve_effective_query(query, intent)
     effective_source = source or intent.source
     effective_category = category or intent.category
@@ -334,7 +334,11 @@ def has_structured_intent(intent: SearchIntent) -> bool:
     )
 
 
-def infer_search_intent(query: str | None, today: date | None = None) -> SearchIntent:
+def infer_search_intent(
+    query: str | None,
+    today: date | None = None,
+    recent_anchor_date: date | None = None,
+) -> SearchIntent:
     normalized = normalize_filter_value(query)
     if normalized is None:
         return SearchIntent()
@@ -356,7 +360,11 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
         )
         else None
     )
-    date_from, date_to = infer_date_range(lowered, today)
+    date_from, date_to = infer_date_range(
+        lowered,
+        today=today,
+        recent_anchor_date=recent_anchor_date,
+    )
     read_status = infer_read_status(lowered)
     saved_only = infer_saved_only(lowered)
     topic = infer_topic(lowered)
@@ -379,15 +387,29 @@ def infer_search_intent(query: str | None, today: date | None = None) -> SearchI
     )
 
 
-def infer_date_range(lowered_query: str, today: date) -> tuple[date | None, date | None]:
+def infer_date_range(
+    lowered_query: str,
+    today: date,
+    recent_anchor_date: date | None = None,
+) -> tuple[date | None, date | None]:
     if re.search(r"\byesterday\b", lowered_query):
         target = today - timedelta(days=1)
         return target, target
     if re.search(r"\btoday\b", lowered_query):
         return today, today
     if re.search(r"\b(recent|latest|this week|past week)\b", lowered_query):
-        return today - timedelta(days=7), None
+        anchor_date = recent_anchor_date or today
+        return anchor_date - timedelta(days=7), None
     return None, None
+
+
+def latest_stored_item_date(db: Session) -> date | None:
+    latest_item_at = db.query(
+        func.max(func.coalesce(NormalizedItem.published_at, NormalizedItem.created_at))
+    ).scalar()
+    if latest_item_at is None:
+        return None
+    return latest_item_at.date()
 
 
 def infer_saved_only(lowered_query: str) -> bool:
@@ -420,7 +442,10 @@ def infer_category(lowered_query: str) -> str | None:
         lowered_query,
     ):
         return "funding_mna"
-    if re.search(r"\b(benchmark|benchmarks|evaluation|evaluations|evals?|leaderboard)\b", lowered_query):
+    if re.search(
+        r"\b(benchmark|benchmarks|evaluation|evaluations|evals?|leaderboard)\b",
+        lowered_query,
+    ):
         return "benchmark_evaluation"
     if re.search(
         r"\b(open source|open-source|oss|github release|repo release|model release)\b",
@@ -559,6 +584,10 @@ def extract_search_keywords(query: str) -> str | None:
         ("ai photo tools", "AI photo"),
         ("photo tools", "photo"),
         ("semiconductor ai", "semiconductor AI"),
+        ("export controls", "export control"),
+        ("export control", "export control"),
+        ("policy updates", "policy"),
+        ("policy update", "policy"),
         ("open-source llms", "open-source LLM"),
         ("open source llms", "open source LLM"),
         ("mcp repositories", "MCP"),

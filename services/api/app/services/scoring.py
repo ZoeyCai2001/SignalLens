@@ -168,13 +168,26 @@ def detect_topics(text: str) -> list[str]:
 
 
 def detect_tickers(text: str) -> list[str]:
-    upper_text = f" {text.upper()} "
     normalized = text.lower()
-    detected = {ticker for ticker in WATCHED_TICKERS if f" {ticker} " in upper_text}
+    detected = {ticker for ticker in WATCHED_TICKERS if has_ticker_token(text, ticker)}
     for ticker, aliases in TICKER_ALIASES.items():
         if any(alias.lower() in normalized for alias in aliases):
             detected.add(ticker)
     return sorted(detected)
+
+
+def has_ticker_token(text: str, ticker: str) -> bool:
+    direct_pattern = rf"(?<![A-Za-z0-9]){re.escape(ticker)}(?![A-Za-z0-9])"
+    cashtag_pattern = rf"(?<![A-Za-z0-9])\${re.escape(ticker)}(?![A-Za-z0-9])"
+    exchange_pattern = (
+        rf"\b(?:NASDAQ|NYSE|NYSEARCA|NYSEAMERICAN|AMEX|OTC)\s*[:/]\s*"
+        rf"\$?{re.escape(ticker)}(?![A-Za-z0-9])"
+    )
+    return bool(
+        re.search(direct_pattern, text)
+        or re.search(cashtag_pattern, text, flags=re.IGNORECASE)
+        or re.search(exchange_pattern, text, flags=re.IGNORECASE)
+    )
 
 
 def detect_companies(text: str) -> list[str]:

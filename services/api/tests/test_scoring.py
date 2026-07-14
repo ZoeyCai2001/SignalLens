@@ -26,6 +26,19 @@ def test_detect_tickers_maps_company_aliases() -> None:
     assert detect_tickers(text) == ["AVGO", "NVDA"]
 
 
+def test_detect_tickers_handles_market_punctuation_and_cashtags() -> None:
+    text = "Micron (MU), $mrvl, NASDAQ:NVDA, and AVGO all moved on AI infrastructure news."
+
+    assert detect_tickers(text) == ["AVGO", "MRVL", "MU", "NVDA"]
+
+
+def test_detect_tickers_avoids_lowercase_common_word_false_positives() -> None:
+    text = "A robot arm benchmark and museum archive mention AI, but no stock ticker."
+
+    assert "ARM" not in detect_tickers(text)
+    assert "MU" not in detect_tickers(text)
+
+
 def test_detect_companies_maps_public_and_private_ai_companies() -> None:
     text = "OpenAI, Anthropic, and Marvell discussed AI agent infrastructure."
 
@@ -48,8 +61,14 @@ def test_infer_product_use_case_maps_prd_product_categories() -> None:
     assert infer_product_use_case("AI search browser for research") == "product_search"
     assert infer_product_use_case("AI tutor for students and teachers") == "product_education"
     assert infer_product_use_case("AI CRM support tool for sales teams") == "product_business"
-    assert infer_product_use_case("AI workflow assistant for meeting notes") == "product_productivity"
-    assert infer_product_use_case("AI gaming companion for entertainment") == "product_entertainment"
+    assert (
+        infer_product_use_case("AI workflow assistant for meeting notes")
+        == "product_productivity"
+    )
+    assert (
+        infer_product_use_case("AI gaming companion for entertainment")
+        == "product_entertainment"
+    )
     assert infer_product_use_case("New AI product launch") == "product_general"
 
 

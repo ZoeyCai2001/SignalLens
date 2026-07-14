@@ -351,3 +351,4 @@ Implementation progress:
 - Added a stock watchlist move API that normalizes pinned/unpinned display order and swaps adjacent rows, then wired the dashboard reorder buttons to use it instead of hand-editing display-order numbers.
 - Extended the no-paid-API demo smoke path to exercise the stock watchlist move API, proving the PRD reorder workflow through the same local MVP verifier used by System Readiness.
 - Hardened generated web workspace ignores for iCloud duplicate dependency and build folders, keeping Mac-local file sync copies out of lint and Git status noise.
+- Improved stock ticker extraction for punctuation, cashtags, and exchange-prefixed mentions while avoiding lowercase common-word false positives, and anchored broad recent/latest searches to the newest stored item date so stale local demo data remains searchable.
