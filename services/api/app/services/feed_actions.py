@@ -826,6 +826,7 @@ def export_saved_items_markdown(
         ]
         metadata = [value for value in metadata if value]
         labels = export_item_labels(item)
+        audit_labels = export_item_audit_labels(item)
 
         lines.extend(
             [
@@ -836,10 +837,14 @@ def export_saved_items_markdown(
         )
         if labels:
             lines.append(f"- Labels: {', '.join(labels)}")
+        if audit_labels:
+            lines.append(f"- Signals: {', '.join(audit_labels)}")
         if item.manual_tags:
             lines.append(f"- Manual tags: {', '.join(item.manual_tags)}")
         if item.personal_note:
             lines.append(f"- Personal note: {item.personal_note}")
+        if item.is_read and item.read_at:
+            lines.append(f"- Read at: {format_export_datetime(item.read_at)}")
         if summary:
             lines.append(f"- Summary: {summary}")
         lines.append("")
@@ -863,7 +868,13 @@ def order_saved_items_for_export(items: list[FeedItem]) -> list[FeedItem]:
 
 
 def export_item_labels(item: FeedItem) -> list[str]:
-    labels = [*item.tickers, *item.companies, *item.products, *item.topics]
+    labels = [
+        *item.tickers,
+        *item.companies,
+        *item.products,
+        *item.technologies,
+        *item.topics,
+    ]
     seen = set()
     result = []
     for label in labels:
@@ -873,6 +884,24 @@ def export_item_labels(item: FeedItem) -> list[str]:
             result.append(normalized)
             seen.add(key)
     return result[:12]
+
+
+def export_item_audit_labels(item: FeedItem) -> list[str]:
+    labels: list[str] = []
+    labels.append("AI-related" if item.is_ai_related else "not AI-related")
+    if item.market_impact_type != "none":
+        labels.append(f"market impact: {format_export_label(item.market_impact_type)}")
+    if item.social_signal_score >= 0.05:
+        labels.append(f"social signal {round(item.social_signal_score * 100)}%")
+    if item.stock_impact_score >= 0.05:
+        labels.append(f"stock impact {round(item.stock_impact_score * 100)}%")
+    if item.classification_confidence < 0.7:
+        labels.append(f"classifier confidence {round(item.classification_confidence * 100)}%")
+    return labels
+
+
+def format_export_label(value: str) -> str:
+    return value.replace("_", " ").replace("-", " ")
 
 
 def format_export_datetime(value: datetime | None) -> str | None:

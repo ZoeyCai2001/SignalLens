@@ -593,15 +593,41 @@ def test_export_saved_items_markdown_includes_notes_tags_and_read_status() -> No
     session_factory = sessionmaker(bind=engine)
 
     with session_factory() as db:
+        db.add(
+            Source(
+                id=1,
+                name="Product Hunt",
+                type="product_launch",
+                access_method="api",
+            )
+        )
+        db.add(
+            RawItem(
+                id=1,
+                source_id=1,
+                external_id="product-hunt-agent-framework",
+                url="https://example.com/1",
+                raw_title="Agent framework launch",
+                raw_text="Agent framework with demand from enterprise coding teams.",
+                raw_author=None,
+                raw_metadata={"votes_count": 500, "comments_count": 40},
+                content_hash="hash-1",
+                published_at=datetime(2026, 6, 25, 12, 0, tzinfo=UTC),
+            )
+        )
         saved = make_normalized_item(
             1,
             "Agent framework launch",
             language="en",
-            topics=["coding agent"],
+            topics=["rag", "inference"],
             summary_short="New local coding agent framework.",
+            tickers=["NVDA"],
             products=["IDE agent"],
-            source_name="GitHub",
+            source_name="Product Hunt",
+            stock_impact_score=0.7,
         )
+        saved.summary_short = "New local coding agent framework for data center demand."
+        saved.sentiment = "positive"
         read = make_normalized_item(
             2,
             "Read research note",
@@ -647,12 +673,19 @@ def test_export_saved_items_markdown_includes_notes_tags_and_read_status() -> No
     assert export.item_count == 2
     assert "# SignalLens Saved Items" in export.markdown
     assert "Agent framework launch" in export.markdown
-    assert "- Source: GitHub | 2026-06-25T12:00:00+00:00 | read later" in export.markdown
-    assert "- Labels: IDE agent, coding agent" in export.markdown
+    assert "- Source: Product Hunt | 2026-06-25T12:00:00+00:00 | read later" in export.markdown
+    assert "- Labels: NVDA, IDE agent, RAG, Inference" in export.markdown
+    assert (
+        "- Signals: AI-related, market impact: demand signal, social signal 47%, "
+        "stock impact 70%"
+    ) in export.markdown
     assert "- Manual tags: Agent, Weekend" in export.markdown
     assert "- Personal note: Follow up before Monday." in export.markdown
-    assert "- Summary: New local coding agent framework." in export.markdown
+    assert (
+        "- Summary: New local coding agent framework for data center demand."
+    ) in export.markdown
     assert "Read research note" in export.markdown
+    assert "- Read at: 2026-06-26T09:00:00+00:00" in export.markdown
     assert "Hidden saved item" not in export.markdown
     assert unread_export.item_count == 1
     assert "Agent framework launch" in unread_export.markdown
