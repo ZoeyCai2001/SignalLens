@@ -125,6 +125,39 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     missing_tickers = {"MU", "MRVL", "SNDK"} - tickers
     if missing_tickers:
         raise AssertionError(f"Missing seeded stock rows: {sorted(missing_tickers)}")
+    stock_detail = get_json(client, "/api/stocks/MU")
+    if "does not provide investment advice" not in stock_detail["disclaimer"]:
+        raise AssertionError("Expected stock detail to expose the non-financial-advice disclaimer")
+    if not stock_detail["ai_relevance_summary"]:
+        raise AssertionError("Expected stock detail to include an AI relevance summary")
+    if not stock_detail["recent_timeline"]:
+        raise AssertionError("Expected stock detail to include a recent stock-news timeline")
+    stock_events = get_json(client, "/api/stocks/MU/events?limit=10")
+    if not stock_events:
+        raise AssertionError("Expected stock events endpoint to return MU timeline rows")
+    stock_price_series = get_json(client, "/api/stocks/MU/price-series?limit=30")
+    if stock_price_series is None or not stock_price_series["history"]:
+        raise AssertionError("Expected stock price-series endpoint to return seeded MU prices")
+    created_stock = post_json(
+        client,
+        "/api/watchlist/stocks",
+        json_body={
+            "ticker": "AVGO",
+            "company_name": "Broadcom",
+            "priority": "Low",
+            "related_ai_themes": ["AI networking"],
+        },
+        expected_status=201,
+    )
+    if created_stock["ticker"] != "AVGO":
+        raise AssertionError(
+            "Expected temporary stock creation to resolve AVGO, "
+            f"got {created_stock['ticker']!r}"
+        )
+    delete_no_content(client, "/api/watchlist/stocks/AVGO")
+    after_delete_stocks = get_json(client, "/api/watchlist/stocks")
+    if any(stock["ticker"] == "AVGO" for stock in after_delete_stocks):
+        raise AssertionError("Expected temporary stock deletion to remove AVGO")
     moved_stocks = post_json(
         client,
         "/api/watchlist/stocks/MRVL/move",
@@ -364,6 +397,17 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "manual_tag_items": len(manual_tag_search),
         },
         "stock_rows": len(stocks),
+        "stock_detail": {
+            "ticker": stock_detail["stock"]["ticker"],
+            "timeline_items": len(stock_detail["recent_timeline"]),
+            "event_rows": len(stock_events),
+            "price_points": len(stock_price_series["history"]),
+            "has_ai_relevance_summary": bool(stock_detail["ai_relevance_summary"]),
+            "has_disclaimer": "does not provide investment advice"
+            in stock_detail["disclaimer"],
+            "created_deleted_ticker": created_stock["ticker"],
+            "post_delete_rows": len(after_delete_stocks),
+        },
         "stock_move_order": moved_tickers,
         "company_watchlist_rows": len(companies),
         "topic_watchlist_rows": len(topics),
@@ -472,11 +516,22 @@ def get_json(client: TestClient, path: str) -> Any:
     return response.json()
 
 
-def post_json(client: TestClient, path: str, json_body: dict[str, Any] | None = None) -> Any:
+def post_json(
+    client: TestClient,
+    path: str,
+    json_body: dict[str, Any] | None = None,
+    expected_status: int = 200,
+) -> Any:
     response = client.post(path, json=json_body)
-    if response.status_code != 200:
+    if response.status_code != expected_status:
         raise AssertionError(f"POST {path} failed: {response.status_code} {response.text}")
     return response.json()
+
+
+def delete_no_content(client: TestClient, path: str) -> None:
+    response = client.delete(path)
+    if response.status_code != 204:
+        raise AssertionError(f"DELETE {path} failed: {response.status_code} {response.text}")
 
 
 def patch_json(client: TestClient, path: str, json_body: dict[str, Any] | None = None) -> Any:

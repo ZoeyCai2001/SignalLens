@@ -438,3 +438,4 @@ Implementation progress:
 - Expanded saved-item Markdown exports with PRD signal labels, technology labels, social/stock impact scores, and read timestamps so local archives preserve the same audit context shown in the dashboard.
 - Added explicit useful/not-useful feedback for dashboard alerts, including persistence, API updates, alert-card controls, and quality metrics that blend alert feedback into the PRD alert-usefulness proxy.
 - Added AI-relevance intent to natural-language search, widened topic filtering across product facets for Chinese/product queries, and expanded the no-paid demo verifier to cover structured stock, product, Chinese social, and manual-tag search paths.
+- Expanded the no-paid demo verifier to cover the PRD stock-watchlist acceptance path, including stock detail summaries, stock-news events, price series, non-financial-advice disclaimer, and temporary add/remove stock watchlist flow.

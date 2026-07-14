@@ -8,6 +8,14 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["feed_items"] >= 6
     assert result["saved_items"] >= 1
     assert result["stock_rows"] >= 3
+    assert result["stock_detail"]["ticker"] == "MU"
+    assert result["stock_detail"]["timeline_items"] >= 1
+    assert result["stock_detail"]["event_rows"] >= 1
+    assert result["stock_detail"]["price_points"] >= 2
+    assert result["stock_detail"]["has_ai_relevance_summary"] is True
+    assert result["stock_detail"]["has_disclaimer"] is True
+    assert result["stock_detail"]["created_deleted_ticker"] == "AVGO"
+    assert result["stock_detail"]["post_delete_rows"] == 3
     assert result["stock_move_order"][:2] == ["MRVL", "MU"]
     assert result["company_watchlist_rows"] >= 5
     assert result["topic_watchlist_rows"] >= 5
