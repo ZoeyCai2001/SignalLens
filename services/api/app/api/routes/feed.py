@@ -77,6 +77,7 @@ async def get_feed_item_detail(item_id: int, db: DbSession) -> FeedItemDetail:
         item,
         get_action(db, item_id),
         interest_profile=build_feed_interest_profile(db),
+        db=db,
     )
 
 

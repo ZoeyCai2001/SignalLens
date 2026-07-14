@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -47,12 +47,22 @@ class FeedItem(BaseModel):
         return 0.5 if value is None else value
 
 
+class FeedStockReactionSummary(BaseModel):
+    ticker: str
+    possible_market_impact: str
+    price_reaction: str
+    event_price_date: date | None = None
+    event_price_change_percent: float | None = None
+    summary: str
+
+
 class FeedItemDetail(FeedItem):
     text: str | None = None
     one_line_summary: str | None = None
     card_summary: list[str] = Field(default_factory=list)
     technical_summary: str | None = None
     market_watch_summary: str | None = None
+    stock_reaction_summary: FeedStockReactionSummary | None = None
     summary_source: str = "deterministic"
     score_explanation: str
     uncertainty_notes: list[str]

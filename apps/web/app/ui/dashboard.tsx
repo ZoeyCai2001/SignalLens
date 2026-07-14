@@ -81,6 +81,14 @@ type FeedItemDetail = FeedItem & {
   card_summary: string[];
   technical_summary: string | null;
   market_watch_summary: string | null;
+  stock_reaction_summary: {
+    ticker: string;
+    possible_market_impact: string;
+    price_reaction: string;
+    event_price_date: string | null;
+    event_price_change_percent: number | null;
+    summary: string;
+  } | null;
   summary_source: string;
   score_explanation: string;
   uncertainty_notes: string[];
@@ -7981,6 +7989,11 @@ function FeedDetailPanel({
       {detail.market_impact_type !== "none" ? (
         <div className="summary">
           <strong>Market impact type:</strong> {formatMarketImpactLabel(detail.market_impact_type)}
+        </div>
+      ) : null}
+      {detail.stock_reaction_summary ? (
+        <div className="summary">
+          <strong>Price reaction:</strong> {detail.stock_reaction_summary.summary}
         </div>
       ) : null}
       <SummaryProfilesPanel detail={detail} />

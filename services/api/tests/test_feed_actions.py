@@ -12,6 +12,7 @@ from app.db.models import (
     NormalizedItem,
     RawItem,
     Source,
+    StockPricePoint,
     UserItemAction,
 )
 from app.schemas.feed import FeedItem
@@ -395,6 +396,41 @@ def test_serialize_feed_item_detail_derives_summary_profile_without_stored_summa
     assert detail.technical_summary == "This informs AI evaluation work."
     assert detail.market_watch_summary is None
     assert detail.summary_source == "why_it_matters"
+
+
+def test_serialize_feed_item_detail_includes_stock_reaction_summary() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        db.add_all(
+            [
+                make_stock_price_point("MU", "2026-06-24", close_price=100),
+                make_stock_price_point("MU", "2026-06-25", close_price=106),
+            ]
+        )
+        db.commit()
+        item = make_normalized_item(
+            1,
+            "Micron HBM demand",
+            language="en",
+            category="stock_company_event",
+            tickers=["MU"],
+            stock_impact_score=0.9,
+        )
+        item.sentiment = "positive"
+
+        detail = serialize_feed_item_detail(item, db=db)
+
+    assert detail.stock_reaction_summary is not None
+    assert detail.stock_reaction_summary.ticker == "MU"
+    assert detail.stock_reaction_summary.possible_market_impact == "positive"
+    assert detail.stock_reaction_summary.price_reaction == "aligned_up"
+    assert detail.stock_reaction_summary.event_price_date == datetime(
+        2026, 6, 25, tzinfo=UTC
+    ).date()
+    assert detail.stock_reaction_summary.event_price_change_percent == 6.0
+    assert "MU moved +6.00% on 2026-06-25" in detail.stock_reaction_summary.summary
 
 
 def test_serialize_feed_item_detail_includes_personalization_notes() -> None:
@@ -1287,6 +1323,23 @@ def make_feed_item(
         summary_short=None,
         summary_detailed=None,
         why_it_matters=None,
+    )
+
+
+def make_stock_price_point(
+    ticker: str,
+    price_date: str,
+    close_price: float,
+) -> StockPricePoint:
+    return StockPricePoint(
+        ticker=ticker,
+        price_date=datetime.fromisoformat(price_date).date(),
+        open_price=close_price,
+        high_price=close_price,
+        low_price=close_price,
+        close_price=close_price,
+        adjusted_close=close_price,
+        volume=1_000,
     )
 
 

@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
@@ -13,11 +13,17 @@ from app.db.models import (
     NormalizedItem,
     ProductWatchlistItem,
     RawItem,
+    StockPricePoint,
     StockWatchlistItem,
     TopicWatchlistItem,
     UserItemAction,
 )
-from app.schemas.feed import FeedItem, FeedItemDetail, SavedItemsMarkdownExport
+from app.schemas.feed import (
+    FeedItem,
+    FeedItemDetail,
+    FeedStockReactionSummary,
+    SavedItemsMarkdownExport,
+)
 from app.schemas.preferences import RankingWeights
 from app.services.seed_data import (
     initial_company_watchlist,
@@ -241,6 +247,7 @@ def serialize_feed_item_detail(
     item: NormalizedItem,
     action: UserItemAction | None = None,
     interest_profile: FeedInterestProfile | None = None,
+    db: Session | None = None,
 ) -> FeedItemDetail:
     base = serialize_feed_item(item, action)
     summary_profile = build_feed_summary_profile(base)
@@ -248,6 +255,7 @@ def serialize_feed_item_detail(
         **base.model_dump(),
         text=item.text,
         **summary_profile,
+        stock_reaction_summary=build_feed_stock_reaction_summary(db=db, item=base),
         score_explanation=build_score_explanation(base),
         uncertainty_notes=build_feed_uncertainty_notes(base),
         personalization_notes=build_personalization_notes(base, interest_profile),
@@ -338,6 +346,137 @@ def extract_market_watch_summary(item: FeedItem) -> str | None:
         direction = f"{item.sentiment} market context"
     return (
         f"Watch{ticker_text} as {direction}; SignalLens does not provide financial advice."
+    )
+
+
+def build_feed_stock_reaction_summary(
+    db: Session | None,
+    item: FeedItem,
+) -> FeedStockReactionSummary | None:
+    ticker = first_stock_reaction_ticker(item)
+    if db is None or ticker is None:
+        return None
+
+    possible_market_impact = infer_feed_possible_market_impact(item)
+    rows = (
+        db.query(StockPricePoint)
+        .filter(StockPricePoint.ticker == ticker)
+        .order_by(StockPricePoint.price_date.desc())
+        .limit(60)
+        .all()
+    )
+    if not rows:
+        return FeedStockReactionSummary(
+            ticker=ticker,
+            possible_market_impact=possible_market_impact,
+            price_reaction="no_price_data",
+            summary=(
+                f"No stored price data is available for {ticker}; refresh stock prices before "
+                "reviewing whether the market reacted."
+            ),
+        )
+
+    event_price_date, event_price_change_percent = infer_feed_event_price_move(
+        sorted(rows, key=lambda row: row.price_date),
+        item,
+    )
+    price_reaction = infer_feed_stock_price_reaction_from_change(
+        change_percent=event_price_change_percent,
+        possible_market_impact=possible_market_impact,
+    )
+    return FeedStockReactionSummary(
+        ticker=ticker,
+        possible_market_impact=possible_market_impact,
+        price_reaction=price_reaction,
+        event_price_date=event_price_date,
+        event_price_change_percent=event_price_change_percent,
+        summary=format_feed_stock_reaction_summary(
+            ticker=ticker,
+            possible_market_impact=possible_market_impact,
+            price_reaction=price_reaction,
+            event_price_date=event_price_date,
+            event_price_change_percent=event_price_change_percent,
+        ),
+    )
+
+
+def first_stock_reaction_ticker(item: FeedItem) -> str | None:
+    if item.category != "stock_company_event" and item.stock_impact_score < 0.25:
+        return None
+    for ticker in item.tickers:
+        normalized = str(ticker).strip().upper()
+        if normalized:
+            return normalized
+    return None
+
+
+def infer_feed_possible_market_impact(item: FeedItem) -> str:
+    if item.sentiment == "positive" and item.stock_impact_score >= 0.45:
+        return "positive"
+    if item.sentiment == "negative" and item.stock_impact_score >= 0.45:
+        return "negative"
+    if item.sentiment == "mixed" or item.stock_impact_score >= 0.35:
+        return "mixed"
+    return "uncertain"
+
+
+def infer_feed_stock_price_reaction_from_change(
+    change_percent: float | None,
+    possible_market_impact: str,
+) -> str:
+    if change_percent is None:
+        return "no_price_data"
+    if abs(change_percent) < 0.75:
+        return "muted_or_unclear"
+    if possible_market_impact == "positive":
+        return "aligned_up" if change_percent > 0 else "opposite_move"
+    if possible_market_impact == "negative":
+        return "aligned_down" if change_percent < 0 else "opposite_move"
+    return "muted_or_unclear"
+
+
+def infer_feed_event_price_move(
+    rows: list[StockPricePoint],
+    item: FeedItem,
+) -> tuple[date | None, float | None]:
+    if not rows or item.published_at is None:
+        return None, None
+
+    event_date = item.published_at.date()
+    for index, point in enumerate(rows):
+        if point.price_date < event_date:
+            continue
+        if index == 0:
+            return point.price_date, None
+        previous = rows[index - 1]
+        if not previous.close_price:
+            return point.price_date, None
+        change_percent = round(
+            ((point.close_price - previous.close_price) / previous.close_price) * 100,
+            2,
+        )
+        return point.price_date, change_percent
+    return None, None
+
+
+def format_feed_stock_reaction_summary(
+    ticker: str,
+    possible_market_impact: str,
+    price_reaction: str,
+    event_price_date: date | None,
+    event_price_change_percent: float | None,
+) -> str:
+    if event_price_date is None or event_price_change_percent is None:
+        return (
+            f"Stored prices do not yet show a comparable close for {ticker} around this item."
+        )
+    direction = "+" if event_price_change_percent > 0 else ""
+    reaction_label = price_reaction.replace("_", " ")
+    impact_label = possible_market_impact.replace("_", " ")
+    return (
+        f"{ticker} moved {direction}{event_price_change_percent:.2f}% on "
+        f"{event_price_date.isoformat()}; price reaction is {reaction_label} "
+        f"for a {impact_label} market-impact read."
     )
 
 
@@ -1306,6 +1445,7 @@ def update_item_personal_metadata(
         item,
         action,
         interest_profile=build_feed_interest_profile(db),
+        db=db,
     )
 
 
