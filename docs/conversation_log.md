@@ -399,3 +399,4 @@ Implementation progress:
 - Added source-run duration fields to Source Health and run history so ingestion latency is visible beside source status, counts, failures, and retry context.
 - Added elapsed-time feedback to dashboard search results so normal keyword and natural-language searches can be checked against the PRD search response target while using the app.
 - Added elapsed-time feedback to the main dashboard refresh path so initial load and manual refresh can be checked against the PRD dashboard load target.
+- Added a compact classification audit block to expanded feed item details, showing AI relevance, category/subcategory, language, sentiment, confidence, market impact, tickers, and topics together.

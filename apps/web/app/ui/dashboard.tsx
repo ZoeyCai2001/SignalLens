@@ -7697,8 +7697,20 @@ function FeedDetailPanel({
         <Score label="Source" value={detail.source_quality_score} />
         <Score label="Social" value={detail.social_signal_score} />
         <Score label="Relevance" value={detail.relevance_score} />
+        <Score label="Confidence" value={detail.classification_confidence} />
         <Score label="Importance" value={detail.importance_score} />
         <Score label="Stock" value={detail.stock_impact_score} />
+      </div>
+      <div className="summary">
+        <strong>Classification audit:</strong>{" "}
+        {detail.is_ai_related ? "AI-related" : "Needs AI relevance review"} ·{" "}
+        {formatCategoryLabel(detail.category)}
+        {detail.subcategory ? ` · ${formatCategoryLabel(detail.subcategory)}` : ""} · language{" "}
+        {detail.language} · sentiment {formatCategoryLabel(detail.sentiment)} · confidence{" "}
+        {Math.round(detail.classification_confidence * 100)}
+        {detail.market_impact_type !== "none"
+          ? ` · ${formatMarketImpactLabel(detail.market_impact_type)}`
+          : ""}
       </div>
       <div className="badges">
         {detail.is_saved ? <span className="badge">saved</span> : null}
@@ -7708,6 +7720,11 @@ function FeedDetailPanel({
         {detail.category === "product" && detail.subcategory ? (
           <span className="badge">{formatProductUseCaseLabel(detail.subcategory)}</span>
         ) : null}
+        {detail.tickers.slice(0, 6).map((ticker) => (
+          <span className="badge stock" key={ticker}>
+            {ticker}
+          </span>
+        ))}
         {detail.manual_tags.map((tag) => (
           <span className="badge" key={`manual:${tag}`}>
             {tag}
@@ -7726,6 +7743,11 @@ function FeedDetailPanel({
         {detail.technologies.slice(0, 6).map((technology) => (
           <span className="badge" key={`technology:${technology}`}>
             {technology}
+          </span>
+        ))}
+        {detail.topics.slice(0, 8).map((topic) => (
+          <span className="badge" key={`topic:${topic}`}>
+            {topic}
           </span>
         ))}
       </div>
