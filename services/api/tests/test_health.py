@@ -709,6 +709,13 @@ def test_source_family_coverage_tracks_prd_connector_set() -> None:
                     enabled=True,
                 ),
                 Source(
+                    name="Reddit AI Communities",
+                    type="community",
+                    access_method="public_json",
+                    base_url="https://www.reddit.com/r/LocalLLaMA/search.json",
+                    enabled=True,
+                ),
+                Source(
                     name="GitHub",
                     type="developer",
                     access_method="official_api",
@@ -737,9 +744,9 @@ def test_source_family_coverage_tracks_prd_connector_set() -> None:
             summarize_prd_source_family_coverage(db)
         )
 
-    assert covered_count == 4
-    assert total_count == 8
-    assert covered_labels == ["arXiv", "Hacker News", "GitHub", "Chinese RSS"]
+    assert covered_count == 5
+    assert total_count == 9
+    assert covered_labels == ["arXiv", "Hacker News", "Reddit", "GitHub", "Chinese RSS"]
     assert "Product Hunt" in missing_labels
     assert "selected RSS" in missing_labels
 
@@ -760,11 +767,12 @@ def test_source_ingestion_checklist_reports_prd_family_coverage() -> None:
         source_count=8,
         enabled_source_count=8,
         source_family_coverage=(
-            7,
             8,
+            9,
             [
                 "arXiv",
                 "Hacker News",
+                "Reddit",
                 "selected RSS",
                 "Alpha Vantage",
                 "Product Hunt",
@@ -776,9 +784,9 @@ def test_source_ingestion_checklist_reports_prd_family_coverage() -> None:
     )
     source_item = {item.key: item for item in checklist.items}["source-ingestion"]
 
-    assert source_item.metric == "7/8 PRD families; 0 recent sources"
+    assert source_item.metric == "8/9 PRD families; 0 recent sources"
     assert source_item.status == "partial"
-    assert "Covered: arXiv, Hacker News, selected RSS, Alpha Vantage, Product Hunt..." in (
+    assert "Covered: arXiv, Hacker News, Reddit, selected RSS, Alpha Vantage..." in (
         source_item.note
     )
     assert "Missing: Chinese RSS." in source_item.note

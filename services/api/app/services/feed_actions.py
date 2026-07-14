@@ -1017,6 +1017,11 @@ def social_signal_score_for_item(item: NormalizedItem) -> float:
             + 0.30 * scaled_metric(raw_metadata.get("descendants"), 200)
             + 0.10 * scaled_metric(raw_metadata.get("top_comment_count"), 10)
         )
+    if "reddit" in source_name:
+        return bounded_social_score(
+            0.62 * scaled_metric(raw_metadata.get("score"), 1000)
+            + 0.38 * scaled_metric(raw_metadata.get("comments_count"), 300)
+        )
     if "product hunt" in source_name:
         return bounded_social_score(
             0.70 * scaled_metric(raw_metadata.get("votes_count"), 1000)
@@ -1068,6 +1073,8 @@ def social_signal_score_for_item(item: NormalizedItem) -> float:
 
 def build_public_engagement_metrics(item: NormalizedItem) -> list[FeedPublicEngagementMetric]:
     raw_metadata = item.raw_item.raw_metadata if item.raw_item else {}
+    if "reddit" in item.source_name.lower():
+        return build_reddit_public_engagement_metrics(raw_metadata)
     metric_defs = [
         ("likes", "Likes", ("likes", "like_count")),
         ("comments", "Comments", ("comments", "comments_count", "reply_count")),
@@ -1078,6 +1085,22 @@ def build_public_engagement_metrics(item: NormalizedItem) -> list[FeedPublicEnga
             ("collects", "collects_count", "saves", "save_count", "favorites", "bookmarks"),
         ),
         ("reposts", "Reposts", ("reposts", "reposts_count", "shares", "share_count", "retweets")),
+    ]
+    metrics: list[FeedPublicEngagementMetric] = []
+    for key, label, metadata_keys in metric_defs:
+        value = first_metadata_value(raw_metadata, *metadata_keys)
+        parsed = parse_public_engagement_value(value)
+        if parsed is not None:
+            metrics.append(FeedPublicEngagementMetric(key=key, label=label, value=parsed))
+    return metrics
+
+
+def build_reddit_public_engagement_metrics(
+    raw_metadata: dict,
+) -> list[FeedPublicEngagementMetric]:
+    metric_defs = [
+        ("upvotes", "Upvotes", ("score",)),
+        ("comments", "Comments", ("comments_count",)),
     ]
     metrics: list[FeedPublicEngagementMetric] = []
     for key, label, metadata_keys in metric_defs:

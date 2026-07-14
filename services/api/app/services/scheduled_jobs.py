@@ -23,6 +23,7 @@ from app.services.ingestion import (
     run_hacker_news_ingestion,
     run_hugging_face_ingestion,
     run_product_hunt_ingestion,
+    run_reddit_ingestion,
     run_rss_ingestion,
     run_sec_filings_ingestion,
     run_source_ingestion_by_id,
@@ -93,6 +94,7 @@ class ScheduledCycleResult:
 
 DEFAULT_INGESTION_JOBS = [
     ScheduledIngestionJob(name="hacker-news", runner=run_hacker_news_ingestion, limit=30),
+    ScheduledIngestionJob(name="reddit", runner=run_reddit_ingestion, limit=25),
     ScheduledIngestionJob(
         name="alpha-vantage-news",
         runner=run_alpha_vantage_news_ingestion,

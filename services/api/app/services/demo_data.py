@@ -58,6 +58,16 @@ DEMO_SOURCES = [
         terms_notes="Demo rows mirror public Hacker News discussion metadata without fetching.",
     ),
     DemoSourceSpec(
+        name="Reddit AI Communities",
+        source_type="community",
+        access_method="public_json",
+        base_url="https://www.reddit.com/r/LocalLLaMA/search.json",
+        rate_limit="Public JSON search; demo rows are local examples only.",
+        polling_interval="6 hours",
+        priority=21,
+        terms_notes="Demo rows mirror public Reddit post metadata without fetching external data.",
+    ),
+    DemoSourceSpec(
         name="GitHub",
         source_type="developer",
         access_method="official_api",
@@ -301,6 +311,24 @@ def demo_feed_items(now: datetime) -> list[RawItemInput]:
             raw_author="demo_hn_user",
             raw_metadata={"score": 438, "descendants": 96},
             published_at=now - timedelta(hours=7),
+        ),
+        RawItemInput(
+            source_name="Reddit AI Communities",
+            external_id="demo-reddit-local-llama-agent",
+            url="https://www.reddit.com/r/LocalLLaMA/comments/demo_agent_workflow",
+            raw_title="LocalLLaMA users compare small LLM agent workflows for coding",
+            raw_text=(
+                "A public Reddit discussion compares local LLM coding agents, tool-use "
+                "workflows, RAG memory, and model routing for developer automation."
+            ),
+            raw_author="demo_reddit_user",
+            raw_metadata={
+                "subreddit": "LocalLLaMA",
+                "score": 820,
+                "comments_count": 144,
+                "upvote_ratio": 0.94,
+            },
+            published_at=now - timedelta(hours=6),
         ),
         RawItemInput(
             source_name="GitHub",

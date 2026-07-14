@@ -364,7 +364,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         raise AssertionError(
             "Expected ready manual-submission checklist action to open Submit URL"
         )
-    if not checklist_by_key["source-ingestion"]["metric"].startswith("8/8 PRD families"):
+    if not checklist_by_key["source-ingestion"]["metric"].startswith("9/9 PRD families"):
         raise AssertionError(
             "Expected source-ingestion checklist to show full PRD source-family coverage, "
             f"got {checklist_by_key['source-ingestion']['metric']!r}"

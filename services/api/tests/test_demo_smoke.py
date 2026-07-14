@@ -75,7 +75,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
         "ready_count": 9,
         "partial_count": 0,
         "needs_action_count": 0,
-        "source_ingestion_metric": "8/8 PRD families; 9 recent sources",
+        "source_ingestion_metric": "9/9 PRD families; 10 recent sources",
     }
     assert result["settings_backup"]["sources"] >= 8
     assert result["settings_backup"]["alert_rules"] >= 8
@@ -94,7 +94,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
         "products": 4,
         "research": 1,
         "stocks": 1,
-        "trends": 4,
+        "trends": 5,
     }
     assert result["search"]["stock_items"] >= 1
     assert result["search"]["product_items"] >= 1

@@ -37,6 +37,7 @@ from app.sources.github import GitHubConnector, parse_github_repository
 from app.sources.hacker_news import HackerNewsConnector
 from app.sources.hugging_face import HuggingFaceConnector
 from app.sources.product_hunt import ProductHuntConnector
+from app.sources.reddit import DEFAULT_REDDIT_QUERY, RedditConnector, normalize_reddit_subreddits
 from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector, RssFeedSpec
 from app.sources.sec_filings import SecFilingsConnector, parse_sec_forms
 
@@ -79,6 +80,7 @@ SOURCE_QUALITY_BY_NAME = {
     "product hunt": 0.74,
     "selected rss feeds": 0.72,
     "hacker news": 0.7,
+    "reddit ai communities": 0.66,
     "chinese rss feeds": 0.62,
     "manual submission": 0.55,
 }
@@ -154,6 +156,27 @@ async def run_hacker_news_ingestion(db: Session, limit: int = 30) -> IngestionRe
         priority=20,
         terms_notes=(
             "Uses public Hacker News Firebase API metadata, URLs, and top comment previews."
+        ),
+    )
+    return await run_connector_ingestion(db=db, connector=connector, source=source)
+
+
+async def run_reddit_ingestion(db: Session, limit: int = 25) -> IngestionResult:
+    connector = RedditConnector(limit=limit)
+    source = get_or_create_source(
+        db,
+        name="Reddit AI Communities",
+        source_type="community",
+        access_method="public_json",
+        base_url="https://www.reddit.com/r/LocalLLaMA+MachineLearning+artificial+singularity",
+        auth_required=False,
+        rate_limit="Public subreddit JSON search; use a descriptive User-Agent and poll slowly.",
+        polling_interval="6 hours",
+        enabled=True,
+        priority=21,
+        terms_notes=(
+            "Uses public Reddit post metadata and self-post excerpts from selected AI "
+            "communities; no private or login-protected content."
         ),
     )
     return await run_connector_ingestion(db=db, connector=connector, source=source)
@@ -455,6 +478,7 @@ async def run_sec_filings_ingestion(
 
 REGISTERED_SOURCE_RUNNERS = (
     RegisteredSourceRunner("Hacker News", run_hacker_news_ingestion, 30),
+    RegisteredSourceRunner("Reddit AI Communities", run_reddit_ingestion, 25),
     RegisteredSourceRunner("Alpha Vantage News", run_alpha_vantage_news_ingestion, 25),
     RegisteredSourceRunner("Alpha Vantage Prices", run_alpha_vantage_price_ingestion, 30),
     RegisteredSourceRunner("SEC Filings", run_sec_filings_ingestion, 25),
@@ -523,6 +547,21 @@ async def run_source_ingestion_by_id(
                 limit=1,
                 api_token=get_settings().github_token,
                 repositories=[repository],
+                source_name=source.name,
+            )
+            return await run_connector_ingestion(db=db, connector=connector, source=source)
+        if source.type == "reddit_community":
+            subreddits = reddit_subreddits_for_source(source)
+            if not subreddits:
+                return record_skipped_run(
+                    db=db,
+                    source=source,
+                    message="Reddit community source needs at least one public subreddit URL.",
+                )
+            connector = RedditConnector(
+                limit=limit or 25,
+                subreddits=subreddits,
+                query=reddit_query_for_source(source),
                 source_name=source.name,
             )
             return await run_connector_ingestion(db=db, connector=connector, source=source)
@@ -606,6 +645,40 @@ def cleaned_social_source_name(value: str) -> str:
 
 def normalize_social_keyword_term(value: str) -> str:
     return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", value.lower()).strip()
+
+
+def reddit_subreddits_for_source(source: Source) -> list[str]:
+    candidates = [
+        *reddit_subreddits_from_text(source.base_url, allow_plain=True),
+        *reddit_subreddits_from_text(source.terms_notes, allow_plain=False),
+    ]
+    return normalize_reddit_subreddits(candidates)
+
+
+def reddit_subreddits_from_text(value: str | None, *, allow_plain: bool = False) -> list[str]:
+    if not value:
+        return []
+    matches: list[str] = []
+    for path_match in re.findall(r"(?:reddit\.com/)?r/([A-Za-z0-9_+]+)", value):
+        matches.extend(part for part in path_match.split("+") if part)
+    if matches:
+        return matches
+    if not allow_plain:
+        return []
+    return [
+        part.strip()
+        for part in re.split(r"[,;\n|+\s]+", value)
+        if part.strip() and re.fullmatch(r"[A-Za-z0-9_]{2,32}", part.strip())
+    ]
+
+
+def reddit_query_for_source(source: Source) -> str:
+    terms = [
+        term
+        for term in split_product_hunt_terms(source.terms_notes)
+        if not re.search(r"(?:reddit\.com/)?r/[A-Za-z0-9_]+", term.strip(), re.IGNORECASE)
+    ]
+    return " OR ".join(terms[:8]) if terms else DEFAULT_REDDIT_QUERY
 
 
 async def run_connector_ingestion(
@@ -1010,6 +1083,14 @@ def normalize_item(raw: RawItem, source: Source) -> NormalizedItem | None:
         subcategory = "company_blog"
         summary_prefix = "RSS item"
         why_it_matters = "This RSS item matched the AI relevance prefilter from selected feeds."
+    elif source.name == "Reddit AI Communities" or source.type == "reddit_community":
+        category = "technical_trend"
+        subcategory = "community_discussion"
+        summary_prefix = "Reddit discussion"
+        why_it_matters = (
+            "This Reddit community item matched the AI relevance prefilter from public "
+            "post metadata."
+        )
     elif source.name == "Chinese RSS Feeds":
         category = "social_trend"
         subcategory = "chinese_rss"
@@ -1153,6 +1234,9 @@ def build_initial_detailed_summary(
     if source and source.name == "Hacker News":
         return build_hacker_news_discussion_summary(raw, source_excerpt, topics)
 
+    if source and ("reddit" in source.name.lower() or source.type == "reddit_community"):
+        return build_reddit_discussion_summary(raw, source_excerpt, topics)
+
     if source and source.name == "SEC Filings":
         return build_sec_filing_summary(raw)
 
@@ -1192,6 +1276,37 @@ def build_hacker_news_discussion_summary(
         author = comment.get("by") or "unknown"
         text = first_sentence(str(comment["text"]), limit=180)
         lines.append(f"Top comment by {author}: {text}")
+    return "\n".join(lines)
+
+
+def build_reddit_discussion_summary(
+    raw: RawItem,
+    source_excerpt: str,
+    topics: list[str],
+) -> str:
+    metadata = raw.raw_metadata or {}
+    subreddit = metadata.get("subreddit")
+    score = metadata.get("score")
+    comments = metadata.get("comments_count")
+    topic_text = ", ".join(topics[:5]) if topics else "AI community discussion"
+    signals = []
+    if subreddit:
+        signals.append(f"r/{subreddit}")
+    if score is not None:
+        signals.append(f"{score} upvotes")
+    if comments is not None:
+        signals.append(f"{comments} comments")
+
+    lines = [
+        f"Discussion summary: {source_excerpt}",
+        f"Technical relevance: Matched watched topics: {topic_text}.",
+        (
+            "Source access: public Reddit JSON metadata and self-post excerpts only; "
+            "no private or login-protected content is accessed."
+        ),
+    ]
+    if signals:
+        lines.append(f"Discussion signal: {', '.join(signals)}.")
     return "\n".join(lines)
 
 
@@ -1298,6 +1413,9 @@ def build_source_traction_signal(metadata: dict) -> str | None:
         signals.append(f"{votes} Product Hunt votes")
     if comments is not None:
         signals.append(f"{comments} comments")
+    reddit_score = metadata.get("score") if metadata.get("subreddit") else None
+    if reddit_score is not None:
+        signals.append(f"{reddit_score} Reddit upvotes")
     return ", ".join(signals) if signals else None
 
 

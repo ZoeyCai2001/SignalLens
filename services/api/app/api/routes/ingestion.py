@@ -18,6 +18,7 @@ from app.services.ingestion import (
     run_hacker_news_ingestion,
     run_hugging_face_ingestion,
     run_product_hunt_ingestion,
+    run_reddit_ingestion,
     run_rss_ingestion,
     run_sec_filings_ingestion,
 )
@@ -67,6 +68,15 @@ async def ingest_hacker_news(
     limit: int = Query(default=30, ge=1, le=100),
 ) -> IngestionRunResponse:
     result = await run_hacker_news_ingestion(db=db, limit=limit)
+    return IngestionRunResponse.model_validate(result)
+
+
+@router.post("/reddit", response_model=IngestionRunResponse)
+async def ingest_reddit(
+    db: DbSession,
+    limit: int = Query(default=25, ge=1, le=100),
+) -> IngestionRunResponse:
+    result = await run_reddit_ingestion(db=db, limit=limit)
     return IngestionRunResponse.model_validate(result)
 
 

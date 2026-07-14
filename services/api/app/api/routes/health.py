@@ -61,6 +61,7 @@ SUMMARY_CONTEXT_MIN_CHARS = 30
 PRD_SOURCE_FAMILIES = {
     "arxiv": "arXiv",
     "hacker_news": "Hacker News",
+    "reddit": "Reddit",
     "rss": "selected RSS",
     "alpha_vantage": "Alpha Vantage",
     "product_hunt": "Product Hunt",
@@ -488,6 +489,8 @@ def prd_source_family_keys_for_source(source: Source) -> set[str]:
         keys.add("arxiv")
     if "hacker news" in combined or "firebaseio" in combined:
         keys.add("hacker_news")
+    if "reddit" in combined or source_type == "reddit community":
+        keys.add("reddit")
     if "github" in combined:
         keys.add("github")
     if "hugging face" in combined or "huggingface" in combined:

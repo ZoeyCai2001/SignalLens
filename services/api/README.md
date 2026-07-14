@@ -68,6 +68,12 @@ Ingest Hacker News top stories:
 curl -X POST "http://127.0.0.1:8000/api/ingestion/hacker-news?limit=30"
 ```
 
+Ingest public Reddit AI community posts:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/ingestion/reddit?limit=25"
+```
+
 Ingest recent arXiv AI papers:
 
 ```bash

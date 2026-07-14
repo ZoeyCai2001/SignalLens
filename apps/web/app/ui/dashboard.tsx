@@ -1029,6 +1029,7 @@ type PersonalSettingsRestoreResult = {
 
 type IngestionSource =
   | "hacker-news"
+  | "reddit"
   | "alpha-vantage-news"
   | "alpha-vantage-prices"
   | "arxiv"
@@ -1142,6 +1143,13 @@ const ingestionSourceActions: IngestionSourceAction[] = [
     icon: Newspaper,
   },
   {
+    source: "reddit",
+    label: "Reddit",
+    shortLabel: "Reddit",
+    title: "Run Reddit AI community ingestion",
+    icon: Newspaper,
+  },
+  {
     source: "alpha-vantage-news",
     label: "Stock News",
     shortLabel: "Stocks",
@@ -1217,6 +1225,7 @@ const sourceTypeOptions: { value: string; label: string }[] = [
   { value: "github_repository", label: "GitHub repository" },
   { value: "product_launch", label: "Product launch" },
   { value: "product_topic", label: "Product topic" },
+  { value: "reddit_community", label: "Reddit community" },
   { value: "social_keyword", label: "Social keyword" },
   { value: "chinese_social", label: "Chinese social" },
   { value: "finance_news", label: "Finance news" },
@@ -1280,6 +1289,20 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     termsPlaceholder: "AI products, developer tools, and launch metadata.",
     rawContentPolicy: "Store Product Hunt launch metadata returned by the official GraphQL API.",
     policyPlaceholder: "Store launch metadata from the official API only.",
+  },
+  {
+    key: "reddit_community",
+    label: "Reddit Community",
+    type: "reddit_community",
+    accessMethod: "public_json",
+    namePlaceholder: "Reddit LocalLLaMA",
+    urlPlaceholder: "https://www.reddit.com/r/LocalLLaMA",
+    pollingInterval: "6 hours",
+    rateLimit: "Public subreddit JSON search; use conservative polling.",
+    termsNotes: "Track public subreddit posts matching AI terms; no private or login-protected collection.",
+    termsPlaceholder: "r/LocalLLaMA, agent, coding agent, RAG",
+    rawContentPolicy: "Store public Reddit post metadata, URL, title, self-post excerpt, score, and comments count only.",
+    policyPlaceholder: "Store public post metadata and short self-post excerpts only.",
   },
   {
     key: "chinese_social_feed",
