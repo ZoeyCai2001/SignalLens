@@ -755,12 +755,12 @@ type DailyDigest = {
   read_later_count: number;
   active_alert_count: number;
   source_count: number;
-  sections: DigestSection[];
-  active_alerts: DigestAlertItem[];
-  source_coverage: DigestSourceCoverage[];
-  watchlist_tickers: string[];
-  watchlist_companies: string[];
-  watchlist_topics: string[];
+  sections?: DigestSection[];
+  active_alerts?: DigestAlertItem[];
+  source_coverage?: DigestSourceCoverage[];
+  watchlist_tickers?: string[];
+  watchlist_companies?: string[];
+  watchlist_topics?: string[];
   disclaimer: string;
 };
 
@@ -5697,7 +5697,13 @@ function DailyDigestPanel({
   onSnapshotOpen: (snapshot: DailyDigestSnapshot) => void;
   onSnapshotDelete: (snapshot: DailyDigestSnapshot) => void;
 }) {
-  const sectionsWithItems = digest?.sections.filter((section) => section.items.length) ?? [];
+  const digestSections = digest?.sections ?? [];
+  const digestActiveAlerts = digest?.active_alerts ?? [];
+  const digestSourceCoverage = digest?.source_coverage ?? [];
+  const digestWatchlistTickers = digest?.watchlist_tickers ?? [];
+  const digestWatchlistCompanies = digest?.watchlist_companies ?? [];
+  const digestWatchlistTopics = digest?.watchlist_topics ?? [];
+  const sectionsWithItems = digestSections.filter((section) => section.items.length);
   return (
     <section className="section">
       <div className="section-header">
@@ -5776,35 +5782,35 @@ function DailyDigestPanel({
             <span className="badge muted-badge">{digest.source_count} sources</span>
           </div>
           <div className="digest-coverage">
-            {digest.watchlist_tickers.slice(0, 4).map((ticker) => (
+            {digestWatchlistTickers.slice(0, 4).map((ticker) => (
               <span className="badge stock" key={`ticker:${ticker}`}>
                 {ticker}
               </span>
             ))}
-            {digest.watchlist_companies.slice(0, 4).map((company) => (
+            {digestWatchlistCompanies.slice(0, 4).map((company) => (
               <span className="badge" key={`company:${company}`}>
                 {company}
               </span>
             ))}
-            {digest.watchlist_topics.slice(0, 4).map((topic) => (
+            {digestWatchlistTopics.slice(0, 4).map((topic) => (
               <span className="badge" key={`topic:${topic}`}>
                 {topic}
               </span>
             ))}
           </div>
           <div className="digest-coverage">
-            {digest.source_coverage.slice(0, 4).map((source) => (
+            {digestSourceCoverage.slice(0, 4).map((source) => (
               <span className="badge" key={source.source_name}>
                 {source.source_name} {source.item_count}
               </span>
             ))}
           </div>
           <div className="digest-sections">
-            {digest.active_alerts.length ? (
+            {digestActiveAlerts.length ? (
               <div className="digest-section">
                 <div className="digest-section-title">Active Alerts</div>
                 <div className="digest-list">
-                  {digest.active_alerts.slice(0, 5).map((alert) => (
+                  {digestActiveAlerts.slice(0, 5).map((alert) => (
                     <div className={`digest-preview-item severity-${alert.severity}`} key={alert.id}>
                       <a
                         className="digest-link"
@@ -10569,7 +10575,7 @@ function itemMatchesModule(item: FeedItem, moduleKey: ModuleKey): boolean {
 
 function collectDigestFeedItems(digest: DailyDigest | null): FeedItem[] {
   const byId = new Map<number, FeedItem>();
-  digest?.sections.forEach((section) => {
+  (digest?.sections ?? []).forEach((section) => {
     section.items.forEach((item) => byId.set(item.id, item));
   });
   return [...byId.values()];
