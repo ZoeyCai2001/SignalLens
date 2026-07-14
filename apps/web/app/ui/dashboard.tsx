@@ -6656,7 +6656,37 @@ function SearchPanel({
           ))}
         </div>
       ) : null}
-      {summary ? <div className="summary search-summary">{summary}</div> : null}
+      {summary ? <SearchSummaryBrief summary={summary} /> : null}
+    </div>
+  );
+}
+
+function SearchSummaryBrief({ summary }: { summary: string }) {
+  const lines = summary
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const headline = lines[0] ?? summary;
+  const signalLines = lines.filter((line) => /^\d+\.\s+/.test(line));
+  const trailingLines = lines.filter(
+    (line, index) => index > 0 && line !== "Top signals:" && !/^\d+\.\s+/.test(line),
+  );
+
+  if (!signalLines.length) {
+    return <div className="summary search-summary">{summary}</div>;
+  }
+
+  return (
+    <div className="search-summary-brief" aria-label="Search summary">
+      <div className="search-summary-headline">{headline}</div>
+      <ol className="search-summary-list">
+        {signalLines.map((line) => (
+          <li key={line}>{line.replace(/^\d+\.\s+/, "")}</li>
+        ))}
+      </ol>
+      {trailingLines.length ? (
+        <div className="small-muted">{trailingLines.join(" ")}</div>
+      ) : null}
     </div>
   );
 }

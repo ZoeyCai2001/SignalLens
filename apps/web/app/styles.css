@@ -354,6 +354,33 @@ a {
   white-space: pre-line;
 }
 
+.search-summary-brief {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: #34403e;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 10px;
+}
+
+.search-summary-headline {
+  font-weight: 720;
+}
+
+.search-summary-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.search-summary-list li {
+  overflow-wrap: anywhere;
+}
+
 .scheduler-command {
   border: 1px solid var(--line);
   border-radius: 7px;
