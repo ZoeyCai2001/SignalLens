@@ -77,6 +77,14 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     missing_tickers = {"MU", "MRVL", "SNDK"} - tickers
     if missing_tickers:
         raise AssertionError(f"Missing seeded stock rows: {sorted(missing_tickers)}")
+    moved_stocks = post_json(
+        client,
+        "/api/watchlist/stocks/MRVL/move",
+        json_body={"direction": "up"},
+    )
+    moved_tickers = [item["ticker"] for item in moved_stocks]
+    if moved_tickers[:2] != ["MRVL", "MU"]:
+        raise AssertionError(f"Expected MRVL to move above MU, got {moved_tickers}")
 
     source_health = get_json(client, "/api/sources/health")
     if len(source_health) < 5:
@@ -123,6 +131,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "saved_items": len(saved_items),
         "module_counts": module_counts,
         "stock_rows": len(stocks),
+        "stock_move_order": moved_tickers,
         "source_health_rows": len(source_health),
         "digest_items": digest["total_items"],
         "digest_snapshot_count": len(digest_snapshots),
@@ -157,8 +166,8 @@ def get_json(client: TestClient, path: str) -> Any:
     return response.json()
 
 
-def post_json(client: TestClient, path: str) -> Any:
-    response = client.post(path)
+def post_json(client: TestClient, path: str, json_body: dict[str, Any] | None = None) -> Any:
+    response = client.post(path, json=json_body)
     if response.status_code != 200:
         raise AssertionError(f"POST {path} failed: {response.status_code} {response.text}")
     return response.json()

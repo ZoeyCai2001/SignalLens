@@ -8,6 +8,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["feed_items"] >= 6
     assert result["saved_items"] >= 1
     assert result["stock_rows"] >= 3
+    assert result["stock_move_order"][:2] == ["MRVL", "MU"]
     assert result["source_health_rows"] >= 5
     assert result["digest_items"] >= 1
     assert result["digest_snapshot_count"] == 1

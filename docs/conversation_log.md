@@ -349,3 +349,4 @@ Implementation progress:
 - Added `GET /api/mvp-checklist` as a backend PRD readiness contract, wired the dashboard to consume it with a local fallback, and extended the no-paid-API smoke check to verify checklist readiness after demo data is seeded.
 - Kept System Readiness synchronized after digest snapshot save/delete actions by refreshing both quality metrics and the backend MVP checklist instead of updating only one readiness source.
 - Added a stock watchlist move API that normalizes pinned/unpinned display order and swaps adjacent rows, then wired the dashboard reorder buttons to use it instead of hand-editing display-order numbers.
+- Extended the no-paid-API demo smoke path to exercise the stock watchlist move API, proving the PRD reorder workflow through the same local MVP verifier used by System Readiness.
