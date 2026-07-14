@@ -266,6 +266,12 @@ def test_source_quality_falls_back_to_access_method_then_type() -> None:
         type="blog",
         access_method="unknown",
     )
+    filing_source = Source(
+        id=14,
+        name="Custom Filing Feed",
+        type="finance_filings",
+        access_method="unknown",
+    )
     unknown_source = Source(
         id=13,
         name="Unknown",
@@ -276,6 +282,7 @@ def test_source_quality_falls_back_to_access_method_then_type() -> None:
     assert source_quality_score_for_source(official_source) == 0.76
     assert source_quality_score_for_source(rss_source) == 0.65
     assert source_quality_score_for_source(type_only_source) == 0.66
+    assert source_quality_score_for_source(filing_source) == 0.84
     assert source_quality_score_for_source(unknown_source) == 0.65
 
 

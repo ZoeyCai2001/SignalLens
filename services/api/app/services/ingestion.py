@@ -69,6 +69,7 @@ class SourceRunnerNotFoundError(ValueError):
 
 SOURCE_QUALITY_BY_NAME = {
     "arxiv": 0.9,
+    "sec filings": 0.9,
     "alpha vantage news": 0.82,
     "github": 0.8,
     "hugging face": 0.78,
@@ -121,6 +122,7 @@ TITLE_DEDUPE_STOPWORDS = {
 
 SOURCE_QUALITY_BY_TYPE = {
     "research": 0.78,
+    "finance filings": 0.84,
     "finance news": 0.76,
     "developer": 0.74,
     "github repository": 0.74,
@@ -1139,6 +1141,9 @@ def build_initial_detailed_summary(
     if source and source.name == "Hacker News":
         return build_hacker_news_discussion_summary(raw, source_excerpt, topics)
 
+    if source and source.name == "SEC Filings":
+        return build_sec_filing_summary(raw)
+
     return None
 
 
@@ -1175,6 +1180,30 @@ def build_hacker_news_discussion_summary(
         author = comment.get("by") or "unknown"
         text = first_sentence(str(comment["text"]), limit=180)
         lines.append(f"Top comment by {author}: {text}")
+    return "\n".join(lines)
+
+
+def build_sec_filing_summary(raw: RawItem) -> str:
+    metadata = raw.raw_metadata or {}
+    company = metadata.get("company_name") or "Watched company"
+    ticker = metadata.get("ticker") or "watched ticker"
+    form = metadata.get("form") or "SEC filing"
+    filing_date = metadata.get("filing_date")
+    report_date = metadata.get("report_date")
+    description = metadata.get("primary_doc_description") or metadata.get("description") or form
+
+    lines = [
+        f"Filing summary: {company} ({ticker}) filed {form}.",
+        f"Disclosure type: {description}.",
+    ]
+    if filing_date:
+        lines.append(f"Filing date: {filing_date}.")
+    if report_date:
+        lines.append(f"Report date: {report_date}.")
+    lines.append(
+        "Stock-watch relevance: official SEC disclosure for a watched company; "
+        "review the filing before drawing market conclusions."
+    )
     return "\n".join(lines)
 
 
@@ -1335,7 +1364,7 @@ def stock_impact_score_for_source(source: Source, tickers: list[str]) -> float:
     if source.name == "Alpha Vantage News":
         return 0.55
     if source.name == "SEC Filings":
-        return 0.5
+        return 0.6
     return 0.2
 
 

@@ -422,3 +422,4 @@ Implementation progress:
 - Added an explicit Xiaohongshu Manual Watch source template, keeping the Chinese social prototype visible while limiting MVP collection to manual public links or compliant public RSS/Atom feeds.
 - Extended natural-language search date parsing for rolling windows such as past 24 hours, last two weeks, past month, and last 30 days, anchoring those windows to the newest stored item date when available.
 - Constrained theme-breakout alerts to high-quality multi-source topic signals inside a 24-hour window, aligning the alert rule with the PRD cross-source-within-24-hours example.
+- Strengthened SEC filing ingestion by treating official filings as high-trust stock-watch evidence, adding deterministic filing summaries, and raising watched-ticker filing impact without extra LLM cost.

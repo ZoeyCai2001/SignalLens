@@ -147,4 +147,8 @@ def test_sec_filing_normalizes_as_stock_company_event_without_ai_keyword() -> No
     assert item.subcategory == "sec_filing"
     assert item.tickers == ["MU"]
     assert item.companies == ["Micron Technology"]
-    assert item.stock_impact_score == 0.5
+    assert item.source_quality_score == 0.9
+    assert item.stock_impact_score == 0.6
+    assert item.summary_detailed is not None
+    assert "Filing summary: Watched company (MU) filed 8-K." in item.summary_detailed
+    assert "Stock-watch relevance: official SEC disclosure" in item.summary_detailed
