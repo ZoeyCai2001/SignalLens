@@ -420,3 +420,4 @@ Implementation progress:
 - Added `.icloud` placeholder detection to the local Mac setup checker so iCloud optimized-storage files are reported before dependency installs, migrations, or verification runs fail unexpectedly.
 - Accepted `KIMI_API_KEY` as a legacy compatibility alias for the canonical `MOONSHOT_API_KEY`, and aligned setup/source-design docs around Kimi Coding plus Alpha Vantage as the MVP defaults.
 - Added an explicit Xiaohongshu Manual Watch source template, keeping the Chinese social prototype visible while limiting MVP collection to manual public links or compliant public RSS/Atom feeds.
+- Extended natural-language search date parsing for rolling windows such as past 24 hours, last two weeks, past month, and last 30 days, anchoring those windows to the newest stored item date when available.

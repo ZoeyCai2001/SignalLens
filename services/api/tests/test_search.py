@@ -214,6 +214,36 @@ def test_infer_search_intent_handles_today_and_yesterday_dates() -> None:
     assert yesterday_intent.date_to == date(2026, 6, 25)
 
 
+def test_infer_search_intent_handles_extended_relative_dates() -> None:
+    anchor = date(2026, 6, 26)
+
+    past_day = infer_search_intent(
+        "Show AI infrastructure from the past 24 hours.",
+        today=date(2026, 7, 15),
+        recent_anchor_date=anchor,
+    )
+    past_weeks = infer_search_intent(
+        "Show model routing signals from the last 2 weeks.",
+        today=date(2026, 7, 15),
+        recent_anchor_date=anchor,
+    )
+    past_month = infer_search_intent(
+        "Find AI coding products from the past month.",
+        today=date(2026, 7, 15),
+        recent_anchor_date=anchor,
+    )
+    this_month = infer_search_intent(
+        "Show AI research this month.",
+        today=date(2026, 7, 15),
+        recent_anchor_date=anchor,
+    )
+
+    assert past_day.date_from == date(2026, 6, 25)
+    assert past_weeks.date_from == date(2026, 6, 12)
+    assert past_month.date_from == date(2026, 5, 27)
+    assert this_month.date_from == date(2026, 6, 1)
+
+
 def test_search_intent_response_serializes_inferred_filters() -> None:
     intent = infer_search_intent(
         "Show me recent news about MRVL and AI data centers.",
@@ -831,6 +861,46 @@ def test_search_feed_items_applies_inferred_yesterday_date_range() -> None:
         results = search_feed_items(db, query="yesterday agent")
 
     assert [item.title for item in results] == ["Yesterday agent signal"]
+
+
+def test_search_feed_items_applies_inferred_rolling_date_range_from_stored_data() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    anchor = date(2026, 6, 26)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                make_search_item(
+                    1,
+                    "Fresh coding product",
+                    "AI coding product launch.",
+                    ["ai coding"],
+                    category="product",
+                    subcategory="product_coding",
+                    published_at=datetime.combine(anchor, datetime.min.time(), tzinfo=UTC),
+                ),
+                make_search_item(
+                    2,
+                    "Older coding product",
+                    "AI coding product launch.",
+                    ["ai coding"],
+                    category="product",
+                    subcategory="product_coding",
+                    published_at=datetime.combine(
+                        anchor - timedelta(days=45),
+                        datetime.min.time(),
+                        tzinfo=UTC,
+                    ),
+                ),
+            ]
+        )
+        db.commit()
+
+        results = search_feed_items(db, query="AI coding products from the past month")
+
+    assert [item.title for item in results] == ["Fresh coding product"]
 
 
 def test_search_feed_items_explicit_language_overrides_preferences() -> None:

@@ -397,8 +397,20 @@ def infer_date_range(
         return target, target
     if re.search(r"\btoday\b", lowered_query):
         return today, today
+    anchor_date = recent_anchor_date or today
+    if re.search(r"\b(this month)\b", lowered_query):
+        return anchor_date.replace(day=1), None
+    if re.search(r"\b(past|last)\s+(24\s+hours?|day)\b", lowered_query):
+        return anchor_date - timedelta(days=1), None
+    if match := re.search(r"\b(past|last)\s+(\d{1,3})\s+days?\b", lowered_query):
+        return anchor_date - timedelta(days=int(match.group(2))), None
+    if match := re.search(r"\b(past|last)\s+(\d{1,2})\s+weeks?\b", lowered_query):
+        return anchor_date - timedelta(days=int(match.group(2)) * 7), None
+    if match := re.search(r"\b(past|last)\s+(\d{1,2})\s+months?\b", lowered_query):
+        return anchor_date - timedelta(days=int(match.group(2)) * 30), None
+    if re.search(r"\b(past month|last month|past 30 days|last 30 days)\b", lowered_query):
+        return anchor_date - timedelta(days=30), None
     if re.search(r"\b(recent|latest|this week|past week)\b", lowered_query):
-        anchor_date = recent_anchor_date or today
         return anchor_date - timedelta(days=7), None
     return None, None
 
@@ -633,11 +645,13 @@ def extract_search_keywords(query: str) -> str | None:
     cleaned = re.sub(
         r"\b(show|me|what|are|the|latest|recent|find|about|posts|post|news|discussion|"
         r"discussions|summarize|most|important|this|week|saved|bookmarked|item|items|"
-        r"manual|tag|tags|tagged|chinese|social|media)\b",
+        r"manual|tag|tags|tagged|chinese|social|media|past|last|today|yesterday|"
+        r"month|months|days?|weeks?|hours?)\b",
         " ",
         cleaned,
         flags=re.IGNORECASE,
     )
+    cleaned = re.sub(r"\b\d{1,3}\b", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" ?.")
     return cleaned or None
 
