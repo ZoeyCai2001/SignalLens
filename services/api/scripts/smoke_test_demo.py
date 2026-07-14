@@ -58,6 +58,53 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     feed = get_json(client, "/api/feed?limit=50")
     if len(feed) < 6:
         raise AssertionError(f"Expected at least 6 feed items, got {len(feed)}")
+    primary_item = feed[0]
+    if not primary_item["title"] or not primary_item["source_name"] or not primary_item["url"]:
+        raise AssertionError("Expected feed cards to include title, source, and original URL")
+    if primary_item["summary_short"] is None and primary_item["summary_detailed"] is None:
+        raise AssertionError("Expected feed cards to include a summary")
+    if primary_item["relevance_score"] < 0 or primary_item["novelty_score"] < 0:
+        raise AssertionError(
+            "Expected feed cards to include non-negative relevance and novelty scores"
+        )
+    if primary_item["importance_score"] < 0:
+        raise AssertionError("Expected feed cards to include a non-negative importance score")
+    item_detail = get_json(client, f"/api/feed/{primary_item['id']}")
+    if not item_detail["score_explanation"]:
+        raise AssertionError("Expected item detail to include a why-am-I-seeing-this explanation")
+    if not item_detail["one_line_summary"]:
+        raise AssertionError("Expected item detail to include a one-line summary profile")
+    if not item_detail["card_summary"]:
+        raise AssertionError("Expected item detail to include a card summary profile")
+    if not isinstance(item_detail["action_state"], dict):
+        raise AssertionError("Expected item detail to include action state")
+    action_item = next(
+        (
+            item
+            for item in feed
+            if item["source_name"] != "Demo Manual Capture"
+            and item["id"] not in {feed[0]["id"], feed[1]["id"]}
+        ),
+        feed[2],
+    )
+    action_item_id = action_item["id"]
+    saved_action = post_json(client, f"/api/feed/{action_item_id}/save")
+    if saved_action["is_saved"] is not True:
+        raise AssertionError("Expected save action to mark a feed item saved")
+    important_action = post_json(client, f"/api/feed/{action_item_id}/mark-important")
+    if important_action["is_important"] is not True:
+        raise AssertionError("Expected important action to mark a feed item important")
+    hidden_action = post_json(client, f"/api/feed/{action_item_id}/hide")
+    if hidden_action["is_hidden"] is not True:
+        raise AssertionError("Expected hide action to hide a feed item")
+    hidden_items = get_json(client, "/api/feed?hidden_only=true&limit=20")
+    if not any(item["id"] == action_item_id for item in hidden_items):
+        raise AssertionError("Expected hidden feed query to include the hidden item")
+    unhidden_action = post_json(client, f"/api/feed/{action_item_id}/unhide")
+    if unhidden_action["is_hidden"] is not False:
+        raise AssertionError("Expected unhide action to restore a feed item")
+    post_json(client, f"/api/feed/{action_item_id}/unsave")
+    post_json(client, f"/api/feed/{action_item_id}/unmark-important")
     useful_item = post_json(client, f"/api/feed/{feed[0]['id']}/mark-useful")
     not_useful_item = post_json(client, f"/api/feed/{feed[1]['id']}/mark-not-useful")
     if useful_item["usefulness_feedback"] != "useful":
@@ -386,6 +433,20 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     return {
         "seed": seed_payload,
         "feed_items": len(feed),
+        "feed_detail": {
+            "id": item_detail["id"],
+            "has_score_explanation": bool(item_detail["score_explanation"]),
+            "has_one_line_summary": bool(item_detail["one_line_summary"]),
+            "card_summary_count": len(item_detail["card_summary"]),
+            "has_action_state": isinstance(item_detail["action_state"], dict),
+        },
+        "feed_actions": {
+            "saved_item_id": saved_action["id"],
+            "important_item_id": important_action["id"],
+            "hidden_item_id": hidden_action["id"],
+            "hidden_query_count": len(hidden_items),
+            "unhidden": unhidden_action["is_hidden"] is False,
+        },
         "saved_items": len(saved_items),
         "module_counts": module_counts,
         "search": {
