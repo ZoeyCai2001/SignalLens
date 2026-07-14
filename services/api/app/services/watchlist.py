@@ -140,6 +140,13 @@ def resolve_stock_watchlist_create_payload(
             DEFAULT_STOCK_INDUSTRY,
             seed.industry if seed else None,
         ),
+        "market_cap_usd": (
+            payload.market_cap_usd
+            if "market_cap_usd" in payload.model_fields_set
+            else seed.market_cap_usd
+            if seed
+            else None
+        ),
         "priority": resolve_stock_text_field(
             payload,
             "priority",
@@ -257,6 +264,7 @@ def create_stock_watchlist_item(
         exchange=resolved["exchange"],
         sector=resolved["sector"],
         industry=resolved["industry"],
+        market_cap_usd=resolved["market_cap_usd"],
         priority=resolved["priority"],
         group_name=resolved["group_name"],
         display_order=(

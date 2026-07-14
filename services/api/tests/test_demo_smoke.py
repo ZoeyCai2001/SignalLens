@@ -55,6 +55,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["settings_backup"]["sources"] >= 8
     assert result["settings_backup"]["alert_rules"] >= 8
     assert result["settings_backup"]["stock_watchlist"] >= 3
+    assert result["settings_backup"]["stock_market_cap_restored"] is True
     assert result["settings_backup"]["company_watchlist"] >= 5
     assert result["settings_backup"]["topic_watchlist"] >= 5
     assert result["settings_backup"]["product_watchlist"] >= 3

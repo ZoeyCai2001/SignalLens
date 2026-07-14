@@ -110,6 +110,7 @@ type StockWatchlistItem = {
   exchange: string;
   sector: string;
   industry: string;
+  market_cap_usd: number | null;
   priority: string;
   group_name: string;
   display_order: number;
@@ -128,6 +129,7 @@ type StockDetailDraft = {
   exchange: string;
   sector: string;
   industry: string;
+  market_cap_usd: string;
   group_name: string;
   related_keywords: string;
   related_companies: string;
@@ -8397,6 +8399,7 @@ function StockTable({
       exchange: detailDraft.exchange.trim(),
       sector: detailDraft.sector.trim(),
       industry: detailDraft.industry.trim(),
+      market_cap_usd: parseOptionalNumber(detailDraft.market_cap_usd),
       group_name: detailDraft.group_name.trim(),
       related_keywords: splitTerms(detailDraft.related_keywords),
       related_companies: splitTerms(detailDraft.related_companies),
@@ -8494,6 +8497,7 @@ function StockTable({
               <th>Company</th>
               <th>Price</th>
               <th>Change</th>
+              <th>Market Cap</th>
               <th>Priority</th>
               <th>AI Today</th>
               <th>High</th>
@@ -8527,6 +8531,7 @@ function StockTable({
                   <td className={marketChangeClass(summary?.market?.change ?? null)}>
                     {formatChange(summary?.market)}
                   </td>
+                  <td>{formatMarketCap(stock.market_cap_usd)}</td>
                   <td>
                     <select
                       className={`field table-field priority-${stock.priority.toLowerCase()}`}
@@ -8723,6 +8728,19 @@ function StockDetailEditor({
             className="field"
             value={draft.industry}
             onChange={(event) => onDraftChange("industry", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label className="weight-field">
+          <span className="field-label">Market Cap USD</span>
+          <input
+            className="field"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={draft.market_cap_usd}
+            onChange={(event) => onDraftChange("market_cap_usd", event.target.value)}
             disabled={disabled}
           />
         </label>
@@ -11914,6 +11932,10 @@ function stockToDetailDraft(stock: StockWatchlistItem | null): StockDetailDraft 
     exchange: stock?.exchange ?? "",
     sector: stock?.sector ?? "",
     industry: stock?.industry ?? "",
+    market_cap_usd:
+      stock?.market_cap_usd === null || stock?.market_cap_usd === undefined
+        ? ""
+        : String(stock.market_cap_usd),
     group_name: stock?.group_name ?? "",
     related_keywords: stock?.related_keywords.join(", ") ?? "",
     related_companies: stock?.related_companies.join(", ") ?? "",
@@ -12039,6 +12061,13 @@ function formatPrice(value: number | null | undefined): string {
     return "--";
   }
   return `$${value.toFixed(2)}`;
+}
+
+function formatMarketCap(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) {
+    return "--";
+  }
+  return `$${formatCompactNumber(value)}`;
 }
 
 function formatChange(market: StockMarketSnapshot | null | undefined): string {

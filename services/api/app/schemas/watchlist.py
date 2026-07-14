@@ -12,6 +12,7 @@ class StockWatchlistItem(BaseModel):
     exchange: str
     sector: str
     industry: str
+    market_cap_usd: float | None = None
     priority: str
     group_name: str
     display_order: int = 100
@@ -136,6 +137,7 @@ class StockWatchlistItemCreate(BaseModel):
     exchange: str = "NASDAQ"
     sector: str = "Technology"
     industry: str = "Technology"
+    market_cap_usd: float | None = Field(default=None, ge=0)
     priority: str = "Medium"
     group_name: str = "Watch Only"
     display_order: int | None = None
@@ -154,6 +156,7 @@ class StockWatchlistItemUpdate(BaseModel):
     exchange: str | None = None
     sector: str | None = None
     industry: str | None = None
+    market_cap_usd: float | None = Field(default=None, ge=0)
     priority: str | None = None
     group_name: str | None = None
     display_order: int | None = None

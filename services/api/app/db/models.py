@@ -201,6 +201,7 @@ class StockWatchlistItem(Base, TimestampMixin):
     exchange: Mapped[str] = mapped_column(String(80), nullable=False)
     sector: Mapped[str] = mapped_column(String(120), nullable=False)
     industry: Mapped[str] = mapped_column(String(160), nullable=False)
+    market_cap_usd: Mapped[float | None] = mapped_column(Float)
     priority: Mapped[str] = mapped_column(String(40), default="Medium", nullable=False)
     group_name: Mapped[str] = mapped_column(String(120), default="Watch Only", nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=100, nullable=False)

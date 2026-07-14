@@ -74,6 +74,7 @@ def test_export_personal_settings_backup_contains_only_local_configuration() -> 
                 exchange="NASDAQ",
                 sector="Technology",
                 industry="Semiconductors",
+                market_cap_usd=100_000_000_000,
                 priority="High",
                 group_name="Watch Only",
                 display_order=10,
@@ -91,6 +92,7 @@ def test_export_personal_settings_backup_contains_only_local_configuration() -> 
         assert backup.sources[0].name == "AI Blog"
         assert backup.alert_rules[0].name == "Agent alert"
         assert backup.stock_watchlist[0].ticker == "MU"
+        assert backup.stock_watchlist[0].market_cap_usd == 100_000_000_000
         assert "moonshot" not in str(backup_dict).lower()
         assert "api_key" not in str(backup_dict).lower()
         assert "raw_items" not in str(backup_dict).lower()
@@ -186,6 +188,7 @@ def test_restore_personal_settings_backup_upserts_configuration_without_deleting
                     exchange="NASDAQ",
                     sector="Technology",
                     industry="Semiconductors",
+                    market_cap_usd=120_000_000_000,
                     priority="High",
                     group_name="Core AI Stocks",
                     display_order=15,
@@ -240,6 +243,7 @@ def test_restore_personal_settings_backup_upserts_configuration_without_deleting
         assert alert_rule.severity == "high"
         assert alert_rule.topics == ["agent workflows"]
         assert stock.company_name == "Micron Technology"
+        assert stock.market_cap_usd == 120_000_000_000
         assert stock.display_order == 15
         assert stock.notes == "Restored note"
         assert (

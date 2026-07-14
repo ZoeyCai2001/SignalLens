@@ -163,6 +163,33 @@ def test_update_stock_watchlist_item_can_clear_notes() -> None:
     assert updated.notes is None
 
 
+def test_stock_watchlist_item_preserves_optional_market_cap() -> None:
+    db = make_db()
+
+    created = create_stock_watchlist_item(
+        db,
+        StockWatchlistItemCreate(ticker="AVGO", market_cap_usd=1_000_000_000),
+    )
+    assert created.market_cap_usd == 1_000_000_000
+
+    updated = update_stock_watchlist_item(
+        db,
+        "AVGO",
+        StockWatchlistItemUpdate(market_cap_usd=1_200_000_000),
+    )
+    assert updated is not None
+    assert updated.market_cap_usd == 1_200_000_000
+
+    cleared = update_stock_watchlist_item(
+        db,
+        "AVGO",
+        StockWatchlistItemUpdate(market_cap_usd=None),
+    )
+
+    assert cleared is not None
+    assert cleared.market_cap_usd is None
+
+
 def test_move_stock_watchlist_item_swaps_with_neighbor_after_normalizing_order() -> None:
     db = make_db()
     db.add_all(

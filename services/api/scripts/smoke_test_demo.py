@@ -85,6 +85,16 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     moved_tickers = [item["ticker"] for item in moved_stocks]
     if moved_tickers[:2] != ["MRVL", "MU"]:
         raise AssertionError(f"Expected MRVL to move above MU, got {moved_tickers}")
+    updated_stock = patch_json(
+        client,
+        "/api/watchlist/stocks/MRVL",
+        json_body={"market_cap_usd": 1_200_000_000},
+    )
+    if updated_stock["market_cap_usd"] != 1_200_000_000:
+        raise AssertionError(
+            "Expected stock market cap to round trip through the watchlist API, "
+            f"got {updated_stock['market_cap_usd']!r}"
+        )
 
     companies = get_json(client, "/api/watchlist/companies")
     topics = get_json(client, "/api/watchlist/topics")
@@ -190,6 +200,9 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     assert_minimum_collection(backup["sources"], "backup sources", 8)
     assert_minimum_collection(backup["alert_rules"], "backup alert rules", 8)
     assert_minimum_collection(backup["stock_watchlist"], "backup stock watchlist rows", 3)
+    backed_up_stocks = {stock["ticker"]: stock for stock in backup["stock_watchlist"]}
+    if backed_up_stocks["MRVL"]["market_cap_usd"] != 1_200_000_000:
+        raise AssertionError("Expected settings backup to include stock market cap")
     assert_minimum_collection(backup["company_watchlist"], "backup company watchlist rows", 5)
     assert_minimum_collection(backup["topic_watchlist"], "backup topic watchlist rows", 5)
     assert_minimum_collection(backup["product_watchlist"], "backup product watchlist rows", 3)
@@ -290,6 +303,8 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "sources": len(backup["sources"]),
             "alert_rules": len(backup["alert_rules"]),
             "stock_watchlist": len(backup["stock_watchlist"]),
+            "stock_market_cap_restored": backed_up_stocks["MRVL"]["market_cap_usd"]
+            == 1_200_000_000,
             "company_watchlist": len(backup["company_watchlist"]),
             "topic_watchlist": len(backup["topic_watchlist"]),
             "product_watchlist": len(backup["product_watchlist"]),
