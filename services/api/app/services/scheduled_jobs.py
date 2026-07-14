@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -37,6 +38,8 @@ from app.services.watchlist import (
 IngestionJob = Callable[[Session, int], Awaitable[IngestionResult]]
 WatchlistSeeder = Callable[[Session], tuple[int, int, int, int]]
 AlertGenerator = Callable[[Session], int]
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class ScheduledDigestSnapshotOutcome:
@@ -362,6 +365,10 @@ async def run_ingestion_cycle(
         except SourceRunnerNotFoundError as exc:
             result = record_skipped_run(db=db, source=source, message=str(exc))
         except Exception as exc:
+            logger.exception(
+                "Scheduled custom source ingestion failed",
+                extra={"source_id": source.id, "source_name": source.name},
+            )
             result = failed_ingestion_result(source_name=source.name, exc=exc)
         ingestion_results.append(result)
     generated_alert_count = generate_cycle_alerts_fn(db)
@@ -404,6 +411,10 @@ async def run_scheduled_job(job: ScheduledIngestionJob, db: Session) -> Ingestio
     try:
         return await job.runner(db, job.limit)
     except Exception as exc:
+        logger.exception(
+            "Scheduled built-in source ingestion failed",
+            extra={"source_name": job.name, "limit": job.limit},
+        )
         return failed_ingestion_result(source_name=job.name, exc=exc)
 
 

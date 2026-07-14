@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
@@ -68,9 +69,12 @@ async def test_run_ingestion_cycle_runs_jobs_in_order() -> None:
 
 
 @pytest.mark.anyio
-async def test_run_ingestion_cycle_continues_after_job_exception() -> None:
+async def test_run_ingestion_cycle_continues_after_job_exception(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     calls: list[str] = []
     db = object()
+    caplog.set_level(logging.ERROR, logger="app.services.scheduled_jobs")
 
     async def fake_runner(name: str, _db, limit: int) -> IngestionResult:
         calls.append(f"{name}:{limit}")
@@ -107,6 +111,11 @@ async def test_run_ingestion_cycle_continues_after_job_exception() -> None:
         error_message="source timeout",
     )
     assert result.ingestion_results[1].source_name == "healthy"
+    assert any(
+        record.message == "Scheduled built-in source ingestion failed"
+        and record.source_name == "broken"
+        for record in caplog.records
+    )
 
 
 def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
@@ -586,7 +595,11 @@ async def test_run_ingestion_cycle_records_skipped_custom_source_without_runner(
 
 
 @pytest.mark.anyio
-async def test_run_ingestion_cycle_records_failed_custom_source_and_continues() -> None:
+async def test_run_ingestion_cycle_records_failed_custom_source_and_continues(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.ERROR, logger="app.services.scheduled_jobs")
+
     async def fake_custom_runner(_db, _source_id: int) -> IngestionResult:
         raise RuntimeError("custom feed failed")
 
@@ -613,6 +626,12 @@ async def test_run_ingestion_cycle_records_failed_custom_source_and_continues() 
             error_message="custom feed failed",
         )
     ]
+    assert any(
+        record.message == "Scheduled custom source ingestion failed"
+        and record.source_name == "Custom RSS"
+        and record.source_id == 11
+        for record in caplog.records
+    )
 
 
 @pytest.mark.anyio

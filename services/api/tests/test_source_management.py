@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -742,6 +743,37 @@ async def test_disabled_source_ingestion_is_skipped_without_fetching() -> None:
 
 
 @pytest.mark.anyio
+async def test_connector_ingestion_logs_fetch_failures(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = Source(
+        id=7,
+        name="Failing RSS",
+        type="rss",
+        access_method="rss",
+        enabled=True,
+    )
+    db = FakeSourceDb(source)
+    caplog.set_level(logging.ERROR, logger="app.services.ingestion")
+
+    result = await run_connector_ingestion(
+        db=db,
+        connector=FailingFetchConnector(),
+        source=source,
+    )
+
+    assert result.status == "failed"
+    assert result.error_message == "feed timeout"
+    assert db.rollbacks == 1
+    assert any(
+        record.message == "Connector ingestion failed"
+        and record.source_name == "Failing RSS"
+        and record.source_id == 7
+        for record in caplog.records
+    )
+
+
+@pytest.mark.anyio
 async def test_run_source_ingestion_by_id_uses_registered_runner_default_limit() -> None:
     source = Source(
         id=4,
@@ -1052,6 +1084,7 @@ async def test_run_source_now_route_includes_recovery_hint(
 class FakeDb:
     def __init__(self) -> None:
         self.commits = 0
+        self.rollbacks = 0
         self.added = []
 
     def add(self, value) -> None:
@@ -1059,6 +1092,9 @@ class FakeDb:
 
     def commit(self) -> None:
         self.commits += 1
+
+    def rollback(self) -> None:
+        self.rollbacks += 1
 
 
 class FakeSourceDb(FakeDb):
@@ -1103,3 +1139,11 @@ class NeverFetchConnector(SourceConnector):
     async def fetch(self, cursor: FetchCursor) -> FetchResult:
         self.fetch_called = True
         raise AssertionError("Disabled sources should not be fetched.")
+
+
+class FailingFetchConnector(SourceConnector):
+    source_name = "Failing Fetch"
+    source_type = "test"
+
+    async def fetch(self, cursor: FetchCursor) -> FetchResult:
+        raise RuntimeError("feed timeout")

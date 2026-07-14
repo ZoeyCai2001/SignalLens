@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -38,6 +39,8 @@ from app.sources.hugging_face import HuggingFaceConnector
 from app.sources.product_hunt import ProductHuntConnector
 from app.sources.rss import DEFAULT_RSS_FEEDS, RssConnector, RssFeedSpec
 from app.sources.sec_filings import SecFilingsConnector, parse_sec_forms
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -403,6 +406,10 @@ async def run_alpha_vantage_price_ingestion(
             items_stored=run.items_stored,
         )
     except Exception as exc:
+        logger.exception(
+            "Connector ingestion failed",
+            extra={"source_id": source.id, "source_name": source.name},
+        )
         db.rollback()
         run.status = "failed"
         run.error_message = str(exc)
@@ -633,6 +640,10 @@ async def run_connector_ingestion(
             items_stored=run.items_stored,
         )
     except Exception as exc:
+        logger.exception(
+            "Connector ingestion failed",
+            extra={"source_id": source.id, "source_name": source.name},
+        )
         db.rollback()
         run.status = "failed"
         run.error_message = str(exc)

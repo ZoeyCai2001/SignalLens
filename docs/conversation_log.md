@@ -443,3 +443,4 @@ Implementation progress:
 - Expanded the no-paid demo verifier to cover PRD privacy deletion by creating a temporary manual item, deleting it through the feed API, and confirming its detail endpoint returns 404.
 - Strengthened the no-paid demo verifier to assert Source Health operational coverage, including storage policy, failure-handling guidance, recent-run counts, success rates, and store-rate quality metrics.
 - Added PRD performance-budget evidence to the no-paid demo verifier for the initial feed, structured search, natural-language product search, Chinese search, and manual-tag search paths.
+- Added exception logging for connector, built-in scheduled, and custom scheduled source failures so the PRD reliability path records operational errors while continuing later ingestion work.
