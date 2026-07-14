@@ -37,7 +37,15 @@ from app.services.watchlist import (
 IngestionJob = Callable[[Session, int], Awaitable[IngestionResult]]
 WatchlistSeeder = Callable[[Session], tuple[int, int, int, int]]
 AlertGenerator = Callable[[Session], int]
-DigestSnapshotSaver = Callable[[Session], date | None]
+
+@dataclass(frozen=True)
+class ScheduledDigestSnapshotOutcome:
+    saved_date: date | None
+    status: str
+    message: str
+
+
+DigestSnapshotSaver = Callable[[Session], date | None | ScheduledDigestSnapshotOutcome]
 CustomSourceLister = Callable[[Session], list[Source]]
 CustomSourceRunner = Callable[[Session, int], Awaitable[IngestionResult]]
 
@@ -60,6 +68,8 @@ class ScheduledCycleResult:
     generated_alert_count: int
     saved_digest_date: date | None
     ingestion_results: list[IngestionResult]
+    digest_snapshot_status: str = "not_attempted"
+    digest_snapshot_message: str | None = None
 
     @property
     def duration_seconds(self) -> float:
@@ -112,16 +122,51 @@ def generate_cycle_alerts(db: Session) -> int:
     return generate_alerts(db).alerts_created
 
 
-def save_cycle_digest_snapshot(db: Session) -> date | None:
+def save_cycle_digest_snapshot(db: Session) -> ScheduledDigestSnapshotOutcome:
     settings = get_settings()
     now = datetime.now(UTC)
-    if not scheduled_digest_snapshot_due(
+    return save_cycle_digest_snapshot_outcome(
         db=db,
         now=now,
         target_hour_utc=settings.digest_target_hour_utc,
-    ):
-        return None
-    return save_daily_digest_snapshot(db, digest_date=now.date()).digest_date
+    )
+
+
+def save_cycle_digest_snapshot_outcome(
+    db: Session,
+    *,
+    now: datetime,
+    target_hour_utc: int,
+) -> ScheduledDigestSnapshotOutcome:
+    reference_time = ensure_utc(now)
+    latest_digest = get_latest_digest_snapshot(db)
+    if latest_digest is not None and latest_digest.digest_date >= reference_time.date():
+        return ScheduledDigestSnapshotOutcome(
+            saved_date=None,
+            status="already_fresh",
+            message="A daily digest snapshot already exists for today.",
+        )
+
+    normalized_hour = min(max(int(target_hour_utc), 0), 23)
+    target = reference_time.replace(
+        hour=normalized_hour,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    if reference_time < target:
+        return ScheduledDigestSnapshotOutcome(
+            saved_date=None,
+            status="waiting_for_target",
+            message=f"Daily digest snapshot waits until {normalized_hour}:00 UTC.",
+        )
+
+    snapshot = save_daily_digest_snapshot(db, digest_date=reference_time.date())
+    return ScheduledDigestSnapshotOutcome(
+        saved_date=snapshot.digest_date,
+        status="saved",
+        message=f"Saved daily digest snapshot for {snapshot.digest_date.isoformat()}.",
+    )
 
 
 def scheduled_digest_snapshot_due(
@@ -320,7 +365,7 @@ async def run_ingestion_cycle(
             result = failed_ingestion_result(source_name=source.name, exc=exc)
         ingestion_results.append(result)
     generated_alert_count = generate_cycle_alerts_fn(db)
-    saved_digest_date = save_digest_snapshot_fn(db)
+    digest_snapshot_outcome = normalize_digest_snapshot_outcome(save_digest_snapshot_fn(db))
 
     return ScheduledCycleResult(
         started_at=started_at,
@@ -330,8 +375,28 @@ async def run_ingestion_cycle(
         seeded_topic_count=seeded_topic_count,
         seeded_product_count=seeded_product_count,
         generated_alert_count=generated_alert_count,
-        saved_digest_date=saved_digest_date,
+        saved_digest_date=digest_snapshot_outcome.saved_date,
         ingestion_results=ingestion_results,
+        digest_snapshot_status=digest_snapshot_outcome.status,
+        digest_snapshot_message=digest_snapshot_outcome.message,
+    )
+
+
+def normalize_digest_snapshot_outcome(
+    outcome: date | None | ScheduledDigestSnapshotOutcome,
+) -> ScheduledDigestSnapshotOutcome:
+    if isinstance(outcome, ScheduledDigestSnapshotOutcome):
+        return outcome
+    if outcome is not None:
+        return ScheduledDigestSnapshotOutcome(
+            saved_date=outcome,
+            status="saved",
+            message=f"Saved daily digest snapshot for {outcome.isoformat()}.",
+        )
+    return ScheduledDigestSnapshotOutcome(
+        saved_date=None,
+        status="not_saved",
+        message="Daily digest snapshot was not saved by this cycle.",
     )
 
 
@@ -369,6 +434,8 @@ def scheduled_cycle_to_log_dict(result: ScheduledCycleResult) -> dict[str, objec
         "saved_digest_date": result.saved_digest_date.isoformat()
         if result.saved_digest_date
         else None,
+        "digest_snapshot_status": result.digest_snapshot_status,
+        "digest_snapshot_message": result.digest_snapshot_message,
         "successful_source_count": result.successful_source_count,
         "failed_source_count": result.failed_source_count,
         "skipped_source_count": result.skipped_source_count,

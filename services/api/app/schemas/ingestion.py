@@ -97,6 +97,8 @@ class ScheduledCycleResponse(BaseModel):
     seeded_product_count: int
     generated_alert_count: int
     saved_digest_date: date | None = None
+    digest_snapshot_status: str = "not_attempted"
+    digest_snapshot_message: str | None = None
     successful_source_count: int = 0
     failed_source_count: int = 0
     skipped_source_count: int = 0

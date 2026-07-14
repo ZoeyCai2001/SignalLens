@@ -433,6 +433,8 @@ type ScheduledCycleResponse = {
   seeded_product_count: number;
   generated_alert_count: number;
   saved_digest_date: string | null;
+  digest_snapshot_status: string;
+  digest_snapshot_message: string | null;
   successful_source_count: number;
   failed_source_count: number;
   skipped_source_count: number;
@@ -5488,6 +5490,11 @@ function formatDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.round(seconds % 60);
   return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+}
+
+function formatDigestSnapshotStatus(result: ScheduledCycleResponse): string {
+  if (result.saved_digest_date) return result.saved_digest_date;
+  return result.digest_snapshot_status.replaceAll("_", " ");
 }
 
 function formatLlmOperationLabel(operation: string): string {
@@ -11509,9 +11516,12 @@ function SourceTable({
             <span className="badge">{lastCycleResult.seeded_topic_count} topics</span>
             <span className="badge">{lastCycleResult.seeded_product_count} products</span>
             <span className="badge">
-              Digest {lastCycleResult.saved_digest_date ?? "not saved"}
+              Digest {formatDigestSnapshotStatus(lastCycleResult)}
             </span>
           </div>
+          {lastCycleResult.digest_snapshot_message ? (
+            <div className="small-muted">{lastCycleResult.digest_snapshot_message}</div>
+          ) : null}
           <div className="cycle-source-list">
             {lastCycleResult.ingestion_results.map((result) => (
               <div

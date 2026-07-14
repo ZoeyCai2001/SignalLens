@@ -13,14 +13,16 @@ from app.schemas.ingestion import IngestionRunResponse
 from app.services.ingestion import IngestionResult, SourceRunnerNotFoundError
 from app.services.scheduled_jobs import (
     ScheduledCycleResult,
+    ScheduledDigestSnapshotOutcome,
     ScheduledIngestionJob,
     build_ingestion_schedule_status,
     list_enabled_custom_sources,
     next_digest_target_at,
     parse_polling_interval,
     run_ingestion_cycle,
-    scheduled_digest_snapshot_due,
+    save_cycle_digest_snapshot_outcome,
     scheduled_cycle_to_log_dict,
+    scheduled_digest_snapshot_due,
     source_due_for_cycle,
 )
 
@@ -60,6 +62,8 @@ async def test_run_ingestion_cycle_runs_jobs_in_order() -> None:
     assert result.seeded_product_count == 2
     assert result.generated_alert_count == 2
     assert result.saved_digest_date == date(2026, 6, 26)
+    assert result.digest_snapshot_status == "saved"
+    assert result.digest_snapshot_message == "Saved daily digest snapshot for 2026-06-26."
     assert [item.source_name for item in result.ingestion_results] == ["one", "two"]
 
 
@@ -94,6 +98,7 @@ async def test_run_ingestion_cycle_continues_after_job_exception() -> None:
     assert calls == ["broken:3", "healthy:5"]
     assert result.generated_alert_count == 4
     assert result.saved_digest_date == date(2026, 6, 26)
+    assert result.digest_snapshot_status == "saved"
     assert result.ingestion_results[0] == IngestionResult(
         source_name="broken",
         status="failed",
@@ -133,6 +138,8 @@ def test_scheduled_cycle_to_log_dict_is_json_ready() -> None:
     assert log_data["seeded_product_count"] == 2
     assert log_data["generated_alert_count"] == 1
     assert log_data["saved_digest_date"] == "2026-06-26"
+    assert log_data["digest_snapshot_status"] == "saved"
+    assert log_data["digest_snapshot_message"] == "Saved daily digest snapshot for 2026-06-26."
     assert isinstance(log_data["duration_seconds"], float)
     assert log_data["successful_source_count"] == 1
     assert log_data["failed_source_count"] == 0
@@ -255,6 +262,39 @@ def test_scheduled_digest_snapshot_due_skips_when_today_is_already_saved() -> No
     assert due is False
 
 
+def test_save_cycle_digest_snapshot_outcome_explains_already_fresh_snapshot() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            DailyDigestSnapshot(
+                user_id="local",
+                digest_date=date(2026, 7, 2),
+                generated_at=datetime(2026, 7, 2, 0, 15, tzinfo=UTC),
+                headline="Morning brief",
+                total_items=5,
+                limit_per_section=5,
+                payload={},
+                markdown="# Morning brief",
+            )
+        )
+        db.commit()
+
+        outcome = save_cycle_digest_snapshot_outcome(
+            db=db,
+            now=datetime(2026, 7, 2, 8, 0, tzinfo=UTC),
+            target_hour_utc=0,
+        )
+
+    assert outcome == ScheduledDigestSnapshotOutcome(
+        saved_date=None,
+        status="already_fresh",
+        message="A daily digest snapshot already exists for today.",
+    )
+
+
 def test_scheduled_digest_snapshot_due_waits_until_target_hour() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -277,6 +317,25 @@ def test_scheduled_digest_snapshot_due_waits_until_target_hour() -> None:
             )
             is True
         )
+
+
+def test_save_cycle_digest_snapshot_outcome_waits_until_target_hour() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        outcome = save_cycle_digest_snapshot_outcome(
+            db=db,
+            now=datetime(2026, 7, 2, 0, 30, tzinfo=UTC),
+            target_hour_utc=1,
+        )
+
+    assert outcome == ScheduledDigestSnapshotOutcome(
+        saved_date=None,
+        status="waiting_for_target",
+        message="Daily digest snapshot waits until 1:00 UTC.",
+    )
 
 
 def test_scheduled_digest_snapshot_due_runs_for_new_day_after_old_snapshot() -> None:
@@ -569,6 +628,8 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
             seeded_product_count=4,
             generated_alert_count=1,
             saved_digest_date=date(2026, 6, 27),
+            digest_snapshot_status="saved",
+            digest_snapshot_message="Saved daily digest snapshot for 2026-06-27.",
             ingestion_results=[
                 IngestionResult(
                     source_name="rss",
@@ -596,6 +657,8 @@ async def test_ingestion_cycle_route_serializes_result(monkeypatch: pytest.Monke
     assert response.seeded_product_count == 4
     assert response.generated_alert_count == 1
     assert response.saved_digest_date == date(2026, 6, 27)
+    assert response.digest_snapshot_status == "saved"
+    assert response.digest_snapshot_message == "Saved daily digest snapshot for 2026-06-27."
     assert response.duration_seconds == 60
     assert response.successful_source_count == 1
     assert response.failed_source_count == 1
