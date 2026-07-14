@@ -367,3 +367,4 @@ Implementation progress:
 - Promoted the Daily Digest navigation module to render the full digest workflow in the main dashboard column, while keeping the sidebar digest preview available for other modules.
 - Promoted Alerts as a first-class dashboard navigation module, including active-alert nav counts, alert-specific top metrics, and MVP checklist actions that open the alert workflow directly.
 - Promoted AI Stocks so the stock watchlist, stock briefings, price context, reorder controls, and stock-specific metrics render as the main module workflow instead of only living in the sidebar beside a feed filter.
+- Promoted AI Products so product-category watchlists, launch briefings, digest inclusion controls, and product-specific metrics render as the main module workflow with the ranked product feed underneath.

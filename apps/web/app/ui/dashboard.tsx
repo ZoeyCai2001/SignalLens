@@ -3488,6 +3488,7 @@ export function Dashboard() {
     const isClusterView = activeModule === "clusters";
     const isAlertView = activeModule === "alerts";
     const isStockView = activeModule === "stocks";
+    const isProductView = activeModule === "products";
     if (isAlertView) {
       return [
         { label: "Feed", value: feed.length },
@@ -3512,6 +3513,21 @@ export function Dashboard() {
         { label: "Holdings", value: stocks.filter((stock) => stock.is_holding).length },
       ];
     }
+    if (isProductView) {
+      return [
+        { label: "Feed", value: feed.length },
+        { label: "View", value: moduleFeed.length },
+        { label: "Categories", value: productWatchlist.length },
+        {
+          label: "High",
+          value: moduleFeed.filter((item) => item.importance_score >= 0.75).length,
+        },
+        {
+          label: "Digest",
+          value: productWatchlist.filter((item) => item.include_in_digest).length,
+        },
+      ];
+    }
     const viewCount = isClusterView ? eventClusters.length : moduleFeed.length;
     const highImportance = isClusterView
       ? eventClusters.filter((cluster) => cluster.importance_score >= 0.75).length
@@ -3534,6 +3550,7 @@ export function Dashboard() {
     eventClusters,
     feed.length,
     moduleFeed,
+    productWatchlist,
     stockSignals,
     stocks,
   ]);
@@ -3606,6 +3623,26 @@ export function Dashboard() {
         onSubmit={submitStock}
       />
     </div>
+  );
+  const productWatchlistPanel = (
+    <ProductWatchlistPanel
+      items={productWatchlist}
+      briefing={productBriefing}
+      selectedCategory={selectedProductCategory}
+      busyProductBriefing={busyProductBriefing}
+      category={productCategory}
+      label={productLabel}
+      terms={productTerms}
+      disabled={loadState !== "idle"}
+      busyWatchlistKey={busyWatchlistKey}
+      onCategoryChange={setProductCategory}
+      onLabelChange={setProductLabel}
+      onTermsChange={setProductTerms}
+      onSelect={setSelectedProductCategory}
+      onUpdate={updateProductCategory}
+      onDelete={deleteProductCategory}
+      onSubmit={submitProductCategory}
+    />
   );
   const rankedFeedPanel = (
     <section className="section" id="ranked-feed-workflow">
@@ -4081,6 +4118,11 @@ export function Dashboard() {
               {stockWatchlistPanel}
               {rankedFeedPanel}
             </section>
+          ) : activeModule === "products" ? (
+            <section className="module-stack">
+              {productWatchlistPanel}
+              {rankedFeedPanel}
+            </section>
           ) : (
             rankedFeedPanel
           )}
@@ -4251,24 +4293,7 @@ export function Dashboard() {
               onDeleteTopic={deleteTopic}
               onSubmit={submitTopic}
             />
-            <ProductWatchlistPanel
-              items={productWatchlist}
-              briefing={productBriefing}
-              selectedCategory={selectedProductCategory}
-              busyProductBriefing={busyProductBriefing}
-              category={productCategory}
-              label={productLabel}
-              terms={productTerms}
-              disabled={loadState !== "idle"}
-              busyWatchlistKey={busyWatchlistKey}
-              onCategoryChange={setProductCategory}
-              onLabelChange={setProductLabel}
-              onTermsChange={setProductTerms}
-              onSelect={setSelectedProductCategory}
-              onUpdate={updateProductCategory}
-              onDelete={deleteProductCategory}
-              onSubmit={submitProductCategory}
-            />
+            {activeModule === "products" ? null : productWatchlistPanel}
             {activeModule === "sources" ? null : sourceHealthPanel}
           </aside>
         </div>
