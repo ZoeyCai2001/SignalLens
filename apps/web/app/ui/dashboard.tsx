@@ -673,6 +673,7 @@ type QualityFinding = {
     DashboardOperation,
     | "cycle"
     | "digest:save-snapshot"
+    | "llm:preview"
     | "llm:classify"
     | "llm:summarize"
     | "stock-prices:refresh"
@@ -710,6 +711,7 @@ type MvpChecklistApiItem = {
     DashboardOperation,
     | "cycle"
     | "digest:save-snapshot"
+    | "llm:preview"
     | "llm:classify"
     | "llm:summarize"
     | "stock-prices:refresh"
@@ -3672,6 +3674,17 @@ export function Dashboard() {
       await runFullCycle();
       return;
     }
+    if (finding.action_operation === "llm:preview") {
+      await processTopItemsWithLlm({
+        summarize: true,
+        classify: true,
+        label: finding.title,
+        operation: "llm:preview",
+        moduleOverride: finding.action_module === "dashboard" ? null : undefined,
+        dryRun: true,
+      });
+      return;
+    }
     if (finding.action_operation === "llm:summarize") {
       await processTopItemsWithLlm({
         summarize: true,
@@ -3728,6 +3741,17 @@ export function Dashboard() {
     }
     if (item.actionOperation === "cycle") {
       await runFullCycle();
+      return;
+    }
+    if (item.actionOperation === "llm:preview") {
+      await processTopItemsWithLlm({
+        summarize: true,
+        classify: true,
+        label: item.label,
+        operation: "llm:preview",
+        moduleOverride: null,
+        dryRun: true,
+      });
       return;
     }
     if (item.actionOperation === "llm:classify") {
@@ -5649,6 +5673,7 @@ function qualityFindingTargetId(finding: QualityFinding): string | undefined {
     return "source-health-workflow";
   }
   if (
+    finding.action_operation === "llm:preview" ||
     finding.action_operation === "llm:classify" ||
     finding.action_operation === "llm:summarize" ||
     finding.action_operation === "demo-data:seed"
@@ -5819,9 +5844,9 @@ function buildPrdMvpChecklist({
       note: status.llm_configured
         ? "Kimi is configured; coverage depends on running capped classify/summarize batches."
         : "Add an LLM key before expecting model-generated summaries.",
-      actionLabel: status.llm_configured ? "Run Classification" : "Open Settings",
+      actionLabel: status.llm_configured ? "Preview LLM Batch" : "Open Settings",
       actionModule: status.llm_configured ? "dashboard" : "settings",
-      actionOperation: status.llm_configured ? "llm:classify" : undefined,
+      actionOperation: status.llm_configured ? "llm:preview" : undefined,
       actionTargetId: status.llm_configured ? "ranked-feed-workflow" : "settings-workflow",
     },
     {
@@ -5878,10 +5903,12 @@ function buildPrdMvpChecklist({
           ? "Facet coverage indicates whether search can filter by topics, tickers, sources, and tags."
           : "Search becomes useful after ingestion creates normalized items.",
       actionLabel:
-        recentItems > 0 && searchFacetCoverage < 0.7 ? "Run Classification" : "Open Dashboard",
+        recentItems > 0 && searchFacetCoverage < 0.7
+          ? "Preview LLM Batch"
+          : "Open Dashboard",
       actionModule: "dashboard",
       actionOperation:
-        recentItems > 0 && searchFacetCoverage < 0.7 ? "llm:classify" : undefined,
+        recentItems > 0 && searchFacetCoverage < 0.7 ? "llm:preview" : undefined,
       actionTargetId: "ranked-feed-workflow",
     },
     {

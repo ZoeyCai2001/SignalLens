@@ -68,6 +68,7 @@ class QualityFinding(BaseModel):
     ] | None = None
     action_operation: Literal[
         "cycle",
+        "llm:preview",
         "llm:classify",
         "llm:summarize",
         "digest:save-snapshot",
@@ -98,6 +99,7 @@ class MvpChecklistItem(BaseModel):
     ] | None = None
     action_operation: Literal[
         "cycle",
+        "llm:preview",
         "llm:classify",
         "llm:summarize",
         "digest:save-snapshot",

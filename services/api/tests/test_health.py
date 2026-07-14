@@ -426,6 +426,9 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
         enabled_source_count=1,
     )
     checklist_items = {item.key: item for item in checklist.items}
+    assert checklist_items["llm-processing"].action_label == "Preview LLM Batch"
+    assert checklist_items["llm-processing"].action_module == "dashboard"
+    assert checklist_items["llm-processing"].action_operation == "llm:preview"
     assert checklist_items["alerts"].action_label == "Open Alerts"
     assert checklist_items["alerts"].action_module == "alerts"
     assert metrics.digest_snapshot_count == 1
@@ -615,9 +618,9 @@ def test_build_quality_findings_recommends_local_actions() -> None:
         "sources",
         "settings",
     ]
-    assert findings[2].action_label == "Run Summaries"
-    assert findings[2].action_operation == "llm:summarize"
-    assert findings[3].action_operation == "llm:summarize"
+    assert findings[2].action_label == "Preview LLM Batch"
+    assert findings[2].action_operation == "llm:preview"
+    assert findings[3].action_operation == "llm:preview"
 
 
 def test_build_mvp_checklist_response_guides_empty_first_run() -> None:
@@ -940,9 +943,9 @@ def test_build_quality_findings_flags_low_classification_confidence() -> None:
 
     assert [finding.title for finding in findings] == ["Classification confidence is thin"]
     assert findings[0].metric == "50% high-confidence"
-    assert findings[0].action_label == "Run Classification"
+    assert findings[0].action_label == "Preview LLM Batch"
     assert findings[0].action_module == "dashboard"
-    assert findings[0].action_operation == "llm:classify"
+    assert findings[0].action_operation == "llm:preview"
 
 
 def test_build_quality_findings_flags_thin_search_facets() -> None:
@@ -970,9 +973,9 @@ def test_build_quality_findings_flags_thin_search_facets() -> None:
 
     assert [finding.title for finding in findings] == ["Search facets are thin"]
     assert findings[0].metric == "40% faceted"
-    assert findings[0].action_label == "Run Classification"
+    assert findings[0].action_label == "Preview LLM Batch"
     assert findings[0].action_module == "dashboard"
-    assert findings[0].action_operation == "llm:classify"
+    assert findings[0].action_operation == "llm:preview"
 
 
 def test_build_quality_metrics_flags_missing_stock_prices_for_watchlist() -> None:
@@ -1226,9 +1229,9 @@ def test_build_quality_findings_flags_high_value_summary_gap() -> None:
 
     assert [finding.title for finding in findings] == ["High-value summaries missing"]
     assert findings[0].metric == "3 high-value unsummarized"
-    assert findings[0].action_label == "Run Summaries"
+    assert findings[0].action_label == "Preview LLM Batch"
     assert findings[0].action_module == "dashboard"
-    assert findings[0].action_operation == "llm:summarize"
+    assert findings[0].action_operation == "llm:preview"
 
 
 def test_build_quality_findings_flags_thin_summary_quality() -> None:
@@ -1255,9 +1258,9 @@ def test_build_quality_findings_flags_thin_summary_quality() -> None:
 
     assert [finding.title for finding in findings] == ["Summary quality is thin"]
     assert findings[0].metric == "50% quality; 2 thin"
-    assert findings[0].action_label == "Run Summaries"
+    assert findings[0].action_label == "Preview LLM Batch"
     assert findings[0].action_module == "dashboard"
-    assert findings[0].action_operation == "llm:summarize"
+    assert findings[0].action_operation == "llm:preview"
 
 
 def test_build_quality_findings_flags_read_later_backlog() -> None:
@@ -1340,9 +1343,9 @@ def test_build_quality_findings_flags_manual_submission_enrichment_gap() -> None
         "Manual submissions need enrichment"
     ]
     assert findings[0].metric == "2/3 manual items need review"
-    assert findings[0].action_label == "Run Classification"
+    assert findings[0].action_label == "Preview LLM Batch"
     assert findings[0].action_module == "dashboard"
-    assert findings[0].action_operation == "llm:classify"
+    assert findings[0].action_operation == "llm:preview"
 
 
 def test_build_quality_findings_flags_thin_watchlist_coverage() -> None:

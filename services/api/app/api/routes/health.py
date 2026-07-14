@@ -640,9 +640,9 @@ def build_mvp_checklist_items(
                 if llm_configured
                 else "Add an LLM key before expecting model-generated summaries."
             ),
-            action_label="Run Classification" if llm_configured else "Open Settings",
+            action_label="Preview LLM Batch" if llm_configured else "Open Settings",
             action_module="dashboard" if llm_configured else "settings",
-            action_operation="llm:classify" if llm_configured else None,
+            action_operation="llm:preview" if llm_configured else None,
             action_target_id="ranked-feed-workflow" if llm_configured else "settings-workflow",
         ),
         MvpChecklistItem(
@@ -715,13 +715,13 @@ def build_mvp_checklist_items(
                 else "Search becomes useful after ingestion creates normalized items."
             ),
             action_label=(
-                "Run Classification"
+                "Preview LLM Batch"
                 if recent_items > 0 and metrics.search_facet_coverage < 0.7
                 else "Open Dashboard"
             ),
             action_module="dashboard",
             action_operation=(
-                "llm:classify"
+                "llm:preview"
                 if recent_items > 0 and metrics.search_facet_coverage < 0.7
                 else None
             ),
@@ -1504,10 +1504,13 @@ def build_quality_findings(
                 severity="info",
                 title="Summary coverage is thin",
                 metric=f"{format_quality_percent(summary_coverage)} summarized",
-                recommendation="Run capped LLM summarization for high-signal unsummarized items.",
-                action_label="Run Summaries",
+                recommendation=(
+                    "Preview the capped LLM batch, then run summarization for high-signal "
+                    "unsummarized items if the planned calls fit the budget."
+                ),
+                action_label="Preview LLM Batch",
                 action_module="dashboard",
-                action_operation="llm:summarize",
+                action_operation="llm:preview",
             )
         )
     elif recent_item_count >= 5 and thin_summary_count > 0 and summary_quality_proxy < 0.6:
@@ -1520,12 +1523,12 @@ def build_quality_findings(
                     f"{thin_summary_count} thin"
                 ),
                 recommendation=(
-                    "Run capped LLM summarization so scan summaries include enough context "
-                    "and high-value items explain why they matter."
+                    "Preview the capped LLM batch, then run summarization if the planned calls "
+                    "fit the budget and summaries need more context."
                 ),
-                action_label="Run Summaries",
+                action_label="Preview LLM Batch",
                 action_module="dashboard",
-                action_operation="llm:summarize",
+                action_operation="llm:preview",
             )
         )
     if (
@@ -1539,12 +1542,12 @@ def build_quality_findings(
                 title="Classification confidence is thin",
                 metric=f"{round(classification_coverage * 100)}% high-confidence",
                 recommendation=(
-                    "Run capped LLM classification so ranking, alerts, digest sections, "
-                    "and uncertainty notes have stronger labels."
+                    "Preview the capped LLM batch, then run classification if the planned "
+                    "calls fit the budget so labels improve."
                 ),
-                action_label="Run Classification",
+                action_label="Preview LLM Batch",
                 action_module="dashboard",
-                action_operation="llm:classify",
+                action_operation="llm:preview",
             )
         )
     if (
@@ -1558,12 +1561,12 @@ def build_quality_findings(
                 title="Search facets are thin",
                 metric=f"{format_quality_percent(search_facet_coverage)} faceted",
                 recommendation=(
-                    "Run capped LLM classification so topics, companies, products, and tickers "
-                    "improve search filters and drill-downs."
+                    "Preview the capped LLM batch, then run classification if the planned "
+                    "calls fit the budget so search facets improve."
                 ),
-                action_label="Run Classification",
+                action_label="Preview LLM Batch",
                 action_module="dashboard",
-                action_operation="llm:classify",
+                action_operation="llm:preview",
             )
         )
     if high_value_unsummarized_count > 0:
@@ -1572,10 +1575,13 @@ def build_quality_findings(
                 severity="info",
                 title="High-value summaries missing",
                 metric=f"{high_value_unsummarized_count} high-value unsummarized",
-                recommendation="Run capped LLM summarization before relying on the daily digest.",
-                action_label="Run Summaries",
+                recommendation=(
+                    "Preview the capped LLM batch, then run summarization before relying "
+                    "on the daily digest if the planned calls fit the budget."
+                ),
+                action_label="Preview LLM Batch",
                 action_module="dashboard",
-                action_operation="llm:summarize",
+                action_operation="llm:preview",
             )
         )
     if saved_read_later_count >= 5 and ratio(saved_read_later_count, save_count) >= 0.8:
@@ -1616,12 +1622,12 @@ def build_quality_findings(
                     "manual items need review"
                 ),
                 recommendation=(
-                    "Run capped LLM classification so user-submitted links become searchable, "
-                    "ranked, and digest-ready."
+                    "Preview the capped LLM batch, then run classification if the planned "
+                    "calls fit the budget so user-submitted links become searchable."
                 ),
-                action_label="Run Classification",
+                action_label="Preview LLM Batch",
                 action_module="dashboard",
-                action_operation="llm:classify",
+                action_operation="llm:preview",
             )
         )
     if (
