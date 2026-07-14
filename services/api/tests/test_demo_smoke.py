@@ -102,3 +102,20 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["search"]["chinese_items"] >= 1
     assert result["search"]["chinese_intent_language"] == "zh"
     assert result["search"]["manual_tag_items"] >= 1
+    assert result["performance"]["feed_ms"] <= result["performance"]["feed_budget_ms"]
+    assert (
+        result["performance"]["structured_search_ms"]
+        <= result["performance"]["search_budget_ms"]
+    )
+    assert (
+        result["performance"]["product_natural_search_ms"]
+        <= result["performance"]["search_budget_ms"]
+    )
+    assert (
+        result["performance"]["chinese_natural_search_ms"]
+        <= result["performance"]["search_budget_ms"]
+    )
+    assert (
+        result["performance"]["manual_tag_search_ms"]
+        <= result["performance"]["search_budget_ms"]
+    )

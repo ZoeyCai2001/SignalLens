@@ -3,6 +3,7 @@ import json
 import sys
 import warnings
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 warnings.filterwarnings(
@@ -23,6 +24,8 @@ from app.main import create_app
 
 
 DEMO_MODULES = ("trends", "research", "products", "stocks", "chinese")
+FEED_RESPONSE_BUDGET_SECONDS = 3.0
+SEARCH_RESPONSE_BUDGET_SECONDS = 5.0
 SOURCE_HEALTH_OPERATIONAL_FIELDS = {
     "raw_content_policy",
     "failure_handling",
@@ -70,7 +73,12 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
     assert_minimum(seed_payload, "seeded_demo_digest_snapshot_count", 1)
     assert_minimum(seed_payload, "seeded_demo_digest_item_count", 1)
 
-    feed = get_json(client, "/api/feed?limit=50")
+    feed, feed_elapsed_seconds = timed_get_json(client, "/api/feed?limit=50")
+    assert_response_budget(
+        label="Dashboard initial feed",
+        elapsed_seconds=feed_elapsed_seconds,
+        budget_seconds=FEED_RESPONSE_BUDGET_SECONDS,
+    )
     if len(feed) < 6:
         raise AssertionError(f"Expected at least 6 feed items, got {len(feed)}")
     primary_item = feed[0]
@@ -140,13 +148,18 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             raise AssertionError(f"Expected demo feed items for module {module}")
         module_counts[module] = len(module_items)
 
-    stock_search = get_json(
+    stock_search, structured_search_elapsed_seconds = timed_get_json(
         client,
         "/api/search?category=stock_company_event&ticker=MU&limit=10",
     )
+    assert_response_budget(
+        label="Structured search",
+        elapsed_seconds=structured_search_elapsed_seconds,
+        budget_seconds=SEARCH_RESPONSE_BUDGET_SECONDS,
+    )
     if not stock_search:
         raise AssertionError("Expected structured stock search to find MU demo news")
-    product_search = post_json(
+    product_search, product_search_elapsed_seconds = timed_post_json(
         client,
         "/api/search/natural-language",
         json_body={
@@ -155,6 +168,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "module": "products",
         },
     )
+    assert_response_budget(
+        label="Natural-language product search",
+        elapsed_seconds=product_search_elapsed_seconds,
+        budget_seconds=SEARCH_RESPONSE_BUDGET_SECONDS,
+    )
     if product_search["intent"]["category"] != "product":
         raise AssertionError(
             "Expected natural-language product search to infer product category, "
@@ -162,7 +180,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         )
     if not product_search["items"]:
         raise AssertionError("Expected natural-language product search to find demo products")
-    chinese_search = post_json(
+    chinese_search, chinese_search_elapsed_seconds = timed_post_json(
         client,
         "/api/search/natural-language",
         json_body={
@@ -171,6 +189,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "module": "chinese",
         },
     )
+    assert_response_budget(
+        label="Natural-language Chinese search",
+        elapsed_seconds=chinese_search_elapsed_seconds,
+        budget_seconds=SEARCH_RESPONSE_BUDGET_SECONDS,
+    )
     if chinese_search["intent"]["language"] != "zh":
         raise AssertionError(
             "Expected natural-language Chinese search to infer zh language, "
@@ -178,7 +201,15 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         )
     if not chinese_search["items"]:
         raise AssertionError("Expected natural-language Chinese search to find demo signals")
-    manual_tag_search = get_json(client, "/api/search?manual_tag=coding-agent&limit=10")
+    manual_tag_search, manual_tag_search_elapsed_seconds = timed_get_json(
+        client,
+        "/api/search?manual_tag=coding-agent&limit=10",
+    )
+    assert_response_budget(
+        label="Manual-tag search",
+        elapsed_seconds=manual_tag_search_elapsed_seconds,
+        budget_seconds=SEARCH_RESPONSE_BUDGET_SECONDS,
+    )
     if not any(item["source_name"] == "Demo Manual Capture" for item in manual_tag_search):
         raise AssertionError("Expected manual-tag search to find the saved demo capture")
 
@@ -500,6 +531,15 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "chinese_intent_language": chinese_search["intent"]["language"],
             "manual_tag_items": len(manual_tag_search),
         },
+        "performance": {
+            "feed_ms": elapsed_milliseconds(feed_elapsed_seconds),
+            "structured_search_ms": elapsed_milliseconds(structured_search_elapsed_seconds),
+            "product_natural_search_ms": elapsed_milliseconds(product_search_elapsed_seconds),
+            "chinese_natural_search_ms": elapsed_milliseconds(chinese_search_elapsed_seconds),
+            "manual_tag_search_ms": elapsed_milliseconds(manual_tag_search_elapsed_seconds),
+            "feed_budget_ms": elapsed_milliseconds(FEED_RESPONSE_BUDGET_SECONDS),
+            "search_budget_ms": elapsed_milliseconds(SEARCH_RESPONSE_BUDGET_SECONDS),
+        },
         "stock_rows": len(stocks),
         "stock_detail": {
             "ticker": stock_detail["stock"]["ticker"],
@@ -625,6 +665,12 @@ def get_json(client: TestClient, path: str) -> Any:
     return response.json()
 
 
+def timed_get_json(client: TestClient, path: str) -> tuple[Any, float]:
+    started_at = perf_counter()
+    payload = get_json(client, path)
+    return payload, perf_counter() - started_at
+
+
 def get_status(client: TestClient, path: str) -> int:
     return client.get(path).status_code
 
@@ -639,6 +685,22 @@ def post_json(
     if response.status_code != expected_status:
         raise AssertionError(f"POST {path} failed: {response.status_code} {response.text}")
     return response.json()
+
+
+def timed_post_json(
+    client: TestClient,
+    path: str,
+    json_body: dict[str, Any] | None = None,
+    expected_status: int = 200,
+) -> tuple[Any, float]:
+    started_at = perf_counter()
+    payload = post_json(
+        client=client,
+        path=path,
+        json_body=json_body,
+        expected_status=expected_status,
+    )
+    return payload, perf_counter() - started_at
 
 
 def delete_no_content(client: TestClient, path: str) -> None:
@@ -668,6 +730,17 @@ def assert_minimum_collection(items: list[Any], label: str, minimum: int) -> Non
 def assert_any_positive(values: list[int], label: str) -> None:
     if not any(value > 0 for value in values):
         raise AssertionError(f"Expected at least one positive {label}, got {values}")
+
+
+def assert_response_budget(label: str, elapsed_seconds: float, budget_seconds: float) -> None:
+    if elapsed_seconds > budget_seconds:
+        raise AssertionError(
+            f"{label} took {elapsed_seconds:.3f}s, above the {budget_seconds:.3f}s PRD budget"
+        )
+
+
+def elapsed_milliseconds(elapsed_seconds: float) -> int:
+    return round(elapsed_seconds * 1000)
 
 
 def assert_source_health_operational_contract(
