@@ -375,3 +375,4 @@ Implementation progress:
 - Extended the no-paid-API demo smoke verifier to exercise company, topic, and product watchlist briefing APIs and to require all PRD MVP checklist rows to be ready.
 - Aligned promoted workflow navigation by making module badges count editable watchlist rows for Trends, Products, and AI Stocks, and by routing PRD Personal Watchlists readiness actions directly to the AI Stocks watchlist workflow.
 - Added a focused `web:dashboard-check` transpile verifier and updated `verify:demo` to use the no-paid-API API smoke test plus that stable dashboard check, while keeping full `web:lint` and `web:build` available separately.
+- Aligned System Readiness quality-finding actions so thin watchlist coverage opens the promoted AI Stocks watchlist workflow and empty alert coverage opens the first-class Alerts workflow before generating alerts.

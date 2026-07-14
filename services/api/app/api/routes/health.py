@@ -1319,8 +1319,8 @@ def build_quality_findings(
                     "Seed or edit stock, company, topic, and product watchlists so ranking, "
                     "search, alerts, and digests have enough personal context."
                 ),
-                action_label="Open Dashboard",
-                action_module="dashboard",
+                action_label="Open Watchlists",
+                action_module="stocks",
             )
         )
     if recent_item_count > 0 and high_value_item_count > 0 and active_alert_count == 0:
@@ -1334,7 +1334,7 @@ def build_quality_findings(
                     "are visible before the daily digest."
                 ),
                 action_label="Generate Alerts",
-                action_module="dashboard",
+                action_module="alerts",
                 action_operation="alerts:generate",
             )
         )

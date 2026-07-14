@@ -1129,8 +1129,8 @@ def test_build_quality_findings_flags_thin_watchlist_coverage() -> None:
 
     assert [finding.title for finding in findings] == ["Watchlist coverage is thin"]
     assert findings[0].metric == "2/4 watchlist areas"
-    assert findings[0].action_label == "Open Dashboard"
-    assert findings[0].action_module == "dashboard"
+    assert findings[0].action_label == "Open Watchlists"
+    assert findings[0].action_module == "stocks"
     assert findings[0].action_operation is None
 
 
@@ -1180,7 +1180,7 @@ def test_build_quality_findings_flags_empty_alert_coverage_for_high_value_items(
     assert [finding.title for finding in findings] == ["Alert coverage is empty"]
     assert findings[0].metric == "3 high-value recent signals"
     assert findings[0].action_label == "Generate Alerts"
-    assert findings[0].action_module == "dashboard"
+    assert findings[0].action_module == "alerts"
     assert findings[0].action_operation == "alerts:generate"
 
 
