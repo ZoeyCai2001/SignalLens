@@ -1325,6 +1325,17 @@ export function Dashboard() {
     }
   }, []);
 
+  const refreshReadinessState = useCallback(async () => {
+    const [nextQualityMetrics, nextMvpChecklist] = await Promise.all([
+      fetchJson<QualityMetrics>("/api/quality-metrics").catch(() => null),
+      fetchJson<MvpChecklistResponse>("/api/mvp-checklist")
+        .then(mapMvpChecklistResponse)
+        .catch(() => null),
+    ]);
+    setQualityMetrics(nextQualityMetrics);
+    setMvpChecklist(nextMvpChecklist);
+  }, [fetchJson]);
+
   const refreshAll = useCallback(async (operation?: DashboardOperation) => {
     if (operation) {
       setActiveOperation(operation);
@@ -2313,10 +2324,7 @@ export function Dashboard() {
         snapshot,
         ...items.filter((item) => item.digest_date !== snapshot.digest_date),
       ].slice(0, 5));
-      const nextQualityMetrics = await fetchJson<QualityMetrics>("/api/quality-metrics").catch(
-        () => null,
-      );
-      setQualityMetrics(nextQualityMetrics);
+      await refreshReadinessState();
       setStatus(`Saved digest snapshot ${snapshot.digest_date}`);
     } catch (err) {
       setError(readError(err));
@@ -2342,6 +2350,7 @@ export function Dashboard() {
       if (activeDigestSnapshot?.id === snapshot.id) {
         setActiveDigestSnapshot(null);
       }
+      await refreshReadinessState();
       setStatus(`Deleted digest snapshot ${snapshot.digest_date}`);
     } catch (err) {
       setError(readError(err));
