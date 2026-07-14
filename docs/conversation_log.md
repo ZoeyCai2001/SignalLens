@@ -364,3 +364,4 @@ Implementation progress:
 - Promoted the Saved Items navigation module to use the full saved reading-queue panel in the main dashboard column, while keeping the shorter saved preview in the sidebar for other modules.
 - Added inline item details to the Saved Items reading queue so saved rows can open the existing detail editor for personal notes, manual tags, summaries, scores, and uncertainty without leaving the saved workflow.
 - Added Event Clusters as a first-class dashboard navigation module with full cluster review in the main column, while preserving a shorter sidebar cluster preview for other modules.
+- Promoted the Daily Digest navigation module to render the full digest workflow in the main dashboard column, while keeping the sidebar digest preview available for other modules.

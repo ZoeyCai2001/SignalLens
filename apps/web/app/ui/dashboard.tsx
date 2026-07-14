@@ -3874,6 +3874,27 @@ export function Dashboard() {
               onSelectCluster={loadEventCluster}
               onExplainCluster={explainEventCluster}
             />
+          ) : activeModule === "digest" ? (
+            <DailyDigestPanel
+              digest={digest}
+              snapshots={digestSnapshots}
+              digestDate={digestDateDraft}
+              activeSnapshotId={activeDigestSnapshot?.id ?? null}
+              busySnapshotId={busyDigestSnapshotId}
+              busyGenerate={busyDigestGenerate}
+              busyCopy={busyDigestCopy}
+              busyDownload={busyDigestDownload}
+              busyEmail={busyDigestEmail}
+              busySave={busyDigestSave}
+              onDigestDateChange={updateDigestDateDraft}
+              onGenerate={generateDailyDigest}
+              onCopy={copyDailyDigest}
+              onDownload={downloadDailyDigest}
+              onEmail={emailDailyDigest}
+              onSave={saveDailyDigestSnapshot}
+              onSnapshotOpen={loadDigestSnapshot}
+              onSnapshotDelete={deleteDailyDigestSnapshot}
+            />
           ) : (
             <section className="section" id="ranked-feed-workflow">
               <div className="section-header">
@@ -3984,28 +4005,30 @@ export function Dashboard() {
                 onRuleSubmit={submitAlertRule}
               />
             </div>
-            <div id="digest-workflow">
-              <DailyDigestPanel
-                digest={digest}
-                snapshots={digestSnapshots}
-                digestDate={digestDateDraft}
-                activeSnapshotId={activeDigestSnapshot?.id ?? null}
-                busySnapshotId={busyDigestSnapshotId}
-                busyGenerate={busyDigestGenerate}
-                busyCopy={busyDigestCopy}
-                busyDownload={busyDigestDownload}
-                busyEmail={busyDigestEmail}
-                busySave={busyDigestSave}
-                onDigestDateChange={updateDigestDateDraft}
-                onGenerate={generateDailyDigest}
-                onCopy={copyDailyDigest}
-                onDownload={downloadDailyDigest}
-                onEmail={emailDailyDigest}
-                onSave={saveDailyDigestSnapshot}
-                onSnapshotOpen={loadDigestSnapshot}
-                onSnapshotDelete={deleteDailyDigestSnapshot}
-              />
-            </div>
+            {activeModule === "digest" ? null : (
+              <div id="digest-workflow">
+                <DailyDigestPanel
+                  digest={digest}
+                  snapshots={digestSnapshots}
+                  digestDate={digestDateDraft}
+                  activeSnapshotId={activeDigestSnapshot?.id ?? null}
+                  busySnapshotId={busyDigestSnapshotId}
+                  busyGenerate={busyDigestGenerate}
+                  busyCopy={busyDigestCopy}
+                  busyDownload={busyDigestDownload}
+                  busyEmail={busyDigestEmail}
+                  busySave={busyDigestSave}
+                  onDigestDateChange={updateDigestDateDraft}
+                  onGenerate={generateDailyDigest}
+                  onCopy={copyDailyDigest}
+                  onDownload={downloadDailyDigest}
+                  onEmail={emailDailyDigest}
+                  onSave={saveDailyDigestSnapshot}
+                  onSnapshotOpen={loadDigestSnapshot}
+                  onSnapshotDelete={deleteDailyDigestSnapshot}
+                />
+              </div>
+            )}
             {activeModule === "saved" ? null : (
               <SavedItemsPanel
                 items={savedItems.slice(0, 8)}
