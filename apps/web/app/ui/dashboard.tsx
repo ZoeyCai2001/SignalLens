@@ -3505,6 +3505,7 @@ export function Dashboard() {
       return [
         { label: "Feed", value: feed.length },
         { label: "Watchlist", value: stocks.length },
+        { label: "Companies", value: companies.length },
         {
           label: "Signals",
           value: stockSignals.reduce((total, summary) => total + summary.signal_count, 0),
@@ -3513,7 +3514,6 @@ export function Dashboard() {
           label: "High",
           value: stockSignals.reduce((total, summary) => total + summary.high_impact_count, 0),
         },
-        { label: "Holdings", value: stocks.filter((stock) => stock.is_holding).length },
       ];
     }
     if (isProductView) {
@@ -3592,6 +3592,7 @@ export function Dashboard() {
     activeModule,
     alertRules.length,
     alerts,
+    companies.length,
     eventClusters,
     feed.length,
     moduleFeed,
@@ -3669,6 +3670,28 @@ export function Dashboard() {
         onSubmit={submitStock}
       />
     </div>
+  );
+  const companyWatchlistPanel = (
+    <CompanyWatchlistPanel
+      companies={companies}
+      briefing={companyBriefing}
+      selectedCompanyKey={selectedCompanyKey}
+      busyCompanyBriefing={busyCompanyBriefing}
+      name={companyName}
+      ticker={companyTicker}
+      category={companyCategory}
+      terms={companyTerms}
+      disabled={loadState !== "idle"}
+      busyWatchlistKey={busyWatchlistKey}
+      onNameChange={setCompanyName}
+      onTickerChange={setCompanyTicker}
+      onCategoryChange={setCompanyCategory}
+      onTermsChange={setCompanyTerms}
+      onSelect={setSelectedCompanyKey}
+      onUpdate={updateCompany}
+      onDelete={deleteCompany}
+      onSubmit={submitCompany}
+    />
   );
   const productWatchlistPanel = (
     <ProductWatchlistPanel
@@ -4191,6 +4214,7 @@ export function Dashboard() {
           ) : activeModule === "stocks" ? (
             <section className="module-stack">
               {stockWatchlistPanel}
+              {companyWatchlistPanel}
               {rankedFeedPanel}
             </section>
           ) : activeModule === "products" ? (
@@ -4343,26 +4367,7 @@ export function Dashboard() {
               />
             </div>
             {activeModule === "stocks" ? null : stockWatchlistPanel}
-            <CompanyWatchlistPanel
-              companies={companies}
-              briefing={companyBriefing}
-              selectedCompanyKey={selectedCompanyKey}
-              busyCompanyBriefing={busyCompanyBriefing}
-              name={companyName}
-              ticker={companyTicker}
-              category={companyCategory}
-              terms={companyTerms}
-              disabled={loadState !== "idle"}
-              busyWatchlistKey={busyWatchlistKey}
-              onNameChange={setCompanyName}
-              onTickerChange={setCompanyTicker}
-              onCategoryChange={setCompanyCategory}
-              onTermsChange={setCompanyTerms}
-              onSelect={setSelectedCompanyKey}
-              onUpdate={updateCompany}
-              onDelete={deleteCompany}
-              onSubmit={submitCompany}
-            />
+            {activeModule === "stocks" ? null : companyWatchlistPanel}
             {activeModule === "trends" ? null : topicWatchlistPanel}
             {activeModule === "products" ? null : productWatchlistPanel}
             {activeModule === "sources" ? null : sourceHealthPanel}
