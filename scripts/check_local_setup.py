@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -63,6 +64,7 @@ def main() -> int:
 def build_checks() -> list[SetupCheck]:
     env_values = read_env_names(REPO_ROOT / ".env")
     return [
+        workspace_location_check(),
         path_check("package_json", "Root package.json", "core", "package.json"),
         path_check("pnpm_lock", "pnpm lockfile", "core", "pnpm-lock.yaml"),
         path_check("web_package", "Web package.json", "core", "apps/web/package.json"),
@@ -147,6 +149,54 @@ def build_checks() -> list[SetupCheck]:
             "Only needed for Product Hunt launch ingestion.",
         ),
     ]
+
+
+def workspace_location_check() -> SetupCheck:
+    reason = cloud_sync_risk_reason(REPO_ROOT)
+    if reason is None:
+        return SetupCheck(
+            "workspace_location",
+            "Workspace location",
+            "ok",
+            "recommended",
+            "Repository path does not look like a cloud-synced workspace.",
+        )
+    return SetupCheck(
+        "workspace_location",
+        "Workspace location",
+        "warn",
+        "recommended",
+        (
+            f"Repository is {reason}. If files show as not downloaded or disappear from local "
+            "tools, move or clone SignalLens into a local-only folder such as "
+            "~/Developer/SignalLens, then reinstall dependencies from the committed files."
+        ),
+    )
+
+
+def cloud_sync_risk_reason(path: Path) -> str | None:
+    normalized_parts = {part.lower() for part in path.expanduser().parts}
+    if "mobile documents" in normalized_parts or "com~apple~clouddocs" in normalized_parts:
+        return "inside iCloud Drive"
+    if "icloud drive" in normalized_parts or "iclouddrive" in normalized_parts:
+        return "inside a cloud-drive folder"
+
+    if platform.system() == "Darwin":
+        expanded = path.expanduser()
+        home = Path.home()
+        if is_relative_to(expanded, home / "Desktop"):
+            return "under Desktop, which may be iCloud-synced on macOS"
+        if is_relative_to(expanded, home / "Documents"):
+            return "under Documents, which may be iCloud-synced on macOS"
+    return None
+
+
+def is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
 
 
 def path_check(key: str, label: str, importance: str, relative_path: str) -> SetupCheck:

@@ -218,6 +218,7 @@ Implementation progress:
 - Added read/read-later status and read toggles to the Saved Items panel so the reading queue can be managed directly.
 - Added failed-run filtering for Source Health history through the API and dashboard.
 - Added manual submission source-name attribution to the dashboard form.
+- Added a local setup warning for iCloud or cloud-synced Mac workspaces, with guidance to use a local-only clone if files appear unavailable while keeping GitHub commits as the durable project source of truth.
 - Preserved exact saved digest snapshot markdown when copying an opened snapshot.
 - Added source-specific Source Health run history filtering through the API and dashboard.
 - Added deletion for saved daily digest snapshots so stale saved briefings can be removed from the archive without affecting generated previews.

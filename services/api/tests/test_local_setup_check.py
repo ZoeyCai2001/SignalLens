@@ -44,3 +44,33 @@ def test_print_report_includes_direct_checker_fallback(capsys) -> None:
     assert "python3 scripts/check_local_setup.py" in output
     assert "Install pnpm first" in output
     assert "pnpm verify:demo" in output
+
+
+def test_cloud_sync_risk_reason_detects_icloud_drive() -> None:
+    setup_check = load_setup_check_module()
+
+    reason = setup_check.cloud_sync_risk_reason(
+        Path("/Users/zoey/Library/Mobile Documents/com~apple~CloudDocs/SignalLens")
+    )
+
+    assert reason == "inside iCloud Drive"
+
+
+def test_cloud_sync_risk_reason_detects_mac_desktop(monkeypatch) -> None:
+    setup_check = load_setup_check_module()
+    monkeypatch.setattr(setup_check.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(setup_check.Path, "home", lambda: Path("/Users/zoey"))
+
+    reason = setup_check.cloud_sync_risk_reason(Path("/Users/zoey/Desktop/playground/SignalLens"))
+
+    assert reason == "under Desktop, which may be iCloud-synced on macOS"
+
+
+def test_cloud_sync_risk_reason_allows_local_dev_folder(monkeypatch) -> None:
+    setup_check = load_setup_check_module()
+    monkeypatch.setattr(setup_check.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(setup_check.Path, "home", lambda: Path("/Users/zoey"))
+
+    reason = setup_check.cloud_sync_risk_reason(Path("/Users/zoey/Developer/SignalLens"))
+
+    assert reason is None
