@@ -940,6 +940,7 @@ type ModuleKey =
   | "stocks"
   | "chinese"
   | "saved"
+  | "clusters"
   | "digest"
   | "sources"
   | "settings";
@@ -1138,6 +1139,7 @@ const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[]
   { key: "stocks", label: "AI Stocks", icon: BarChart3 },
   { key: "chinese", label: "Chinese Social", icon: Newspaper },
   { key: "saved", label: "Saved Items", icon: Bookmark },
+  { key: "clusters", label: "Clusters", icon: Flag },
   { key: "digest", label: "Daily Digest", icon: CalendarDays },
   { key: "sources", label: "Source Health", icon: DatabaseZap },
   { key: "settings", label: "Settings", icon: SlidersHorizontal },
@@ -3450,8 +3452,17 @@ export function Dashboard() {
   };
 
   const moduleCounts = useMemo(
-    () => buildModuleCounts(feed, digest, savedItems, sources, preferences, moduleFeedOverrides),
-    [digest, feed, moduleFeedOverrides, preferences, savedItems, sources],
+    () =>
+      buildModuleCounts(
+        feed,
+        digest,
+        savedItems,
+        eventClusters,
+        sources,
+        preferences,
+        moduleFeedOverrides,
+      ),
+    [digest, eventClusters, feed, moduleFeedOverrides, preferences, savedItems, sources],
   );
   const moduleFeed = useMemo(
     () => filterFeedByModule(feed, activeModule, digest, savedItems, moduleFeedOverrides),
@@ -3465,16 +3476,22 @@ export function Dashboard() {
     moduleNavItems.find((item) => item.key === activeModule)?.label ?? "Dashboard";
 
   const metrics = useMemo(() => {
-    const highImportance = moduleFeed.filter((item) => item.importance_score >= 0.75).length;
-    const summarized = moduleFeed.filter((item) => item.summary_detailed).length;
+    const isClusterView = activeModule === "clusters";
+    const viewCount = isClusterView ? eventClusters.length : moduleFeed.length;
+    const highImportance = isClusterView
+      ? eventClusters.filter((cluster) => cluster.importance_score >= 0.75).length
+      : moduleFeed.filter((item) => item.importance_score >= 0.75).length;
+    const summarized = isClusterView
+      ? eventClusters.filter((cluster) => cluster.main_summary).length
+      : moduleFeed.filter((item) => item.summary_detailed).length;
     return [
       { label: "Feed", value: feed.length },
-      { label: "View", value: moduleFeed.length },
+      { label: "View", value: viewCount },
       { label: "High", value: highImportance },
       { label: "Alerts", value: activeAlerts.length },
       { label: "Summaries", value: summarized },
     ];
-  }, [activeAlerts.length, feed.length, moduleFeed]);
+  }, [activeAlerts.length, activeModule, eventClusters, feed.length, moduleFeed]);
 
   const systemStatusPanel = (
     <div id="system-readiness-workflow">
@@ -3847,6 +3864,16 @@ export function Dashboard() {
               }
               onUnsave={(itemId) => updateFeedAction(itemId, "unsave")}
             />
+          ) : activeModule === "clusters" ? (
+            <EventClusterPanel
+              clusters={eventClusters}
+              selectedCluster={selectedEventCluster}
+              busyClusterKey={busyClusterKey}
+              busyClusterExplanationKey={busyClusterExplanationKey}
+              explanations={clusterExplanations}
+              onSelectCluster={loadEventCluster}
+              onExplainCluster={explainEventCluster}
+            />
           ) : (
             <section className="section" id="ranked-feed-workflow">
               <div className="section-header">
@@ -4006,15 +4033,18 @@ export function Dashboard() {
               onDelete={deleteFeedItem}
             />
             <ChineseSocialPanel items={feed} />
-            <EventClusterPanel
-              clusters={eventClusters}
-              selectedCluster={selectedEventCluster}
-              busyClusterKey={busyClusterKey}
-              busyClusterExplanationKey={busyClusterExplanationKey}
-              explanations={clusterExplanations}
-              onSelectCluster={loadEventCluster}
-              onExplainCluster={explainEventCluster}
-            />
+            {activeModule === "clusters" ? null : (
+              <EventClusterPanel
+                clusters={eventClusters}
+                selectedCluster={selectedEventCluster}
+                busyClusterKey={busyClusterKey}
+                busyClusterExplanationKey={busyClusterExplanationKey}
+                explanations={clusterExplanations}
+                limit={5}
+                onSelectCluster={loadEventCluster}
+                onExplainCluster={explainEventCluster}
+              />
+            )}
             <div id="manual-submission-workflow">
               <ManualSubmissionPanel
                 title={manualTitle}
@@ -6280,6 +6310,7 @@ function EventClusterPanel({
   busyClusterKey,
   busyClusterExplanationKey,
   explanations,
+  limit,
   onSelectCluster,
   onExplainCluster,
 }: {
@@ -6288,18 +6319,23 @@ function EventClusterPanel({
   busyClusterKey: string | null;
   busyClusterExplanationKey: string | null;
   explanations: Record<string, EventClusterLlmExplanation>;
+  limit?: number;
   onSelectCluster: (cluster: EventCluster) => void;
   onExplainCluster: (cluster: EventCluster) => void;
 }) {
+  const visibleClusters = typeof limit === "number" ? clusters.slice(0, limit) : clusters;
   return (
     <section className="section">
       <div className="section-header">
         <h2 className="section-title">Event Clusters</h2>
-        <span className="small-muted">{clusters.length} clusters</span>
+        <span className="small-muted">
+          {visibleClusters.length}
+          {visibleClusters.length === clusters.length ? "" : `/${clusters.length}`} clusters
+        </span>
       </div>
       <div className="digest-panel">
         {clusters.length ? (
-          clusters.slice(0, 5).map((cluster) => {
+          visibleClusters.map((cluster) => {
             const expanded = selectedCluster?.cluster_key === cluster.cluster_key;
             const detail = expanded ? selectedCluster : cluster;
             const llmExplanation = explanations[cluster.cluster_key];
@@ -10569,6 +10605,7 @@ function buildModuleCounts(
   feed: FeedItem[],
   digest: DailyDigest | null,
   savedItems: FeedItem[],
+  eventClusters: EventCluster[],
   sources: SourceHealth[],
   preferences: UserPreferences | null,
   moduleFeedOverrides: Partial<Record<FeedModuleKey, FeedItem[]>>,
@@ -10588,6 +10625,7 @@ function buildModuleCounts(
     stocks: moduleCount(feed, "stocks", moduleFeedOverrides),
     chinese: moduleCount(feed, "chinese", moduleFeedOverrides),
     saved: savedItems.length,
+    clusters: eventClusters.length,
     digest: collectDigestFeedItems(digest).length,
     sources: sources.filter((source) => source.needs_attention).length,
     settings: settingsCount,
