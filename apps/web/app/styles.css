@@ -1442,6 +1442,30 @@ tr:last-child td {
   fill: var(--accent-strong);
 }
 
+.stock-attention-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.attention-driver-list {
+  display: grid;
+  gap: 5px;
+}
+
+.attention-driver-row {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: #34403e;
+  font-size: 13px;
+  line-height: 1.35;
+  padding: 7px 8px;
+}
+
 .stock-detail-grid-view {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);

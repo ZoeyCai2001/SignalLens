@@ -8637,6 +8637,8 @@ function StockBriefingPanel({
             </div>
           </div>
 
+          <StockAttentionDrivers briefing={briefing} />
+
           <StockPriceChart market={priceSnapshot ?? briefing.market} />
 
           <div className="stock-detail-grid-view">
@@ -8813,6 +8815,40 @@ function StockBriefingPanel({
           )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function StockAttentionDrivers({ briefing }: { briefing: StockBriefing }) {
+  const drivers = briefing.attention_reasons.length
+    ? briefing.attention_reasons
+    : ["No strong attention driver yet"];
+  return (
+    <div className="stock-attention-panel">
+      <div className="section-header">
+        <div>
+          <div className="digest-section-title">Attention Drivers</div>
+          <div className="small-muted">
+            Explains why this ticker ranks where it does in attention mode.
+          </div>
+        </div>
+        <span className="badge">{Math.round(briefing.attention_score * 100)} attention</span>
+      </div>
+      <div className="digest-coverage">
+        <span className="badge">{briefing.signal_count} signals</span>
+        <span className="badge">{briefing.today_signal_count} today</span>
+        <span className="badge alert-badge">{briefing.high_impact_count} high impact</span>
+        {briefing.last_updated_at ? (
+          <span className="badge muted-badge">updated {formatDate(briefing.last_updated_at)}</span>
+        ) : null}
+      </div>
+      <div className="attention-driver-list">
+        {drivers.map((driver) => (
+          <div className="attention-driver-row" key={driver}>
+            {driver}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
