@@ -355,3 +355,4 @@ Implementation progress:
 - Added Daily Digest topic-watchlist support, including included topic labels in digest payloads/markdown and a dedicated Topic Watchlist Updates section matched from topic labels, slugs, related terms, titles, and summaries.
 - Wired the web Daily Digest panel to the new topic-watchlist digest contract so topic labels appear beside ticker and company watchlist context in the dashboard.
 - Hardened the web Daily Digest panel against older saved snapshot payloads that may omit new array fields such as topic watchlists, alerts, sections, or source coverage.
+- Added company names to Daily Digest item labels in both markdown and the web preview so company-watchlist signals show their PRD context even when no ticker is attached.

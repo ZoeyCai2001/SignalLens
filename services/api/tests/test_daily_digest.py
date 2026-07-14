@@ -229,11 +229,12 @@ def test_build_digest_item_labels_includes_market_impact_type() -> None:
         "stock_company_event",
         0.8,
         tickers=["MU"],
+        companies=["Micron"],
         topics=["hbm"],
     )
     item.market_impact_type = "demand_signal"
 
-    assert build_digest_item_labels(item) == ["MU", "demand signal", "hbm"]
+    assert build_digest_item_labels(item) == ["MU", "Micron", "demand signal", "hbm"]
 
 
 def test_build_digest_item_labels_includes_technologies() -> None:
@@ -476,7 +477,7 @@ def test_list_watchlist_topics_returns_included_labels_and_terms() -> None:
 
 def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None:
     items = [
-        make_item(1, "Research", "research", 0.9, topics=["llm"]),
+        make_item(1, "Research", "research", 0.9, topics=["llm"], companies=["OpenAI"]),
         make_item(2, "Stock", "stock_company_event", 0.8, tickers=["MU"]),
         make_item(
             3,
@@ -509,7 +510,7 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert "## AI Research" in markdown
     assert "Papers, benchmarks, and research discussions." in markdown
     assert "_Section signals: 1 items, 1 sources, 1 high-impact_" in markdown
-    assert "- [Research](https://example.com/1) - Test Source" in markdown
+    assert "- [Research](https://example.com/1) - Test Source (OpenAI, llm)" in markdown
     assert "- [Product](https://example.com/3) - Test Source (CodePilot, Coding)" in markdown
     assert "## Disclaimer" in markdown
     assert markdown.endswith("Informational only.\n")

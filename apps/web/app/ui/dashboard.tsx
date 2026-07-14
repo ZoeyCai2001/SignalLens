@@ -5948,6 +5948,7 @@ function digestItemLabels(item: FeedItem): string[] {
   const labels = [
     item.is_ai_related ? "" : "not AI-related",
     ...item.tickers,
+    ...item.companies,
     ...item.products,
     ...item.technologies,
     item.market_impact_type !== "none" ? formatMarketImpactLabel(item.market_impact_type) : "",
