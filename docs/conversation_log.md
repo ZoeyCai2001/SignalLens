@@ -402,3 +402,4 @@ Implementation progress:
 - Added a compact classification audit block to expanded feed item details, showing AI relevance, category/subcategory, language, sentiment, confidence, market impact, tickers, and topics together.
 - Added explicit useful/not-useful feedback for saved Daily Digest snapshots, exposed it through a PATCH API, blended it into digest usefulness quality metrics, and added dashboard snapshot feedback controls.
 - Extended the no-paid demo smoke verifier to export settings, restore them after a temporary preference change, and assert portable personal configuration coverage for sources, alert rules, and all watchlists.
+- Added visible elapsed-time feedback for user-triggered Daily Digest generation and snapshot saves so the digest workflow can be checked against the PRD performance target.

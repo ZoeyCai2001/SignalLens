@@ -1375,6 +1375,7 @@ export function Dashboard() {
   const [busyDigestEmail, setBusyDigestEmail] = useState(false);
   const [busyDigestSave, setBusyDigestSave] = useState(false);
   const [busyDigestSnapshotId, setBusyDigestSnapshotId] = useState<number | null>(null);
+  const [lastDigestGenerationMs, setLastDigestGenerationMs] = useState<number | null>(null);
   const [busySavedExport, setBusySavedExport] = useState(false);
   const [busySavedDownload, setBusySavedDownload] = useState(false);
   const [digestDateDraft, setDigestDateDraft] = useState("");
@@ -1550,6 +1551,7 @@ export function Dashboard() {
       setSources(nextSources);
       setSourceRuns(nextSourceRuns);
       setDigest(nextDigest);
+      setLastDigestGenerationMs(null);
       setDigestSnapshots(nextDigestSnapshots);
       setEventClusters(nextEventClusters);
       setAlerts(nextAlerts);
@@ -1641,6 +1643,7 @@ export function Dashboard() {
   const updateDigestDateDraft = (value: string) => {
     setDigestDateDraft(value);
     setActiveDigestSnapshot(null);
+    setLastDigestGenerationMs(null);
   };
 
   useEffect(() => {
@@ -2307,15 +2310,18 @@ export function Dashboard() {
   const generateDailyDigest = async () => {
     setBusyDigestGenerate(true);
     setError(null);
+    const startedAt = performance.now();
     try {
       const query = buildDigestDateQuery(digestDateDraft);
       const generated = await fetchJson<DailyDigest>(`/api/digest/daily/generate${query}`, {
         method: "POST",
       });
+      const elapsedMs = performance.now() - startedAt;
       setDigest(generated);
       setDigestDateDraft(generated.digest_date);
       setActiveDigestSnapshot(null);
-      setStatus(`Generated digest ${generated.digest_date}`);
+      setLastDigestGenerationMs(elapsedMs);
+      setStatus(`Generated digest ${generated.digest_date} in ${formatElapsedMs(elapsedMs)}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Digest generation failed");
@@ -2462,21 +2468,24 @@ export function Dashboard() {
   const saveDailyDigestSnapshot = async (targetDate?: string) => {
     setBusyDigestSave(true);
     setError(null);
+    const startedAt = performance.now();
     try {
       const snapshotDate = targetDate ?? (digestDateDraft || digest?.digest_date || "");
       const query = buildDigestDateQuery(snapshotDate);
       const snapshot = await fetchJson<DailyDigestSnapshot>(`/api/digest/daily/snapshots${query}`, {
         method: "POST",
       });
+      const elapsedMs = performance.now() - startedAt;
       setDigest(snapshot.digest);
       setDigestDateDraft(snapshot.digest_date);
       setActiveDigestSnapshot(snapshot);
+      setLastDigestGenerationMs(elapsedMs);
       setDigestSnapshots((items) => [
         snapshot,
         ...items.filter((item) => item.digest_date !== snapshot.digest_date),
       ].slice(0, 5));
       await refreshReadinessState();
-      setStatus(`Saved digest snapshot ${snapshot.digest_date}`);
+      setStatus(`Saved digest snapshot ${snapshot.digest_date} in ${formatElapsedMs(elapsedMs)}`);
     } catch (err) {
       setError(readError(err));
       setStatus("Digest snapshot failed");
@@ -2489,6 +2498,7 @@ export function Dashboard() {
     setDigest(snapshot.digest);
     setDigestDateDraft(snapshot.digest_date);
     setActiveDigestSnapshot(snapshot);
+    setLastDigestGenerationMs(null);
     setStatus(`Loaded digest snapshot ${snapshot.digest_date}`);
   };
 
@@ -4305,6 +4315,7 @@ export function Dashboard() {
               snapshots={digestSnapshots}
               digestDate={digestDateDraft}
               activeSnapshotId={activeDigestSnapshot?.id ?? null}
+              generationElapsedMs={lastDigestGenerationMs}
               busySnapshotId={busyDigestSnapshotId}
               busyGenerate={busyDigestGenerate}
               busyCopy={busyDigestCopy}
@@ -4398,6 +4409,7 @@ export function Dashboard() {
                   snapshots={digestSnapshots}
                   digestDate={digestDateDraft}
                   activeSnapshotId={activeDigestSnapshot?.id ?? null}
+                  generationElapsedMs={lastDigestGenerationMs}
                   busySnapshotId={busyDigestSnapshotId}
                   busyGenerate={busyDigestGenerate}
                   busyCopy={busyDigestCopy}
@@ -6269,6 +6281,7 @@ function DailyDigestPanel({
   snapshots,
   digestDate,
   activeSnapshotId,
+  generationElapsedMs,
   busySnapshotId,
   busyGenerate,
   busyCopy,
@@ -6289,6 +6302,7 @@ function DailyDigestPanel({
   snapshots: DailyDigestSnapshot[];
   digestDate: string;
   activeSnapshotId: number | null;
+  generationElapsedMs: number | null;
   busySnapshotId: number | null;
   busyGenerate: boolean;
   busyCopy: boolean;
@@ -6383,6 +6397,9 @@ function DailyDigestPanel({
             <span>{digest.digest_date}</span>
             <span>
               {digest.total_items} items · {snapshots.length} saved
+              {generationElapsedMs !== null
+                ? ` · generated in ${formatElapsedMs(generationElapsedMs)}`
+                : ""}
             </span>
           </div>
           <div className="digest-headline">{digest.headline}</div>
