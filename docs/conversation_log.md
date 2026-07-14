@@ -365,3 +365,4 @@ Implementation progress:
 - Added inline item details to the Saved Items reading queue so saved rows can open the existing detail editor for personal notes, manual tags, summaries, scores, and uncertainty without leaving the saved workflow.
 - Added Event Clusters as a first-class dashboard navigation module with full cluster review in the main column, while preserving a shorter sidebar cluster preview for other modules.
 - Promoted the Daily Digest navigation module to render the full digest workflow in the main dashboard column, while keeping the sidebar digest preview available for other modules.
+- Promoted Alerts as a first-class dashboard navigation module, including active-alert nav counts, alert-specific top metrics, and MVP checklist actions that open the alert workflow directly.

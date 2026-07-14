@@ -576,7 +576,10 @@ type QualityFinding = {
   metric: string;
   recommendation: string;
   action_label: string | null;
-  action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings" | "stocks"> | null;
+  action_module: Extract<
+    ModuleKey,
+    "alerts" | "dashboard" | "digest" | "sources" | "settings" | "stocks"
+  > | null;
   action_operation: Extract<
     DashboardOperation,
     | "cycle"
@@ -610,7 +613,10 @@ type MvpChecklistApiItem = {
   metric: string;
   note: string;
   action_label: string | null;
-  action_module: Extract<ModuleKey, "dashboard" | "digest" | "sources" | "settings" | "stocks"> | null;
+  action_module: Extract<
+    ModuleKey,
+    "alerts" | "dashboard" | "digest" | "sources" | "settings" | "stocks"
+  > | null;
   action_operation: Extract<
     DashboardOperation,
     | "cycle"
@@ -941,6 +947,7 @@ type ModuleKey =
   | "chinese"
   | "saved"
   | "clusters"
+  | "alerts"
   | "digest"
   | "sources"
   | "settings";
@@ -1140,6 +1147,7 @@ const moduleNavItems: { key: ModuleKey; label: string; icon: typeof Activity }[]
   { key: "chinese", label: "Chinese Social", icon: Newspaper },
   { key: "saved", label: "Saved Items", icon: Bookmark },
   { key: "clusters", label: "Clusters", icon: Flag },
+  { key: "alerts", label: "Alerts", icon: BellRing },
   { key: "digest", label: "Daily Digest", icon: CalendarDays },
   { key: "sources", label: "Source Health", icon: DatabaseZap },
   { key: "settings", label: "Settings", icon: SlidersHorizontal },
@@ -3461,8 +3469,9 @@ export function Dashboard() {
         sources,
         preferences,
         moduleFeedOverrides,
+        alerts,
       ),
-    [digest, eventClusters, feed, moduleFeedOverrides, preferences, savedItems, sources],
+    [alerts, digest, eventClusters, feed, moduleFeedOverrides, preferences, savedItems, sources],
   );
   const moduleFeed = useMemo(
     () => filterFeedByModule(feed, activeModule, digest, savedItems, moduleFeedOverrides),
@@ -3477,6 +3486,16 @@ export function Dashboard() {
 
   const metrics = useMemo(() => {
     const isClusterView = activeModule === "clusters";
+    const isAlertView = activeModule === "alerts";
+    if (isAlertView) {
+      return [
+        { label: "Feed", value: feed.length },
+        { label: "View", value: alerts.length },
+        { label: "Active", value: activeAlerts.length },
+        { label: "Rules", value: alertRules.length },
+        { label: "Dismissed", value: alerts.filter((alert) => alert.status !== "active").length },
+      ];
+    }
     const viewCount = isClusterView ? eventClusters.length : moduleFeed.length;
     const highImportance = isClusterView
       ? eventClusters.filter((cluster) => cluster.importance_score >= 0.75).length
@@ -3491,7 +3510,15 @@ export function Dashboard() {
       { label: "Alerts", value: activeAlerts.length },
       { label: "Summaries", value: summarized },
     ];
-  }, [activeAlerts.length, activeModule, eventClusters, feed.length, moduleFeed]);
+  }, [
+    activeAlerts.length,
+    activeModule,
+    alertRules.length,
+    alerts,
+    eventClusters,
+    feed.length,
+    moduleFeed,
+  ]);
 
   const systemStatusPanel = (
     <div id="system-readiness-workflow">
@@ -3845,6 +3872,38 @@ export function Dashboard() {
               {rankingPreferencesPanel}
               {settingsBackupPanel}
             </section>
+          ) : activeModule === "alerts" ? (
+            <AlertPanel
+              alerts={alerts}
+              rules={alertRules}
+              includeDismissed={alertIncludeDismissed}
+              busyAlertId={busyAlertId}
+              busyAlertRuleId={busyAlertRuleId}
+              busyGenerate={busyAlertGenerate}
+              ruleName={alertRuleName}
+              ruleCategory={alertRuleCategory}
+              ruleTickers={alertRuleTickers}
+              ruleTopics={alertRuleTopics}
+              ruleImportance={alertRuleImportance}
+              ruleStockImpact={alertRuleStockImpact}
+              ruleSeverity={alertRuleSeverity}
+              disabled={loadState !== "idle"}
+              onDismiss={dismissAlert}
+              onGenerate={generateDashboardAlerts}
+              onIncludeDismissedChange={setAlertIncludeDismissed}
+              onRuleToggle={toggleAlertRule}
+              onRuleSnooze={snoozeAlertRule}
+              onRuleUpdate={updateAlertRuleDetails}
+              onRuleDelete={deleteAlertRule}
+              onRuleNameChange={setAlertRuleName}
+              onRuleCategoryChange={setAlertRuleCategory}
+              onRuleTickersChange={setAlertRuleTickers}
+              onRuleTopicsChange={setAlertRuleTopics}
+              onRuleImportanceChange={setAlertRuleImportance}
+              onRuleStockImpactChange={setAlertRuleStockImpact}
+              onRuleSeverityChange={setAlertRuleSeverity}
+              onRuleSubmit={submitAlertRule}
+            />
           ) : activeModule === "saved" ? (
             <SavedItemsPanel
               items={savedItems}
@@ -3972,39 +4031,41 @@ export function Dashboard() {
           <aside className="stack">
             {activeModule === "settings" ? null : systemStatusPanel}
             {activeModule === "settings" ? null : rankingPreferencesPanel}
-            <div id="alerts-workflow">
-              <AlertPanel
-                alerts={alerts}
-                rules={alertRules}
-                includeDismissed={alertIncludeDismissed}
-                busyAlertId={busyAlertId}
-                busyAlertRuleId={busyAlertRuleId}
-                busyGenerate={busyAlertGenerate}
-                ruleName={alertRuleName}
-                ruleCategory={alertRuleCategory}
-                ruleTickers={alertRuleTickers}
-                ruleTopics={alertRuleTopics}
-                ruleImportance={alertRuleImportance}
-                ruleStockImpact={alertRuleStockImpact}
-                ruleSeverity={alertRuleSeverity}
-                disabled={loadState !== "idle"}
-                onDismiss={dismissAlert}
-                onGenerate={generateDashboardAlerts}
-                onIncludeDismissedChange={setAlertIncludeDismissed}
-                onRuleToggle={toggleAlertRule}
-                onRuleSnooze={snoozeAlertRule}
-                onRuleUpdate={updateAlertRuleDetails}
-                onRuleDelete={deleteAlertRule}
-                onRuleNameChange={setAlertRuleName}
-                onRuleCategoryChange={setAlertRuleCategory}
-                onRuleTickersChange={setAlertRuleTickers}
-                onRuleTopicsChange={setAlertRuleTopics}
-                onRuleImportanceChange={setAlertRuleImportance}
-                onRuleStockImpactChange={setAlertRuleStockImpact}
-                onRuleSeverityChange={setAlertRuleSeverity}
-                onRuleSubmit={submitAlertRule}
-              />
-            </div>
+            {activeModule === "alerts" ? null : (
+              <div id="alerts-workflow">
+                <AlertPanel
+                  alerts={alerts}
+                  rules={alertRules}
+                  includeDismissed={alertIncludeDismissed}
+                  busyAlertId={busyAlertId}
+                  busyAlertRuleId={busyAlertRuleId}
+                  busyGenerate={busyAlertGenerate}
+                  ruleName={alertRuleName}
+                  ruleCategory={alertRuleCategory}
+                  ruleTickers={alertRuleTickers}
+                  ruleTopics={alertRuleTopics}
+                  ruleImportance={alertRuleImportance}
+                  ruleStockImpact={alertRuleStockImpact}
+                  ruleSeverity={alertRuleSeverity}
+                  disabled={loadState !== "idle"}
+                  onDismiss={dismissAlert}
+                  onGenerate={generateDashboardAlerts}
+                  onIncludeDismissedChange={setAlertIncludeDismissed}
+                  onRuleToggle={toggleAlertRule}
+                  onRuleSnooze={snoozeAlertRule}
+                  onRuleUpdate={updateAlertRuleDetails}
+                  onRuleDelete={deleteAlertRule}
+                  onRuleNameChange={setAlertRuleName}
+                  onRuleCategoryChange={setAlertRuleCategory}
+                  onRuleTickersChange={setAlertRuleTickers}
+                  onRuleTopicsChange={setAlertRuleTopics}
+                  onRuleImportanceChange={setAlertRuleImportance}
+                  onRuleStockImpactChange={setAlertRuleStockImpact}
+                  onRuleSeverityChange={setAlertRuleSeverity}
+                  onRuleSubmit={submitAlertRule}
+                />
+              </div>
+            )}
             {activeModule === "digest" ? null : (
               <div id="digest-workflow">
                 <DailyDigestPanel
@@ -5245,8 +5306,8 @@ function buildPrdMvpChecklist({
         alertCount > 0
           ? "Dashboard alert rules are producing active signals."
           : "Generate alerts after ingestion to validate stock, product, and trend rules.",
-      actionLabel: alertCount > 0 ? "Open Dashboard" : "Generate Alerts",
-      actionModule: "dashboard",
+      actionLabel: alertCount > 0 ? "Open Alerts" : "Generate Alerts",
+      actionModule: "alerts",
       actionOperation: alertCount > 0 ? undefined : "alerts:generate",
       actionTargetId: "alerts-workflow",
     },
@@ -10632,6 +10693,7 @@ function buildModuleCounts(
   sources: SourceHealth[],
   preferences: UserPreferences | null,
   moduleFeedOverrides: Partial<Record<FeedModuleKey, FeedItem[]>>,
+  alerts: AlertItem[],
 ): Record<ModuleKey, number> {
   const settingsCount =
     Object.values(preferences?.ranking_weights ?? DEFAULT_RANKING_WEIGHTS).filter(
@@ -10649,6 +10711,7 @@ function buildModuleCounts(
     chinese: moduleCount(feed, "chinese", moduleFeedOverrides),
     saved: savedItems.length,
     clusters: eventClusters.length,
+    alerts: alerts.filter((alert) => alert.status === "active").length,
     digest: collectDigestFeedItems(digest).length,
     sources: sources.filter((source) => source.needs_attention).length,
     settings: settingsCount,

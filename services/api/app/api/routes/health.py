@@ -611,8 +611,8 @@ def build_mvp_checklist_items(
                 if metrics.active_alert_count > 0
                 else "Generate alerts after ingestion to validate stock, product, and trend rules."
             ),
-            action_label="Open Dashboard" if metrics.active_alert_count > 0 else "Generate Alerts",
-            action_module="dashboard",
+            action_label="Open Alerts" if metrics.active_alert_count > 0 else "Generate Alerts",
+            action_module="alerts",
             action_operation=None if metrics.active_alert_count > 0 else "alerts:generate",
             action_target_id="alerts-workflow",
         ),

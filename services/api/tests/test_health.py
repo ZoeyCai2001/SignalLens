@@ -377,6 +377,16 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.active_alert_count == 1
     assert metrics.dismissed_alert_count == 1
     assert metrics.alert_dismissal_rate == 0.5
+    checklist = build_mvp_checklist_response(
+        metrics=metrics,
+        setup_summary=build_setup_summary([]),
+        llm_configured=True,
+        source_count=1,
+        enabled_source_count=1,
+    )
+    checklist_items = {item.key: item for item in checklist.items}
+    assert checklist_items["alerts"].action_label == "Open Alerts"
+    assert checklist_items["alerts"].action_module == "alerts"
     assert metrics.digest_snapshot_count == 1
     assert metrics.latest_digest_snapshot_date == now.date()
     assert metrics.latest_digest_age_days == 0
