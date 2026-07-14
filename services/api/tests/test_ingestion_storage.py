@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -120,3 +122,95 @@ def test_store_raw_items_deduplicates_same_canonical_url_with_changed_text() -> 
         assert stored_count == 1
         assert db.query(RawItem).count() == 1
         assert db.query(NormalizedItem).count() == 1
+
+
+def test_store_raw_items_deduplicates_same_day_near_title_variants() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    published_at = datetime(2026, 6, 25, 9, 0, tzinfo=UTC)
+
+    with session_factory() as db:
+        source = Source(
+            name="Selected RSS Feeds",
+            type="blog",
+            access_method="rss",
+            priority=50,
+        )
+        db.add(source)
+        db.commit()
+        db.refresh(source)
+
+        stored_count = store_raw_items(
+            db,
+            source=source,
+            items=[
+                RawItemInput(
+                    source_name="Selected RSS Feeds",
+                    external_id=None,
+                    url="https://example.com/agent-workflow",
+                    raw_title="OpenAI releases new AI agent workflow for coding teams",
+                    raw_text="Developers can use this AI agent workflow for coding tasks.",
+                    published_at=published_at,
+                ),
+                RawItemInput(
+                    source_name="Selected RSS Feeds",
+                    external_id=None,
+                    url="https://mirror.example.com/agent-workflow-copy",
+                    raw_title="OpenAI releases new AI agent workflow for coding team",
+                    raw_text="A mirror excerpt adds small wording changes about coding tasks.",
+                    published_at=published_at + timedelta(hours=2),
+                ),
+            ],
+        )
+
+        assert stored_count == 1
+        assert db.query(RawItem).count() == 1
+        assert db.query(NormalizedItem).count() == 1
+
+
+def test_store_raw_items_keeps_next_day_near_title_followup() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    published_at = datetime(2026, 6, 25, 9, 0, tzinfo=UTC)
+
+    with session_factory() as db:
+        source = Source(
+            name="Selected RSS Feeds",
+            type="blog",
+            access_method="rss",
+            priority=50,
+        )
+        db.add(source)
+        db.commit()
+        db.refresh(source)
+
+        stored_count = store_raw_items(
+            db,
+            source=source,
+            items=[
+                RawItemInput(
+                    source_name="Selected RSS Feeds",
+                    external_id=None,
+                    url="https://example.com/agent-workflow",
+                    raw_title="OpenAI releases new AI agent workflow for coding teams",
+                    raw_text="Developers can use this AI agent workflow for coding tasks.",
+                    published_at=published_at,
+                ),
+                RawItemInput(
+                    source_name="Selected RSS Feeds",
+                    external_id=None,
+                    url="https://example.com/agent-workflow-followup",
+                    raw_title="OpenAI releases new AI agent workflow for coding team",
+                    raw_text="A next-day follow-up still matters for timeline review.",
+                    published_at=published_at + timedelta(days=1),
+                ),
+            ],
+        )
+
+        assert stored_count == 2
+        assert db.query(RawItem).count() == 2
+        assert db.query(NormalizedItem).count() == 2

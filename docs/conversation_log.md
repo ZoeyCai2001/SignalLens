@@ -391,3 +391,4 @@ Implementation progress:
 - Added an X Account Watch source template as a manual-watch workflow, preserving PRD source-watchlist coverage for X/Twitter accounts without automated scraping or paid API use in the MVP.
 - Exposed stock attention-score components in API briefings and the dashboard Attention Drivers panel, including each component value, weight, and contribution, so AI Stock Watchlist ranking is auditable without changing the deterministic formula.
 - Aligned the deterministic AI Stock Watchlist attention formula with the PRD weights for high-impact news, price movement, AI relevance, social discussion, source quality, and user priority.
+- Added conservative same-source same-day near-title deduplication during raw ingestion, improving the PRD duplicate filtering path without adding embedding cost or suppressing next-day follow-up coverage.

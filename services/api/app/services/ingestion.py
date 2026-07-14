@@ -2,6 +2,7 @@ import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from hashlib import sha256
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -100,6 +101,20 @@ TRACKING_QUERY_PARAMS = {
     "utm_term",
 }
 
+NEAR_DUPLICATE_TITLE_THRESHOLD = 0.92
+TITLE_DEDUPE_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "for",
+    "in",
+    "of",
+    "on",
+    "the",
+    "to",
+    "with",
+}
+
 SOURCE_QUALITY_BY_TYPE = {
     "research": 0.78,
     "finance news": 0.76,
@@ -128,7 +143,9 @@ async def run_hacker_news_ingestion(db: Session, limit: int = 30) -> IngestionRe
         polling_interval="30 minutes",
         enabled=True,
         priority=20,
-        terms_notes="Uses public Hacker News Firebase API metadata, URLs, and top comment previews.",
+        terms_notes=(
+            "Uses public Hacker News Firebase API metadata, URLs, and top comment previews."
+        ),
     )
     return await run_connector_ingestion(db=db, connector=connector, source=source)
 
@@ -690,6 +707,8 @@ def store_raw_items(db: Session, source: Source, items: list[RawItemInput]) -> i
             external_id=item.external_id,
             content_hash=content_hash,
             canonical_url=canonical_url,
+            title=item.raw_title,
+            published_at=item.published_at,
         ):
             continue
 
@@ -752,11 +771,20 @@ def raw_item_exists(
     external_id: str | None,
     content_hash: str,
     canonical_url: str | None = None,
+    title: str | None = None,
+    published_at: datetime | None = None,
 ) -> bool:
     query = db.query(RawItem).filter(RawItem.content_hash == content_hash)
     if db.query(query.exists()).scalar():
         return True
     if canonical_url and raw_item_canonical_url_exists(db, canonical_url):
+        return True
+    if title and near_duplicate_title_exists(
+        db=db,
+        source_id=source_id,
+        title=title,
+        published_at=published_at,
+    ):
         return True
     if external_id:
         external_query = db.query(RawItem).filter(
@@ -769,6 +797,51 @@ def raw_item_exists(
 
 def raw_item_canonical_url_exists(db: Session, canonical_url: str) -> bool:
     return any(canonical_ingestion_url(raw.url) == canonical_url for raw in db.query(RawItem).all())
+
+
+def near_duplicate_title_exists(
+    db: Session,
+    source_id: int,
+    title: str,
+    published_at: datetime | None,
+) -> bool:
+    signature = normalized_title_signature(title)
+    if not signature:
+        return False
+    candidates = db.query(RawItem).filter(RawItem.source_id == source_id).all()
+    for raw in candidates:
+        if not same_publication_day(raw.published_at, published_at):
+            continue
+        candidate_signature = normalized_title_signature(raw.raw_title)
+        if (
+            candidate_signature
+            and title_similarity(signature, candidate_signature)
+            >= NEAR_DUPLICATE_TITLE_THRESHOLD
+        ):
+            return True
+    return False
+
+
+def normalized_title_signature(title: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", " ", title.casefold())
+    tokens = [token for token in normalized.split() if token not in TITLE_DEDUPE_STOPWORDS]
+    return " ".join(tokens)
+
+
+def title_similarity(left: str, right: str) -> float:
+    if left == right:
+        return 1
+    return SequenceMatcher(None, left, right).ratio()
+
+
+def same_publication_day(left: datetime | None, right: datetime | None) -> bool:
+    if left is None or right is None:
+        return left is None and right is None
+    return normalize_ingestion_datetime(left).date() == normalize_ingestion_datetime(right).date()
+
+
+def normalize_ingestion_datetime(value: datetime) -> datetime:
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 def compute_content_hash(item: RawItemInput) -> str:
