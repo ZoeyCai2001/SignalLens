@@ -599,6 +599,7 @@ type MvpChecklistItem = {
   actionLabel?: string;
   actionModule?: ModuleKey;
   actionOperation?: DashboardOperation;
+  actionTargetId?: string;
 };
 
 type DemoDataSeedResponse = {
@@ -3303,6 +3304,7 @@ export function Dashboard() {
     if (item.actionModule) {
       setActiveModule(item.actionModule);
     }
+    scrollToDashboardTarget(item.actionTargetId);
     if (item.actionOperation === "demo-data:seed") {
       await seedDemoDataFromDashboard();
       return;
@@ -3338,6 +3340,18 @@ export function Dashboard() {
     setStatus(`${item.actionLabel ?? "Opened"}: ${item.label}`);
   };
 
+  const scrollToDashboardTarget = (targetId?: string) => {
+    if (!targetId) {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+
   const moduleCounts = useMemo(
     () => buildModuleCounts(feed, digest, savedItems, sources, preferences, moduleFeedOverrides),
     [digest, feed, moduleFeedOverrides, preferences, savedItems, sources],
@@ -3366,37 +3380,41 @@ export function Dashboard() {
   }, [activeAlerts.length, feed.length, moduleFeed]);
 
   const systemStatusPanel = (
-    <SystemStatusPanel
-      status={systemStatus}
-      itemCount={feed.length}
-      sourceCount={sources.length}
-      enabledSourceCount={sources.filter((source) => source.enabled).length}
-      alertCount={activeAlerts.length}
-      watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
-      qualityMetrics={qualityMetrics}
-      busyCopy={busySetupCopy}
-      disabled={loadState !== "idle"}
-      onCopyMissingEnv={copyMissingEnvTemplate}
-      onQualityFindingAction={openQualityFindingAction}
-      onMvpChecklistAction={openMvpChecklistAction}
-    />
+    <div id="system-readiness-workflow">
+      <SystemStatusPanel
+        status={systemStatus}
+        itemCount={feed.length}
+        sourceCount={sources.length}
+        enabledSourceCount={sources.filter((source) => source.enabled).length}
+        alertCount={activeAlerts.length}
+        watchlistCount={stocks.length + companies.length + topics.length + productWatchlist.length}
+        qualityMetrics={qualityMetrics}
+        busyCopy={busySetupCopy}
+        disabled={loadState !== "idle"}
+        onCopyMissingEnv={copyMissingEnvTemplate}
+        onQualityFindingAction={openQualityFindingAction}
+        onMvpChecklistAction={openMvpChecklistAction}
+      />
+    </div>
   );
   const rankingPreferencesPanel = (
-    <RankingPreferencesPanel
-      preferences={preferences}
-      draft={rankingDraft}
-      preferredSources={preferredSourcesDraft}
-      blockedSources={blockedSourcesDraft}
-      languagePreferences={languagePreferencesDraft}
-      disabled={loadState !== "idle"}
-      busy={busyPreferences}
-      onDraftChange={updateRankingDraft}
-      onPreferredSourcesChange={setPreferredSourcesDraft}
-      onBlockedSourcesChange={setBlockedSourcesDraft}
-      onLanguagePreferencesChange={setLanguagePreferencesDraft}
-      onReset={() => setRankingDraft(DEFAULT_RANKING_WEIGHTS)}
-      onSave={saveRankingPreferences}
-    />
+    <div id="settings-workflow">
+      <RankingPreferencesPanel
+        preferences={preferences}
+        draft={rankingDraft}
+        preferredSources={preferredSourcesDraft}
+        blockedSources={blockedSourcesDraft}
+        languagePreferences={languagePreferencesDraft}
+        disabled={loadState !== "idle"}
+        busy={busyPreferences}
+        onDraftChange={updateRankingDraft}
+        onPreferredSourcesChange={setPreferredSourcesDraft}
+        onBlockedSourcesChange={setBlockedSourcesDraft}
+        onLanguagePreferencesChange={setLanguagePreferencesDraft}
+        onReset={() => setRankingDraft(DEFAULT_RANKING_WEIGHTS)}
+        onSave={saveRankingPreferences}
+      />
+    </div>
   );
   const schedulerStatusPanel = (
     <SchedulerStatusPanel
@@ -3416,42 +3434,44 @@ export function Dashboard() {
     />
   );
   const sourceHealthPanel = (
-    <SourceTable
-      sources={sources}
-      runs={sourceRuns}
-      sourceFilter={sourceHealthFilter}
-      runStatusFilter={sourceRunStatusFilter}
-      runSourceFilter={sourceRunSourceFilter}
-      lastCycleResult={lastCycleResult}
-      blockedSources={preferences?.blocked_sources ?? []}
-      sourceTemplate={sourceTemplate}
-      name={sourceName}
-      type={sourceType}
-      accessMethod={sourceAccessMethod}
-      baseUrl={sourceBaseUrl}
-      termsNotes={sourceTermsNotes}
-      pollingInterval={sourcePollingInterval}
-      rateLimit={sourceRateLimit}
-      disabled={loadState !== "idle"}
-      busySourceId={busySourceId}
-      onSourceTemplateChange={selectSourceTemplate}
-      onNameChange={setSourceName}
-      onTypeChange={setSourceType}
-      onAccessMethodChange={setSourceAccessMethod}
-      onBaseUrlChange={setSourceBaseUrl}
-      onPollingIntervalChange={setSourcePollingInterval}
-      onRateLimitChange={setSourceRateLimit}
-      onTermsNotesChange={setSourceTermsNotes}
-      onSourceFilterChange={setSourceHealthFilter}
-      onRunStatusFilterChange={setSourceRunStatusFilter}
-      onRunSourceFilterChange={setSourceRunSourceFilter}
-      onSubmit={submitSource}
-      onRunSource={runSourceNow}
-      onToggleSource={toggleSource}
-      onUpdateSource={updateSource}
-      onToggleSourceBlock={toggleSourceBlockFromHealth}
-      onDeleteSource={deleteSource}
-    />
+    <div id="source-health-workflow">
+      <SourceTable
+        sources={sources}
+        runs={sourceRuns}
+        sourceFilter={sourceHealthFilter}
+        runStatusFilter={sourceRunStatusFilter}
+        runSourceFilter={sourceRunSourceFilter}
+        lastCycleResult={lastCycleResult}
+        blockedSources={preferences?.blocked_sources ?? []}
+        sourceTemplate={sourceTemplate}
+        name={sourceName}
+        type={sourceType}
+        accessMethod={sourceAccessMethod}
+        baseUrl={sourceBaseUrl}
+        termsNotes={sourceTermsNotes}
+        pollingInterval={sourcePollingInterval}
+        rateLimit={sourceRateLimit}
+        disabled={loadState !== "idle"}
+        busySourceId={busySourceId}
+        onSourceTemplateChange={selectSourceTemplate}
+        onNameChange={setSourceName}
+        onTypeChange={setSourceType}
+        onAccessMethodChange={setSourceAccessMethod}
+        onBaseUrlChange={setSourceBaseUrl}
+        onPollingIntervalChange={setSourcePollingInterval}
+        onRateLimitChange={setSourceRateLimit}
+        onTermsNotesChange={setSourceTermsNotes}
+        onSourceFilterChange={setSourceHealthFilter}
+        onRunStatusFilterChange={setSourceRunStatusFilter}
+        onRunSourceFilterChange={setSourceRunSourceFilter}
+        onSubmit={submitSource}
+        onRunSource={runSourceNow}
+        onToggleSource={toggleSource}
+        onUpdateSource={updateSource}
+        onToggleSourceBlock={toggleSourceBlockFromHealth}
+        onDeleteSource={deleteSource}
+      />
+    </div>
   );
 
   return (
@@ -3711,7 +3731,7 @@ export function Dashboard() {
               {settingsBackupPanel}
             </section>
           ) : (
-            <section className="section">
+            <section className="section" id="ranked-feed-workflow">
               <div className="section-header">
                 <h2 className="section-title">
                   {activeModule === "dashboard" ? "Ranked Feed" : `${activeModuleLabel} Feed`}
@@ -3787,57 +3807,61 @@ export function Dashboard() {
           <aside className="stack">
             {activeModule === "settings" ? null : systemStatusPanel}
             {activeModule === "settings" ? null : rankingPreferencesPanel}
-            <AlertPanel
-              alerts={alerts}
-              rules={alertRules}
-              includeDismissed={alertIncludeDismissed}
-              busyAlertId={busyAlertId}
-              busyAlertRuleId={busyAlertRuleId}
-              busyGenerate={busyAlertGenerate}
-              ruleName={alertRuleName}
-              ruleCategory={alertRuleCategory}
-              ruleTickers={alertRuleTickers}
-              ruleTopics={alertRuleTopics}
-              ruleImportance={alertRuleImportance}
-              ruleStockImpact={alertRuleStockImpact}
-              ruleSeverity={alertRuleSeverity}
-              disabled={loadState !== "idle"}
-              onDismiss={dismissAlert}
-              onGenerate={generateDashboardAlerts}
-              onIncludeDismissedChange={setAlertIncludeDismissed}
-              onRuleToggle={toggleAlertRule}
-              onRuleSnooze={snoozeAlertRule}
-              onRuleUpdate={updateAlertRuleDetails}
-              onRuleDelete={deleteAlertRule}
-              onRuleNameChange={setAlertRuleName}
-              onRuleCategoryChange={setAlertRuleCategory}
-              onRuleTickersChange={setAlertRuleTickers}
-              onRuleTopicsChange={setAlertRuleTopics}
-              onRuleImportanceChange={setAlertRuleImportance}
-              onRuleStockImpactChange={setAlertRuleStockImpact}
-              onRuleSeverityChange={setAlertRuleSeverity}
-              onRuleSubmit={submitAlertRule}
-            />
-            <DailyDigestPanel
-              digest={digest}
-              snapshots={digestSnapshots}
-              digestDate={digestDateDraft}
-              activeSnapshotId={activeDigestSnapshot?.id ?? null}
-              busySnapshotId={busyDigestSnapshotId}
-              busyGenerate={busyDigestGenerate}
-              busyCopy={busyDigestCopy}
-              busyDownload={busyDigestDownload}
-              busyEmail={busyDigestEmail}
-              busySave={busyDigestSave}
-              onDigestDateChange={updateDigestDateDraft}
-              onGenerate={generateDailyDigest}
-              onCopy={copyDailyDigest}
-              onDownload={downloadDailyDigest}
-              onEmail={emailDailyDigest}
-              onSave={saveDailyDigestSnapshot}
-              onSnapshotOpen={loadDigestSnapshot}
-              onSnapshotDelete={deleteDailyDigestSnapshot}
-            />
+            <div id="alerts-workflow">
+              <AlertPanel
+                alerts={alerts}
+                rules={alertRules}
+                includeDismissed={alertIncludeDismissed}
+                busyAlertId={busyAlertId}
+                busyAlertRuleId={busyAlertRuleId}
+                busyGenerate={busyAlertGenerate}
+                ruleName={alertRuleName}
+                ruleCategory={alertRuleCategory}
+                ruleTickers={alertRuleTickers}
+                ruleTopics={alertRuleTopics}
+                ruleImportance={alertRuleImportance}
+                ruleStockImpact={alertRuleStockImpact}
+                ruleSeverity={alertRuleSeverity}
+                disabled={loadState !== "idle"}
+                onDismiss={dismissAlert}
+                onGenerate={generateDashboardAlerts}
+                onIncludeDismissedChange={setAlertIncludeDismissed}
+                onRuleToggle={toggleAlertRule}
+                onRuleSnooze={snoozeAlertRule}
+                onRuleUpdate={updateAlertRuleDetails}
+                onRuleDelete={deleteAlertRule}
+                onRuleNameChange={setAlertRuleName}
+                onRuleCategoryChange={setAlertRuleCategory}
+                onRuleTickersChange={setAlertRuleTickers}
+                onRuleTopicsChange={setAlertRuleTopics}
+                onRuleImportanceChange={setAlertRuleImportance}
+                onRuleStockImpactChange={setAlertRuleStockImpact}
+                onRuleSeverityChange={setAlertRuleSeverity}
+                onRuleSubmit={submitAlertRule}
+              />
+            </div>
+            <div id="digest-workflow">
+              <DailyDigestPanel
+                digest={digest}
+                snapshots={digestSnapshots}
+                digestDate={digestDateDraft}
+                activeSnapshotId={activeDigestSnapshot?.id ?? null}
+                busySnapshotId={busyDigestSnapshotId}
+                busyGenerate={busyDigestGenerate}
+                busyCopy={busyDigestCopy}
+                busyDownload={busyDigestDownload}
+                busyEmail={busyDigestEmail}
+                busySave={busyDigestSave}
+                onDigestDateChange={updateDigestDateDraft}
+                onGenerate={generateDailyDigest}
+                onCopy={copyDailyDigest}
+                onDownload={downloadDailyDigest}
+                onEmail={emailDailyDigest}
+                onSave={saveDailyDigestSnapshot}
+                onSnapshotOpen={loadDigestSnapshot}
+                onSnapshotDelete={deleteDailyDigestSnapshot}
+              />
+            </div>
             <SavedItemsPanel
               items={savedItems.slice(0, 8)}
               busyItemId={busyItemId}
@@ -3867,54 +3891,58 @@ export function Dashboard() {
               onSelectCluster={loadEventCluster}
               onExplainCluster={explainEventCluster}
             />
-            <ManualSubmissionPanel
-              title={manualTitle}
-              sourceName={manualSourceName}
-              url={manualUrl}
-              text={manualText}
-              personalNote={manualPersonalNote}
-              manualTags={manualTags}
-              saveItem={manualSaveItem}
-              classifyWithLlm={manualClassifyWithLlm}
-              summarizeWithLlm={manualSummarizeWithLlm}
-              disabled={loadState !== "idle"}
-              onTitleChange={setManualTitle}
-              onSourceNameChange={setManualSourceName}
-              onUrlChange={setManualUrl}
-              onTextChange={setManualText}
-              onPersonalNoteChange={setManualPersonalNote}
-              onManualTagsChange={setManualTags}
-              onSaveItemChange={setManualSaveItem}
-              onClassifyWithLlmChange={setManualClassifyWithLlm}
-              onSummarizeWithLlmChange={setManualSummarizeWithLlm}
-              onSubmit={submitManualItem}
-            />
-            <StockTable
-              stocks={stocks}
-              signalSummaries={stockSignals}
-              stockBriefing={stockBriefing}
-              stockPriceSnapshot={stockPriceSnapshot}
-              stockLlmSummary={selectedTicker ? stockLlmSummaries[selectedTicker] ?? null : null}
-              eventClusters={eventClusters}
-              selectedTicker={selectedTicker}
-              busyStockTicker={busyStockTicker}
-              busyStockSummaryTicker={busyStockSummaryTicker}
-              busyWatchlistKey={busyWatchlistKey}
-              ticker={stockTicker}
-              company={stockCompany}
-              themes={stockThemes}
-              keywords={stockKeywords}
-              disabled={loadState !== "idle"}
-              onTickerChange={setStockTicker}
-              onCompanyChange={setStockCompany}
-              onThemesChange={setStockThemes}
-              onKeywordsChange={setStockKeywords}
-              onSelectTicker={setSelectedTicker}
-              onExplainStock={explainStockBriefing}
-              onUpdateStock={updateStock}
-              onDeleteStock={deleteStock}
-              onSubmit={submitStock}
-            />
+            <div id="manual-submission-workflow">
+              <ManualSubmissionPanel
+                title={manualTitle}
+                sourceName={manualSourceName}
+                url={manualUrl}
+                text={manualText}
+                personalNote={manualPersonalNote}
+                manualTags={manualTags}
+                saveItem={manualSaveItem}
+                classifyWithLlm={manualClassifyWithLlm}
+                summarizeWithLlm={manualSummarizeWithLlm}
+                disabled={loadState !== "idle"}
+                onTitleChange={setManualTitle}
+                onSourceNameChange={setManualSourceName}
+                onUrlChange={setManualUrl}
+                onTextChange={setManualText}
+                onPersonalNoteChange={setManualPersonalNote}
+                onManualTagsChange={setManualTags}
+                onSaveItemChange={setManualSaveItem}
+                onClassifyWithLlmChange={setManualClassifyWithLlm}
+                onSummarizeWithLlmChange={setManualSummarizeWithLlm}
+                onSubmit={submitManualItem}
+              />
+            </div>
+            <div id="stock-watchlist-workflow">
+              <StockTable
+                stocks={stocks}
+                signalSummaries={stockSignals}
+                stockBriefing={stockBriefing}
+                stockPriceSnapshot={stockPriceSnapshot}
+                stockLlmSummary={selectedTicker ? stockLlmSummaries[selectedTicker] ?? null : null}
+                eventClusters={eventClusters}
+                selectedTicker={selectedTicker}
+                busyStockTicker={busyStockTicker}
+                busyStockSummaryTicker={busyStockSummaryTicker}
+                busyWatchlistKey={busyWatchlistKey}
+                ticker={stockTicker}
+                company={stockCompany}
+                themes={stockThemes}
+                keywords={stockKeywords}
+                disabled={loadState !== "idle"}
+                onTickerChange={setStockTicker}
+                onCompanyChange={setStockCompany}
+                onThemesChange={setStockThemes}
+                onKeywordsChange={setStockKeywords}
+                onSelectTicker={setSelectedTicker}
+                onExplainStock={explainStockBriefing}
+                onUpdateStock={updateStock}
+                onDeleteStock={deleteStock}
+                onSubmit={submitStock}
+              />
+            </div>
             <CompanyWatchlistPanel
               companies={companies}
               briefing={companyBriefing}
@@ -4840,6 +4868,7 @@ function buildPrdMvpChecklist({
       actionLabel: recentItems > 0 ? "Open Dashboard" : "Seed Demo Data",
       actionModule: "dashboard",
       actionOperation: recentItems > 0 ? undefined : "demo-data:seed",
+      actionTargetId: "ranked-feed-workflow",
     },
     {
       key: "source-ingestion",
@@ -4860,6 +4889,7 @@ function buildPrdMvpChecklist({
       actionModule: "sources",
       actionOperation:
         enabledSourceCount > 0 && recentSourceCount < 3 ? "cycle" : undefined,
+      actionTargetId: "source-health-workflow",
     },
     {
       key: "llm-processing",
@@ -4877,6 +4907,7 @@ function buildPrdMvpChecklist({
       actionLabel: status.llm_configured ? "Run Classification" : "Open Settings",
       actionModule: status.llm_configured ? "dashboard" : "settings",
       actionOperation: status.llm_configured ? "llm:classify" : undefined,
+      actionTargetId: status.llm_configured ? "ranked-feed-workflow" : "settings-workflow",
     },
     {
       key: "watchlists",
@@ -4894,6 +4925,7 @@ function buildPrdMvpChecklist({
           : "Seed or create watchlists so personalization has a profile to use.",
       actionLabel: "Open Dashboard",
       actionModule: "dashboard",
+      actionTargetId: "stock-watchlist-workflow",
     },
     {
       key: "stock-watchlist",
@@ -4914,6 +4946,7 @@ function buildPrdMvpChecklist({
       actionModule: "stocks",
       actionOperation:
         stockWatchlistCount > 0 && !latestStockPriceDate ? "stock-prices:refresh" : undefined,
+      actionTargetId: "stock-watchlist-workflow",
     },
     {
       key: "search",
@@ -4934,6 +4967,7 @@ function buildPrdMvpChecklist({
       actionModule: "dashboard",
       actionOperation:
         recentItems > 0 && searchFacetCoverage < 0.7 ? "llm:classify" : undefined,
+      actionTargetId: "ranked-feed-workflow",
     },
     {
       key: "daily-digest",
@@ -4959,6 +4993,7 @@ function buildPrdMvpChecklist({
         latestDigestAgeDays !== null && latestDigestAgeDays <= 1
           ? undefined
           : "digest:save-snapshot",
+      actionTargetId: "digest-workflow",
     },
     {
       key: "alerts",
@@ -4977,6 +5012,7 @@ function buildPrdMvpChecklist({
       actionLabel: alertCount > 0 ? "Open Dashboard" : "Generate Alerts",
       actionModule: "dashboard",
       actionOperation: alertCount > 0 ? undefined : "alerts:generate",
+      actionTargetId: "alerts-workflow",
     },
     {
       key: "manual-submission",
@@ -4989,6 +5025,7 @@ function buildPrdMvpChecklist({
           : "The submission flow is available; paste a URL when a source has no connector.",
       actionLabel: "Open Submission",
       actionModule: "dashboard",
+      actionTargetId: "manual-submission-workflow",
     },
   ];
 }

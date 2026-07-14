@@ -343,3 +343,4 @@ Implementation progress:
 - Updated local demo seeding to save an idempotent daily digest snapshot and extended the no-paid-API demo smoke check so System Readiness can verify a ready digest snapshot after demo data is seeded.
 - Added direct `python3 scripts/check_local_setup.py` first-run guidance and clearer pnpm-missing setup output so local Mac readiness can be diagnosed before the repo-root pnpm workflow is available.
 - Added action buttons to the PRD MVP checklist so readiness rows can open the relevant module or run existing recovery actions such as seed demo data, full ingestion, classification, stock price refresh, digest save, and alert generation.
+- Added targeted scrolling for PRD MVP checklist actions so opening a readiness workflow lands on the relevant feed, source health, settings, stock, digest, alert, or manual submission panel.
