@@ -353,3 +353,4 @@ Implementation progress:
 - Hardened generated web workspace ignores for iCloud duplicate dependency and build folders, keeping Mac-local file sync copies out of lint and Git status noise.
 - Improved stock ticker extraction for punctuation, cashtags, and exchange-prefixed mentions while avoiding lowercase common-word false positives, and anchored broad recent/latest searches to the newest stored item date so stale local demo data remains searchable.
 - Added Daily Digest topic-watchlist support, including included topic labels in digest payloads/markdown and a dedicated Topic Watchlist Updates section matched from topic labels, slugs, related terms, titles, and summaries.
+- Wired the web Daily Digest panel to the new topic-watchlist digest contract so topic labels appear beside ticker and company watchlist context in the dashboard.
