@@ -74,3 +74,30 @@ def test_cloud_sync_risk_reason_allows_local_dev_folder(monkeypatch) -> None:
     reason = setup_check.cloud_sync_risk_reason(Path("/Users/zoey/Developer/SignalLens"))
 
     assert reason is None
+
+
+def test_cloud_placeholder_check_warns_for_icloud_files(tmp_path) -> None:
+    setup_check = load_setup_check_module()
+    source_file = tmp_path / "docs" / "technical_design.md.icloud"
+    source_file.parent.mkdir()
+    source_file.write_text("placeholder", encoding="utf-8")
+    ignored_file = tmp_path / "node_modules" / "package.json.icloud"
+    ignored_file.parent.mkdir()
+    ignored_file.write_text("ignored", encoding="utf-8")
+
+    result = setup_check.cloud_placeholder_check(tmp_path)
+
+    assert result.status == "warn"
+    assert result.importance == "recommended"
+    assert "docs/technical_design.md.icloud" in result.detail
+    assert "node_modules" not in result.detail
+
+
+def test_cloud_placeholder_check_passes_without_icloud_files(tmp_path) -> None:
+    setup_check = load_setup_check_module()
+    source_file = tmp_path / "README.md"
+    source_file.write_text("ready", encoding="utf-8")
+
+    result = setup_check.cloud_placeholder_check(tmp_path)
+
+    assert result.status == "ok"

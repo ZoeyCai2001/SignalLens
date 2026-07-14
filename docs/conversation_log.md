@@ -417,3 +417,4 @@ Implementation progress:
 - Surfaced stored LLM `Uncertainties:` lines in expanded feed item details before deterministic audit flags, improving PRD uncertainty review without another model call or schema migration.
 - Added feed-detail stock reaction summaries for stock-linked items, deriving event-date price movement from stored daily price rows and rendering the result in the dashboard detail panel.
 - Added explicit feed-item useful/not-useful feedback, including durable user-action fields, API actions, dashboard thumbs controls, personalization learning, quality metrics, and no-paid demo smoke coverage.
+- Added `.icloud` placeholder detection to the local Mac setup checker so iCloud optimized-storage files are reported before dependency installs, migrations, or verification runs fail unexpectedly.

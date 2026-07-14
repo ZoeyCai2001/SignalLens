@@ -56,9 +56,11 @@ python3 scripts/check_local_setup.py
 
 Mac/iCloud note: if Finder or terminal tools show project files as not downloaded,
 or dependencies appear and disappear, move or clone SignalLens into a local-only
-folder such as `~/Developer/SignalLens`. The source of truth is the GitHub remote
-plus committed files; dependencies and generated local state can be recreated with
-the setup commands above.
+folder such as `~/Developer/SignalLens`. The setup checker warns when the repo is
+inside a likely iCloud-synced location or when source paths contain `.icloud`
+placeholder files. The source of truth is the GitHub remote plus committed files;
+dependencies and generated local state can be recreated with the setup commands
+above.
 
 The Docker PostgreSQL service maps to host port `55432` to avoid conflicts with a local
 Postgres running on the default `5432`.

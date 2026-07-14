@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import shutil
 from dataclasses import asdict, dataclass
@@ -18,6 +19,16 @@ PLACEHOLDER_VALUES = {
     "your-key",
     "your-email@example.com",
     "SignalLens/0.1 your-email@example.com",
+}
+
+CLOUD_PLACEHOLDER_EXCLUDED_DIRS = {
+    ".git",
+    ".next",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "node_modules",
 }
 
 
@@ -65,6 +76,7 @@ def build_checks() -> list[SetupCheck]:
     env_values = read_env_names(REPO_ROOT / ".env")
     return [
         workspace_location_check(),
+        cloud_placeholder_check(),
         path_check("package_json", "Root package.json", "core", "package.json"),
         path_check("pnpm_lock", "pnpm lockfile", "core", "pnpm-lock.yaml"),
         path_check("web_package", "Web package.json", "core", "apps/web/package.json"),
@@ -197,6 +209,52 @@ def is_relative_to(path: Path, parent: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def cloud_placeholder_check(root: Path = REPO_ROOT) -> SetupCheck:
+    placeholders = list_icloud_placeholders(root)
+    if not placeholders:
+        return SetupCheck(
+            "icloud_placeholders",
+            "iCloud downloaded files",
+            "ok",
+            "recommended",
+            "No .icloud placeholder files were found in source-controlled project paths.",
+        )
+
+    examples = ", ".join(
+        str(path.relative_to(root)) if is_relative_to(path, root) else str(path)
+        for path in placeholders[:3]
+    )
+    remaining = len(placeholders) - 3
+    extra = f" and {remaining} more" if remaining > 0 else ""
+    return SetupCheck(
+        "icloud_placeholders",
+        "iCloud downloaded files",
+        "warn",
+        "recommended",
+        (
+            f"Found {len(placeholders)} iCloud placeholder file(s): {examples}{extra}. "
+            "Download these files locally or move/clone SignalLens into a local-only folder "
+            "before installing dependencies or running verifiers."
+        ),
+    )
+
+
+def list_icloud_placeholders(root: Path) -> list[Path]:
+    if not root.exists():
+        return []
+
+    placeholders: list[Path] = []
+    for directory, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            name for name in dirnames if name not in CLOUD_PLACEHOLDER_EXCLUDED_DIRS
+        ]
+        current = Path(directory)
+        for filename in filenames:
+            if filename.endswith(".icloud"):
+                placeholders.append(current / filename)
+    return sorted(placeholders)
 
 
 def path_check(key: str, label: str, importance: str, relative_path: str) -> SetupCheck:
