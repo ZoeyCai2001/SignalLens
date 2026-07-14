@@ -51,6 +51,7 @@ class DailyDigest(BaseModel):
     source_coverage: list[DigestSourceCoverage]
     watchlist_tickers: list[str] = Field(default_factory=list)
     watchlist_companies: list[str] = Field(default_factory=list)
+    watchlist_topics: list[str] = Field(default_factory=list)
     disclaimer: str
 
 

@@ -12,6 +12,7 @@ from app.db.models import (
     CompanyWatchlistItem,
     NormalizedItem,
     ProductWatchlistItem,
+    TopicWatchlistItem,
     UserItemAction,
     UserPreference,
 )
@@ -19,20 +20,22 @@ from app.db.models import DailyDigestSnapshot as DailyDigestSnapshotModel
 from app.schemas.digest import DailyDigest
 from app.schemas.feed import FeedItem
 from app.services.daily_digest import (
-    build_digest_overview_metrics,
     build_digest_item_labels,
+    build_digest_overview_metrics,
     build_digest_sections,
     build_headline,
     build_source_coverage,
-    digest_rank_score,
     delete_daily_digest_snapshot,
+    digest_rank_score,
     filter_items_by_excluded_topics,
     generate_daily_digest,
     list_active_digest_alerts,
     list_excluded_digest_company_terms,
     list_excluded_digest_product_terms,
+    list_included_digest_topic_terms,
     list_visible_items_for_digest_date,
     list_watchlist_companies,
+    list_watchlist_topics,
     render_digest_markdown,
     select_latest_digest_date,
     serialize_daily_digest_snapshot,
@@ -67,6 +70,26 @@ def test_daily_digest_sections_group_items() -> None:
     assert section_map["top_signals"].metrics.stock_signal_count == 1
     assert section_map["top_signals"].metrics.source_count == 1
     assert section_map["read_later"].metrics.read_later_count == 1
+
+
+def test_daily_digest_sections_include_topic_watchlist_matches() -> None:
+    items = [
+        make_item(1, "Agent harness paper", "research", 0.9, topics=["agent"]),
+        make_item(2, "Coding agent launch", "product", 0.8, topics=["developer tools"]),
+        make_item(3, "Unrelated model note", "technical_trend", 0.7, topics=["multimodal"]),
+    ]
+
+    sections = build_digest_sections(
+        items,
+        topic_watchlist_terms={"agent harness", "coding agent"},
+    )
+    section_map = {section.key: section for section in sections}
+
+    assert [item.title for item in section_map["topic_watchlist"].items] == [
+        "Agent harness paper",
+        "Coding agent launch",
+    ]
+    assert section_map["topic_watchlist"].metrics.item_count == 2
 
 
 def test_daily_digest_sections_include_prd_secondary_categories() -> None:
@@ -223,7 +246,7 @@ def test_build_digest_item_labels_includes_technologies() -> None:
     )
     item.technologies = ["Inference", "RAG"]
 
-    assert build_digest_item_labels(item) == ["Inference", "RAG", "inference"]
+    assert build_digest_item_labels(item) == ["Inference", "RAG"]
 
 
 def test_build_digest_item_labels_includes_non_ai_relevance_label() -> None:
@@ -412,6 +435,45 @@ def test_list_watchlist_companies_returns_digest_included_companies() -> None:
     assert companies == ["OpenAI"]
 
 
+def test_list_watchlist_topics_returns_included_labels_and_terms() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                TopicWatchlistItem(
+                    user_id="local",
+                    topic="agent-harness",
+                    label="Agent Harness",
+                    category="technical_trend",
+                    priority="High",
+                    is_pinned=True,
+                    include_in_digest=True,
+                    related_terms=["coding agent"],
+                ),
+                TopicWatchlistItem(
+                    user_id="local",
+                    topic="ai-photo",
+                    label="AI Photo",
+                    category="product",
+                    priority="Medium",
+                    include_in_digest=False,
+                    related_terms=["image generation"],
+                ),
+            ]
+        )
+        db.commit()
+
+        topics = list_watchlist_topics(db)
+        terms = list_included_digest_topic_terms(db)
+
+    assert topics == ["Agent Harness"]
+    assert {"agent-harness", "agent harness", "coding agent"}.issubset(terms)
+    assert "ai photo" not in terms
+
+
 def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None:
     items = [
         make_item(1, "Research", "research", 0.9, topics=["llm"]),
@@ -434,6 +496,7 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
         source_coverage=build_source_coverage(items),
         watchlist_tickers=["MU", "MRVL"],
         watchlist_companies=["OpenAI", "Anthropic"],
+        watchlist_topics=["Agent Harness", "AI Coding"],
         disclaimer="Informational only.",
     )
 
@@ -442,6 +505,7 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert markdown.startswith("# SignalLens Daily Digest - 2026-06-25")
     assert "Ticker watchlist: MU, MRVL" in markdown
     assert "Company watchlist: OpenAI, Anthropic" in markdown
+    assert "Topic watchlist: Agent Harness, AI Coding" in markdown
     assert "## AI Research" in markdown
     assert "Papers, benchmarks, and research discussions." in markdown
     assert "_Section signals: 1 items, 1 sources, 1 high-impact_" in markdown
@@ -477,7 +541,10 @@ def test_render_digest_markdown_includes_active_alerts() -> None:
     markdown = render_digest_markdown(digest)
 
     assert "## Active Alerts" in markdown
-    assert "- [Urgent stock signal](https://example.com/9) - high via High-impact stock signal" in markdown
+    assert (
+        "- [Urgent stock signal](https://example.com/9) - high via High-impact stock signal"
+        in markdown
+    )
     assert "High-impact stock signal: importance 90" in markdown
 
 
@@ -695,6 +762,52 @@ def test_generate_daily_digest_excludes_blocked_sources_from_preferences() -> No
     assert digest.total_items == 1
     assert [item.source_name for item in digest.source_coverage] == ["Trusted Blog"]
     assert [item.title for item in digest.sections[0].items] == ["Visible signal"]
+
+
+def test_generate_daily_digest_includes_topic_watchlist_updates() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add(
+            TopicWatchlistItem(
+                user_id="local",
+                topic="agent-harness",
+                label="Agent Harness",
+                category="technical_trend",
+                priority="High",
+                is_pinned=True,
+                include_in_digest=True,
+                related_terms=["coding agent"],
+            )
+        )
+        db.add_all(
+            [
+                make_normalized_item(
+                    1,
+                    "Agent harness reliability signal",
+                    source_name="Trusted Blog",
+                ),
+                make_normalized_item(
+                    2,
+                    "Multimodal release note",
+                    source_name="Trusted Blog",
+                ),
+            ]
+        )
+        db.commit()
+
+        digest = generate_daily_digest(
+            db,
+            digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        )
+
+    section_map = {section.key: section for section in digest.sections}
+    assert digest.watchlist_topics == ["Agent Harness"]
+    assert [item.title for item in section_map["topic_watchlist"].items] == [
+        "Agent harness reliability signal"
+    ]
 
 
 def test_generate_daily_digest_filters_language_preferences() -> None:

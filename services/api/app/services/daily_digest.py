@@ -5,9 +5,6 @@ from sqlalchemy import and_, case, or_
 from sqlalchemy.orm import Session
 
 from app.db.models import (
-    DailyDigestSnapshot as DailyDigestSnapshotModel,
-)
-from app.db.models import (
     Alert,
     AlertRule,
     CompanyWatchlistItem,
@@ -17,10 +14,13 @@ from app.db.models import (
     TopicWatchlistItem,
     UserItemAction,
 )
+from app.db.models import (
+    DailyDigestSnapshot as DailyDigestSnapshotModel,
+)
 from app.schemas.digest import (
     DailyDigest,
-    DigestAlertItem,
     DailyDigestSnapshot,
+    DigestAlertItem,
     DigestSection,
     DigestSectionMetrics,
     DigestSourceCoverage,
@@ -85,10 +85,16 @@ def generate_daily_digest(
         feed_items,
         excluded_terms=list_excluded_digest_terms(db),
     )
-    sections = build_digest_sections(feed_items, limit_per_section=limit_per_section)
     coverage = build_source_coverage(feed_items)
     tickers = list_watchlist_tickers(db)
     companies = list_watchlist_companies(db)
+    topics = list_watchlist_topics(db)
+    topic_terms = list_included_digest_topic_terms(db)
+    sections = build_digest_sections(
+        feed_items,
+        limit_per_section=limit_per_section,
+        topic_watchlist_terms=topic_terms,
+    )
     metrics = build_digest_overview_metrics(feed_items, coverage)
     active_alerts = list_active_digest_alerts(
         db=db,
@@ -111,6 +117,7 @@ def generate_daily_digest(
         source_coverage=coverage,
         watchlist_tickers=tickers,
         watchlist_companies=companies,
+        watchlist_topics=topics,
         disclaimer=NON_FINANCIAL_ADVICE_DISCLAIMER,
     )
 
@@ -133,6 +140,13 @@ def render_digest_markdown(digest: DailyDigest) -> str:
         lines.extend(
             [
                 f"Company watchlist: {', '.join(digest.watchlist_companies)}",
+                "",
+            ]
+        )
+    if digest.watchlist_topics:
+        lines.extend(
+            [
+                f"Topic watchlist: {', '.join(digest.watchlist_topics)}",
                 "",
             ]
         )
@@ -453,8 +467,10 @@ def serialize_digest_alert(db: Session, alert: Alert) -> DigestAlertItem:
 def build_digest_sections(
     items: list[FeedItem],
     limit_per_section: int = 5,
+    topic_watchlist_terms: set[str] | None = None,
 ) -> list[DigestSection]:
     ranked_items = sort_for_digest(items)
+    normalized_topic_watchlist_terms = normalize_digest_terms(topic_watchlist_terms or set())
     section_specs = [
         (
             "top_signals",
@@ -473,6 +489,12 @@ def build_digest_sections(
             "AI Technical Trends",
             "Engineering themes, infrastructure, models, and agent workflows.",
             is_digest_technical_trend_item,
+        ),
+        (
+            "topic_watchlist",
+            "Topic Watchlist Updates",
+            "Signals matching the included personal topic watchlist.",
+            lambda item: matches_digest_watchlist_terms(item, normalized_topic_watchlist_terms),
         ),
         (
             "products",
@@ -595,6 +617,40 @@ def matches_excluded_topic(item: FeedItem, excluded_terms: set[str]) -> bool:
     return bool(item_terms & excluded_terms)
 
 
+def matches_digest_watchlist_terms(item: FeedItem, terms: set[str]) -> bool:
+    if not terms:
+        return False
+    exact_terms = normalize_digest_terms(
+        {
+            item.subcategory or "",
+            *item.topics,
+            *item.technologies,
+            *item.products,
+            *item.companies,
+            *item.tickers,
+            *item.manual_tags,
+        }
+    )
+    if exact_terms & terms:
+        return True
+
+    text = " ".join(
+        value
+        for value in [
+            item.title,
+            item.summary_short or "",
+            item.summary_detailed or "",
+            item.why_it_matters or "",
+        ]
+        if value
+    ).lower()
+    return any(term in text for term in terms if len(term) >= 3)
+
+
+def normalize_digest_terms(terms: set[str]) -> set[str]:
+    return {term.strip().lower() for term in terms if term.strip()}
+
+
 def sort_for_digest(items: list[FeedItem]) -> list[FeedItem]:
     return sorted(
         items,
@@ -676,6 +732,42 @@ def list_watchlist_companies(db: Session) -> list[str]:
         .all()
     )
     return [row.company_name for row in rows]
+
+
+def list_watchlist_topics(db: Session) -> list[str]:
+    rows = (
+        db.query(TopicWatchlistItem)
+        .filter(
+            TopicWatchlistItem.user_id == LOCAL_USER_ID,
+            TopicWatchlistItem.include_in_digest.is_(True),
+        )
+        .order_by(
+            TopicWatchlistItem.is_pinned.desc(),
+            TopicWatchlistItem.priority.asc(),
+            TopicWatchlistItem.label.asc(),
+        )
+        .all()
+    )
+    return [row.label for row in rows]
+
+
+def list_included_digest_topic_terms(db: Session) -> set[str]:
+    rows = (
+        db.query(TopicWatchlistItem)
+        .filter(
+            TopicWatchlistItem.user_id == LOCAL_USER_ID,
+            TopicWatchlistItem.include_in_digest.is_(True),
+        )
+        .all()
+    )
+    terms: set[str] = set()
+    for row in rows:
+        terms.update(
+            term.strip().lower()
+            for term in [row.topic, row.label, *row.related_terms]
+            if term.strip()
+        )
+    return terms
 
 
 def list_excluded_digest_terms(db: Session) -> set[str]:
