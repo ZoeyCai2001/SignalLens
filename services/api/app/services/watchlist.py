@@ -1477,11 +1477,13 @@ def build_stock_signal_summary(
             stock=stock_schema,
             top_signals=top_signals,
             signal_count=signal_count,
+            market=market,
         ),
         attention_components=build_stock_attention_components(
             stock=stock_schema,
             top_signals=top_signals,
             signal_count=signal_count,
+            market=market,
         ),
         attention_reasons=build_stock_attention_reasons(
             stock=stock_schema,
@@ -1489,6 +1491,7 @@ def build_stock_signal_summary(
             signal_count=signal_count,
             today_signal_count=today_signal_count,
             high_impact_count=high_impact_count,
+            market=market,
         ),
         market=market,
         latest_event_title=latest_signal.title if latest_signal else None,
@@ -1612,6 +1615,7 @@ def compute_stock_attention_score(
     stock: StockWatchlistSchema,
     top_signals: list[FeedItem],
     signal_count: int,
+    market: StockMarketSnapshot | None = None,
 ) -> float:
     return round(
         min(
@@ -1622,6 +1626,7 @@ def compute_stock_attention_score(
                     stock=stock,
                     top_signals=top_signals,
                     signal_count=signal_count,
+                    market=market,
                 )
             ),
         ),
@@ -1633,30 +1638,51 @@ def build_stock_attention_components(
     stock: StockWatchlistSchema,
     top_signals: list[FeedItem],
     signal_count: int,
+    market: StockMarketSnapshot | None = None,
 ) -> list[StockAttentionComponent]:
-    strongest_signal = max(
+    high_impact_news = max(
         (compute_stock_signal_score(item) for item in top_signals),
         default=0,
     )
-    signal_volume = min(signal_count / 10, 1)
-    priority = priority_score(stock.priority)
-    pinned_bonus = 1 if stock.is_pinned else 0
+    ai_relevance = max((item.relevance_score for item in top_signals), default=0)
+    social_discussion = max((item.social_signal_score for item in top_signals), default=0)
+    source_quality = average_score(item.source_quality_score for item in top_signals)
+    user_priority = priority_score(stock.priority)
     component_specs = [
-        ("strongest_signal", "Strongest signal", strongest_signal, 0.55),
-        ("signal_volume", "Signal volume", signal_volume, 0.25),
-        ("watchlist_priority", "Watchlist priority", priority, 0.15),
-        ("pinned_boost", "Pinned boost", pinned_bonus, 0.05),
+        ("high_impact_news", "High-impact news", high_impact_news, 0.30),
+        ("price_movement", "Price movement", compute_price_movement_score(market), 0.20),
+        ("ai_relevance", "AI relevance", ai_relevance, 0.20),
+        ("social_discussion", "Social discussion", social_discussion, 0.15),
+        ("source_quality", "Source quality", source_quality, 0.10),
+        ("user_priority", "User priority", user_priority, 0.05),
     ]
     return [
         StockAttentionComponent(
             key=key,
             label=label,
-            value=round(value, 3),
+            value=round(clamp_score(value), 3),
             weight=weight,
-            contribution=round(value * weight, 3),
+            contribution=round(clamp_score(value) * weight, 3),
         )
         for key, label, value, weight in component_specs
     ]
+
+
+def average_score(values) -> float:
+    scores = [clamp_score(value) for value in values]
+    return sum(scores) / len(scores) if scores else 0
+
+
+def compute_price_movement_score(market: StockMarketSnapshot | None) -> float:
+    if market is None or market.change_percent is None:
+        return 0
+    return min(abs(market.change_percent) / 5, 1)
+
+
+def clamp_score(value: float | int | None) -> float:
+    if value is None:
+        return 0
+    return max(0, min(float(value), 1))
 
 
 def build_stock_attention_reasons(
@@ -1665,14 +1691,33 @@ def build_stock_attention_reasons(
     signal_count: int,
     today_signal_count: int,
     high_impact_count: int,
+    market: StockMarketSnapshot | None = None,
 ) -> list[str]:
     reasons: list[str] = []
-    strongest_signal = max(
-        (compute_stock_signal_score(item) for item in top_signals),
-        default=0,
-    )
-    if strongest_signal >= 0.7:
-        reasons.append(f"Strongest signal scored {round(strongest_signal * 100)}")
+    components = {
+        component.key: component
+        for component in build_stock_attention_components(
+            stock=stock,
+            top_signals=top_signals,
+            signal_count=signal_count,
+            market=market,
+        )
+    }
+    high_impact_news = components["high_impact_news"].value
+    price_movement = components["price_movement"].value
+    ai_relevance = components["ai_relevance"].value
+    social_discussion = components["social_discussion"].value
+    source_quality = components["source_quality"].value
+    if high_impact_news >= 0.7:
+        reasons.append(f"High-impact news scored {round(high_impact_news * 100)}")
+    if price_movement >= 0.4 and market and market.change_percent is not None:
+        reasons.append(f"Price moved {market.change_percent:+.2f}%")
+    if ai_relevance >= 0.75:
+        reasons.append(f"AI relevance scored {round(ai_relevance * 100)}")
+    if social_discussion >= 0.5:
+        reasons.append(f"Social discussion scored {round(social_discussion * 100)}")
+    if source_quality >= 0.75:
+        reasons.append(f"Source quality scored {round(source_quality * 100)}")
     if signal_count > 0:
         reasons.append(f"{signal_count} matched signal{'' if signal_count == 1 else 's'}")
     if today_signal_count > 0:
@@ -1687,11 +1732,9 @@ def build_stock_attention_reasons(
         reasons.append("High watchlist priority")
     elif stock.priority.strip().lower() == "medium":
         reasons.append("Medium watchlist priority")
-    if stock.is_pinned:
-        reasons.append("Pinned ticker boost")
     if not reasons:
         reasons.append("No AI-related signals matched yet")
-    return reasons[:4]
+    return reasons[:6]
 
 
 def priority_score(value: str) -> float:

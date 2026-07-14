@@ -263,7 +263,7 @@ def test_build_stock_briefing_llm_prompt_uses_evidence_and_guardrails() -> None:
     assert "Uncertainties" in prompt
 
 
-def test_compute_stock_attention_score_combines_signal_volume_and_preferences() -> None:
+def test_compute_stock_attention_score_uses_prd_formula_components() -> None:
     stock = StockWatchlistItem(
         ticker="MU",
         company_name="Micron",
@@ -283,21 +283,35 @@ def test_compute_stock_attention_score_combines_signal_volume_and_preferences() 
             importance_score=0.6,
             topics=["HBM"],
             companies=["Micron"],
+            social_signal_score=0.4,
         )
     ]
+    market = StockMarketSnapshot(change_percent=2.5)
 
-    score = compute_stock_attention_score(stock=stock, top_signals=signals, signal_count=4)
-    components = build_stock_attention_components(stock=stock, top_signals=signals, signal_count=4)
+    score = compute_stock_attention_score(
+        stock=stock,
+        top_signals=signals,
+        signal_count=4,
+        market=market,
+    )
+    components = build_stock_attention_components(
+        stock=stock,
+        top_signals=signals,
+        signal_count=4,
+        market=market,
+    )
 
-    assert score == 0.74
+    assert score == 0.68
     assert [
         (component.key, component.value, component.weight, component.contribution)
         for component in components
     ] == [
-        ("strongest_signal", 0.8, 0.55, 0.44),
-        ("signal_volume", 0.4, 0.25, 0.1),
-        ("watchlist_priority", 1.0, 0.15, 0.15),
-        ("pinned_boost", 1, 0.05, 0.05),
+        ("high_impact_news", 0.8, 0.3, 0.24),
+        ("price_movement", 0.5, 0.2, 0.1),
+        ("ai_relevance", 0.8, 0.2, 0.16),
+        ("social_discussion", 0.4, 0.15, 0.06),
+        ("source_quality", 0.7, 0.1, 0.07),
+        ("user_priority", 1.0, 0.05, 0.05),
     ]
 
 
@@ -333,10 +347,12 @@ def test_build_stock_attention_reasons_explains_score_inputs() -> None:
     )
 
     assert reasons == [
-        "Strongest signal scored 80",
+        "High-impact news scored 80",
+        "AI relevance scored 80",
         "4 matched signals",
         "1 signal today",
         "1 high-impact signal",
+        "High watchlist priority",
     ]
 
 
@@ -471,6 +487,9 @@ def make_feed_item(
     companies: list[str],
     why_it_matters: str | None = None,
     published_at: datetime | None = None,
+    relevance_score: float = 0.8,
+    source_quality_score: float = 0.7,
+    social_signal_score: float = 0,
 ) -> FeedItem:
     return FeedItem(
         id=item_id,
@@ -487,10 +506,11 @@ def make_feed_item(
         products=[],
         topics=topics,
         sentiment=sentiment,
-        relevance_score=0.8,
+        relevance_score=relevance_score,
         importance_score=importance_score,
         novelty_score=0.4,
-        source_quality_score=0.7,
+        source_quality_score=source_quality_score,
+        social_signal_score=social_signal_score,
         stock_impact_score=stock_impact_score,
         summary_short=None,
         summary_detailed=None,

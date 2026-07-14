@@ -390,3 +390,4 @@ Implementation progress:
 - Rendered stored short-summary bullets as proper feed-card bullet summaries so scan-mode cards reflect the PRD short card summary format instead of showing raw bullet text.
 - Added an X Account Watch source template as a manual-watch workflow, preserving PRD source-watchlist coverage for X/Twitter accounts without automated scraping or paid API use in the MVP.
 - Exposed stock attention-score components in API briefings and the dashboard Attention Drivers panel, including each component value, weight, and contribution, so AI Stock Watchlist ranking is auditable without changing the deterministic formula.
+- Aligned the deterministic AI Stock Watchlist attention formula with the PRD weights for high-impact news, price movement, AI relevance, social discussion, source quality, and user priority.
