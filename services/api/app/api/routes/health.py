@@ -41,7 +41,12 @@ from app.schemas.health import (
     SetupItem,
     SetupSummary,
 )
-from app.services.feed_actions import LOCAL_USER_ID, social_signal_score_for_item
+from app.services.event_clustering import build_event_clusters_from_items
+from app.services.feed_actions import (
+    LOCAL_USER_ID,
+    serialize_feed_item,
+    social_signal_score_for_item,
+)
 
 router = APIRouter()
 
@@ -86,6 +91,14 @@ class LlmUsageSummary(TypedDict):
     total_tokens: int
     estimated_cost_usd: float
     operation_usage: list[LlmOperationUsage]
+
+
+class EventClusterReadiness(TypedDict):
+    cluster_count: int
+    confirmed_cluster_count: int
+    timeline_item_count: int
+    clustered_item_count: int
+    clustered_item_share: float
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -227,6 +240,7 @@ def build_quality_metrics(
         1 for item in recent_product_rows if social_signal_score_for_item(item) >= 0.65
     )
     product_signal_source_count = len({item.source_name for item in recent_product_rows})
+    event_cluster_readiness = summarize_event_cluster_readiness(recent_rows)
     relevance_precision_proxy = ratio(
         sum(1 for item in recent_rows if item.relevance_score >= 0.5),
         recent_item_count,
@@ -380,6 +394,11 @@ def build_quality_metrics(
         recent_product_signal_count=recent_product_signal_count,
         high_traction_product_signal_count=high_traction_product_signal_count,
         product_signal_source_count=product_signal_source_count,
+        event_cluster_count=event_cluster_readiness["cluster_count"],
+        confirmed_event_cluster_count=event_cluster_readiness["confirmed_cluster_count"],
+        event_cluster_timeline_item_count=event_cluster_readiness["timeline_item_count"],
+        clustered_recent_item_count=event_cluster_readiness["clustered_item_count"],
+        clustered_recent_item_share=event_cluster_readiness["clustered_item_share"],
         stock_watchlist_count=stock_watchlist_count,
         recent_stock_signal_count=recent_stock_signal_count,
         recent_stock_high_impact_count=recent_stock_high_impact_count,
@@ -483,6 +502,9 @@ def build_quality_metrics(
             manual_enrichment_gap_count=manual_enrichment_gap_count,
             recent_product_signal_count=recent_product_signal_count,
             high_traction_product_signal_count=high_traction_product_signal_count,
+            event_cluster_count=event_cluster_readiness["cluster_count"],
+            confirmed_event_cluster_count=event_cluster_readiness["confirmed_cluster_count"],
+            clustered_recent_item_share=event_cluster_readiness["clustered_item_share"],
             watchlist_area_count=watchlist_area_count,
             alert_rule_count=alert_rule_counts["total"],
             active_alert_rule_count=alert_rule_counts["active"],
@@ -1534,6 +1556,27 @@ def build_recent_module_counts(items: list[NormalizedItem]) -> dict[str, int]:
     }
 
 
+def summarize_event_cluster_readiness(items: list[NormalizedItem]) -> EventClusterReadiness:
+    clusters = build_event_clusters_from_items(
+        items=[serialize_feed_item(item) for item in items],
+        limit=12,
+        min_items=2,
+    )
+    clustered_item_count = sum(cluster.item_count for cluster in clusters)
+    confirmed_cluster_count = sum(
+        1
+        for cluster in clusters
+        if cluster.confirmation_level in {"cross_source", "strong_cross_source"}
+    )
+    return {
+        "cluster_count": len(clusters),
+        "confirmed_cluster_count": confirmed_cluster_count,
+        "timeline_item_count": sum(len(cluster.timeline) for cluster in clusters),
+        "clustered_item_count": clustered_item_count,
+        "clustered_item_share": ratio(clustered_item_count, len(items)),
+    }
+
+
 def quality_item_matches_module(item: NormalizedItem, module: str) -> bool:
     source_name = (item.source_name or "").casefold()
     products = item.products or []
@@ -1645,6 +1688,9 @@ def build_quality_findings(
     manual_enrichment_gap_count: int = 0,
     recent_product_signal_count: int | None = None,
     high_traction_product_signal_count: int = 0,
+    event_cluster_count: int | None = None,
+    confirmed_event_cluster_count: int = 0,
+    clustered_recent_item_share: float = 0,
     watchlist_area_count: int | None = None,
     classification_coverage: float = 0,
     low_confidence_item_count: int = 0,
@@ -1754,6 +1800,47 @@ def build_quality_findings(
                 action_label="Review Sources",
                 action_module="sources",
                 action_operation="cycle",
+                action_source_filter="attention",
+            )
+        )
+    if (
+        event_cluster_count is not None
+        and recent_item_count >= 5
+        and event_cluster_count == 0
+    ):
+        findings.append(
+            QualityFinding(
+                severity="warning",
+                title="Event clustering is empty",
+                metric="0 related-event clusters",
+                recommendation=(
+                    "Open Clusters and run a full ingestion cycle if needed so repeated "
+                    "signals are grouped with timelines and related sources."
+                ),
+                action_label="Open Clusters",
+                action_module="clusters",
+            )
+        )
+    elif (
+        event_cluster_count is not None
+        and event_cluster_count > 0
+        and recent_item_count >= 5
+        and confirmed_event_cluster_count == 0
+    ):
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Cross-source confirmation is thin",
+                metric=(
+                    f"{event_cluster_count} clusters; "
+                    f"{format_quality_percent(clustered_recent_item_share)} clustered"
+                ),
+                recommendation=(
+                    "Review Source Health and add complementary sources so event timelines "
+                    "can confirm important signals across more than one source."
+                ),
+                action_label="Review Sources",
+                action_module="sources",
                 action_source_filter="attention",
             )
         )

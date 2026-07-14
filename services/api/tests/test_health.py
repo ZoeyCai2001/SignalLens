@@ -1428,7 +1428,7 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
                 ),
                 make_quality_item(
                     5,
-                    "Chinese social AI trend",
+                    "Agent routing trend",
                     url="https://example.com/chinese",
                     published_at=now,
                     category="technical_trend",
@@ -1452,6 +1452,11 @@ def test_build_quality_metrics_tracks_recent_prd_module_coverage() -> None:
     assert metrics.recent_product_signal_count == 1
     assert metrics.high_traction_product_signal_count == 1
     assert metrics.product_signal_source_count == 1
+    assert metrics.event_cluster_count == 1
+    assert metrics.confirmed_event_cluster_count == 1
+    assert metrics.event_cluster_timeline_item_count == 2
+    assert metrics.clustered_recent_item_count == 2
+    assert metrics.clustered_recent_item_share == 0.4
     assert metrics.recent_source_count == 5
     assert metrics.dominant_source_share == 0.2
     assert "Module coverage is thin" not in [

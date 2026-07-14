@@ -118,6 +118,7 @@ Implementation progress:
 - Updated daily digest ranking to include source quality and classifier confidence, improving the trust profile of morning briefings.
 - Added trust gates to alert generation so low-confidence, low-source-quality, or weakly confirmed clusters do not trigger high-impact alerts.
 - Moved summarize-only LLM batch filtering into the candidate query so already summarized items do not consume the requested processing limit.
+- Added event-cluster readiness metrics to System Readiness, including confirmed cluster counts, timeline evidence, clustered item share, dashboard navigation to Clusters, and no-paid demo assertions.
 - Added backend company watchlists with seed data for PRD-related AI and semiconductor companies, CRUD APIs, migration support, scheduled seeding, and feed-ranking interest boosts.
 - Connected company watchlists to the dashboard with loading, add, priority, pin, digest-toggle, and delete controls.
 - Enforced company watchlist digest toggles in daily digest filtering, including company-name, company-key, ticker, category, and related-term matches.

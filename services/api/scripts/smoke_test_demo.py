@@ -725,6 +725,14 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
                 "high_traction_product_signal_count"
             ],
             "product_signal_source_count": quality_metrics["product_signal_source_count"],
+            "event_cluster_count": quality_metrics["event_cluster_count"],
+            "confirmed_event_cluster_count": quality_metrics[
+                "confirmed_event_cluster_count"
+            ],
+            "event_cluster_timeline_item_count": quality_metrics[
+                "event_cluster_timeline_item_count"
+            ],
+            "clustered_recent_item_share": quality_metrics["clustered_recent_item_share"],
             "recent_stock_signal_count": quality_metrics["recent_stock_signal_count"],
             "recent_stock_high_impact_count": quality_metrics[
                 "recent_stock_high_impact_count"

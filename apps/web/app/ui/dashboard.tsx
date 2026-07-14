@@ -625,6 +625,11 @@ type QualityMetrics = {
   recent_product_signal_count: number;
   high_traction_product_signal_count: number;
   product_signal_source_count: number;
+  event_cluster_count: number;
+  confirmed_event_cluster_count: number;
+  event_cluster_timeline_item_count: number;
+  clustered_recent_item_count: number;
+  clustered_recent_item_share: number;
   stock_watchlist_count: number;
   recent_stock_signal_count: number;
   recent_stock_high_impact_count: number;
@@ -694,7 +699,14 @@ type QualityFinding = {
   action_label: string | null;
   action_module: Extract<
     ModuleKey,
-    "alerts" | "dashboard" | "digest" | "sources" | "settings" | "stocks" | "submit"
+    | "alerts"
+    | "clusters"
+    | "dashboard"
+    | "digest"
+    | "sources"
+    | "settings"
+    | "stocks"
+    | "submit"
   > | null;
   action_operation: Extract<
     DashboardOperation,
@@ -732,7 +744,14 @@ type MvpChecklistApiItem = {
   action_label: string | null;
   action_module: Extract<
     ModuleKey,
-    "alerts" | "dashboard" | "digest" | "sources" | "settings" | "stocks" | "submit"
+    | "alerts"
+    | "clusters"
+    | "dashboard"
+    | "digest"
+    | "sources"
+    | "settings"
+    | "stocks"
+    | "submit"
   > | null;
   action_operation: Extract<
     DashboardOperation,
@@ -4580,6 +4599,7 @@ export function Dashboard() {
               busyClusterKey={busyClusterKey}
               busyClusterExplanationKey={busyClusterExplanationKey}
               explanations={clusterExplanations}
+              anchorId="event-clusters-workflow"
               onSelectCluster={loadEventCluster}
               onExplainCluster={explainEventCluster}
             />
@@ -5379,6 +5399,14 @@ function SystemStatusPanel({
                     value={qualityMetrics.high_traction_product_signal_count}
                   />
                   <ReadinessMetric
+                    label="Event Clusters"
+                    value={`${qualityMetrics.event_cluster_count} · ${qualityMetrics.confirmed_event_cluster_count} confirmed`}
+                  />
+                  <ReadinessMetric
+                    label="Clustered"
+                    value={`${formatQualityPercent(qualityMetrics.clustered_recent_item_share)} · ${qualityMetrics.event_cluster_timeline_item_count} timeline`}
+                  />
+                  <ReadinessMetric
                     label="Watchlists"
                     value={`${qualityMetrics.watchlist_area_count}/4`}
                   />
@@ -5838,6 +5866,9 @@ function qualityFindingTargetId(finding: QualityFinding): string | undefined {
   }
   if (finding.action_module === "stocks") {
     return "stock-watchlist-workflow";
+  }
+  if (finding.action_module === "clusters") {
+    return "event-clusters-workflow";
   }
   if (finding.action_module === "settings") {
     return "settings-workflow";
@@ -7390,6 +7421,7 @@ function EventClusterPanel({
   busyClusterKey,
   busyClusterExplanationKey,
   explanations,
+  anchorId,
   limit,
   onSelectCluster,
   onExplainCluster,
@@ -7399,13 +7431,14 @@ function EventClusterPanel({
   busyClusterKey: string | null;
   busyClusterExplanationKey: string | null;
   explanations: Record<string, EventClusterLlmExplanation>;
+  anchorId?: string;
   limit?: number;
   onSelectCluster: (cluster: EventCluster) => void;
   onExplainCluster: (cluster: EventCluster) => void;
 }) {
   const visibleClusters = typeof limit === "number" ? clusters.slice(0, limit) : clusters;
   return (
-    <section className="section">
+    <section className="section" id={anchorId}>
       <div className="section-header">
         <h2 className="section-title">Event Clusters</h2>
         <span className="small-muted">

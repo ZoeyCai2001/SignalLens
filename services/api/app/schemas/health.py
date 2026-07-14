@@ -65,7 +65,7 @@ class QualityFinding(BaseModel):
     recommendation: str
     action_label: str | None = None
     action_module: Literal[
-        "alerts", "dashboard", "digest", "sources", "settings", "stocks", "submit"
+        "alerts", "clusters", "dashboard", "digest", "sources", "settings", "stocks", "submit"
     ] | None = None
     action_operation: Literal[
         "cycle",
@@ -96,7 +96,7 @@ class MvpChecklistItem(BaseModel):
     note: str
     action_label: str | None = None
     action_module: Literal[
-        "alerts", "dashboard", "digest", "sources", "settings", "stocks", "submit"
+        "alerts", "clusters", "dashboard", "digest", "sources", "settings", "stocks", "submit"
     ] | None = None
     action_operation: Literal[
         "cycle",
@@ -167,6 +167,11 @@ class QualityMetricsResponse(BaseModel):
     recent_product_signal_count: int = 0
     high_traction_product_signal_count: int = 0
     product_signal_source_count: int = 0
+    event_cluster_count: int = 0
+    confirmed_event_cluster_count: int = 0
+    event_cluster_timeline_item_count: int = 0
+    clustered_recent_item_count: int = 0
+    clustered_recent_item_share: float = 0
     stock_watchlist_count: int = 0
     recent_stock_signal_count: int = 0
     recent_stock_high_impact_count: int = 0

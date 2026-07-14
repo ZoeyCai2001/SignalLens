@@ -69,6 +69,10 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["latest_digest_age_days"] == 0
     assert result["quality"]["manual_submission_count"] == 1
     assert result["quality"]["manual_enrichment_gap_count"] == 0
+    assert result["quality"]["event_cluster_count"] >= 1
+    assert result["quality"]["confirmed_event_cluster_count"] >= 1
+    assert result["quality"]["event_cluster_timeline_item_count"] >= 2
+    assert result["quality"]["clustered_recent_item_share"] > 0
     assert result["quality"]["recent_stock_signal_count"] >= 1
     assert result["quality"]["recent_stock_high_impact_count"] >= 0
     assert result["quality"]["stock_signal_ticker_count"] >= 1
