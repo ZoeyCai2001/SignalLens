@@ -1478,6 +1478,7 @@ export function Dashboard() {
     if (operation) {
       setActiveOperation(operation);
     }
+    const startedAt = performance.now();
     setLoadState("loading");
     setError(null);
     try {
@@ -1561,7 +1562,11 @@ export function Dashboard() {
         reconcileEventClusterAfterRefresh(cluster, nextEventClusters),
       );
       setRefreshVersion((value) => value + 1);
-      setStatus(`Loaded ${nextFeed.length} feed items`);
+      setStatus(
+        `Loaded ${nextFeed.length} feed items in ${formatElapsedMs(
+          performance.now() - startedAt,
+        )}`,
+      );
     } catch (err) {
       setError(readError(err));
       setStatus("Backend unavailable");
@@ -11540,12 +11545,12 @@ function searchStatusText(
   const moduleText = moduleKey ? ` in ${formatModuleLabel(moduleKey)}` : "";
   const elapsedText =
     typeof startedAt === "number"
-      ? ` in ${formatSearchElapsedMs(performance.now() - startedAt)}`
+      ? ` in ${formatElapsedMs(performance.now() - startedAt)}`
       : "";
   return `Search returned ${resultCount} items${moduleText}${elapsedText}`;
 }
 
-function formatSearchElapsedMs(elapsedMs: number): string {
+function formatElapsedMs(elapsedMs: number): string {
   if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
     return "0s";
   }
