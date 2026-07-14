@@ -17,6 +17,7 @@ class SourceHealth(BaseModel):
     terms_notes: str | None
     raw_content_policy: str
     failure_handling: str
+    recovery_hint: str | None = None
     latest_status: str
     latest_error: str | None
     last_started_at: datetime | None

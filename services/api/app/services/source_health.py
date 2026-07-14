@@ -5,12 +5,23 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.models import RawItem, Source, SourceRun
+from app.schemas.ingestion import build_ingestion_recovery_hint
 from app.schemas.sources import SourceCreate, SourceHealth, SourceRunHistoryItem, SourceUpdate
 from app.services.polling_intervals import parse_polling_interval
 
 SOURCE_ATTENTION_FAILURE_THRESHOLD = 2
 SOURCE_HEALTH_RECENT_RUN_LIMIT = 5
 SOURCE_FAILURE_STATUSES = {"failed"}
+SOURCE_CONFIGURATION_HINTS = {
+    "product_topic": "Set PRODUCT_HUNT_API_TOKEN in .env or disable this optional source.",
+    "finance_news": "Set ALPHA_VANTAGE_API_KEY in .env or disable Alpha Vantage news.",
+    "stock_prices": "Set ALPHA_VANTAGE_API_KEY in .env or disable Alpha Vantage prices.",
+    "social_keyword": "Add a public RSS/Atom URL to the source or configure CHINESE_RSS_FEEDS.",
+    "reddit_community": (
+        "Add a public subreddit URL and set REDDIT_USER_AGENT to a descriptive contact string."
+    ),
+    "finance_filings": "Set SEC_USER_AGENT to a descriptive app/contact string for SEC requests.",
+}
 
 
 @dataclass(frozen=True)
@@ -356,6 +367,7 @@ def serialize_source_health(
         terms_notes=source.terms_notes,
         raw_content_policy=raw_content_policy_for_source(source),
         failure_handling=failure_handling_for_source(source),
+        recovery_hint=recovery_hint_for_source(source, run),
         latest_status=latest_status,
         latest_error=run.error_message if run else None,
         last_started_at=run.started_at if run else None,
@@ -411,6 +423,59 @@ def failure_handling_for_source(source: Source) -> str:
     return "Record failures in run history; use a manual run after fixing source configuration."
 
 
+def recovery_hint_for_source(source: Source, run: SourceRun | None) -> str | None:
+    if run is None:
+        if not source.enabled:
+            return "Enable the source before running it."
+        return None
+
+    generic_hint = build_ingestion_recovery_hint(
+        status=run.status,
+        items_fetched=run.items_fetched or 0,
+        items_stored=run.items_stored or 0,
+        error_message=run.error_message,
+    )
+    if generic_hint is None:
+        return None
+
+    source_hint = source_configuration_hint_for_error(source, run.error_message)
+    return source_hint or generic_hint
+
+
+def source_configuration_hint_for_error(source: Source, error_message: str | None) -> str | None:
+    normalized_error = (error_message or "").strip().lower()
+    if not normalized_error:
+        return None
+
+    source_type = (source.type or "").strip().lower()
+    source_name = (source.name or "").strip().lower()
+    if "not configured" in normalized_error or "api key" in normalized_error:
+        return (
+            SOURCE_CONFIGURATION_HINTS.get(source_type)
+            or configuration_hint_for_source_name(source_name)
+        )
+    if "rss/atom feed" in normalized_error or "public subreddit" in normalized_error:
+        return SOURCE_CONFIGURATION_HINTS.get(source_type)
+    if "rate limit" in normalized_error or "rate limited" in normalized_error:
+        if source_type in {"reddit_community", "finance_filings"}:
+            return SOURCE_CONFIGURATION_HINTS[source_type]
+    return None
+
+
+def configuration_hint_for_source_name(source_name: str) -> str | None:
+    if "alpha vantage" in source_name:
+        return "Set ALPHA_VANTAGE_API_KEY in .env or disable this optional stock source."
+    if "product hunt" in source_name:
+        return SOURCE_CONFIGURATION_HINTS["product_topic"]
+    if "chinese rss" in source_name:
+        return "Set CHINESE_RSS_FEEDS in .env or add a public RSS/Atom URL to the source."
+    if "reddit" in source_name:
+        return SOURCE_CONFIGURATION_HINTS["reddit_community"]
+    if "sec" in source_name:
+        return SOURCE_CONFIGURATION_HINTS["finance_filings"]
+    return None
+
+
 def source_next_run_due_at(
     last_success_at: datetime | None,
     polling_interval: str | None,
@@ -425,7 +490,7 @@ def source_retry_reference_at(
     run: SourceRun | None,
     last_success_at: datetime | None,
 ) -> datetime | None:
-    if run is not None:
+    if run is not None and run.status != "success":
         if run.started_at is not None:
             return run.started_at
         if run.finished_at is not None:

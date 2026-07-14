@@ -405,6 +405,7 @@ type SourceHealth = {
   terms_notes: string | null;
   raw_content_policy: string;
   failure_handling: string;
+  recovery_hint: string | null;
   latest_status: string;
   latest_error: string | null;
   last_started_at: string | null;
@@ -11825,6 +11826,9 @@ function SourceTable({
                     <div>{source.latest_status}</div>
                     {source.latest_error ? (
                       <div className="small-muted source-error">{source.latest_error}</div>
+                    ) : null}
+                    {source.recovery_hint ? (
+                      <div className="small-muted">{source.recovery_hint}</div>
                     ) : null}
                     {source.needs_attention ? (
                       <div className="small-muted source-attention">

@@ -24,6 +24,7 @@ from app.services.source_health import (
     failure_handling_for_source,
     list_source_run_history,
     raw_content_policy_for_source,
+    recovery_hint_for_source,
     serialize_source_health,
     serialize_source_run_history_item,
     source_is_stale,
@@ -71,6 +72,7 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     assert health.failure_handling == (
         "Record failures, preserve the last success time, and retry at the next polling window."
     )
+    assert health.recovery_hint == "Enable the source before running it again."
     assert health.latest_status == "skipped"
     assert health.latest_error == "disabled"
     assert health.latest_duration_seconds is None
@@ -106,6 +108,47 @@ def test_serialize_source_health_marks_failed_sources_for_attention() -> None:
 
     assert health.failure_count == 1
     assert health.needs_attention is True
+    assert health.recovery_hint == (
+        "Wait for the provider rate limit window or reduce the polling frequency."
+    )
+
+
+def test_source_health_surfaces_source_specific_recovery_hints() -> None:
+    product_source = Source(
+        id=21,
+        name="Product Hunt AI Coding",
+        type="product_topic",
+        access_method="official_graphql_api",
+        enabled=True,
+    )
+    product_run = SourceRun(
+        source_id=21,
+        status="skipped",
+        items_fetched=0,
+        items_stored=0,
+        error_message="PRODUCT_HUNT_API_TOKEN is not configured.",
+    )
+    reddit_source = Source(
+        id=22,
+        name="Reddit AI Communities",
+        type="reddit_community",
+        access_method="official_api",
+        enabled=True,
+    )
+    reddit_run = SourceRun(
+        source_id=22,
+        status="skipped",
+        items_fetched=0,
+        items_stored=0,
+        error_message="Reddit community source needs at least one public subreddit URL.",
+    )
+
+    assert recovery_hint_for_source(product_source, product_run) == (
+        "Set PRODUCT_HUNT_API_TOKEN in .env or disable this optional source."
+    )
+    assert recovery_hint_for_source(reddit_source, reddit_run) == (
+        "Add a public subreddit URL and set REDDIT_USER_AGENT to a descriptive contact string."
+    )
 
 
 def test_serialize_source_health_uses_latest_attempt_for_retry_due_time() -> None:
