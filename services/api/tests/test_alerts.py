@@ -363,7 +363,42 @@ def test_theme_breakout_alert_reason_summarizes_multi_source_topic() -> None:
     assert "theme hbm" in reason
     assert "2 related items" in reason
     assert "2 sources" in reason
+    assert "within 24h" in reason
     assert "MU" in reason
+
+
+def test_theme_breakout_buckets_keep_only_items_within_24_hours() -> None:
+    newest = datetime(2026, 6, 26, 12, 0, tzinfo=UTC)
+    items = [
+        make_item(
+            item_id=1,
+            title="Fresh agent harness signal",
+            source_name="RSS",
+            topics=["agent harness"],
+            published_at=newest,
+        ),
+        make_item(
+            item_id=2,
+            title="Second fresh agent harness signal",
+            source_name="Hacker News",
+            topics=["agent harness"],
+            published_at=newest - timedelta(hours=23, minutes=59),
+        ),
+        make_item(
+            item_id=3,
+            title="Older agent harness signal",
+            source_name="GitHub",
+            topics=["agent harness"],
+            published_at=newest - timedelta(hours=25),
+        ),
+    ]
+
+    buckets = build_theme_breakout_buckets(items)
+
+    assert [item.title for item in buckets["agent harness"]] == [
+        "Fresh agent harness signal",
+        "Second fresh agent harness signal",
+    ]
 
 
 def test_cross_source_alert_reason_requires_multiple_source_cluster_match() -> None:
@@ -611,6 +646,50 @@ def test_generate_alerts_creates_large_price_move_alert() -> None:
     assert "MRVL -6.00%" in alerts[0].reason
 
 
+def test_generate_alerts_requires_theme_breakout_sources_within_24_hours() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+    newest = datetime(2026, 6, 26, 12, 0, tzinfo=UTC)
+
+    with session_factory() as db:
+        db.add(
+            make_rule(
+                name="Theme breakout",
+                category=THEME_BREAKOUT_CATEGORY,
+                min_importance_score=0.65,
+                topics=["agent harness"],
+            )
+        )
+        db.add_all(
+            [
+                make_item(
+                    item_id=1,
+                    title="Fresh agent harness signal",
+                    source_name="RSS",
+                    topics=["agent harness"],
+                    importance_score=0.72,
+                    published_at=newest,
+                ),
+                make_item(
+                    item_id=2,
+                    title="Older agent harness signal",
+                    source_name="Hacker News",
+                    topics=["agent harness"],
+                    importance_score=0.7,
+                    published_at=newest - timedelta(hours=25),
+                ),
+            ]
+        )
+        db.commit()
+
+        result = generate_alerts(db)
+        alerts = db.query(Alert).all()
+
+    assert result.alerts_created == 0
+    assert alerts == []
+
+
 def test_generate_alerts_excludes_blocked_and_hidden_items() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -829,6 +908,7 @@ def make_item(
     subcategory: str | None = None,
     language: str = "en",
     raw_metadata: dict | None = None,
+    published_at: datetime | None = None,
 ) -> NormalizedItem:
     item = NormalizedItem(
         id=item_id,
@@ -837,6 +917,7 @@ def make_item(
         url=f"https://example.com/{item_id}",
         source_name=source_name,
         language=language,
+        published_at=published_at or datetime(2026, 6, 25, 12, item_id, tzinfo=UTC),
         category=category,
         subcategory=subcategory,
         tickers=tickers or [],

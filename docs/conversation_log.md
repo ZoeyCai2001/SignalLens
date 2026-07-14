@@ -421,3 +421,4 @@ Implementation progress:
 - Accepted `KIMI_API_KEY` as a legacy compatibility alias for the canonical `MOONSHOT_API_KEY`, and aligned setup/source-design docs around Kimi Coding plus Alpha Vantage as the MVP defaults.
 - Added an explicit Xiaohongshu Manual Watch source template, keeping the Chinese social prototype visible while limiting MVP collection to manual public links or compliant public RSS/Atom feeds.
 - Extended natural-language search date parsing for rolling windows such as past 24 hours, last two weeks, past month, and last 30 days, anchoring those windows to the newest stored item date when available.
+- Constrained theme-breakout alerts to high-quality multi-source topic signals inside a 24-hour window, aligning the alert rule with the PRD cross-source-within-24-hours example.

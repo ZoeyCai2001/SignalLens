@@ -38,6 +38,7 @@ MIN_CROSS_SOURCE_CLUSTER_CONFIDENCE = 0.65
 MIN_PRICE_MOVE_ALERT_PERCENT = 5
 MIN_THEME_BREAKOUT_ITEMS = 2
 MIN_THEME_BREAKOUT_SOURCES = 2
+THEME_BREAKOUT_WINDOW_HOURS = 24
 MIN_SOCIAL_TREND_SCORE = 0.45
 
 ALERT_CATEGORY_ALIASES = {
@@ -621,6 +622,7 @@ def generate_theme_breakout_alerts(
 
 def build_theme_breakout_buckets(
     items: list[NormalizedItem],
+    window_hours: int = THEME_BREAKOUT_WINDOW_HOURS,
 ) -> dict[str, list[NormalizedItem]]:
     buckets: dict[str, list[NormalizedItem]] = {}
     for item in items:
@@ -630,9 +632,43 @@ def build_theme_breakout_buckets(
             continue
         if item.source_quality_score < MIN_ALERT_SOURCE_QUALITY:
             continue
+        timestamp = alert_item_datetime(item)
+        if timestamp is None:
+            continue
         for topic in normalize_list(item.topics):
             buckets.setdefault(topic, []).append(item)
-    return buckets
+
+    return {
+        theme: windowed_items
+        for theme, theme_items in buckets.items()
+        if (
+            windowed_items := filter_theme_breakout_window(
+                theme_items,
+                window_hours=window_hours,
+            )
+        )
+    }
+
+
+def filter_theme_breakout_window(
+    items: list[NormalizedItem],
+    window_hours: int = THEME_BREAKOUT_WINDOW_HOURS,
+) -> list[NormalizedItem]:
+    dated_items = [
+        (item, timestamp)
+        for item in items
+        if (timestamp := alert_item_datetime(item)) is not None
+    ]
+    if not dated_items:
+        return []
+
+    newest_timestamp = max(timestamp for _item, timestamp in dated_items)
+    window_seconds = max(window_hours, 1) * 60 * 60
+    return [
+        item
+        for item, timestamp in dated_items
+        if (newest_timestamp - timestamp).total_seconds() <= window_seconds
+    ]
 
 
 def theme_breakout_alert_reason(
@@ -656,6 +692,7 @@ def theme_breakout_alert_reason(
         f"theme {theme}",
         f"{len(items)} related items",
         f"{len(sources)} sources",
+        f"within {THEME_BREAKOUT_WINDOW_HOURS}h",
         f"importance {round(representative.importance_score * 100)}",
     ]
     if theme_tickers:
@@ -836,8 +873,17 @@ def build_alert_item_text(item: NormalizedItem) -> str:
 
 
 def alert_item_sort_time(item: NormalizedItem):
-    timestamp = item.published_at or item.created_at
+    timestamp = alert_item_datetime(item)
     return timestamp.timestamp() if timestamp else 0
+
+
+def alert_item_datetime(item: NormalizedItem) -> datetime | None:
+    timestamp = item.published_at or item.created_at
+    if timestamp is None:
+        return None
+    if timestamp.tzinfo is None:
+        return timestamp.replace(tzinfo=UTC)
+    return timestamp.astimezone(UTC)
 
 
 def latest_price_change_percent(db: Session, ticker: str) -> float | None:
