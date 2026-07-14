@@ -6756,6 +6756,7 @@ function EventClusterPanel({
                         <div className="summary">{llmExplanation.explanation}</div>
                       </div>
                     ) : null}
+                    <ClusterEvidenceSummary cluster={detail} />
                     <div className="digest-section-title">Uncertainty</div>
                     {detail.uncertainty_notes.map((note) => (
                       <div className="small-muted" key={note}>
@@ -6795,6 +6796,95 @@ function EventClusterPanel({
         )}
       </div>
     </section>
+  );
+}
+
+function ClusterEvidenceSummary({ cluster }: { cluster: EventCluster }) {
+  const timeRange = [
+    cluster.first_seen_at ? `first seen ${formatDate(cluster.first_seen_at)}` : null,
+    cluster.last_seen_at ? `last seen ${formatDate(cluster.last_seen_at)}` : null,
+    cluster.latest_update_at ? `latest update ${formatDate(cluster.latest_update_at)}` : null,
+  ].filter(Boolean);
+  const relatedLabels = uniqueLabels([
+    ...cluster.tickers,
+    ...cluster.topics,
+    cluster.related_market_ticker ?? "",
+  ]);
+
+  return (
+    <div className="cluster-detail-grid">
+      <div className="cluster-detail-card">
+        <div className="field-label">Confirmation</div>
+        <div className="cluster-detail-value">
+          {formatConfirmationLevel(cluster.confirmation_level)}
+        </div>
+        <div className="small-muted">
+          {cluster.source_count} source{cluster.source_count === 1 ? "" : "s"} ·{" "}
+          {cluster.item_count} item{cluster.item_count === 1 ? "" : "s"}
+          {cluster.duplicate_item_count
+            ? ` · ${cluster.duplicate_item_count} repeated`
+            : ""}
+        </div>
+      </div>
+      <div className="cluster-detail-card">
+        <div className="field-label">Scores</div>
+        <div className="cluster-detail-value">
+          Confidence {Math.round(cluster.confidence * 100)}
+        </div>
+        <div className="small-muted">
+          Importance {Math.round(cluster.importance_score * 100)} · Top{" "}
+          {Math.round(cluster.top_score * 100)}
+        </div>
+      </div>
+      <div className="cluster-detail-card">
+        <div className="field-label">Timing</div>
+        <div className="cluster-detail-value">{cluster.earliest_source ?? "unknown source"}</div>
+        <div className="small-muted">{timeRange.join(" · ") || "No dated evidence yet"}</div>
+      </div>
+      <div className="cluster-detail-card wide">
+        <div className="field-label">All Related Sources</div>
+        <div className="badges">
+          {cluster.sources.map((source) => (
+            <span
+              className="badge muted-badge"
+              key={`detail-source-${cluster.cluster_key}-${source}`}
+            >
+              {source}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="cluster-detail-card wide">
+        <div className="field-label">Affected Tickers and Topics</div>
+        <div className="badges">
+          {relatedLabels.length ? (
+            relatedLabels.map((label) => (
+              <span className="badge" key={`detail-label-${cluster.cluster_key}-${label}`}>
+                {label}
+              </span>
+            ))
+          ) : (
+            <span className="small-muted">No ticker or topic labels extracted.</span>
+          )}
+        </div>
+      </div>
+      <div className="cluster-detail-card wide full">
+        <div className="field-label">Timeline</div>
+        <div className="cluster-timeline">
+          {cluster.timeline.map((event) => (
+            <div
+              className="cluster-timeline-row"
+              key={`detail-timeline-${cluster.cluster_key}-${event.item_id}`}
+            >
+              <span>{event.published_at ? formatDate(event.published_at) : "undated"}</span>
+              <span>{event.source_name}</span>
+              <span className="cluster-timeline-title">{event.title}</span>
+              <span>{Math.round(event.importance_score * 100)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -1050,6 +1050,36 @@ table {
   gap: 8px;
 }
 
+.cluster-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cluster-detail-card {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px;
+}
+
+.cluster-detail-card.wide {
+  grid-column: span 3;
+}
+
+.cluster-detail-card.full {
+  background: var(--panel);
+}
+
+.cluster-detail-value {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 760;
+}
+
 .llm-explanation {
   display: grid;
   gap: 6px;
@@ -1575,10 +1605,15 @@ tr:last-child td {
   .search-row,
   .filter-row,
   .compact-form,
+  .cluster-detail-grid,
   .mvp-checklist-grid,
   .source-health-summary,
   .stock-detail-grid,
   .stock-detail-grid-view {
     grid-template-columns: 1fr;
+  }
+
+  .cluster-detail-card.wide {
+    grid-column: span 1;
   }
 }
