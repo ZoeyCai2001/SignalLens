@@ -581,6 +581,12 @@ table {
   margin-bottom: 10px;
 }
 
+.manual-engagement-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(82px, 1fr));
+  gap: 8px;
+}
+
 .field-label {
   color: var(--muted);
   font-size: 12px;
@@ -1739,6 +1745,7 @@ tr:last-child td {
   .alert-evidence-grid,
   .compact-form,
   .cluster-detail-grid,
+  .manual-engagement-grid,
   .mvp-checklist-grid,
   .source-health-summary,
   .stock-detail-grid,

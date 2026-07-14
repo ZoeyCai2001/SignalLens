@@ -428,3 +428,4 @@ Implementation progress:
 - Extended manual Chinese/social submissions with deterministic English summaries, inferred product/use-case labels, and manual public-source notes before any LLM enrichment.
 - Expanded generic social signal scoring to include public collect/save/bookmark and repost/share engagement aliases alongside likes, comments, and views.
 - Parsed user-provided public engagement counts from manual social submissions into raw metadata so pasted likes, collects, comments, reposts, and views influence social signal scoring without crawling.
+- Added structured public engagement fields to the manual submission API and dashboard so X/Xiaohongshu-style likes, comments, collects, reposts, and views can be entered without relying on freeform notes parsing.

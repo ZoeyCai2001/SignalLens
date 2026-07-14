@@ -169,6 +169,40 @@ def test_manual_submission_extracts_public_social_engagement_counts() -> None:
     assert result.item.social_signal_score == 1
 
 
+def test_manual_submission_structured_engagement_overrides_pasted_counts() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        result = create_manual_submission_result(
+            db=db,
+            request=ManualSubmissionRequest(
+                title="Xiaohongshu AI note",
+                url="https://example.com/manual-social-note",
+                source_name="Xiaohongshu Manual Watch",
+                text="A pasted note with likes: 3 and views: 10.",
+                public_engagement={
+                    "likes": 1200,
+                    "comments_count": 80,
+                    "collects": 420,
+                    "reposts": 24,
+                    "views": 33000,
+                },
+            ),
+        )
+
+        raw = db.query(RawItem).one()
+
+    assert raw.raw_metadata["likes"] == 1200
+    assert raw.raw_metadata["comments_count"] == 80
+    assert raw.raw_metadata["collects"] == 420
+    assert raw.raw_metadata["reposts"] == 24
+    assert raw.raw_metadata["views"] == 33000
+    assert result.item.category == "social_trend"
+    assert result.item.social_signal_score > 0.8
+
+
 def test_manual_enrichment_keeps_non_ai_submission_as_manual() -> None:
     source = make_source()
     raw = make_raw(

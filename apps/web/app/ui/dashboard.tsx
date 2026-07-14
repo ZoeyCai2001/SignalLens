@@ -108,6 +108,14 @@ type ManualSubmissionResponse = {
   summary_error: string | null;
 };
 
+type ManualEngagementDraft = {
+  likes: string;
+  comments_count: string;
+  collects: string;
+  reposts: string;
+  views: string;
+};
+
 type ResearchInsights = {
   contribution?: string;
   method?: string;
@@ -1065,6 +1073,22 @@ const rankingWeightFields: { key: keyof RankingWeights; label: string }[] = [
   { key: "freshness", label: "Freshness" },
 ];
 
+const emptyManualEngagementDraft: ManualEngagementDraft = {
+  likes: "",
+  comments_count: "",
+  collects: "",
+  reposts: "",
+  views: "",
+};
+
+const manualEngagementFields: { key: keyof ManualEngagementDraft; label: string }[] = [
+  { key: "likes", label: "Likes" },
+  { key: "comments_count", label: "Comments" },
+  { key: "collects", label: "Collects" },
+  { key: "reposts", label: "Reposts" },
+  { key: "views", label: "Views" },
+];
+
 const sourceHealthFilterOptions: { key: SourceHealthFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "attention", label: "Attention" },
@@ -1452,6 +1476,9 @@ export function Dashboard() {
   const [manualSourceName, setManualSourceName] = useState("Manual Submission");
   const [manualUrl, setManualUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [manualEngagement, setManualEngagement] = useState<ManualEngagementDraft>({
+    ...emptyManualEngagementDraft,
+  });
   const [manualPersonalNote, setManualPersonalNote] = useState("");
   const [manualTags, setManualTags] = useState("");
   const [manualSaveItem, setManualSaveItem] = useState(true);
@@ -2732,6 +2759,7 @@ export function Dashboard() {
           url: manualUrl.trim(),
           text: manualText.trim() || null,
           source_name: manualSourceName.trim() || "Manual Submission",
+          public_engagement: buildManualEngagementPayload(manualEngagement),
           save_item: manualSaveItem,
           personal_note: manualPersonalNote.trim() || null,
           manual_tags: splitTerms(manualTags),
@@ -2746,6 +2774,7 @@ export function Dashboard() {
       setManualTitle("");
       setManualUrl("");
       setManualText("");
+      setManualEngagement({ ...emptyManualEngagementDraft });
       setManualPersonalNote("");
       setManualTags("");
       const completedSteps = [
@@ -4041,6 +4070,7 @@ export function Dashboard() {
         sourceName={manualSourceName}
         url={manualUrl}
         text={manualText}
+        engagement={manualEngagement}
         personalNote={manualPersonalNote}
         manualTags={manualTags}
         saveItem={manualSaveItem}
@@ -4051,6 +4081,9 @@ export function Dashboard() {
         onSourceNameChange={setManualSourceName}
         onUrlChange={setManualUrl}
         onTextChange={setManualText}
+        onEngagementChange={(key, value) =>
+          setManualEngagement((current) => ({ ...current, [key]: value }))
+        }
         onPersonalNoteChange={setManualPersonalNote}
         onManualTagsChange={setManualTags}
         onSaveItemChange={setManualSaveItem}
@@ -8326,6 +8359,7 @@ function ManualSubmissionPanel({
   sourceName,
   url,
   text,
+  engagement,
   personalNote,
   manualTags,
   saveItem,
@@ -8336,6 +8370,7 @@ function ManualSubmissionPanel({
   onSourceNameChange,
   onUrlChange,
   onTextChange,
+  onEngagementChange,
   onPersonalNoteChange,
   onManualTagsChange,
   onSaveItemChange,
@@ -8347,6 +8382,7 @@ function ManualSubmissionPanel({
   sourceName: string;
   url: string;
   text: string;
+  engagement: ManualEngagementDraft;
   personalNote: string;
   manualTags: string;
   saveItem: boolean;
@@ -8357,6 +8393,7 @@ function ManualSubmissionPanel({
   onSourceNameChange: (value: string) => void;
   onUrlChange: (value: string) => void;
   onTextChange: (value: string) => void;
+  onEngagementChange: (key: keyof ManualEngagementDraft, value: string) => void;
   onPersonalNoteChange: (value: string) => void;
   onManualTagsChange: (value: string) => void;
   onSaveItemChange: (value: boolean) => void;
@@ -8421,6 +8458,23 @@ function ManualSubmissionPanel({
           onChange={(event) => onTextChange(event.target.value)}
           placeholder="Optional context for classification and summary"
         />
+        <div className="manual-engagement-grid" aria-label="Public engagement metrics">
+          {manualEngagementFields.map((field) => (
+            <label className="weight-field" key={field.key}>
+              <span className="field-label">{field.label}</span>
+              <input
+                className="field"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={engagement[field.key]}
+                onChange={(event) => onEngagementChange(field.key, event.target.value)}
+                disabled={disabled}
+              />
+            </label>
+          ))}
+        </div>
         <label className="field-label" htmlFor="manual-personal-note">
           Personal note
         </label>
@@ -12102,6 +12156,28 @@ function splitTerms(value: string) {
     .split(",")
     .map((term) => term.trim())
     .filter(Boolean);
+}
+
+function buildManualEngagementPayload(draft: ManualEngagementDraft): Record<string, number> | null {
+  const entries = manualEngagementFields
+    .map((field) => {
+      const parsed = parseOptionalWholeNumber(draft[field.key]);
+      return parsed === null ? null : [field.key, parsed];
+    })
+    .filter((entry): entry is [keyof ManualEngagementDraft, number] => entry !== null);
+
+  return entries.length ? Object.fromEntries(entries) : null;
+}
+
+function parseOptionalWholeNumber(value: string): number | null {
+  if (!value.trim()) {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.max(0, Math.trunc(parsed));
 }
 
 function buildSearchIntentChips(intent: SearchIntent | null): string[] {

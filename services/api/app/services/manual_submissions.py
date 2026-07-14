@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import NormalizedItem, RawItem, Source
 from app.schemas.feed import FeedItem
-from app.schemas.manual_submissions import ManualSubmissionRequest
+from app.schemas.manual_submissions import ManualEngagementMetrics, ManualSubmissionRequest
 from app.services.feed_actions import (
     get_action,
     get_or_create_action,
@@ -165,6 +165,7 @@ def save_raw_manual_item(
             **extract_manual_engagement_metadata(
                 " ".join(part for part in [title, request.text or ""] if part)
             ),
+            **public_engagement_metadata(request.public_engagement),
         },
         published_at=datetime.now(UTC),
     )
@@ -305,6 +306,17 @@ def extract_manual_engagement_metadata(text: str) -> dict[str, int]:
         value = first_manual_engagement_count(text, labels)
         if value is not None:
             extracted[metric_key] = value
+    return extracted
+
+
+def public_engagement_metadata(metrics: ManualEngagementMetrics | None) -> dict[str, int]:
+    if metrics is None:
+        return {}
+    extracted: dict[str, int] = {}
+    for key in ["likes", "comments_count", "collects", "reposts", "views"]:
+        value = getattr(metrics, key)
+        if value is not None:
+            extracted[key] = value
     return extracted
 
 
