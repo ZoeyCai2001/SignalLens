@@ -1000,10 +1000,47 @@ def social_signal_score_for_item(item: NormalizedItem) -> float:
         )
 
     return bounded_social_score(
-        0.45 * scaled_metric(raw_metadata.get("likes"), 1000)
-        + 0.30 * scaled_metric(raw_metadata.get("comments"), 200)
-        + 0.25 * scaled_metric(raw_metadata.get("views"), 50000)
+        0.45 * scaled_metric(first_metadata_value(raw_metadata, "likes", "like_count"), 1000)
+        + 0.30
+        * scaled_metric(
+            first_metadata_value(raw_metadata, "comments", "comments_count", "reply_count"),
+            200,
+        )
+        + 0.25 * scaled_metric(first_metadata_value(raw_metadata, "views", "view_count"), 50000)
+        + 0.20
+        * scaled_metric(
+            first_metadata_value(
+                raw_metadata,
+                "collects",
+                "collects_count",
+                "saves",
+                "save_count",
+                "favorites",
+                "bookmarks",
+            ),
+            500,
+        )
+        + 0.10
+        * scaled_metric(
+            first_metadata_value(
+                raw_metadata,
+                "reposts",
+                "reposts_count",
+                "shares",
+                "share_count",
+                "retweets",
+            ),
+            300,
+        )
     )
+
+
+def first_metadata_value(metadata: dict, *keys: str) -> object | None:
+    for key in keys:
+        value = metadata.get(key)
+        if value not in (None, ""):
+            return value
+    return None
 
 
 def scaled_metric(value: object, denominator: float) -> float:

@@ -309,6 +309,44 @@ def test_hugging_face_social_signal_uses_downloads_and_likes() -> None:
     assert social_signal_score_for_item(item) == 1
 
 
+def test_social_signal_uses_collects_reposts_and_comment_aliases() -> None:
+    item = NormalizedItem(
+        id=1,
+        raw_item_id=1,
+        title="Xiaohongshu AI photo workflow",
+        url="https://example.com/xhs",
+        source_name="Xiaohongshu Manual Watch",
+        language="zh",
+        category="social_trend",
+        tickers=[],
+        companies=[],
+        products=["AI photo tool"],
+        topics=["AI photo"],
+        sentiment="neutral",
+        relevance_score=0.5,
+        importance_score=0.4,
+        novelty_score=1.0,
+        source_quality_score=0.58,
+        stock_impact_score=0,
+        raw_item=RawItem(
+            id=1,
+            source_id=1,
+            url="https://example.com/xhs",
+            raw_title="Xiaohongshu AI photo workflow",
+            raw_metadata={
+                "likes": 500,
+                "comments_count": 100,
+                "collects": 250,
+                "reposts": 150,
+                "views": 25000,
+            },
+            content_hash="hash",
+        ),
+    )
+
+    assert social_signal_score_for_item(item) == 0.65
+
+
 def test_serialize_feed_item_detail_includes_text_actions_and_explanation() -> None:
     item = NormalizedItem(
         id=1,
