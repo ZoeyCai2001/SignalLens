@@ -99,6 +99,8 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["search"]["stock_items"] >= 1
     assert result["search"]["product_items"] >= 1
     assert result["search"]["product_intent_category"] == "product"
+    assert result["search"]["reddit_items"] >= 1
+    assert result["search"]["reddit_intent_source"] == "Reddit"
     assert result["search"]["chinese_items"] >= 1
     assert result["search"]["chinese_intent_language"] == "zh"
     assert result["search"]["manual_tag_items"] >= 1
@@ -109,6 +111,10 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     )
     assert (
         result["performance"]["product_natural_search_ms"]
+        <= result["performance"]["search_budget_ms"]
+    )
+    assert (
+        result["performance"]["reddit_natural_search_ms"]
         <= result["performance"]["search_budget_ms"]
     )
     assert (

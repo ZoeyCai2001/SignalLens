@@ -202,6 +202,27 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         )
     if not chinese_search["items"]:
         raise AssertionError("Expected natural-language Chinese search to find demo signals")
+    reddit_search, reddit_search_elapsed_seconds = timed_post_json(
+        client,
+        "/api/search/natural-language",
+        json_body={
+            "query": "Show Reddit posts about local LLM coding agents.",
+            "limit": 10,
+            "module": "trends",
+        },
+    )
+    assert_response_budget(
+        label="Natural-language Reddit search",
+        elapsed_seconds=reddit_search_elapsed_seconds,
+        budget_seconds=SEARCH_RESPONSE_BUDGET_SECONDS,
+    )
+    if reddit_search["intent"]["source"] != "Reddit":
+        raise AssertionError(
+            "Expected natural-language Reddit search to infer Reddit source, "
+            f"got {reddit_search['intent']['source']!r}"
+        )
+    if not any(item["source_name"] == "Reddit AI Communities" for item in reddit_search["items"]):
+        raise AssertionError("Expected natural-language Reddit search to find demo Reddit signals")
     manual_tag_search, manual_tag_search_elapsed_seconds = timed_get_json(
         client,
         "/api/search?manual_tag=coding-agent&limit=10",
@@ -536,6 +557,8 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "stock_items": len(stock_search),
             "product_items": len(product_search["items"]),
             "product_intent_category": product_search["intent"]["category"],
+            "reddit_items": len(reddit_search["items"]),
+            "reddit_intent_source": reddit_search["intent"]["source"],
             "chinese_items": len(chinese_search["items"]),
             "chinese_intent_language": chinese_search["intent"]["language"],
             "manual_tag_items": len(manual_tag_search),
@@ -544,6 +567,7 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "feed_ms": elapsed_milliseconds(feed_elapsed_seconds),
             "structured_search_ms": elapsed_milliseconds(structured_search_elapsed_seconds),
             "product_natural_search_ms": elapsed_milliseconds(product_search_elapsed_seconds),
+            "reddit_natural_search_ms": elapsed_milliseconds(reddit_search_elapsed_seconds),
             "chinese_natural_search_ms": elapsed_milliseconds(chinese_search_elapsed_seconds),
             "manual_tag_search_ms": elapsed_milliseconds(manual_tag_search_elapsed_seconds),
             "digest_generation_ms": elapsed_milliseconds(digest_generation_elapsed_seconds),

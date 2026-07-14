@@ -544,6 +544,7 @@ def infer_source(lowered_query: str) -> str | None:
     source_aliases = [
         (r"\barxiv\b", "arXiv"),
         (r"\bhacker news\b|\bhn\b", "Hacker News"),
+        (r"\breddit\b|\bsubreddit\b|\br/[a-z0-9_]+\b", "Reddit"),
         (r"\bgithub\b|\bgit hub\b", "GitHub"),
         (r"\bhugging face\b|\bhf\b", "Hugging Face"),
         (r"\bproduct hunt\b", "Product Hunt"),
@@ -638,6 +639,8 @@ def extract_search_keywords(query: str) -> str | None:
         ("data center", "data center"),
         ("ai coding products", "AI coding"),
         ("coding products", "coding"),
+        ("coding agents", "coding agent"),
+        ("coding agent", "coding agent"),
         ("agent harness", "agent harness"),
         ("ai photo tools", "AI photo"),
         ("photo tools", "photo"),
@@ -692,11 +695,12 @@ def extract_search_keywords(query: str) -> str | None:
     cleaned = re.sub(r"\$?[A-Z]{1,5}\b", " ", cleaned)
     cleaned = re.sub(
         r"\b(arxiv|hacker news|hn|github|git hub|hugging face|hf|product hunt|"
-        r"alpha vantage|sec|edgar|rss|repos?|repositories)\b",
+        r"alpha vantage|sec|edgar|reddit|subreddit|rss|repos?|repositories)\b",
         " ",
         cleaned,
         flags=re.IGNORECASE,
     )
+    cleaned = re.sub(r"\br/[A-Za-z0-9_]+\b", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(
         r"\b(show|me|what|are|the|latest|recent|find|about|posts|post|news|discussion|"
         r"discussions|summarize|most|important|this|week|saved|bookmarked|item|items|"

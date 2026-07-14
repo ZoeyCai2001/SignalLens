@@ -80,6 +80,14 @@ def test_infer_search_intent_strips_source_terms_from_keyword_query() -> None:
     assert intent.query == "MCP"
 
 
+def test_infer_search_intent_handles_reddit_source_query() -> None:
+    intent = infer_search_intent("Show Reddit posts about local LLM coding agents.")
+
+    assert intent.source == "Reddit"
+    assert intent.topic == "coding agent"
+    assert intent.query == "coding agent"
+
+
 def test_infer_search_intent_handles_product_discovery_query() -> None:
     intent = infer_search_intent(
         "What are the latest AI coding products?",
