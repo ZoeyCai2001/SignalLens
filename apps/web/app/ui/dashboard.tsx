@@ -1142,7 +1142,7 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
   },
   {
     key: "chinese_social_feed",
-    label: "Chinese RSS",
+    label: "Chinese/XHS RSS",
     type: "social_keyword",
     accessMethod: "rss",
     namePlaceholder: "Chinese AI Apps Feed",
@@ -1151,6 +1151,18 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     rateLimit: "Public RSS/Atom metadata only; no login-protected social scraping.",
     termsNotes: "Chinese AI product keywords from public RSS/Atom feeds only.",
     termsPlaceholder: "AI photo, AI video, agent apps, public feed scope.",
+  },
+  {
+    key: "x_account_manual",
+    label: "X Account Watch",
+    type: "community",
+    accessMethod: "manual_watch",
+    namePlaceholder: "X: @sama",
+    urlPlaceholder: "https://x.com/sama",
+    pollingInterval: "",
+    rateLimit: "Manual watch only; no automated X/Twitter API calls or scraping in MVP.",
+    termsNotes: "Track manually submitted public X/Twitter links for this account.",
+    termsPlaceholder: "Manual public links only; no automated scraping.",
   },
   {
     key: "manual_watch",

@@ -388,3 +388,4 @@ Implementation progress:
 - Added digest usefulness and alert usefulness proxies to quality metrics and System Readiness, keeping PRD success tracking local, transparent, and free of external analytics.
 - Hardened remaining dashboard external-source links with consistent `rel="noreferrer"` handling for feed, alert, and Chinese social source-opening actions.
 - Rendered stored short-summary bullets as proper feed-card bullet summaries so scan-mode cards reflect the PRD short card summary format instead of showing raw bullet text.
+- Added an X Account Watch source template as a manual-watch workflow, preserving PRD source-watchlist coverage for X/Twitter accounts without automated scraping or paid API use in the MVP.
