@@ -319,6 +319,20 @@ def test_build_digest_item_labels_includes_non_ai_relevance_label() -> None:
     assert build_digest_item_labels(item) == ["not AI-related", "office software"]
 
 
+def test_build_digest_item_labels_includes_strong_social_signal() -> None:
+    item = make_item(
+        1,
+        "Popular AI workflow",
+        "social_trend",
+        0.8,
+        products=["PhotoFlow"],
+        topics=["ai photo"],
+    )
+    item.social_signal_score = 0.82
+
+    assert build_digest_item_labels(item) == ["social signal 82%", "PhotoFlow", "ai photo"]
+
+
 def test_daily_digest_headline_handles_empty_day() -> None:
     headline = build_headline([], datetime(2026, 6, 25, tzinfo=UTC).date())
 
@@ -668,6 +682,33 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert "- [Product](https://example.com/3) - Test Source (CodePilot, Coding)" in markdown
     assert "## Disclaimer" in markdown
     assert markdown.endswith("Informational only.\n")
+
+
+def test_render_digest_markdown_includes_strong_social_signal_note() -> None:
+    item = make_item(
+        1,
+        "Popular AI workflow",
+        "social_trend",
+        0.8,
+        products=["PhotoFlow"],
+    )
+    item.social_signal_score = 0.82
+    item.summary_short = "PhotoFlow is spreading through public social posts."
+    digest = DailyDigest(
+        digest_date=datetime(2026, 6, 25, tzinfo=UTC).date(),
+        generated_at=datetime(2026, 6, 25, 13, 0, tzinfo=UTC),
+        headline="1 AI signal for 2026-06-25.",
+        total_items=1,
+        sections=build_digest_sections([item], limit_per_section=1),
+        source_coverage=build_source_coverage([item]),
+        disclaimer="Informational only.",
+    )
+
+    markdown = render_digest_markdown(digest)
+
+    assert "- [Popular AI workflow](https://example.com/1) - Test Source" in markdown
+    assert "social signal 82%" in markdown
+    assert "Signal: strong public engagement (82/100)" in markdown
 
 
 def test_render_digest_markdown_includes_active_alerts() -> None:

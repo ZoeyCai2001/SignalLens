@@ -430,3 +430,4 @@ Implementation progress:
 - Parsed user-provided public engagement counts from manual social submissions into raw metadata so pasted likes, collects, comments, reposts, and views influence social signal scoring without crawling.
 - Added structured public engagement fields to the manual submission API and dashboard so X/Xiaohongshu-style likes, comments, collects, reposts, and views can be entered without relying on freeform notes parsing.
 - Exposed recognized public engagement metrics in expanded feed item details, keeping social signal scoring auditable without returning arbitrary raw source metadata.
+- Added high-social-signal labels and markdown notes to daily digest items so public engagement evidence is visible in morning brief previews and exports.

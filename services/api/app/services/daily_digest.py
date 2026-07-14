@@ -39,6 +39,7 @@ from app.services.watchlist import build_product_use_case_terms, format_product_
 NON_FINANCIAL_ADVICE_DISCLAIMER = (
     "SignalLens is informational only and does not provide investment advice."
 )
+STRONG_SOCIAL_SIGNAL_THRESHOLD = 0.65
 
 RESEARCH_DIGEST_CATEGORIES = {"research", "benchmark_evaluation"}
 TECHNICAL_TREND_DIGEST_CATEGORIES = {
@@ -188,6 +189,9 @@ def render_digest_markdown(digest: DailyDigest) -> str:
             lines.append(f"- [{item.title}]({item.url}) - {item.source_name}{label_text}")
             if summary:
                 lines.append(f"  - {summary}")
+            social_signal_note = format_social_signal_note(item.social_signal_score)
+            if social_signal_note:
+                lines.append(f"  - Signal: {social_signal_note}")
         lines.append("")
 
     if digest.source_coverage:
@@ -203,6 +207,7 @@ def render_digest_markdown(digest: DailyDigest) -> str:
 def build_digest_item_labels(item: FeedItem, limit: int = 4) -> list[str]:
     labels = [
         format_ai_relevance_label(item.is_ai_related),
+        format_social_signal_label(item.social_signal_score),
         *item.tickers,
         *item.companies,
         *item.products,
@@ -216,6 +221,18 @@ def build_digest_item_labels(item: FeedItem, limit: int = 4) -> list[str]:
 
 def format_ai_relevance_label(is_ai_related: bool) -> str:
     return "" if is_ai_related else "not AI-related"
+
+
+def format_social_signal_label(score: float) -> str:
+    if score < STRONG_SOCIAL_SIGNAL_THRESHOLD:
+        return ""
+    return f"social signal {round(score * 100)}%"
+
+
+def format_social_signal_note(score: float) -> str:
+    if score < STRONG_SOCIAL_SIGNAL_THRESHOLD:
+        return ""
+    return f"strong public engagement ({round(score * 100)}/100)"
 
 
 def format_market_impact_label(value: str) -> str:

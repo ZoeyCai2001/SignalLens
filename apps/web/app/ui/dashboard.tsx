@@ -6780,6 +6780,9 @@ function digestItemSummary(item: FeedItem): string | null {
 function digestItemLabels(item: FeedItem): string[] {
   const labels = [
     item.is_ai_related ? "" : "not AI-related",
+    item.social_signal_score >= 0.65
+      ? `social signal ${Math.round(item.social_signal_score * 100)}%`
+      : "",
     ...item.tickers,
     ...item.companies,
     ...item.products,
