@@ -567,6 +567,8 @@ type QualityMetrics = {
   relevance_precision_proxy: number;
   duplicate_rate: number;
   summary_coverage: number;
+  summary_quality_proxy: number;
+  thin_summary_count: number;
   source_failure_rate: number;
   save_count: number;
   hide_count: number;
@@ -5069,6 +5071,10 @@ function SystemStatusPanel({
                     value={formatQualityPercent(qualityMetrics.summary_coverage)}
                   />
                   <ReadinessMetric
+                    label="Summary Quality"
+                    value={formatQualityPercent(qualityMetrics.summary_quality_proxy)}
+                  />
+                  <ReadinessMetric
                     label="Modules"
                     value={`${qualityMetrics.covered_module_count}/5`}
                   />
@@ -5103,6 +5109,7 @@ function SystemStatusPanel({
                     label="Needs Summary"
                     value={qualityMetrics.high_value_unsummarized_count}
                   />
+                  <ReadinessMetric label="Thin Summaries" value={qualityMetrics.thin_summary_count} />
                   <ReadinessMetric
                     label="Save/Hide"
                     value={

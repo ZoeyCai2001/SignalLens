@@ -279,6 +279,8 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "relevance_precision_proxy": quality_metrics["relevance_precision_proxy"],
             "duplicate_rate": quality_metrics["duplicate_rate"],
             "summary_coverage": quality_metrics["summary_coverage"],
+            "summary_quality_proxy": quality_metrics["summary_quality_proxy"],
+            "thin_summary_count": quality_metrics["thin_summary_count"],
             "classification_coverage": quality_metrics["classification_coverage"],
             "low_confidence_item_count": quality_metrics["low_confidence_item_count"],
             "recent_source_count": quality_metrics["recent_source_count"],

@@ -54,6 +54,9 @@ TRACKING_QUERY_PARAMS = {
 }
 
 PRD_FEED_MODULES = ("trends", "research", "products", "stocks", "chinese")
+SUMMARY_SCAN_MIN_CHARS = 40
+SUMMARY_DETAIL_MIN_CHARS = 120
+SUMMARY_CONTEXT_MIN_CHARS = 30
 
 PRD_SOURCE_FAMILIES = {
     "arxiv": "arXiv",
@@ -206,6 +209,14 @@ def build_quality_metrics(
         sum(1 for item in recent_rows if item.summary_short or item.summary_detailed),
         recent_item_count,
     )
+    summarized_rows = [item for item in recent_rows if quality_item_has_summary(item)]
+    summary_quality_ready_count = sum(
+        1 for item in recent_rows if quality_item_has_prd_summary(item)
+    )
+    thin_summary_count = sum(
+        1 for item in summarized_rows if not quality_item_has_prd_summary(item)
+    )
+    summary_quality_proxy = ratio(summary_quality_ready_count, recent_item_count)
     source_failure_rate = ratio(source_failure_count, source_run_count)
     alert_dismissal_rate = ratio(
         alert_counts["dismissed"],
@@ -302,6 +313,8 @@ def build_quality_metrics(
         relevance_precision_proxy=relevance_precision_proxy,
         duplicate_rate=duplicate_rate,
         summary_coverage=summary_coverage,
+        summary_quality_proxy=summary_quality_proxy,
+        thin_summary_count=thin_summary_count,
         source_failure_rate=source_failure_rate,
         save_count=save_count,
         hide_count=hide_count,
@@ -387,6 +400,8 @@ def build_quality_metrics(
             relevance_precision_proxy=relevance_precision_proxy,
             duplicate_rate=duplicate_rate,
             summary_coverage=summary_coverage,
+            summary_quality_proxy=summary_quality_proxy,
+            thin_summary_count=thin_summary_count,
             classification_coverage=classification_coverage,
             low_confidence_item_count=low_confidence_item_count,
             high_value_unsummarized_count=high_value_unsummarized_count,
@@ -1252,6 +1267,38 @@ def quality_item_has_search_facets(item: NormalizedItem) -> bool:
     return bool(item.topics or item.companies or item.products or item.tickers)
 
 
+def quality_item_has_summary(item: NormalizedItem) -> bool:
+    return bool(
+        normalize_quality_text(item.summary_short)
+        or normalize_quality_text(item.summary_detailed)
+    )
+
+
+def quality_item_has_prd_summary(item: NormalizedItem) -> bool:
+    summary_short_length = quality_text_length(item.summary_short)
+    summary_detailed_length = quality_text_length(item.summary_detailed)
+    has_scan_summary = (
+        summary_short_length >= SUMMARY_SCAN_MIN_CHARS
+        or summary_detailed_length >= SUMMARY_DETAIL_MIN_CHARS
+    )
+    if not has_scan_summary:
+        return False
+    if item.importance_score < 0.75:
+        return True
+    return (
+        quality_text_length(item.why_it_matters) >= SUMMARY_CONTEXT_MIN_CHARS
+        or summary_detailed_length >= SUMMARY_DETAIL_MIN_CHARS
+    )
+
+
+def quality_text_length(value: str | None) -> int:
+    return len(normalize_quality_text(value))
+
+
+def normalize_quality_text(value: str | None) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
 def quality_item_is_manual_submission(item: NormalizedItem) -> bool:
     if item.category == "manual_submission":
         return True
@@ -1316,6 +1363,8 @@ def build_quality_findings(
     source_api_pricing_configured: bool = False,
     source_api_projected_monthly_cost_usd: float = 0,
     source_api_monthly_budget_usd: float = 0,
+    summary_quality_proxy: float = 1,
+    thin_summary_count: int = 0,
 ) -> list[QualityFinding]:
     findings: list[QualityFinding] = []
     today = current_date or latest_digest_snapshot_date or datetime.now(UTC).date()
@@ -1429,6 +1478,24 @@ def build_quality_findings(
                 title="Summary coverage is thin",
                 metric=f"{format_quality_percent(summary_coverage)} summarized",
                 recommendation="Run capped LLM summarization for high-signal unsummarized items.",
+                action_label="Run Summaries",
+                action_module="dashboard",
+                action_operation="llm:summarize",
+            )
+        )
+    elif recent_item_count >= 5 and thin_summary_count > 0 and summary_quality_proxy < 0.6:
+        findings.append(
+            QualityFinding(
+                severity="info",
+                title="Summary quality is thin",
+                metric=(
+                    f"{format_quality_percent(summary_quality_proxy)} quality; "
+                    f"{thin_summary_count} thin"
+                ),
+                recommendation=(
+                    "Run capped LLM summarization so scan summaries include enough context "
+                    "and high-value items explain why they matter."
+                ),
                 action_label="Run Summaries",
                 action_module="dashboard",
                 action_operation="llm:summarize",

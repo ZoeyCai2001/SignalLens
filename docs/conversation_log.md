@@ -410,3 +410,4 @@ Implementation progress:
 - Added optional stock market-cap profile metadata with an Alembic migration, API schema support, dashboard table/detail editing, settings backup/restore coverage, and no-paid demo smoke verification without inventing stale market-cap values.
 - Exposed product discovery score components in product-category briefing APIs and dashboard timelines, making novelty/traction/importance/relevance product-launch ordering auditable and covered by the no-paid demo smoke verifier.
 - Persisted per-source raw-content storage policies in the source model, API schemas, settings backup, and dashboard source editor while retaining inferred policy fallbacks for existing sources.
+- Added a deterministic summary-quality proxy and thin-summary count to quality metrics, System Readiness, findings, and the no-paid demo smoke output so PRD summary quality is tracked separately from summary coverage without extra LLM cost.

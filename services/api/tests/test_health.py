@@ -21,6 +21,7 @@ from app.api.routes.health import (
     health_check,
     normalize_quality_title,
     prd_source_family_keys_for_source,
+    quality_item_has_prd_summary,
     summarize_prd_source_family_coverage,
 )
 from app.core.config import DEFAULT_SEC_USER_AGENT, Settings
@@ -245,7 +246,13 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
                     published_at=now - timedelta(days=1),
                     relevance_score=0.9,
                     importance_score=0.8,
-                    summary_short="Short summary",
+                    summary_short=(
+                        "OpenAI released a new agent workflow with enough operational detail "
+                        "to scan."
+                    ),
+                    why_it_matters=(
+                        "It matters because agent workflows are a tracked technical theme."
+                    ),
                 ),
                 make_quality_item(
                     2,
@@ -375,6 +382,8 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.relevance_precision_proxy == 1
     assert metrics.duplicate_rate == 0.5
     assert metrics.summary_coverage == 0.5
+    assert metrics.summary_quality_proxy == 0.5
+    assert metrics.thin_summary_count == 0
     assert metrics.source_failure_rate == 0.5
     assert metrics.save_count == 1
     assert metrics.hide_count == 2
@@ -1207,6 +1216,35 @@ def test_build_quality_findings_flags_high_value_summary_gap() -> None:
     assert findings[0].action_operation == "llm:summarize"
 
 
+def test_build_quality_findings_flags_thin_summary_quality() -> None:
+    findings = build_quality_findings(
+        recent_item_count=6,
+        high_value_item_count=0,
+        relevance_precision_proxy=0.8,
+        duplicate_rate=0,
+        summary_coverage=0.8,
+        summary_quality_proxy=0.5,
+        thin_summary_count=2,
+        high_value_unsummarized_count=0,
+        source_failure_rate=0,
+        saved_read_later_count=0,
+        save_count=0,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=1,
+        latest_digest_snapshot_date=date(2026, 6, 30),
+        latest_digest_snapshot_item_count=5,
+        llm_calls_per_recent_item=0,
+    )
+
+    assert [finding.title for finding in findings] == ["Summary quality is thin"]
+    assert findings[0].metric == "50% quality; 2 thin"
+    assert findings[0].action_label == "Run Summaries"
+    assert findings[0].action_module == "dashboard"
+    assert findings[0].action_operation == "llm:summarize"
+
+
 def test_build_quality_findings_flags_read_later_backlog() -> None:
     findings = build_quality_findings(
         recent_item_count=10,
@@ -1444,6 +1482,39 @@ def test_quality_duplicate_helpers_ignore_tracking_noise() -> None:
     assert duplicate_rate_for_items(items) == pytest.approx(1 / 3, abs=0.001)
 
 
+def test_quality_item_has_prd_summary_requires_context_for_high_value_items() -> None:
+    thin = make_quality_item(
+        1,
+        "Thin summary",
+        url="https://example.com/thin",
+        summary_short="Too short",
+        importance_score=0.8,
+    )
+    contextual = make_quality_item(
+        2,
+        "Contextual summary",
+        url="https://example.com/contextual",
+        summary_short="This summary is long enough to scan in the readiness quality panel.",
+        importance_score=0.8,
+        why_it_matters="It explains why a high-value item matters before the user opens it.",
+    )
+    detailed = make_quality_item(
+        3,
+        "Detailed summary",
+        url="https://example.com/detailed",
+        summary_detailed=(
+            "This detailed summary is intentionally long enough to satisfy the PRD summary "
+            "quality proxy without a separate why-it-matters field. It gives the reader enough "
+            "context to decide whether the item deserves attention."
+        ),
+        importance_score=0.8,
+    )
+
+    assert not quality_item_has_prd_summary(thin)
+    assert quality_item_has_prd_summary(contextual)
+    assert quality_item_has_prd_summary(detailed)
+
+
 def make_quality_item(
     item_id: int,
     title: str,
@@ -1452,6 +1523,8 @@ def make_quality_item(
     relevance_score: float = 0.7,
     importance_score: float = 0.7,
     summary_short: str | None = None,
+    summary_detailed: str | None = None,
+    why_it_matters: str | None = None,
     category: str = "technical_trend",
     language: str = "en",
     source_name: str = "Test Source",
@@ -1481,6 +1554,8 @@ def make_quality_item(
         source_quality_score=source_quality_score,
         stock_impact_score=0,
         summary_short=summary_short,
+        summary_detailed=summary_detailed,
+        why_it_matters=why_it_matters,
     )
 
 

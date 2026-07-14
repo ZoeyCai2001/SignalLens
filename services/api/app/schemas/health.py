@@ -147,6 +147,8 @@ class QualityMetricsResponse(BaseModel):
     relevance_precision_proxy: float
     duplicate_rate: float
     summary_coverage: float
+    summary_quality_proxy: float = 0
+    thin_summary_count: int = 0
     source_failure_rate: float
     save_count: int
     hide_count: int
