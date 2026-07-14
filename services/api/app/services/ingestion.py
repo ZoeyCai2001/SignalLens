@@ -1224,12 +1224,18 @@ def build_social_trend_summary(
         if products
         else infer_social_use_case(raw.raw_text or raw.raw_title)
     )
-    access_note = (
-        "Experimental source: public RSS/Atom metadata only; no login-protected "
-        "or anti-bot-protected pages are accessed."
-        if subcategory in {"chinese_social_keyword", "social_keyword"}
-        else "Source access: configured public Chinese RSS/Atom feed."
-    )
+    if subcategory == "manual_social_signal":
+        access_note = (
+            "Manual source: user-submitted public URL or user-provided context only; "
+            "no login-protected or anti-bot-protected pages are accessed."
+        )
+    elif subcategory in {"chinese_social_keyword", "social_keyword"}:
+        access_note = (
+            "Experimental source: public RSS/Atom metadata only; no login-protected "
+            "or anti-bot-protected pages are accessed."
+        )
+    else:
+        access_note = "Source access: configured public Chinese RSS/Atom feed."
     language_note = (
         "Chinese-language source summarized in English."
         if language == "zh"

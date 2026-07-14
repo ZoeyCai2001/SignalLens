@@ -425,3 +425,4 @@ Implementation progress:
 - Strengthened SEC filing ingestion by treating official filings as high-trust stock-watch evidence, adding deterministic filing summaries, and raising watched-ticker filing impact without extra LLM cost.
 - Added configurable SEC form filtering via `SEC_FORMS`, keeping the default filings conservative while allowing optional Form 4 insider ownership filings for watched tickers.
 - Added deterministic stock timeline uncertainty notes for aligned event-date price moves that may already be priced in and opposite moves where other market factors may dominate.
+- Extended manual Chinese/social submissions with deterministic English summaries, inferred product/use-case labels, and manual public-source notes before any LLM enrichment.

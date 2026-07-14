@@ -1,19 +1,17 @@
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import pytest
-
 from app.api.routes import manual_submissions as manual_submission_routes
-from app.db.models import Base, NormalizedItem
-from app.db.models import RawItem, Source
+from app.db.models import Base, NormalizedItem, RawItem, Source
 from app.schemas.feed import FeedItem
 from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.classification import ClassificationError
 from app.services.manual_submissions import (
     ManualSubmissionSaveResult,
-    create_raw_manual_item,
     create_manual_normalized_item,
     create_manual_submission_result,
+    create_raw_manual_item,
     enrich_manual_normalized_item,
     first_sentence,
     reset_manual_normalized_item,
@@ -123,8 +121,8 @@ def test_manual_enrichment_detects_private_ai_lab_companies() -> None:
 def test_manual_enrichment_prefers_chinese_social_context() -> None:
     source = make_source()
     raw = make_raw(
-        title="小红书 AI photo tool workflow",
-        text="小红书用户讨论 AI photo tools and viral editing workflows.",
+        title="小红书 AI写真工具 workflow",
+        text="小红书用户讨论人工智能修图和 AI photo tools viral editing workflows.",
     )
     item = create_manual_normalized_item(raw=raw, source=source)
 
@@ -133,6 +131,11 @@ def test_manual_enrichment_prefers_chinese_social_context() -> None:
     assert item.category == "social_trend"
     assert item.subcategory == "manual_social_signal"
     assert item.language == "zh"
+    assert "AI photo tool" in item.products
+    assert item.summary_detailed is not None
+    assert "English summary:" in item.summary_detailed
+    assert "Product/use case: AI photo tool" in item.summary_detailed
+    assert "Manual source: user-submitted public URL" in item.summary_detailed
 
 
 def test_manual_enrichment_keeps_non_ai_submission_as_manual() -> None:

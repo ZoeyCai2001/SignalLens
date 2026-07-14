@@ -16,10 +16,12 @@ from app.services.feed_actions import (
     update_item_action,
 )
 from app.services.ingestion import (
+    build_social_trend_summary,
     canonical_ingestion_url,
     compute_content_hash,
     detect_language,
     get_or_create_source,
+    infer_social_product_names,
     normalize_item,
 )
 from app.services.scoring import (
@@ -354,6 +356,8 @@ def enrich_manual_normalized_item(item: NormalizedItem, raw: RawItem) -> None:
     tickers = detect_tickers(combined_text)
     companies = detect_companies(combined_text)
     products = detect_manual_products(raw.raw_title, combined_text)
+    if category == "social_trend":
+        products = merge_manual_products(products, infer_social_product_names(combined_text))
     source_quality = 0.65
 
     item.language = detect_language(combined_text)
@@ -372,6 +376,14 @@ def enrich_manual_normalized_item(item: NormalizedItem, raw: RawItem) -> None:
     item.source_quality_score = max(item.source_quality_score or 0, source_quality)
     item.stock_impact_score = 0.35 if tickers and category == "stock_company_event" else 0
     item.summary_short = build_manual_summary(raw)
+    item.summary_detailed = build_manual_detailed_summary(
+        raw=raw,
+        category=category,
+        subcategory=subcategory,
+        topics=topics,
+        products=products,
+        language=item.language,
+    )
     item.why_it_matters = build_manual_why_it_matters(category=category, tickers=tickers)
 
 
@@ -408,6 +420,38 @@ def detect_manual_products(title: str, text: str) -> list[str]:
         if product not in products:
             products.append(product)
     return products[:6]
+
+
+def merge_manual_products(existing: list[str], inferred: list[str]) -> list[str]:
+    products = list(existing)
+    seen = {product.casefold() for product in products}
+    for product in inferred:
+        key = product.casefold()
+        if key not in seen:
+            seen.add(key)
+            products.append(product)
+    return products[:6]
+
+
+def build_manual_detailed_summary(
+    raw: RawItem,
+    category: str,
+    subcategory: str,
+    topics: list[str],
+    products: list[str],
+    language: str,
+) -> str | None:
+    if category != "social_trend":
+        return None
+    return build_social_trend_summary(
+        raw=raw,
+        source_excerpt=first_sentence(raw.raw_text or raw.raw_title) or raw.raw_title,
+        topics=topics,
+        products=products,
+        language=language,
+        subcategory=subcategory,
+        source=None,
+    )
 
 
 def build_manual_summary(raw: RawItem) -> str:
