@@ -115,16 +115,19 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         ]
         for topic in topics[:5]
     ]
-    product_briefing_counts = [
+    product_briefings = [
         get_json(
             client,
             f"/api/watchlist/products/{product['category']}/briefing?limit=20",
-        )["item_count"]
+        )
         for product in products[:3]
     ]
+    product_briefing_counts = [briefing["item_count"] for briefing in product_briefings]
     assert_any_positive(company_briefing_counts, "company briefing item counts")
     assert_any_positive(topic_briefing_counts, "topic briefing item counts")
     assert_any_positive(product_briefing_counts, "product briefing item counts")
+    if not any(briefing["discovery_scores"] for briefing in product_briefings):
+        raise AssertionError("Expected product briefings to expose discovery score evidence")
 
     source_health = get_json(client, "/api/sources/health")
     if len(source_health) < 8:
@@ -242,6 +245,9 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         "company_briefing_counts": company_briefing_counts,
         "topic_briefing_counts": topic_briefing_counts,
         "product_briefing_counts": product_briefing_counts,
+        "product_discovery_score_count": sum(
+            len(briefing["discovery_scores"]) for briefing in product_briefings
+        ),
         "source_health_rows": len(source_health),
         "digest_items": digest["total_items"],
         "digest_snapshot_count": len(digest_snapshots),

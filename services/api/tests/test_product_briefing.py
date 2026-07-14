@@ -81,6 +81,12 @@ def test_build_product_briefing_groups_sources_products_traction_and_activity() 
         "AgentDesk launches",
         "AgentDesk update",
     ]
+    assert [score.item_id for score in briefing.discovery_scores] == [2, 1, 3]
+    assert briefing.discovery_scores[0].score == pytest.approx(0.84)
+    assert briefing.discovery_scores[0].novelty_score == 0.95
+    assert briefing.discovery_scores[0].traction_score == 1
+    assert briefing.discovery_scores[0].importance_score == 0.6
+    assert briefing.discovery_scores[0].relevance_score == 0.8
 
 
 def test_build_product_match_terms_includes_slug_label_and_related_terms() -> None:

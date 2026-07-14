@@ -313,6 +313,15 @@ class ProductWatchlistItemUpdate(BaseModel):
     notes: str | None = None
 
 
+class ProductDiscoveryScore(BaseModel):
+    item_id: int
+    score: float
+    novelty_score: float
+    traction_score: float
+    importance_score: float
+    relevance_score: float
+
+
 class ProductBriefing(BaseModel):
     product: ProductWatchlistItem
     item_count: int
@@ -324,5 +333,6 @@ class ProductBriefing(BaseModel):
     matched_products: list[str]
     related_companies: list[str]
     traction_signals: list[str] = Field(default_factory=list)
+    discovery_scores: list[ProductDiscoveryScore] = Field(default_factory=list)
     recent_timeline: list[FeedItem]
     activity_timeline: list[TopicActivityBucket]

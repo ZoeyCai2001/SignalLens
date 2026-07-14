@@ -328,8 +328,18 @@ type ProductBriefing = {
   matched_products: string[];
   related_companies: string[];
   traction_signals: string[];
+  discovery_scores: ProductDiscoveryScore[];
   recent_timeline: FeedItem[];
   activity_timeline: TopicActivityBucket[];
+};
+
+type ProductDiscoveryScore = {
+  item_id: number;
+  score: number;
+  novelty_score: number;
+  traction_score: number;
+  importance_score: number;
+  relevance_score: number;
 };
 
 type TopicSourceCount = {
@@ -10813,6 +10823,10 @@ function ProductBriefingPanel({
     return <div className="empty-state">No product briefing available for {selectedCategory}.</div>;
   }
 
+  const discoveryScores = new Map(
+    briefing.discovery_scores.map((score) => [score.item_id, score]),
+  );
+
   return (
     <div className="topic-briefing">
       <div className="readiness-head">
@@ -10889,9 +10903,12 @@ function ProductBriefingPanel({
                 <div className="small-muted">
                   {item.source_name}
                   {item.published_at ? ` · ${formatDate(item.published_at)}` : ""}
+                  {formatProductDiscoveryNote(discoveryScores.get(item.id))}
                 </div>
               </div>
-              <div className="timeline-score">{Math.round(item.importance_score * 100)}</div>
+              <div className="timeline-score">
+                {Math.round((discoveryScores.get(item.id)?.score ?? item.importance_score) * 100)}
+              </div>
             </a>
           ))
         ) : (
@@ -12068,6 +12085,15 @@ function formatMarketCap(value: number | null | undefined): string {
     return "--";
   }
   return `$${formatCompactNumber(value)}`;
+}
+
+function formatProductDiscoveryNote(score: ProductDiscoveryScore | undefined): string {
+  if (!score) {
+    return "";
+  }
+  return ` · discovery ${Math.round(score.score * 100)} · novelty ${Math.round(
+    score.novelty_score * 100,
+  )} · traction ${Math.round(score.traction_score * 100)}`;
 }
 
 function formatChange(market: StockMarketSnapshot | null | undefined): string {

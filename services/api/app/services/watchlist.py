@@ -20,6 +20,7 @@ from app.schemas.watchlist import (
     CompanyWatchlistItemCreate,
     CompanyWatchlistItemUpdate,
     ProductBriefing,
+    ProductDiscoveryScore,
     ProductWatchlistItemCreate,
     ProductWatchlistItemUpdate,
     StockAttentionComponent,
@@ -875,6 +876,7 @@ def build_product_briefing(
             company for company, _count in company_counts.most_common(10)
         ],
         traction_signals=build_product_traction_signals(items),
+        discovery_scores=build_product_discovery_scores(items),
         recent_timeline=rank_product_discovery_items(items)[:12],
         activity_timeline=[
             TopicActivityBucket(activity_date=activity_date, item_count=count)
@@ -995,6 +997,23 @@ def product_discovery_score(item: FeedItem) -> float:
         + 0.15 * product_traction_score(item),
         3,
     )
+
+
+def build_product_discovery_scores(
+    items: list[FeedItem],
+    limit: int = 12,
+) -> list[ProductDiscoveryScore]:
+    return [
+        ProductDiscoveryScore(
+            item_id=item.id,
+            score=product_discovery_score(item),
+            novelty_score=round(item.novelty_score, 3),
+            traction_score=round(product_traction_score(item), 3),
+            importance_score=round(item.importance_score, 3),
+            relevance_score=round(item.relevance_score, 3),
+        )
+        for item in rank_product_discovery_items(items)[:limit]
+    ]
 
 
 def product_traction_score(item: FeedItem) -> float:
