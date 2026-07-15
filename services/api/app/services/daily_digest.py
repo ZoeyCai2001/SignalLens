@@ -547,6 +547,12 @@ def build_digest_sections(
             lambda item: True,
         ),
         (
+            "suggested_reading",
+            "Suggested Reading",
+            "One high-value item each for technical, research, stock/company, and product review.",
+            None,
+        ),
+        (
             "research",
             "AI Research",
             "Papers, benchmarks, and research discussions.",
@@ -613,7 +619,12 @@ def build_digest_sections(
 
     sections: list[DigestSection] = []
     for key, title, focus, predicate in section_specs:
-        section_items = [item for item in ranked_items if predicate(item)][:limit_per_section]
+        if key == "suggested_reading":
+            section_items = build_suggested_reading_items(ranked_items, limit=limit_per_section)
+        else:
+            section_items = [item for item in ranked_items if predicate and predicate(item)][
+                :limit_per_section
+            ]
         sections.append(
             DigestSection(
                 key=key,
@@ -649,6 +660,43 @@ def is_digest_developer_highlight_item(item: FeedItem) -> bool:
         "GitHub",
         "Hugging Face",
     }
+
+
+def build_suggested_reading_items(items: list[FeedItem], limit: int = 5) -> list[FeedItem]:
+    reading_lanes = [
+        ("technical", is_suggested_technical_reading_item),
+        ("research", is_digest_research_item),
+        ("stock", is_digest_stock_item),
+        ("product", lambda item: item.category == "product" or bool(item.products)),
+    ]
+    selected: list[FeedItem] = []
+    seen_ids: set[int] = set()
+    for _lane_name, predicate in reading_lanes:
+        item = next((candidate for candidate in items if predicate(candidate)), None)
+        if item is None or item.id in seen_ids:
+            continue
+        selected.append(item)
+        seen_ids.add(item.id)
+        if len(selected) >= limit:
+            return selected
+
+    for item in items:
+        if item.id in seen_ids:
+            continue
+        selected.append(item)
+        seen_ids.add(item.id)
+        if len(selected) >= limit:
+            break
+    return selected
+
+
+def is_suggested_technical_reading_item(item: FeedItem) -> bool:
+    return (
+        is_digest_technical_trend_item(item)
+        and not item.tickers
+        and not item.companies
+        and not item.products
+    )
 
 
 def build_digest_section_metrics(items: list[FeedItem]) -> DigestSectionMetrics:

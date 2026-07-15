@@ -63,6 +63,11 @@ def test_daily_digest_sections_group_items() -> None:
 
     section_map = {section.key: section for section in sections}
     assert section_map["top_signals"].items[0].title == "Research"
+    assert [item.title for item in section_map["suggested_reading"].items] == [
+        "Repo",
+        "Research",
+        "Stock",
+    ]
     assert section_map["research"].items[0].title == "Research"
     assert section_map["products"].items[0].title == "Product"
     assert section_map["company_watchlist"].items[0].title == "Company"
@@ -74,6 +79,7 @@ def test_daily_digest_sections_group_items() -> None:
     assert section_map["top_signals"].metrics.high_impact_count == 2
     assert section_map["top_signals"].metrics.stock_signal_count == 1
     assert section_map["top_signals"].metrics.source_count == 1
+    assert section_map["suggested_reading"].metrics.item_count == 3
     assert section_map["read_later"].metrics.read_later_count == 1
 
 
@@ -709,6 +715,11 @@ def test_render_digest_markdown_includes_sections_links_and_disclaimer() -> None
     assert "Company watchlist: OpenAI, Anthropic" in markdown
     assert "Topic watchlist: Agent Harness, AI Coding" in markdown
     assert "Product watchlist: AI coding tools, AI search tools" in markdown
+    assert "## Suggested Reading" in markdown
+    assert (
+        "One high-value item each for technical, research, stock/company, and product review."
+        in markdown
+    )
     assert "## AI Research" in markdown
     assert "Papers, benchmarks, and research discussions." in markdown
     assert "_Section signals: 1 items, 1 sources, 1 high-impact_" in markdown
