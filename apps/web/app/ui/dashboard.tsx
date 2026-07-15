@@ -1842,6 +1842,13 @@ export function Dashboard() {
     void refreshAll();
   }, [refreshAll]);
 
+  const refreshQualityMetrics = useCallback(async () => {
+    const nextQualityMetrics = await fetchJson<QualityMetrics>("/api/quality-metrics").catch(
+      () => null,
+    );
+    setQualityMetrics(nextQualityMetrics);
+  }, [fetchJson]);
+
   useEffect(() => {
     const previousActiveModule = previousActiveModuleRef.current;
     previousActiveModuleRef.current = activeModule;
@@ -3492,6 +3499,23 @@ export function Dashboard() {
     }
   };
 
+  const restoreAlert = async (alertId: number) => {
+    setBusyAlertId(alertId);
+    setError(null);
+    try {
+      const restored = await fetchJson<AlertItem>(`/api/alerts/${alertId}/restore`, {
+        method: "POST",
+      });
+      setAlerts((items) => items.map((item) => (item.id === alertId ? restored : item)));
+      await refreshAllWithStatus(`Restored alert ${alertId}`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Alert restore failed");
+    } finally {
+      setBusyAlertId(null);
+    }
+  };
+
   const updateAlertFeedback = async (
     alert: AlertItem,
     usefulnessFeedback: "useful" | "not_useful",
@@ -4646,6 +4670,7 @@ export function Dashboard() {
               disabled={loadState !== "idle"}
               onDismiss={dismissAlert}
               onFeedback={updateAlertFeedback}
+              onRestore={restoreAlert}
               onGenerate={generateDashboardAlerts}
               onIncludeDismissedChange={setAlertIncludeDismissed}
               onRuleToggle={toggleAlertRule}
@@ -4770,6 +4795,7 @@ export function Dashboard() {
                   disabled={loadState !== "idle"}
                   onDismiss={dismissAlert}
                   onFeedback={updateAlertFeedback}
+                  onRestore={restoreAlert}
                   onGenerate={generateDashboardAlerts}
                   onIncludeDismissedChange={setAlertIncludeDismissed}
                   onRuleToggle={toggleAlertRule}
@@ -4821,9 +4847,11 @@ export function Dashboard() {
                 busyMetadataItemId={busyMetadataItemId}
                 busyExport={busySavedExport}
                 busyDownload={busySavedDownload}
+                busyJsonDownload={busySavedJsonDownload}
                 selectedDetail={selectedFeedDetail}
                 onCopyExport={copySavedItemsExport}
                 onDownloadExport={downloadSavedItemsExport}
+                onDownloadJsonExport={downloadSavedItemsJsonExport}
                 onDetail={loadFeedDetail}
                 onManualTagFilter={applySavedManualTagFilter}
                 onPersonalMetadataSave={saveFeedItemPersonalMetadata}
@@ -6395,6 +6423,7 @@ function AlertPanel({
   disabled,
   onDismiss,
   onFeedback,
+  onRestore,
   onGenerate,
   onIncludeDismissedChange,
   onRuleToggle,
@@ -6426,6 +6455,7 @@ function AlertPanel({
   disabled: boolean;
   onDismiss: (alertId: number) => void;
   onFeedback: (alert: AlertItem, usefulnessFeedback: "useful" | "not_useful") => void;
+  onRestore: (alertId: number) => void;
   onGenerate: () => void;
   onIncludeDismissedChange: (value: boolean) => void;
   onRuleToggle: (rule: AlertRule) => void;
@@ -6721,21 +6751,35 @@ function AlertPanel({
                     )}
                   </button>
                   {alert.status === "active" ? (
-                  <button
-                    className="button icon-button"
-                    onClick={() => onDismiss(alert.id)}
-                    disabled={busyAlertId === alert.id}
-                    title="Dismiss alert"
-                    aria-label="Dismiss alert"
-                  >
-                    {busyAlertId === alert.id ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : (
-                      <X size={16} />
-                    )}
-                  </button>
+                    <button
+                      className="button icon-button"
+                      onClick={() => onDismiss(alert.id)}
+                      disabled={busyAlertId === alert.id}
+                      title="Dismiss alert"
+                      aria-label="Dismiss alert"
+                      type="button"
+                    >
+                      {busyAlertId === alert.id ? (
+                        <Loader2 className="spin" size={16} />
+                      ) : (
+                        <X size={16} />
+                      )}
+                    </button>
                   ) : (
-                    <span className="badge muted-badge">dismissed</span>
+                    <button
+                      className="button icon-button"
+                      onClick={() => onRestore(alert.id)}
+                      disabled={busyAlertId === alert.id}
+                      title="Restore alert"
+                      aria-label="Restore alert"
+                      type="button"
+                    >
+                      {busyAlertId === alert.id ? (
+                        <Loader2 className="spin" size={16} />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )}
+                    </button>
                   )}
                 </div>
               </div>

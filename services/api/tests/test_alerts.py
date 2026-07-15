@@ -35,6 +35,7 @@ from app.services.alerts import (
     normalize_alert_feedback,
     normalize_tickers,
     price_move_alert_reason,
+    restore_alert,
     social_trend_alert_reason,
     social_trend_engagement_bits,
     stock_event_alert_reason,
@@ -919,6 +920,29 @@ def test_list_alerts_can_include_dismissed_history() -> None:
         "Active signal": "active",
         "Dismissed signal": "dismissed",
     }
+
+
+def test_restore_alert_reactivates_dismissed_alert() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        rule = make_rule(category="all", min_importance_score=0.7)
+        db.add(rule)
+        db.add(make_item(item_id=1, title="Restorable signal"))
+        db.flush()
+        alert = make_alert(item_id=1, rule_id=rule.id, title="Restorable signal")
+        alert.status = "dismissed"
+        db.add(alert)
+        db.commit()
+
+        restored = restore_alert(db, alert_id=1)
+        active_alerts = list_alerts(db, include_dismissed=False)
+
+    assert restored is not None
+    assert restored.status == "active"
+    assert [alert.title for alert in active_alerts] == ["Restorable signal"]
 
 
 def test_update_alert_feedback_sets_and_clears_usefulness() -> None:

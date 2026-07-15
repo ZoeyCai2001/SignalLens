@@ -18,6 +18,7 @@ from app.services.alerts import (
     generate_alerts,
     list_alert_rules,
     list_alerts,
+    restore_alert,
     serialize_alert,
     update_alert_feedback,
     update_alert_rule,
@@ -91,6 +92,14 @@ async def delete_dashboard_alert_rule(rule_id: int, db: DbSession) -> None:
 @router.post("/{alert_id}/dismiss", response_model=AlertItem)
 async def dismiss_dashboard_alert(alert_id: int, db: DbSession) -> AlertItem:
     alert = dismiss_alert(db, alert_id)
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alert not found.")
+    return serialize_alert(db, alert)
+
+
+@router.post("/{alert_id}/restore", response_model=AlertItem)
+async def restore_dashboard_alert(alert_id: int, db: DbSession) -> AlertItem:
+    alert = restore_alert(db, alert_id)
     if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found.")
     return serialize_alert(db, alert)

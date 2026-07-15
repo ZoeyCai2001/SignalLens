@@ -1041,6 +1041,21 @@ def dismiss_alert(db: Session, alert_id: int) -> Alert | None:
     return alert
 
 
+def restore_alert(db: Session, alert_id: int) -> Alert | None:
+    alert = (
+        db.query(Alert)
+        .filter(Alert.user_id == LOCAL_USER_ID, Alert.id == alert_id)
+        .one_or_none()
+    )
+    if alert is None:
+        return None
+    alert.status = "active"
+    db.add(alert)
+    db.commit()
+    db.refresh(alert)
+    return alert
+
+
 def update_alert_feedback(
     db: Session,
     alert_id: int,

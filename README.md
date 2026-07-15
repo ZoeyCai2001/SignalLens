@@ -153,6 +153,7 @@ Useful endpoints:
 - `PATCH http://127.0.0.1:8000/api/alerts/rules/{rule_id}`
 - `DELETE http://127.0.0.1:8000/api/alerts/rules/{rule_id}`
 - `POST http://127.0.0.1:8000/api/alerts/{alert_id}/dismiss`
+- `POST http://127.0.0.1:8000/api/alerts/{alert_id}/restore`
 - `POST http://127.0.0.1:8000/api/llm/smoke-test`
 
 Run database migrations and seed the initial stock, company, topic, and product watchlists:
