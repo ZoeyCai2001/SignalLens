@@ -580,6 +580,14 @@ async def run_source_ingestion_by_id(
                 source_name=source.name,
             )
             return await run_connector_ingestion(db=db, connector=connector, source=source)
+        if source.type == "arxiv_query":
+            connector = ArxivConnector(
+                limit=limit or 25,
+                source_name=source.name,
+                categories=arxiv_categories_for_source(source),
+                keywords=arxiv_keywords_for_source(source),
+            )
+            return await run_connector_ingestion(db=db, connector=connector, source=source)
         if source.access_method == "rss" and source.base_url:
             connector = RssConnector(
                 limit=limit or 25,
@@ -630,6 +638,39 @@ def split_product_hunt_terms(value: str | None) -> list[str]:
     if not value:
         return []
     return [part.strip() for part in re.split(r"[,;\n|]+", value) if part.strip()]
+
+
+def arxiv_categories_for_source(source: Source) -> list[str] | None:
+    categories = [
+        term
+        for term in arxiv_terms_for_source(source)
+        if re.fullmatch(r"[a-z-]+\.[A-Z]{2}", term)
+    ]
+    return unique_preserving_order(categories) or None
+
+
+def arxiv_keywords_for_source(source: Source) -> list[str] | None:
+    keywords = [
+        term
+        for term in arxiv_terms_for_source(source)
+        if not re.fullmatch(r"[a-z-]+\.[A-Z]{2}", term)
+    ]
+    return unique_preserving_order(keywords) or None
+
+
+def arxiv_terms_for_source(source: Source) -> list[str]:
+    return split_product_hunt_terms(source.terms_notes) or split_product_hunt_terms(source.name)
+
+
+def unique_preserving_order(values: list[str]) -> list[str]:
+    unique_values: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        normalized = value.lower()
+        if normalized not in seen:
+            seen.add(normalized)
+            unique_values.append(value)
+    return unique_values
 
 
 def normalize_topic_term(value: str) -> str:

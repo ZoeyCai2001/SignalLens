@@ -204,6 +204,9 @@ def test_source_health_derives_compliance_policy_by_source_type() -> None:
     assert raw_content_policy_for_source(
         Source(name="Repo", type="github_repository", access_method="official_api")
     ) == "Store public repository metadata and summaries; do not clone repository contents."
+    assert raw_content_policy_for_source(
+        Source(name="arXiv Agents", type="arxiv_query", access_method="official_api")
+    ) == "Store public arXiv paper metadata, abstracts, categories, authors, and source URLs."
 
 
 def test_source_health_derives_failure_handling_from_auth_and_polling() -> None:
@@ -558,6 +561,30 @@ def test_create_source_uses_product_hunt_api_for_product_topic() -> None:
     assert source.rate_limit == "Product Hunt API token required; keep topic polling conservative."
     assert source.polling_interval == "6 hours"
     assert source.terms_notes == "Developer Tools, AI Coding"
+
+
+def test_create_source_uses_official_api_for_arxiv_query() -> None:
+    db = FakeCreateSourceDb()
+
+    source = create_source(
+        db,
+        SourceCreate(
+            name="arXiv AI Agents",
+            type="arxiv_query",
+            access_method="rss",
+            terms_notes="cs.AI, cs.LG, agent",
+        ),
+    )
+
+    assert source.type == "arxiv_query"
+    assert source.access_method == "official_api"
+    assert source.auth_required is False
+    assert source.rate_limit == "Free arXiv Atom API; keep requests conservative and cache results."
+    assert source.polling_interval == "6 hours"
+    assert source.raw_content_policy == (
+        "Store public arXiv paper metadata, abstracts, categories, authors, and source URLs."
+    )
+    assert source.terms_notes == "cs.AI, cs.LG, agent"
 
 
 def test_create_source_uses_public_rss_for_social_keyword_with_feed() -> None:
@@ -1020,6 +1047,51 @@ async def test_run_source_ingestion_by_id_runs_custom_product_hunt_topic(monkeyp
         "artificial intelligence",
         "Product Hunt AI Coding",
     ]
+
+
+@pytest.mark.anyio
+async def test_run_source_ingestion_by_id_runs_custom_arxiv_query(monkeypatch) -> None:
+    source = Source(
+        id=8,
+        name="arXiv AI Agents",
+        type="arxiv_query",
+        access_method="official_api",
+        base_url="https://export.arxiv.org/api/query",
+        terms_notes="cs.AI, cs.LG, agent, tool use, benchmark",
+        enabled=True,
+    )
+    db = FakeSourceDb(source)
+    calls = []
+
+    async def fake_run_connector_ingestion(db, connector, source):
+        calls.append((db, connector, source))
+        return IngestionResult(
+            source_name=source.name,
+            status="success",
+            items_fetched=3,
+            items_stored=3,
+        )
+
+    monkeypatch.setattr(
+        ingestion_service,
+        "run_connector_ingestion",
+        fake_run_connector_ingestion,
+    )
+
+    result = await ingestion_service.run_source_ingestion_by_id(
+        db=db,
+        source_id=8,
+        limit=7,
+        runners_by_name={},
+    )
+
+    assert result.source_name == "arXiv AI Agents"
+    assert result.items_fetched == 3
+    connector = calls[0][1]
+    assert connector.source_name == "arXiv AI Agents"
+    assert connector.limit == 7
+    assert connector.categories == ["cs.AI", "cs.LG"]
+    assert connector.keywords == ["agent", "tool use", "benchmark"]
 
 
 @pytest.mark.anyio

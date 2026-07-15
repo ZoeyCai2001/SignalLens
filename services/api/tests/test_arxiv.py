@@ -28,6 +28,34 @@ def test_arxiv_feed_maps_entries_to_raw_items() -> None:
     assert items[0].raw_metadata["categories"] == ["cs.AI"]
 
 
+def test_arxiv_connector_supports_custom_query_and_source_name() -> None:
+    connector = ArxivConnector(
+        limit=3,
+        source_name="arXiv AI Agents",
+        categories=["cs.AI", "cs.LG"],
+        keywords=["agent", "tool use"],
+    )
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <feed xmlns="http://www.w3.org/2005/Atom">
+      <entry>
+        <id>http://arxiv.org/abs/2606.00002v1</id>
+        <title>Tool Use Agents</title>
+        <summary>Agent systems use tools.</summary>
+        <published>2026-06-24T00:00:00Z</published>
+        <author><name>Alice Researcher</name></author>
+        <category term="cs.LG" />
+      </entry>
+    </feed>
+    """
+
+    query = connector._build_query()
+    items = connector._parse_feed(xml)
+
+    assert "cat:cs.AI" in query
+    assert 'all:"tool use"' in query
+    assert items[0].source_name == "arXiv AI Agents"
+
+
 def test_arxiv_normalized_item_has_research_detail_scaffold() -> None:
     source = Source(id=1, name="arXiv", type="research", access_method="official_api")
     raw = RawItem(

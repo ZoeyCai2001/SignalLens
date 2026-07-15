@@ -1272,6 +1272,7 @@ const sourceTypeOptions: { value: string; label: string }[] = [
   { value: "community", label: "Community" },
   { value: "developer", label: "Developer" },
   { value: "research", label: "Research" },
+  { value: "arxiv_query", label: "arXiv query" },
   { value: "model_hub", label: "Model hub" },
   { value: "rss", label: "RSS" },
   { value: "github_repository", label: "GitHub repository" },
@@ -1313,6 +1314,20 @@ const sourceFollowTemplates: SourceFollowTemplate[] = [
     termsPlaceholder: "Public company announcements and blog posts.",
     rawContentPolicy: "Store public company post metadata, title, excerpt, URL, and publication time.",
     policyPlaceholder: "Store public announcement metadata and short excerpts only.",
+  },
+  {
+    key: "arxiv_query",
+    label: "arXiv Query",
+    type: "arxiv_query",
+    accessMethod: "official_api",
+    namePlaceholder: "arXiv AI Agents",
+    urlPlaceholder: "https://export.arxiv.org/api/query",
+    pollingInterval: "6 hours",
+    rateLimit: "Free arXiv Atom API; keep requests conservative and cache results.",
+    termsNotes: "cs.AI, cs.LG, cs.CL, agent, tool use, retrieval, benchmark",
+    termsPlaceholder: "cs.AI, cs.LG, agent, tool use, benchmark",
+    rawContentPolicy: "Store arXiv paper metadata, title, abstract, authors, categories, and URL.",
+    policyPlaceholder: "Store public paper metadata and abstracts from arXiv only.",
   },
   {
     key: "github_repository",
@@ -11897,6 +11912,8 @@ function SourceTable({
         >
           <option value="rss">RSS</option>
           <option value="official_api">Official API</option>
+          <option value="official_graphql_api">Official GraphQL API</option>
+          <option value="public_json">Public JSON</option>
           <option value="manual_watch">Manual watch</option>
         </select>
         <input

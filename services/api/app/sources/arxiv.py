@@ -13,11 +13,19 @@ class ArxivConnector(SourceConnector):
     source_name = "arXiv"
     source_type = "research"
 
-    def __init__(self, limit: int = 25) -> None:
+    def __init__(
+        self,
+        limit: int = 25,
+        *,
+        source_name: str | None = None,
+        categories: list[str] | None = None,
+        keywords: list[str] | None = None,
+    ) -> None:
         self.limit = limit
+        self.source_name = source_name or self.source_name
         self.base_url = "https://export.arxiv.org/api/query"
-        self.categories = ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "cs.RO"]
-        self.keywords = [
+        self.categories = categories or ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "cs.RO"]
+        self.keywords = keywords or [
             "agent",
             "tool use",
             "retrieval",

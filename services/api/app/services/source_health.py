@@ -13,6 +13,7 @@ SOURCE_ATTENTION_FAILURE_THRESHOLD = 2
 SOURCE_HEALTH_RECENT_RUN_LIMIT = 5
 SOURCE_FAILURE_STATUSES = {"failed"}
 SOURCE_CONFIGURATION_HINTS = {
+    "arxiv_query": "Use public arXiv category codes such as cs.AI plus query keywords.",
     "product_topic": "Set PRODUCT_HUNT_API_TOKEN in .env or disable this optional source.",
     "finance_news": "Set ALPHA_VANTAGE_API_KEY in .env or disable Alpha Vantage news.",
     "stock_prices": "Set ALPHA_VANTAGE_API_KEY in .env or disable Alpha Vantage prices.",
@@ -205,6 +206,8 @@ def normalize_source_configuration(
 
     if normalized_type == "github_repository":
         normalized_access_method = "official_api"
+    if normalized_type == "arxiv_query":
+        normalized_access_method = "official_api"
     if normalized_type == "product_topic":
         normalized_access_method = "official_graphql_api"
     if normalized_type == "social_keyword" and normalized_base_url:
@@ -219,13 +222,18 @@ def normalize_source_configuration(
             else None
         )
         or (
+            "Free arXiv Atom API; keep requests conservative and cache results."
+            if normalized_type == "arxiv_query"
+            else None
+        )
+        or (
             "Public RSS/Atom metadata only; no login-protected social scraping."
             if normalized_type == "social_keyword"
             else None
         )
     )
     normalized_polling_interval = normalized_polling_interval or (
-        "6 hours" if normalized_type in {"product_topic", "social_keyword"} else None
+        "6 hours" if normalized_type in {"arxiv_query", "product_topic", "social_keyword"} else None
     )
 
     return (
@@ -403,6 +411,8 @@ def raw_content_policy_for_source(source: Source) -> str:
         return "Store Product Hunt launch metadata returned by the official GraphQL API."
     if source_type == "github_repository":
         return "Store public repository metadata and summaries; do not clone repository contents."
+    if source_type == "arxiv_query":
+        return "Store public arXiv paper metadata, abstracts, categories, authors, and source URLs."
     if source_type == "research":
         return "Store public paper metadata, abstract text, source URL, and publication time."
     if access_method in {"rss", "atom"}:
