@@ -6,6 +6,7 @@ import json
 import os
 import platform
 import shutil
+import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -30,6 +31,19 @@ CLOUD_PLACEHOLDER_EXCLUDED_DIRS = {
     "__pycache__",
     "node_modules",
 }
+
+DATALLESS_SCAN_RELATIVE_PATHS = (
+    ".git",
+    "apps/web/app",
+    "docs",
+    "scripts",
+    "services/api/app",
+    "services/api/scripts",
+    "services/api/tests",
+    "README.md",
+    "package.json",
+    "pnpm-lock.yaml",
+)
 
 
 @dataclass(frozen=True)
@@ -77,6 +91,7 @@ def build_checks() -> list[SetupCheck]:
     return [
         workspace_location_check(),
         cloud_placeholder_check(),
+        cloud_dataless_check(),
         path_check("package_json", "Root package.json", "core", "package.json"),
         path_check("pnpm_lock", "pnpm lockfile", "core", "pnpm-lock.yaml"),
         path_check("web_package", "Web package.json", "core", "apps/web/package.json"),
@@ -239,6 +254,73 @@ def cloud_placeholder_check(root: Path = REPO_ROOT) -> SetupCheck:
             "before installing dependencies or running verifiers."
         ),
     )
+
+
+def cloud_dataless_check(root: Path = REPO_ROOT) -> SetupCheck:
+    dataless_paths = list_macos_dataless_files(root)
+    if not dataless_paths:
+        return SetupCheck(
+            "icloud_dataless_files",
+            "iCloud dataless files",
+            "ok",
+            "recommended",
+            "No macOS dataless files were found in checked project or Git metadata paths.",
+        )
+
+    examples = ", ".join(
+        str(path.relative_to(root)) if is_relative_to(path, root) else str(path)
+        for path in dataless_paths[:5]
+    )
+    remaining = len(dataless_paths) - 5
+    extra = f" and {remaining} more" if remaining > 0 else ""
+    return SetupCheck(
+        "icloud_dataless_files",
+        "iCloud dataless files",
+        "warn",
+        "recommended",
+        (
+            f"Found {len(dataless_paths)} macOS dataless file(s): {examples}{extra}. "
+            "Use Finder Download Now, disable optimized storage for this repo, or clone "
+            "SignalLens into a local-only folder before running Git, dependency installs, "
+            "migrations, or verifiers."
+        ),
+    )
+
+
+def list_macos_dataless_files(root: Path) -> list[Path]:
+    if platform.system() != "Darwin" or not root.exists():
+        return []
+
+    scan_paths = [
+        root / relative_path
+        for relative_path in DATALLESS_SCAN_RELATIVE_PATHS
+        if (root / relative_path).exists()
+    ]
+    if not scan_paths:
+        return []
+
+    try:
+        result = subprocess.run(
+            [
+                "find",
+                *(str(path) for path in scan_paths),
+                "-maxdepth",
+                "5",
+                "-flags",
+                "+dataless",
+                "-print",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=8,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+
+    if result.returncode != 0:
+        return []
+    return sorted(Path(line) for line in result.stdout.splitlines() if line.strip())
 
 
 def list_icloud_placeholders(root: Path) -> list[Path]:

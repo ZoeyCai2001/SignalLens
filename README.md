@@ -57,8 +57,9 @@ python3 scripts/check_local_setup.py
 Mac/iCloud note: if Finder or terminal tools show project files as not downloaded,
 or dependencies appear and disappear, move or clone SignalLens into a local-only
 folder such as `~/Developer/SignalLens`. The setup checker warns when the repo is
-inside a likely iCloud-synced location or when source paths contain `.icloud`
-placeholder files. The source of truth is the GitHub remote plus committed files;
+inside a likely iCloud-synced location, when source paths contain `.icloud`
+placeholder files, or when macOS marks project/Git metadata as dataless. The source of
+truth is the GitHub remote plus committed files;
 dependencies and generated local state can be recreated with the setup commands
 above.
 

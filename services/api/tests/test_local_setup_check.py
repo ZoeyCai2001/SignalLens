@@ -1,4 +1,5 @@
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -99,5 +100,43 @@ def test_cloud_placeholder_check_passes_without_icloud_files(tmp_path) -> None:
     source_file.write_text("ready", encoding="utf-8")
 
     result = setup_check.cloud_placeholder_check(tmp_path)
+
+    assert result.status == "ok"
+
+
+def test_cloud_dataless_check_warns_for_macos_dataless_files(tmp_path, monkeypatch) -> None:
+    setup_check = load_setup_check_module()
+    git_ref = tmp_path / ".git" / "refs" / "heads" / "main"
+    git_ref.parent.mkdir(parents=True)
+    git_ref.write_text("abc123\n", encoding="utf-8")
+    source_file = tmp_path / "docs" / "technical_design.md"
+    source_file.parent.mkdir()
+    source_file.write_text("design", encoding="utf-8")
+    monkeypatch.setattr(setup_check.platform, "system", lambda: "Darwin")
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=f"{git_ref}\n{source_file}\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(setup_check.subprocess, "run", fake_run)
+
+    result = setup_check.cloud_dataless_check(tmp_path)
+
+    assert result.status == "warn"
+    assert result.importance == "recommended"
+    assert ".git/refs/heads/main" in result.detail
+    assert "docs/technical_design.md" in result.detail
+    assert "Download Now" in result.detail
+
+
+def test_cloud_dataless_check_skips_non_macos(tmp_path, monkeypatch) -> None:
+    setup_check = load_setup_check_module()
+    monkeypatch.setattr(setup_check.platform, "system", lambda: "Linux")
+
+    result = setup_check.cloud_dataless_check(tmp_path)
 
     assert result.status == "ok"
