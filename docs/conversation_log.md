@@ -471,3 +471,4 @@ Implementation progress:
 - Aligned the LLM classifier prompt/parser with PRD-style JSON fields, accepting `related_*`, `confidence`, and `market_impact` aliases while preserving cost-controlled deterministic market-impact fallbacks.
 - Added opt-in public metadata fetch for manual URL submissions, with dashboard default enabled, bounded HTML title/description parsing, user-text preservation, and route/service tests.
 - Added a deterministic Suggested Reading section to the Daily Digest, selecting a compact technical/research/stock/product shortlist before the detailed module sections.
+- Added compact feed-card uncertainty chips for low classifier confidence, lower source quality, unconfirmed market impact, and limited public signal, making PRD confidence/uncertainty review visible before opening item details.

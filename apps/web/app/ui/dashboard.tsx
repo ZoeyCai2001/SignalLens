@@ -8185,6 +8185,7 @@ function FeedCard({
       ? null
       : item.summary_short || (researchInsights ? null : item.summary_detailed);
   const cardExplanation = buildFeedCardExplanation(item);
+  const uncertaintyNotes = buildFeedCardUncertaintyNotes(item);
   return (
     <article className="feed-card">
       <div className="feed-head">
@@ -8274,6 +8275,18 @@ function FeedCard({
         <div className="why-card-label">Why am I seeing this?</div>
         <div>{cardExplanation}</div>
       </div>
+      {uncertaintyNotes.length ? (
+        <div className="uncertainty-card">
+          <div className="why-card-label">Uncertainty</div>
+          <div className="badges">
+            {uncertaintyNotes.map((note) => (
+              <span className="badge warning-badge" key={note}>
+                {note}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="feed-actions">
         <div className="small-muted">{item.author ? `by ${item.author}` : "source-linked item"}</div>
@@ -8490,6 +8503,21 @@ function buildFeedCardExplanation(item: FeedItem): string {
   }
 
   return `${formatCategoryLabel(item.category)} item selected because it has ${signalText}.${relatedText}`;
+}
+
+function buildFeedCardUncertaintyNotes(item: FeedItem): string[] {
+  const notes = [
+    item.classification_confidence < 0.6 ? "Low classifier confidence" : null,
+    item.source_quality_score < 0.6 ? "Lower source quality" : null,
+    item.market_impact_type !== "none" && item.cross_source_confirmation_score <= 0
+      ? "Market impact is not cross-confirmed"
+      : null,
+    item.social_signal_score < 0.2 && item.source_quality_score < 0.7
+      ? "Limited public signal"
+      : null,
+  ];
+
+  return uniqueLabels(notes.filter((note): note is string => Boolean(note)));
 }
 
 function FeedDetailPanel({

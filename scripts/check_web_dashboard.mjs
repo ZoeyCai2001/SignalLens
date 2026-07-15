@@ -22,6 +22,8 @@ const requiredDashboardSnippets = [
   'stock.is_pinned ? "Pinned" : "Watch"',
   "fetch_metadata: manualFetchMetadata",
   "Fetch public page metadata",
+  "buildFeedCardUncertaintyNotes",
+  "Market impact is not cross-confirmed",
 ];
 
 for (const relativePath of files) {
