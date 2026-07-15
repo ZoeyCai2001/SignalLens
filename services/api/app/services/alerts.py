@@ -17,6 +17,7 @@ from app.schemas.feed import FeedItem
 from app.services.event_clustering import build_event_clusters_from_items
 from app.services.feed_actions import (
     LOCAL_USER_ID,
+    build_public_engagement_metrics,
     get_action,
     normalize_source_names,
     serialize_feed_item,
@@ -836,6 +837,9 @@ def social_trend_alert_reason(item: NormalizedItem, rule: AlertRule) -> str | No
         score_bits.append(f"products {', '.join(item.products[:4])}")
     if item.category == "product" and item.subcategory:
         score_bits.append(f"use case {format_product_use_case_label(item.subcategory)}")
+    engagement_bits = social_trend_engagement_bits(item)
+    if engagement_bits:
+        score_bits.append(f"engagement {', '.join(engagement_bits)}")
     if item.topics:
         score_bits.append(f"topics {', '.join(item.topics[:4])}")
     return f"{rule.name}: " + ", ".join(score_bits)
@@ -859,6 +863,15 @@ def social_trend_context_bits(item: NormalizedItem, social_score: float) -> list
         bits.append("product-launch traction")
 
     return clean_terms(bits)
+
+
+def social_trend_engagement_bits(item: NormalizedItem, limit: int = 3) -> list[str]:
+    metrics = build_public_engagement_metrics(item)
+    return [
+        f"{metric.value:,} {metric.label.lower()}"
+        for metric in metrics
+        if metric.value > 0
+    ][:limit]
 
 
 def build_alert_item_text(item: NormalizedItem) -> str:

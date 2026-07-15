@@ -36,6 +36,7 @@ from app.services.alerts import (
     normalize_tickers,
     price_move_alert_reason,
     social_trend_alert_reason,
+    social_trend_engagement_bits,
     stock_event_alert_reason,
     theme_breakout_alert_reason,
     update_alert_feedback,
@@ -275,8 +276,32 @@ def test_social_trend_alert_reason_matches_high_engagement_product_signal() -> N
     assert "new product signal" in reason
     assert "product-launch traction" in reason
     assert "social signal" in reason
+    assert "engagement 720 votes, 80 comments" in reason
     assert "AI video editor" in reason
     assert "use case Media" in reason
+
+
+def test_social_trend_engagement_bits_include_public_social_counts() -> None:
+    item = make_item(
+        title="AI photo app gets social traction",
+        source_name="Chinese Social RSS",
+        category="social_trend",
+        raw_metadata={
+            "likes": 1800,
+            "comments_count": 260,
+            "views": 88000,
+            "collects": 500,
+            "reposts": 60,
+        },
+    )
+
+    assert social_trend_engagement_bits(item, limit=5) == [
+        "1,800 likes",
+        "260 comments",
+        "88,000 views",
+        "500 collects",
+        "60 reposts",
+    ]
 
 
 def test_social_trend_alert_reason_matches_chinese_social_signal_without_paid_metrics() -> None:
@@ -290,6 +315,7 @@ def test_social_trend_alert_reason_matches_chinese_social_signal_without_paid_me
         novelty_score=0.74,
         products=["AI photo tools"],
         topics=["ai-photo"],
+        raw_metadata={"likes": 1800, "collects": 500, "comments_count": 260},
     )
     rule = make_rule(
         name="Viral AI product or social trend",
@@ -302,6 +328,7 @@ def test_social_trend_alert_reason_matches_chinese_social_signal_without_paid_me
     assert reason is not None
     assert "social trend source" in reason
     assert "Chinese-language signal" in reason
+    assert "engagement 1,800 likes, 260 comments, 500 collects" in reason
     assert "AI photo tools" in reason
 
 
