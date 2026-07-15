@@ -14,6 +14,7 @@ import {
   Download,
   EyeOff,
   ExternalLink,
+  FileJson,
   FileText,
   Flag,
   FlaskConical,
@@ -935,6 +936,12 @@ type SavedItemsMarkdownExport = {
   markdown: string;
 };
 
+type SavedItemsJsonExport = {
+  generated_at: string;
+  item_count: number;
+  items: FeedItem[];
+};
+
 type DailyDigestSnapshot = {
   id: number;
   digest_date: string;
@@ -1612,6 +1619,7 @@ export function Dashboard() {
   const [lastDigestGenerationMs, setLastDigestGenerationMs] = useState<number | null>(null);
   const [busySavedExport, setBusySavedExport] = useState(false);
   const [busySavedDownload, setBusySavedDownload] = useState(false);
+  const [busySavedJsonDownload, setBusySavedJsonDownload] = useState(false);
   const [digestDateDraft, setDigestDateDraft] = useState("");
   const digestDateDraftRef = useRef("");
   const previousActiveModuleRef = useRef<ModuleKey>("dashboard");
@@ -2674,6 +2682,23 @@ export function Dashboard() {
       setStatus("Saved items download failed");
     } finally {
       setBusySavedDownload(false);
+    }
+  };
+
+  const downloadSavedItemsJsonExport = async () => {
+    setBusySavedJsonDownload(true);
+    setError(null);
+    try {
+      const result = await fetchJson<SavedItemsJsonExport>(
+        "/api/feed/saved/export/json?limit=100",
+      );
+      downloadJsonFile("signallens-saved-items.json", result);
+      setStatus(`Downloaded ${result.item_count} saved items as JSON`);
+    } catch (err) {
+      setError(readError(err));
+      setStatus("Saved items JSON download failed");
+    } finally {
+      setBusySavedJsonDownload(false);
     }
   };
 
@@ -4644,9 +4669,11 @@ export function Dashboard() {
               busyMetadataItemId={busyMetadataItemId}
               busyExport={busySavedExport}
               busyDownload={busySavedDownload}
+              busyJsonDownload={busySavedJsonDownload}
               selectedDetail={selectedFeedDetail}
               onCopyExport={copySavedItemsExport}
               onDownloadExport={downloadSavedItemsExport}
+              onDownloadJsonExport={downloadSavedItemsJsonExport}
               onDetail={loadFeedDetail}
               onManualTagFilter={applySavedManualTagFilter}
               onPersonalMetadataSave={saveFeedItemPersonalMetadata}
@@ -7336,9 +7363,11 @@ function SavedItemsPanel({
   busyMetadataItemId,
   busyExport,
   busyDownload,
+  busyJsonDownload,
   selectedDetail,
   onCopyExport,
   onDownloadExport,
+  onDownloadJsonExport,
   onDetail,
   onManualTagFilter,
   onPersonalMetadataSave,
@@ -7351,9 +7380,11 @@ function SavedItemsPanel({
   busyMetadataItemId: number | null;
   busyExport: boolean;
   busyDownload: boolean;
+  busyJsonDownload: boolean;
   selectedDetail: FeedItemDetail | null;
   onCopyExport: () => void;
   onDownloadExport: () => void;
+  onDownloadJsonExport: () => void;
   onDetail: (itemId: number) => void;
   onManualTagFilter: (tag: string) => void;
   onPersonalMetadataSave: (itemId: number, personalNote: string, manualTags: string) => void;
@@ -7393,6 +7424,16 @@ function SavedItemsPanel({
             type="button"
           >
             {busyDownload ? <Loader2 className="spin" size={16} /> : <Download size={16} />}
+          </button>
+          <button
+            className="button icon-button"
+            onClick={onDownloadJsonExport}
+            disabled={!items.length || busyJsonDownload}
+            title="Download saved items JSON"
+            aria-label="Download saved items JSON"
+            type="button"
+          >
+            {busyJsonDownload ? <Loader2 className="spin" size={16} /> : <FileJson size={16} />}
           </button>
           <Bookmark size={16} aria-hidden="true" />
         </div>
@@ -12759,7 +12800,7 @@ function downloadMarkdownFile(filename: string, markdown: string): void {
   URL.revokeObjectURL(url);
 }
 
-function downloadJsonFile(filename: string, data: Record<string, unknown>): void {
+function downloadJsonFile(filename: string, data: unknown): void {
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json;charset=utf-8",
   });

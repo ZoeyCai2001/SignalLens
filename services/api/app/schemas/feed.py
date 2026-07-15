@@ -90,3 +90,9 @@ class SavedItemsMarkdownExport(BaseModel):
     generated_at: datetime
     item_count: int
     markdown: str
+
+
+class SavedItemsJsonExport(BaseModel):
+    generated_at: datetime
+    item_count: int
+    items: list[FeedItem] = Field(default_factory=list)

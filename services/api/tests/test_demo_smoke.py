@@ -25,6 +25,8 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["feedback_profile"]["disliked_terms"] >= 1
     assert result["feedback_profile"]["watchlist_terms"] >= 1
     assert result["saved_items"] >= 1
+    assert result["saved_json_export_items"] >= result["saved_items"]
+    assert result["saved_unread_json_export_items"] >= 1
     assert result["stock_rows"] >= 3
     assert result["stock_detail"]["ticker"] == "MU"
     assert result["stock_detail"]["timeline_items"] >= 1

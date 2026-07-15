@@ -186,6 +186,22 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         for item in saved_items
     ):
         raise AssertionError("Expected demo manual submission to be saved/read-later")
+    saved_json_export = get_json(client, "/api/feed/saved/export/json?limit=100")
+    if saved_json_export["item_count"] != len(saved_json_export["items"]):
+        raise AssertionError("Expected saved JSON export count to match exported items")
+    if not any(
+        item["source_name"] == "Demo Manual Capture"
+        and "coding-agent" in item["manual_tags"]
+        and item["is_saved"] is True
+        for item in saved_json_export["items"]
+    ):
+        raise AssertionError("Expected saved JSON export to preserve manual notes and tags")
+    unread_saved_json_export = get_json(
+        client,
+        "/api/feed/saved/export/json?include_read=false&limit=100",
+    )
+    if any(item["is_read"] for item in unread_saved_json_export["items"]):
+        raise AssertionError("Expected unread saved JSON export to exclude read items")
 
     module_counts = {}
     for module in DEMO_MODULES:
@@ -622,6 +638,8 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "watchlist_terms": len(feedback_profile["watchlist_terms"]),
         },
         "saved_items": len(saved_items),
+        "saved_json_export_items": saved_json_export["item_count"],
+        "saved_unread_json_export_items": unread_saved_json_export["item_count"],
         "module_counts": module_counts,
         "search": {
             "stock_items": len(stock_search),

@@ -25,6 +25,7 @@ from app.schemas.feed import (
     FeedItemDetail,
     FeedPublicEngagementMetric,
     FeedStockReactionSummary,
+    SavedItemsJsonExport,
     SavedItemsMarkdownExport,
 )
 from app.schemas.preferences import RankingWeights
@@ -906,6 +907,26 @@ def export_saved_items_markdown(
         generated_at=generated_at,
         item_count=len(items),
         markdown="\n".join(lines).rstrip() + "\n",
+    )
+
+
+def export_saved_items_json(
+    db: Session,
+    include_read: bool = True,
+    limit: int = 100,
+) -> SavedItemsJsonExport:
+    items = list_visible_feed_items(
+        db=db,
+        limit=limit,
+        saved_only=True,
+    )
+    if not include_read:
+        items = [item for item in items if not item.is_read]
+    ordered_items = order_saved_items_for_export(items)
+    return SavedItemsJsonExport(
+        generated_at=datetime.now(UTC),
+        item_count=len(ordered_items),
+        items=ordered_items,
     )
 
 

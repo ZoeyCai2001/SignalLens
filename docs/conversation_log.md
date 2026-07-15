@@ -476,3 +476,4 @@ Implementation progress:
 - Added public engagement evidence to social/product alert reasons, including Product Hunt votes and comments plus Chinese/social likes, views, collects, and reposts.
 - Added Source Health collection-mode guidance so followed sources now show whether collection is built-in/API/feed-backed, needs a token/feed/URL, is disabled, or is manual-watch only; the dashboard disables Run now for non-runnable sources with an explanatory hint.
 - Added aggregate source collection readiness metrics to System Readiness so the dashboard and demo verifier show total/enabled, runnable, manual-watch, and unconfigured followed sources beside source API cost metrics.
+- Added structured JSON export for saved/read-later items, preserving titles, URLs, source attribution, summaries, scores, read state, notes, tags, and feedback without exporting raw article bodies.

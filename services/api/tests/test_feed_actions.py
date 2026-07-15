@@ -28,6 +28,7 @@ from app.services.feed_actions import (
     build_personalization_notes,
     build_score_explanation,
     delete_feed_item,
+    export_saved_items_json,
     export_saved_items_markdown,
     feed_interest_bonus,
     feedback_interest_adjustment,
@@ -670,6 +671,8 @@ def test_export_saved_items_markdown_includes_notes_tags_and_read_status() -> No
 
         export = export_saved_items_markdown(db=db, limit=10)
         unread_export = export_saved_items_markdown(db=db, include_read=False, limit=10)
+        json_export = export_saved_items_json(db=db, limit=10)
+        unread_json_export = export_saved_items_json(db=db, include_read=False, limit=10)
 
     assert export.item_count == 2
     assert "# SignalLens Saved Items" in export.markdown
@@ -691,6 +694,27 @@ def test_export_saved_items_markdown_includes_notes_tags_and_read_status() -> No
     assert unread_export.item_count == 1
     assert "Agent framework launch" in unread_export.markdown
     assert "Read research note" not in unread_export.markdown
+    assert json_export.item_count == 2
+    assert [item.title for item in json_export.items] == [
+        "Agent framework launch",
+        "Read research note",
+    ]
+    assert json_export.items[0].personal_note == "Follow up before Monday."
+    assert json_export.items[0].manual_tags == ["Agent", "Weekend"]
+    assert json_export.items[0].is_read is False
+    assert json_export.items[0].usefulness_feedback is None
+    assert json_export.items[1].is_read is True
+    assert json_export.items[1].read_at is not None
+    assert json_export.items[1].read_at.replace(tzinfo=UTC) == datetime(
+        2026,
+        6,
+        26,
+        9,
+        0,
+        tzinfo=UTC,
+    )
+    assert unread_json_export.item_count == 1
+    assert [item.title for item in unread_json_export.items] == ["Agent framework launch"]
 
 
 def test_build_score_explanation_flags_lower_confidence_and_source_credibility() -> None:

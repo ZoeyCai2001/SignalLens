@@ -7,12 +7,14 @@ from app.schemas.feed import (
     FeedItem,
     FeedItemDetail,
     FeedItemPersonalMetadataUpdate,
+    SavedItemsJsonExport,
     SavedItemsMarkdownExport,
 )
 from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import (
     build_feed_interest_profile,
     delete_feed_item,
+    export_saved_items_json,
     export_saved_items_markdown,
     get_action,
     list_visible_feed_items,
@@ -64,6 +66,19 @@ async def export_saved_items_markdown_route(
     limit: int = Query(default=100, ge=1, le=200),
 ) -> SavedItemsMarkdownExport:
     return export_saved_items_markdown(
+        db=db,
+        include_read=include_read,
+        limit=limit,
+    )
+
+
+@router.get("/saved/export/json", response_model=SavedItemsJsonExport)
+async def export_saved_items_json_route(
+    db: DbSession,
+    include_read: bool = Query(default=True),
+    limit: int = Query(default=100, ge=1, le=200),
+) -> SavedItemsJsonExport:
+    return export_saved_items_json(
         db=db,
         include_read=include_read,
         limit=limit,
