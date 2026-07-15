@@ -222,6 +222,11 @@ class QualityMetricsResponse(BaseModel):
     llm_operation_usage: list[LlmOperationUsage] = Field(default_factory=list)
     source_api_call_count: int = 0
     source_api_calls_per_recent_item: float = 0
+    source_total_count: int = 0
+    enabled_source_count: int = 0
+    runnable_source_count: int = 0
+    manual_source_count: int = 0
+    unconfigured_source_count: int = 0
     source_api_pricing_configured: bool = False
     source_api_estimated_cost_usd: float = 0
     source_api_projected_monthly_cost_usd: float = 0

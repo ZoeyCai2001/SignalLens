@@ -712,6 +712,11 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "trusted_source_coverage": quality_metrics["trusted_source_coverage"],
             "search_facet_coverage": quality_metrics["search_facet_coverage"],
             "source_failure_rate": quality_metrics["source_failure_rate"],
+            "source_total_count": quality_metrics["source_total_count"],
+            "enabled_source_count": quality_metrics["enabled_source_count"],
+            "runnable_source_count": quality_metrics["runnable_source_count"],
+            "manual_source_count": quality_metrics["manual_source_count"],
+            "unconfigured_source_count": quality_metrics["unconfigured_source_count"],
             "high_value_item_count": quality_metrics["high_value_item_count"],
             "high_value_items_per_day": quality_metrics["high_value_items_per_day"],
             "high_value_unsummarized_count": quality_metrics[

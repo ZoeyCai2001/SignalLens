@@ -60,6 +60,11 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["trusted_source_coverage"] >= 0.7
     assert result["quality"]["search_facet_coverage"] == 1
     assert result["quality"]["source_failure_rate"] == 0
+    assert result["quality"]["source_total_count"] == result["source_health_rows"]
+    assert result["quality"]["enabled_source_count"] == result["source_health_rows"]
+    assert result["quality"]["runnable_source_count"] >= 5
+    assert result["quality"]["manual_source_count"] >= 0
+    assert result["quality"]["unconfigured_source_count"] >= 0
     assert result["quality"]["high_value_item_count"] >= 1
     assert result["quality"]["high_value_items_per_day"] > 0
     assert result["quality"]["high_value_unsummarized_count"] == 0

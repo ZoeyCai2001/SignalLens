@@ -47,6 +47,7 @@ from app.services.feed_actions import (
     serialize_feed_item,
     social_signal_score_for_item,
 )
+from app.services.source_health import collection_capability_for_source
 
 router = APIRouter()
 
@@ -207,6 +208,10 @@ def build_quality_metrics(
         else None
     )
     source_run_count, source_failure_count = count_recent_source_runs(db=db, since=since)
+    source_capability_counts = summarize_source_collection_capability(
+        db=db,
+        settings=settings,
+    )
     llm_usage = summarize_recent_llm_usage(db=db, since=since, settings=settings)
     recent_item_count = len(recent_rows)
     recent_module_counts = build_recent_module_counts(recent_rows)
@@ -458,6 +463,11 @@ def build_quality_metrics(
         llm_operation_usage=llm_usage["operation_usage"],
         source_api_call_count=source_run_count,
         source_api_calls_per_recent_item=ratio(source_run_count, recent_item_count),
+        source_total_count=source_capability_counts["total"],
+        enabled_source_count=source_capability_counts["enabled"],
+        runnable_source_count=source_capability_counts["runnable"],
+        manual_source_count=source_capability_counts["manual"],
+        unconfigured_source_count=source_capability_counts["unconfigured"],
         source_api_pricing_configured=is_source_api_pricing_configured(settings),
         source_api_estimated_cost_usd=source_api_estimated_cost_usd,
         source_api_projected_monthly_cost_usd=source_api_projected_monthly_cost_usd,
@@ -650,6 +660,7 @@ def build_mvp_checklist_items(
         else f"{round(metrics.latest_item_age_hours)}h old"
     )
     relevance_ready = metrics.relevance_precision_proxy >= RELEVANCE_PRECISION_READY_THRESHOLD
+    llm_coverage_ready = classification_coverage >= 0.7 and summary_coverage >= 0.5
 
     return [
         MvpChecklistItem(
@@ -756,9 +767,7 @@ def build_mvp_checklist_items(
             label="LLM Processing",
             status=(
                 "ready"
-                if llm_configured
-                and classification_coverage >= 0.7
-                and summary_coverage >= 0.5
+                if llm_coverage_ready
                 else "partial"
                 if llm_configured or metrics.llm_call_count > 0
                 else "needs_action"
@@ -770,7 +779,17 @@ def build_mvp_checklist_items(
             note=(
                 "Kimi is configured; coverage depends on running capped "
                 "classify/summarize batches."
-                if llm_configured
+                if llm_configured and not llm_coverage_ready
+                else (
+                    "Current items meet classification and summary coverage; add an LLM key "
+                    "for future model-generated enrichment."
+                )
+                if llm_coverage_ready and not llm_configured
+                else (
+                    "Current items meet classification and summary coverage through the "
+                    "configured LLM path."
+                )
+                if llm_coverage_ready
                 else (
                     "Preview candidates without a key; add an LLM key before "
                     "model-generated summaries."
@@ -1154,6 +1173,34 @@ def count_recent_source_runs(db: Session, since: datetime) -> tuple[int, int]:
     run_count = query.count()
     failure_count = query.filter(SourceRun.status == "failed").count()
     return run_count, failure_count
+
+
+def summarize_source_collection_capability(
+    db: Session,
+    settings: Settings,
+) -> dict[str, int]:
+    counts = {
+        "total": 0,
+        "enabled": 0,
+        "runnable": 0,
+        "manual": 0,
+        "unconfigured": 0,
+    }
+    for source in db.query(Source).all():
+        counts["total"] += 1
+        if source.enabled:
+            counts["enabled"] += 1
+        collection_mode, _, run_supported = collection_capability_for_source(
+            source,
+            settings=settings,
+        )
+        if run_supported:
+            counts["runnable"] += 1
+        elif collection_mode == "manual_watch":
+            counts["manual"] += 1
+        elif collection_mode in {"needs_credentials", "needs_feed", "needs_url", "unsupported"}:
+            counts["unconfigured"] += 1
+    return counts
 
 
 def count_recent_digest_snapshots(db: Session, since: datetime) -> int:

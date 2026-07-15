@@ -414,12 +414,15 @@ def serialize_source_health(
     )
 
 
-def collection_capability_for_source(source: Source) -> tuple[str, str, bool]:
+def collection_capability_for_source(
+    source: Source,
+    settings=None,
+) -> tuple[str, str, bool]:
     source_type = (source.type or "").strip().lower()
     access_method = (source.access_method or "").strip().lower()
     source_name = (source.name or "").strip()
     base_url = normalize_optional_text(source.base_url)
-    settings = get_settings()
+    settings = settings or get_settings()
 
     if not source.enabled:
         return "disabled", "Enable this source before running collection.", False

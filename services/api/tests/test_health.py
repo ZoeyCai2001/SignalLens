@@ -44,7 +44,7 @@ from app.db.models import (
     TopicWatchlistItem,
     UserItemAction,
 )
-from app.schemas.health import IntegrationStatus
+from app.schemas.health import IntegrationStatus, QualityMetricsResponse
 
 
 def test_has_config_value_rejects_empty_strings() -> None:
@@ -258,6 +258,28 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
         db.add(rule)
         db.add_all(
             [
+                Source(
+                    id=1,
+                    name="Custom RSS",
+                    type="blog",
+                    access_method="rss",
+                    base_url="https://example.com/feed.xml",
+                    enabled=True,
+                ),
+                Source(
+                    id=2,
+                    name="X Account Watch",
+                    type="community",
+                    access_method="manual_watch",
+                    enabled=True,
+                ),
+                Source(
+                    id=3,
+                    name="Product Hunt AI Coding",
+                    type="product_topic",
+                    access_method="official_graphql_api",
+                    enabled=True,
+                ),
                 make_quality_item(
                     1,
                     "OpenAI releases a new agent workflow",
@@ -428,6 +450,11 @@ def test_build_quality_metrics_tracks_prd_quality_signals() -> None:
     assert metrics.summary_quality_proxy == 0.5
     assert metrics.thin_summary_count == 0
     assert metrics.source_failure_rate == 0.5
+    assert metrics.source_total_count == 3
+    assert metrics.enabled_source_count == 3
+    assert metrics.runnable_source_count == 1
+    assert metrics.manual_source_count == 1
+    assert metrics.unconfigured_source_count == 1
     assert metrics.save_count == 1
     assert metrics.hide_count == 2
     assert metrics.feedback_action_count == 5
@@ -897,6 +924,46 @@ def test_mvp_checklist_requires_prd_relevance_precision_target() -> None:
     assert dashboard_item.action_label == "Tune Settings"
     assert dashboard_item.action_module == "settings"
     assert dashboard_item.action_operation is None
+
+
+def test_mvp_checklist_accepts_enriched_items_without_live_llm_key() -> None:
+    metrics = QualityMetricsResponse(
+        generated_at=datetime.now(UTC),
+        window_days=7,
+        total_item_count=3,
+        recent_item_count=3,
+        covered_module_count=3,
+        recent_source_count=3,
+        high_value_item_count=1,
+        classification_coverage=1,
+        relevance_precision_proxy=1,
+        duplicate_rate=0,
+        summary_coverage=1,
+        source_failure_rate=0,
+        save_count=0,
+        hide_count=0,
+        save_hide_ratio=None,
+        active_alert_count=0,
+        dismissed_alert_count=0,
+        alert_dismissal_rate=0,
+        digest_snapshot_count=0,
+        digest_usefulness_proxy=0,
+    )
+
+    checklist = build_mvp_checklist_response(
+        metrics=metrics,
+        setup_summary=build_setup_summary([]),
+        llm_configured=False,
+        source_count=0,
+        enabled_source_count=0,
+    )
+    item = {entry.key: entry for entry in checklist.items}["llm-processing"]
+
+    assert item.status == "ready"
+    assert item.note == (
+        "Current items meet classification and summary coverage; add an LLM key "
+        "for future model-generated enrichment."
+    )
 
 
 def test_source_family_coverage_tracks_prd_connector_set() -> None:

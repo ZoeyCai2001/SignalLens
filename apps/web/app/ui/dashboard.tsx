@@ -685,6 +685,11 @@ type QualityMetrics = {
   llm_operation_usage: LlmOperationUsage[];
   source_api_call_count: number;
   source_api_calls_per_recent_item: number;
+  source_total_count: number;
+  enabled_source_count: number;
+  runnable_source_count: number;
+  manual_source_count: number;
+  unconfigured_source_count: number;
   source_api_pricing_configured: boolean;
   source_api_estimated_cost_usd: number;
   source_api_projected_monthly_cost_usd: number;
@@ -5713,6 +5718,22 @@ function SystemStatusPanel({
                   />
                 </div>
                 <div className="readiness-grid setup-summary-grid">
+                  <ReadinessMetric
+                    label="Sources"
+                    value={`${qualityMetrics.enabled_source_count}/${qualityMetrics.source_total_count}`}
+                  />
+                  <ReadinessMetric
+                    label="Runnable"
+                    value={qualityMetrics.runnable_source_count}
+                  />
+                  <ReadinessMetric
+                    label="Manual"
+                    value={qualityMetrics.manual_source_count}
+                  />
+                  <ReadinessMetric
+                    label="Needs Setup"
+                    value={qualityMetrics.unconfigured_source_count}
+                  />
                   <ReadinessMetric
                     label="API Calls"
                     value={qualityMetrics.source_api_call_count}
