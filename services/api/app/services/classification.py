@@ -33,6 +33,18 @@ ALLOWED_CATEGORIES = {
 }
 
 ALLOWED_SENTIMENTS = {"positive", "neutral", "negative", "mixed"}
+MARKET_IMPACT_SENTIMENT_FALLBACKS = {
+    "positive": "positive",
+    "negative": "negative",
+    "mixed": "mixed",
+}
+MARKET_IMPACT_SCORE_FALLBACKS = {
+    "positive": 0.55,
+    "negative": 0.55,
+    "mixed": 0.4,
+    "uncertain": 0.25,
+    "none": 0.0,
+}
 
 CATEGORY_ALIASES = {
     "technical_trend": "technical_trend",
@@ -158,14 +170,15 @@ Required JSON shape:
 {{
   "category": "one allowed category",
   "subcategory": "short snake_case label or empty string",
-  "topics": ["2 to 8 lowercase AI topic tags"],
+  "related_topics": ["2 to 8 lowercase AI topic tags"],
   "technologies": ["related AI technologies if directly relevant"],
-  "tickers": ["stock tickers if directly relevant"],
-  "companies": ["company names if directly relevant"],
-  "products": ["product/model/tool names if directly relevant"],
+  "related_tickers": ["stock tickers if directly relevant"],
+  "related_companies": ["company names if directly relevant"],
+  "related_products": ["product/model/tool names if directly relevant"],
   "sentiment": "positive, neutral, negative, or mixed",
+  "market_impact": "none, positive, negative, mixed, or uncertain",
   "relevance_score": 0.0,
-  "confidence_score": 0.0,
+  "confidence": 0.0,
   "importance_score": 0.0,
   "stock_impact_score": 0.0,
   "why_it_matters": "one concise English explanation"
@@ -202,14 +215,31 @@ Text: {trimmed_text or item.title}
 def parse_classification(text: str, item: NormalizedItem) -> ItemClassification:
     data = parse_json_object(text)
     category = normalize_category(data.get("category"))
-    sentiment = normalize_sentiment(data.get("sentiment"))
+    market_impact = normalize_market_impact(
+        data.get("market_impact", data.get("market_impact_type"))
+    )
+    sentiment = normalize_sentiment(
+        data.get("sentiment")
+        or MARKET_IMPACT_SENTIMENT_FALLBACKS.get(market_impact)
+        or item.sentiment
+    )
     topics = merge_string_lists(
         normalized_string_list(data.get("topics")),
+        normalized_string_list(data.get("related_topics")),
         normalized_string_list(data.get("technologies")),
     ) or detect_topics(item.title)
-    tickers = normalized_tickers(data.get("tickers"), fallback_text=item.title)
-    companies = normalized_string_list(data.get("companies"))
-    products = normalized_string_list(data.get("products"))
+    tickers = normalized_tickers(
+        data.get("tickers", data.get("related_tickers")),
+        fallback_text=item.title,
+    )
+    companies = merge_string_lists(
+        normalized_string_list(data.get("companies")),
+        normalized_string_list(data.get("related_companies")),
+    )
+    products = merge_string_lists(
+        normalized_string_list(data.get("products")),
+        normalized_string_list(data.get("related_products")),
+    )
     why = str(data.get("why_it_matters") or "").strip()
 
     if not why:
@@ -225,10 +255,13 @@ def parse_classification(text: str, item: NormalizedItem) -> ItemClassification:
         sentiment=sentiment,
         relevance_score=clamp_score(data.get("relevance_score")),
         classification_confidence=clamp_score(
-            data.get("confidence_score", data.get("classification_confidence", 0.7))
+            data.get(
+                "confidence_score",
+                data.get("classification_confidence", data.get("confidence", 0.7)),
+            )
         ),
         importance_score=clamp_score(data.get("importance_score")),
-        stock_impact_score=clamp_score(data.get("stock_impact_score")),
+        stock_impact_score=classification_stock_impact_score(data, market_impact),
         why_it_matters=why,
     )
 
@@ -255,7 +288,7 @@ def normalize_category(value: Any) -> str:
 
 def normalize_category_key(value: Any) -> str:
     category = str(value or "").strip().lower()
-    category = category.replace("&", "a")
+    category = category.replace("&", " and ")
     category = re.sub(r"[^a-z0-9]+", "_", category)
     return re.sub(r"_+", "_", category).strip("_")
 
@@ -263,6 +296,41 @@ def normalize_category_key(value: Any) -> str:
 def normalize_sentiment(value: Any) -> str:
     sentiment = str(value or "neutral").strip().lower()
     return sentiment if sentiment in ALLOWED_SENTIMENTS else "neutral"
+
+
+def normalize_market_impact(value: Any) -> str:
+    key = normalize_category_key(value)
+    if key in {
+        "positive",
+        "potentially_positive",
+        "potential_positive",
+        "market_positive",
+        "positive_signal",
+        "potentially_positive_market_impact",
+    }:
+        return "positive"
+    if key in {
+        "negative",
+        "potentially_negative",
+        "potential_negative",
+        "market_negative",
+        "negative_signal",
+        "potentially_negative_market_impact",
+    }:
+        return "negative"
+    if key in {"mixed", "unclear", "ambiguous"}:
+        return "mixed"
+    if key in {"uncertain", "possible", "indirect"}:
+        return "uncertain"
+    if key in {"none", "no", "no_market_impact", "not_applicable", "na", ""}:
+        return "none"
+    return "uncertain"
+
+
+def classification_stock_impact_score(data: dict[str, Any], market_impact: str) -> float:
+    if data.get("stock_impact_score") is not None:
+        return clamp_score(data.get("stock_impact_score"))
+    return MARKET_IMPACT_SCORE_FALLBACKS.get(market_impact, 0.0)
 
 
 def normalized_string_list(value: Any) -> list[str]:

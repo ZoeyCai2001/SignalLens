@@ -468,3 +468,4 @@ Implementation progress:
 - Hardened the local Mac setup checker to warn about macOS dataless project and Git metadata files, after iCloud-optimized `.git` objects blocked normal Git commands in the Desktop workspace.
 - Added explicit Group and Pin columns to the AI Stock Watchlist table and guarded them in the dashboard check so the table matches the PRD stock-watchlist column requirements.
 - Added first-class custom arXiv Query sources in Source Health, including dashboard template/access-method options, free Atom API runner support, source policy defaults, and focused connector/source-management tests.
+- Aligned the LLM classifier prompt/parser with PRD-style JSON fields, accepting `related_*`, `confidence`, and `market_impact` aliases while preserving cost-controlled deterministic market-impact fallbacks.

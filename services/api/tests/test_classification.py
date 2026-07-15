@@ -41,6 +41,35 @@ def test_parse_classification_validates_and_clamps_scores() -> None:
     assert classification.stock_impact_score == 0.0
 
 
+def test_parse_classification_uses_prd_market_impact_fallback() -> None:
+    classification = parse_classification(
+        """
+        {
+          "category": "stock_company_event",
+          "subcategory": "semiconductor_ai_infrastructure",
+          "related_tickers": ["MRVL"],
+          "related_companies": ["Marvell Technology"],
+          "related_topics": ["AI data center", "custom silicon"],
+          "related_products": ["custom silicon"],
+          "market_impact": "potentially_positive",
+          "relevance_score": 0.86,
+          "confidence": 0.78,
+          "importance_score": 0.72,
+          "why_it_matters": "The item links AI data center demand to Marvell custom silicon."
+        }
+        """,
+        make_item(),
+    )
+
+    assert classification.sentiment == "positive"
+    assert classification.stock_impact_score == 0.55
+    assert classification.classification_confidence == 0.78
+    assert classification.tickers == ["MRVL"]
+    assert classification.companies == ["Marvell Technology"]
+    assert classification.topics == ["AI data center", "custom silicon"]
+    assert classification.products == ["custom silicon"]
+
+
 @pytest.mark.parametrize(
     ("raw_category", "expected_category"),
     [
@@ -120,7 +149,7 @@ async def test_classify_feed_item_records_llm_usage(monkeypatch) -> None:
                   "confidence_score": 0.8,
                   "importance_score": 0.75,
                   "stock_impact_score": 0.6,
-                  "why_it_matters": "The source links AI infrastructure demand to a watched chip name."
+                  "why_it_matters": "The source links AI demand to a watched chip name."
                 }
                 """,
                 input_tokens=90,
