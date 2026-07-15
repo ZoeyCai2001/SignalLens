@@ -27,6 +27,8 @@ class FeedItem(BaseModel):
     source_quality_score: float
     social_signal_score: float = 0
     stock_impact_score: float
+    cross_source_confirmation_score: float = 0
+    cross_source_confirmation_label: str | None = None
     market_impact_type: str = "none"
     summary_short: str | None
     summary_detailed: str | None

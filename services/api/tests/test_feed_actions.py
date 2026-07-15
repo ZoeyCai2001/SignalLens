@@ -752,6 +752,16 @@ def test_build_score_explanation_has_default_reason() -> None:
     assert build_score_explanation(item) == "Shown because it matched the AI relevance prefilter."
 
 
+def test_build_score_explanation_mentions_cross_source_confirmation() -> None:
+    item = make_feed_item(1, "Confirmed agent launch")
+    item.cross_source_confirmation_score = 0.06
+    item.cross_source_confirmation_label = "cross-source confirmation"
+
+    explanation = build_score_explanation(item)
+
+    assert "cross-source confirmation" in explanation
+
+
 def test_rank_feed_items_keeps_important_saved_flags() -> None:
     now = datetime(2026, 6, 25, 12, 0, tzinfo=UTC)
     important = make_feed_item(1, "Important", relevance_score=0.1, importance_score=0.1)
@@ -852,6 +862,8 @@ def test_rank_feed_items_boosts_cross_source_confirmation() -> None:
     )
 
     assert {item.title for item in ranked[:2]} == {"Agent routing launch"}
+    assert first_confirmed.cross_source_confirmation_score == 0.06
+    assert first_confirmed.cross_source_confirmation_label == "cross-source confirmation"
     assert build_cross_source_confirmation_scores([first_confirmed, second_confirmed]) == {
         2: 0.06,
         3: 0.06,

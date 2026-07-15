@@ -62,6 +62,8 @@ type FeedItem = {
   source_quality_score: number;
   social_signal_score: number;
   stock_impact_score: number;
+  cross_source_confirmation_score: number;
+  cross_source_confirmation_label: string | null;
   market_impact_type: string;
   summary_short: string | null;
   summary_detailed: string | null;
@@ -8113,6 +8115,9 @@ function FeedCard({
         <Score label="Importance" value={item.importance_score} />
         <Score label="Novelty" value={item.novelty_score} />
         <Score label="Stock" value={item.stock_impact_score} />
+        {item.cross_source_confirmation_score > 0 ? (
+          <Score label="Confirm" value={item.cross_source_confirmation_score} />
+        ) : null}
       </div>
 
       {cardSummary.oneLine || cardSummary.bullets.length ? (
@@ -8338,6 +8343,9 @@ function buildFeedCardExplanation(item: FeedItem): string {
     item.novelty_score >= 0.72 ? "novel signal" : null,
     item.social_signal_score >= 0.65 ? "strong source engagement" : null,
     item.stock_impact_score >= 0.45 ? "stock-watchlist impact" : null,
+    item.cross_source_confirmation_score > 0
+      ? item.cross_source_confirmation_label ?? "cross-source confirmation"
+      : null,
   ].filter(Boolean);
   const signalText =
     scoreSignals.length > 0 ? scoreSignals.join(", ") : "matched the current source and category filters";
@@ -8382,6 +8390,9 @@ function FeedDetailPanel({
         <Score label="Confidence" value={detail.classification_confidence} />
         <Score label="Importance" value={detail.importance_score} />
         <Score label="Stock" value={detail.stock_impact_score} />
+        {detail.cross_source_confirmation_score > 0 ? (
+          <Score label="Confirm" value={detail.cross_source_confirmation_score} />
+        ) : null}
       </div>
       <PublicEngagementPanel metrics={detail.public_engagement} />
       <div className="summary">

@@ -120,6 +120,7 @@ Implementation progress:
 - Moved summarize-only LLM batch filtering into the candidate query so already summarized items do not consume the requested processing limit.
 - Added event-cluster readiness metrics to System Readiness, including confirmed cluster counts, timeline evidence, clustered item share, dashboard navigation to Clusters, and no-paid demo assertions.
 - Added a bounded cross-source confirmation boost to ranked feed and daily digest ordering so repeated independent event evidence can outrank slightly stronger isolated items without extra LLM cost.
+- Surfaced cross-source confirmation score and labels in feed item data, card explanations, and detail score explanations so ranking boosts remain auditable.
 - Added backend company watchlists with seed data for PRD-related AI and semiconductor companies, CRUD APIs, migration support, scheduled seeding, and feed-ranking interest boosts.
 - Connected company watchlists to the dashboard with loading, add, priority, pin, digest-toggle, and delete controls.
 - Enforced company watchlist digest toggles in daily digest filtering, including company-name, company-key, ticker, category, and related-term matches.

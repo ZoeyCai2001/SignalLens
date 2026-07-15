@@ -298,6 +298,8 @@ def serialize_feed_item_detail(
     db: Session | None = None,
 ) -> FeedItemDetail:
     base = serialize_feed_item(item, action)
+    if db is not None:
+        annotate_item_cross_source_confirmation(db=db, item=base)
     summary_profile = build_feed_summary_profile(base)
     return FeedItemDetail(
         **base.model_dump(),
@@ -652,6 +654,12 @@ def build_score_explanation(item: FeedItem) -> str:
         reasons.append("lower source credibility; review the original source")
     if item.social_signal_score >= 0.65:
         reasons.append("strong source engagement signal")
+    if item.cross_source_confirmation_score >= CROSS_SOURCE_CONFIRMATION_SOFT_BONUS:
+        reasons.append(
+            item.cross_source_confirmation_label or "cross-source confirmation"
+        )
+    elif item.cross_source_confirmation_score > 0:
+        reasons.append(item.cross_source_confirmation_label or "repeated event coverage")
     if item.classification_confidence < 0.6:
         reasons.append("lower classifier confidence")
     if item.importance_score >= 0.75:
@@ -975,7 +983,7 @@ def rank_feed_items(
     weights = resolve_ranking_weights(ranking_weights)
     reference_time = now or datetime.now(UTC)
     preferred_source_names = normalize_source_names(preferred_sources)
-    confirmation_scores = build_cross_source_confirmation_scores(items)
+    confirmation_scores = annotate_cross_source_confirmation(items)
     return sorted(
         items,
         key=lambda item: (
@@ -1033,24 +1041,60 @@ def weighted_feed_score(
 
 
 def build_cross_source_confirmation_scores(items: list[FeedItem]) -> dict[int, float]:
+    return {
+        item_id: context["score"]
+        for item_id, context in build_cross_source_confirmation_context(items).items()
+    }
+
+
+def annotate_cross_source_confirmation(items: list[FeedItem]) -> dict[int, float]:
+    context = build_cross_source_confirmation_context(items)
+    for item in items:
+        item_context = context.get(item.id)
+        if item_context is None:
+            item.cross_source_confirmation_score = 0
+            item.cross_source_confirmation_label = None
+            continue
+        item.cross_source_confirmation_score = item_context["score"]
+        item.cross_source_confirmation_label = item_context["label"]
+    return {item_id: item_context["score"] for item_id, item_context in context.items()}
+
+
+def annotate_item_cross_source_confirmation(db: Session, item: FeedItem) -> None:
+    nearby_items = list_visible_feed_items(db=db, limit=200)
+    match = next((candidate for candidate in nearby_items if candidate.id == item.id), None)
+    if match is None:
+        item.cross_source_confirmation_score = 0
+        item.cross_source_confirmation_label = None
+        return
+    item.cross_source_confirmation_score = match.cross_source_confirmation_score
+    item.cross_source_confirmation_label = match.cross_source_confirmation_label
+
+
+def build_cross_source_confirmation_context(
+    items: list[FeedItem],
+) -> dict[int, dict[str, float | str]]:
     grouped: dict[str, list[FeedItem]] = defaultdict(list)
     for item in items:
         grouped[confirmation_group_key(item)].append(item)
 
-    scores: dict[int, float] = {}
+    context: dict[int, dict[str, float | str]] = {}
     for group_items in grouped.values():
         if len(group_items) <= 1:
             continue
         source_count = len({item.source_name for item in group_items if item.source_name})
         if source_count >= 3 or (source_count >= 2 and len(group_items) >= 3):
             bonus = CROSS_SOURCE_CONFIRMATION_RANKING_BONUS
+            label = "strong cross-source confirmation"
         elif source_count >= 2:
             bonus = CROSS_SOURCE_CONFIRMATION_SOFT_BONUS
+            label = "cross-source confirmation"
         else:
             bonus = REPEATED_EVENT_RANKING_BONUS
+            label = "repeated event coverage"
         for item in group_items:
-            scores[item.id] = bonus
-    return scores
+            context[item.id] = {"score": bonus, "label": label}
+    return context
 
 
 def confirmation_group_key(item: FeedItem) -> str:
