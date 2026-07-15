@@ -9265,6 +9265,8 @@ function StockTable({
               <th>Change</th>
               <th>Market Cap</th>
               <th>Priority</th>
+              <th>Group</th>
+              <th>Pin</th>
               <th>AI Today</th>
               <th>High</th>
               <th>Latest Event</th>
@@ -9312,6 +9314,12 @@ function StockTable({
                       <option value="Medium">Medium</option>
                       <option value="Low">Low</option>
                     </select>
+                  </td>
+                  <td>{stock.group_name}</td>
+                  <td>
+                    <span className={`badge ${stock.is_pinned ? "stock" : "muted-badge"}`}>
+                      {stock.is_pinned ? "Pinned" : "Watch"}
+                    </span>
                   </td>
                   <td>{summary?.today_signal_count ?? 0}</td>
                   <td>{summary?.high_impact_count ?? 0}</td>

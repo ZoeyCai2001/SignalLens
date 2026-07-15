@@ -15,10 +15,26 @@ const files = [
 ];
 
 const diagnostics = [];
+const requiredDashboardSnippets = [
+  "<th>Group</th>",
+  "<th>Pin</th>",
+  "{stock.group_name}",
+  'stock.is_pinned ? "Pinned" : "Watch"',
+];
 
 for (const relativePath of files) {
   const fileName = join(repoRoot, relativePath);
   const source = readFileSync(fileName, "utf8");
+  if (relativePath === "apps/web/app/ui/dashboard.tsx") {
+    const missingSnippets = requiredDashboardSnippets.filter(
+      (snippet) => !source.includes(snippet),
+    );
+    if (missingSnippets.length) {
+      diagnostics.push({
+        messageText: `Dashboard is missing stock-table PRD snippets: ${missingSnippets.join(", ")}`,
+      });
+    }
+  }
   const result = ts.transpileModule(source, {
     fileName,
     reportDiagnostics: true,

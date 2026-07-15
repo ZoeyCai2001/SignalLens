@@ -466,3 +466,4 @@ Implementation progress:
 - Expanded the no-paid demo verifier to cover all PRD summary surfaces: one-line, card bullets, detailed summary, why-it-matters, technical summary, and market-watch summary.
 - Added an auditable Feedback Learning path for personalization: a read-only feedback-profile API, Settings dashboard panel, technical-design note, and no-paid smoke coverage for learned positive/negative feedback signals.
 - Hardened the local Mac setup checker to warn about macOS dataless project and Git metadata files, after iCloud-optimized `.git` objects blocked normal Git commands in the Desktop workspace.
+- Added explicit Group and Pin columns to the AI Stock Watchlist table and guarded them in the dashboard check so the table matches the PRD stock-watchlist column requirements.
