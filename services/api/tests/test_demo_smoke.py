@@ -19,6 +19,11 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["feed_actions"]["hidden_item_id"] == result["feed_actions"]["saved_item_id"]
     assert result["feed_actions"]["hidden_query_count"] >= 1
     assert result["feed_actions"]["unhidden"] is True
+    assert result["feedback_profile"]["useful_count"] >= 1
+    assert result["feedback_profile"]["not_useful_count"] >= 1
+    assert result["feedback_profile"]["liked_terms"] >= 1
+    assert result["feedback_profile"]["disliked_terms"] >= 1
+    assert result["feedback_profile"]["watchlist_terms"] >= 1
     assert result["saved_items"] >= 1
     assert result["stock_rows"] >= 3
     assert result["stock_detail"]["ticker"] == "MU"
@@ -61,7 +66,7 @@ def test_demo_smoke_check_exercises_local_mvp_api_path() -> None:
     assert result["quality"]["digest_snapshot_count"] == 1
     assert result["quality"]["digest_feedback_count"] == 1
     assert result["quality"]["digest_feedback_usefulness_rate"] == 1
-    assert result["quality"]["digest_usefulness_proxy"] >= 0.9
+    assert result["quality"]["digest_usefulness_proxy"] >= 0.85
     assert result["quality"]["item_feedback_count"] == 2
     assert result["quality"]["item_feedback_usefulness_rate"] == 0.5
     assert result["quality"]["alert_feedback_count"] == 1

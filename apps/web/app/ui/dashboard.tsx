@@ -1049,6 +1049,23 @@ type UserPreferences = {
   language_preferences: string[];
 };
 
+type FeedbackProfileSummary = {
+  user_id: string;
+  saved_count: number;
+  hidden_count: number;
+  important_count: number;
+  useful_count: number;
+  not_useful_count: number;
+  watchlist_symbols: string[];
+  watchlist_terms: string[];
+  liked_sources: string[];
+  disliked_sources: string[];
+  liked_symbols: string[];
+  disliked_symbols: string[];
+  liked_terms: string[];
+  disliked_terms: string[];
+};
+
 type PersonalSettingsRestoreResult = {
   version: number;
   restored_at: string;
@@ -1521,6 +1538,7 @@ export function Dashboard() {
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [alertIncludeDismissed, setAlertIncludeDismissed] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  const [feedbackProfile, setFeedbackProfile] = useState<FeedbackProfileSummary | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null);
   const [mvpChecklist, setMvpChecklist] = useState<MvpChecklistItem[] | null>(null);
@@ -1697,6 +1715,7 @@ export function Dashboard() {
         nextAlerts,
         nextAlertRules,
         nextPreferences,
+        nextFeedbackProfile,
         nextSystemStatus,
         nextScheduleStatus,
         nextQualityMetrics,
@@ -1721,6 +1740,7 @@ export function Dashboard() {
           ),
           fetchJson<AlertRule[]>("/api/alerts/rules"),
           fetchJson<UserPreferences>("/api/preferences"),
+          fetchJson<FeedbackProfileSummary>("/api/preferences/feedback-profile"),
           fetchJson<SystemStatus>("/api/health"),
           fetchJson<IngestionScheduleStatus>("/api/ingestion/schedule"),
           fetchJson<QualityMetrics>("/api/quality-metrics").catch(() => null),
@@ -1745,6 +1765,7 @@ export function Dashboard() {
       setAlerts(nextAlerts);
       setAlertRules(nextAlertRules);
       setPreferences(nextPreferences);
+      setFeedbackProfile(nextFeedbackProfile);
       setSystemStatus(nextSystemStatus);
       setScheduleStatus(nextScheduleStatus);
       setQualityMetrics(nextQualityMetrics);
@@ -4118,6 +4139,7 @@ export function Dashboard() {
       />
     </div>
   );
+  const feedbackLearningPanel = <FeedbackLearningPanel profile={feedbackProfile} />;
   const stockWatchlistPanel = (
     <div id="stock-watchlist-workflow">
       <StockTable
@@ -4540,6 +4562,7 @@ export function Dashboard() {
               {systemStatusPanel}
               {schedulerStatusPanel}
               {rankingPreferencesPanel}
+              {feedbackLearningPanel}
               {settingsBackupPanel}
             </section>
           ) : activeModule === "alerts" ? (
@@ -4878,6 +4901,97 @@ function RankingPreferencesPanel({
         </div>
       </div>
     </section>
+  );
+}
+
+function FeedbackLearningPanel({ profile }: { profile: FeedbackProfileSummary | null }) {
+  const positiveCount =
+    (profile?.saved_count ?? 0) + (profile?.important_count ?? 0) + (profile?.useful_count ?? 0);
+  const negativeCount = (profile?.hidden_count ?? 0) + (profile?.not_useful_count ?? 0);
+  const profileReady =
+    Boolean(profile) &&
+    (positiveCount > 0 ||
+      negativeCount > 0 ||
+      Boolean(profile?.watchlist_symbols.length || profile?.watchlist_terms.length));
+
+  return (
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">Feedback Learning</h2>
+        <Bot size={16} aria-hidden="true" />
+      </div>
+      <div className="digest-panel">
+        <div className="digest-meta">
+          <span>{profile?.user_id ?? "local"}</span>
+          <span>{profileReady ? "active profile" : "waiting for signals"}</span>
+        </div>
+        <div className="readiness-grid setup-summary-grid">
+          <ReadinessMetric label="Saved" value={profile?.saved_count ?? 0} />
+          <ReadinessMetric label="Important" value={profile?.important_count ?? 0} />
+          <ReadinessMetric label="Useful" value={profile?.useful_count ?? 0} />
+          <ReadinessMetric label="Hidden" value={profile?.hidden_count ?? 0} />
+          <ReadinessMetric label="Not Useful" value={profile?.not_useful_count ?? 0} />
+          <ReadinessMetric
+            label="Watchlist"
+            value={`${profile?.watchlist_symbols.length ?? 0}/${profile?.watchlist_terms.length ?? 0}`}
+          />
+        </div>
+        <FeedbackSignalBadges
+          title="Positive Signals"
+          emptyLabel="No positive feedback yet"
+          values={[
+            ...(profile?.liked_sources ?? []),
+            ...(profile?.liked_symbols ?? []),
+            ...(profile?.liked_terms ?? []),
+          ]}
+        />
+        <FeedbackSignalBadges
+          title="Negative Signals"
+          emptyLabel="No negative feedback yet"
+          muted
+          values={[
+            ...(profile?.disliked_sources ?? []),
+            ...(profile?.disliked_symbols ?? []),
+            ...(profile?.disliked_terms ?? []),
+          ]}
+        />
+        <FeedbackSignalBadges
+          title="Watchlist Context"
+          emptyLabel="No watchlist context loaded"
+          values={[...(profile?.watchlist_symbols ?? []), ...(profile?.watchlist_terms ?? [])]}
+        />
+      </div>
+    </section>
+  );
+}
+
+function FeedbackSignalBadges({
+  title,
+  values,
+  emptyLabel,
+  muted = false,
+}: {
+  title: string;
+  values: string[];
+  emptyLabel: string;
+  muted?: boolean;
+}) {
+  const uniqueValues = Array.from(new Set(values)).slice(0, 18);
+  return (
+    <div className="digest-section">
+      <h3>{title}</h3>
+      <div className="badges">
+        {uniqueValues.length ? (
+          uniqueValues.map((value) => (
+            <span className={`badge ${muted ? "muted-badge" : ""}`} key={`${title}:${value}`}>
+              {value}
+            </span>
+          ))
+        ) : (
+          <span className="badge muted-badge">{emptyLabel}</span>
+        )}
+      </div>
+    </div>
   );
 }
 

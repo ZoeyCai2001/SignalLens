@@ -40,3 +40,20 @@ class UserPreferencesUpdate(BaseModel):
         if value is None:
             return None
         return [str(item).strip() for item in value if str(item).strip()]
+
+
+class FeedbackProfileSummary(BaseModel):
+    user_id: str
+    saved_count: int = 0
+    hidden_count: int = 0
+    important_count: int = 0
+    useful_count: int = 0
+    not_useful_count: int = 0
+    watchlist_symbols: list[str] = Field(default_factory=list)
+    watchlist_terms: list[str] = Field(default_factory=list)
+    liked_sources: list[str] = Field(default_factory=list)
+    disliked_sources: list[str] = Field(default_factory=list)
+    liked_symbols: list[str] = Field(default_factory=list)
+    disliked_symbols: list[str] = Field(default_factory=list)
+    liked_terms: list[str] = Field(default_factory=list)
+    disliked_terms: list[str] = Field(default_factory=list)

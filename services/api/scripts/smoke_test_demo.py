@@ -173,6 +173,13 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
         raise AssertionError("Expected item useful feedback to round trip")
     if not_useful_item["usefulness_feedback"] != "not_useful":
         raise AssertionError("Expected item not-useful feedback to round trip")
+    feedback_profile = get_json(client, "/api/preferences/feedback-profile")
+    if feedback_profile["useful_count"] < 1 or feedback_profile["not_useful_count"] < 1:
+        raise AssertionError(
+            "Expected feedback profile to expose useful and not-useful item signals"
+        )
+    if not feedback_profile["liked_terms"] or not feedback_profile["disliked_terms"]:
+        raise AssertionError("Expected feedback profile to expose learned feedback terms")
     saved_items = get_json(client, "/api/feed?limit=20&saved_only=true")
     if not any(
         item["source_name"] == "Demo Manual Capture" and "coding-agent" in item["manual_tags"]
@@ -606,6 +613,13 @@ def run_demo_smoke_checks(client: TestClient) -> dict[str, Any]:
             "hidden_item_id": hidden_action["id"],
             "hidden_query_count": len(hidden_items),
             "unhidden": unhidden_action["is_hidden"] is False,
+        },
+        "feedback_profile": {
+            "useful_count": feedback_profile["useful_count"],
+            "not_useful_count": feedback_profile["not_useful_count"],
+            "liked_terms": len(feedback_profile["liked_terms"]),
+            "disliked_terms": len(feedback_profile["disliked_terms"]),
+            "watchlist_terms": len(feedback_profile["watchlist_terms"]),
         },
         "saved_items": len(saved_items),
         "module_counts": module_counts,

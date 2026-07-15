@@ -464,3 +464,4 @@ Implementation progress:
 - Added product-discovery quality metrics for recent product signals, high-traction product signals, and product-source diversity, plus readiness findings for empty or traction-thin product launch coverage.
 - Tightened ranked-dashboard readiness to the PRD 70% relevance target, routing noisy-but-fresh feeds to Settings/source tuning and adding demo verifier coverage for the threshold.
 - Expanded the no-paid demo verifier to cover all PRD summary surfaces: one-line, card bullets, detailed summary, why-it-matters, technical summary, and market-watch summary.
+- Added an auditable Feedback Learning path for personalization: a read-only feedback-profile API, Settings dashboard panel, technical-design note, and no-paid smoke coverage for learned positive/negative feedback signals.

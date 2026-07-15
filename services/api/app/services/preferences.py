@@ -1,10 +1,11 @@
 from sqlalchemy.orm import Session
 
-from app.db.models import UserPreference
-from app.schemas.preferences import RankingWeights, UserPreferencesUpdate
-from app.services.feed_actions import LOCAL_USER_ID
+from app.db.models import UserItemAction, UserPreference
+from app.schemas.preferences import FeedbackProfileSummary, RankingWeights, UserPreferencesUpdate
+from app.services.feed_actions import LOCAL_USER_ID, build_feed_interest_profile
 
 DEFAULT_RANKING_WEIGHTS = RankingWeights()
+FEEDBACK_PROFILE_LIMIT = 12
 
 
 def get_user_preferences(db: Session) -> UserPreference:
@@ -57,6 +58,54 @@ def update_user_preferences(
     db.commit()
     db.refresh(preferences)
     return preferences
+
+
+def get_feedback_profile_summary(db: Session) -> FeedbackProfileSummary:
+    profile = build_feed_interest_profile(db)
+    counts = count_user_item_feedback(db)
+    return FeedbackProfileSummary(
+        user_id=LOCAL_USER_ID,
+        saved_count=counts["saved"],
+        hidden_count=counts["hidden"],
+        important_count=counts["important"],
+        useful_count=counts["useful"],
+        not_useful_count=counts["not_useful"],
+        watchlist_symbols=limited_sorted_values(profile.symbols),
+        watchlist_terms=limited_sorted_values(profile.terms),
+        liked_sources=limited_sorted_values(profile.liked_sources),
+        disliked_sources=limited_sorted_values(profile.disliked_sources),
+        liked_symbols=limited_sorted_values(profile.liked_symbols),
+        disliked_symbols=limited_sorted_values(profile.disliked_symbols),
+        liked_terms=limited_sorted_values(profile.liked_terms),
+        disliked_terms=limited_sorted_values(profile.disliked_terms),
+    )
+
+
+def count_user_item_feedback(db: Session) -> dict[str, int]:
+    actions = db.query(UserItemAction).filter(UserItemAction.user_id == LOCAL_USER_ID).all()
+    counts = {
+        "saved": 0,
+        "hidden": 0,
+        "important": 0,
+        "useful": 0,
+        "not_useful": 0,
+    }
+    for action in actions:
+        if action.is_saved:
+            counts["saved"] += 1
+        if action.is_hidden:
+            counts["hidden"] += 1
+        if action.is_important:
+            counts["important"] += 1
+        if action.usefulness_feedback == "useful":
+            counts["useful"] += 1
+        elif action.usefulness_feedback == "not_useful":
+            counts["not_useful"] += 1
+    return counts
+
+
+def limited_sorted_values(values: frozenset[str] | set[str]) -> list[str]:
+    return sorted(value for value in values if value)[:FEEDBACK_PROFILE_LIMIT]
 
 
 def normalize_ranking_weights(value: dict | None) -> dict[str, float]:
