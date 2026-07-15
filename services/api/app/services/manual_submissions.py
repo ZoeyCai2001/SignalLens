@@ -1,8 +1,11 @@
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from html import unescape
+from html.parser import HTMLParser
 from urllib.parse import unquote, urlparse
 
+import httpx
 from sqlalchemy.orm import Session
 
 from app.db.models import NormalizedItem, RawItem, Source
@@ -36,6 +39,10 @@ from app.services.scoring import (
 )
 from app.sources.base import RawItemInput
 
+MANUAL_METADATA_FETCH_TIMEOUT_SECONDS = 5.0
+MANUAL_METADATA_MAX_BYTES = 500_000
+MANUAL_METADATA_USER_AGENT = "SignalLens/0.1 manual-url-metadata"
+
 
 @dataclass(frozen=True)
 class ManualSubmissionSaveResult:
@@ -51,8 +58,127 @@ class RawManualItemSaveResult:
     updated_existing: bool
 
 
+@dataclass(frozen=True)
+class ManualUrlMetadata:
+    title: str | None = None
+    description: str | None = None
+
+
 def create_manual_submission(db: Session, request: ManualSubmissionRequest) -> FeedItem:
     return create_manual_submission_result(db=db, request=request).item
+
+
+async def enrich_manual_request_with_public_metadata(
+    request: ManualSubmissionRequest,
+) -> ManualSubmissionRequest:
+    if not request.fetch_metadata or (request.title and request.text):
+        return request
+
+    metadata = await fetch_public_url_metadata(str(request.url))
+    if metadata is None:
+        return request
+
+    update: dict[str, str] = {}
+    if not request.title and metadata.title:
+        update["title"] = metadata.title[:500]
+    if not request.text and metadata.description:
+        update["text"] = metadata.description[:12000]
+    return request.model_copy(update=update) if update else request
+
+
+async def fetch_public_url_metadata(url: str) -> ManualUrlMetadata | None:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=MANUAL_METADATA_FETCH_TIMEOUT_SECONDS,
+            follow_redirects=True,
+            headers={"User-Agent": MANUAL_METADATA_USER_AGENT},
+        ) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+    except httpx.HTTPError:
+        return None
+
+    content_type = response.headers.get("content-type", "").lower()
+    if content_type and "html" not in content_type and "text" not in content_type:
+        return None
+
+    html_text = response.content[:MANUAL_METADATA_MAX_BYTES].decode(
+        response.encoding or "utf-8",
+        errors="ignore",
+    )
+    return parse_public_html_metadata(html_text)
+
+
+def parse_public_html_metadata(html_text: str) -> ManualUrlMetadata:
+    parser = ManualMetadataParser()
+    parser.feed(html_text)
+    return ManualUrlMetadata(
+        title=clean_manual_metadata_text(parser.best_title()),
+        description=clean_manual_metadata_text(parser.best_description()),
+    )
+
+
+class ManualMetadataParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.in_title = False
+        self.title_parts: list[str] = []
+        self.meta_values: dict[str, str] = {}
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.casefold() == "title":
+            self.in_title = True
+            return
+        if tag.casefold() != "meta":
+            return
+        attr_map = {
+            name.casefold(): value.strip()
+            for name, value in attrs
+            if value is not None and value.strip()
+        }
+        content = attr_map.get("content")
+        if not content:
+            return
+        key = (
+            attr_map.get("property")
+            or attr_map.get("name")
+            or attr_map.get("itemprop")
+            or ""
+        ).casefold()
+        if key:
+            self.meta_values.setdefault(key, content)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.casefold() == "title":
+            self.in_title = False
+
+    def handle_data(self, data: str) -> None:
+        if self.in_title:
+            self.title_parts.append(data)
+
+    def best_title(self) -> str | None:
+        return (
+            self.meta_values.get("og:title")
+            or self.meta_values.get("twitter:title")
+            or self.meta_values.get("title")
+            or " ".join(self.title_parts)
+        )
+
+    def best_description(self) -> str | None:
+        return (
+            self.meta_values.get("og:description")
+            or self.meta_values.get("twitter:description")
+            or self.meta_values.get("description")
+        )
+
+
+def clean_manual_metadata_text(value: str | None) -> str | None:
+    text = " ".join(unescape(value or "").split())
+    return text or None
 
 
 def create_manual_submission_result(

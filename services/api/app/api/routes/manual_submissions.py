@@ -6,7 +6,10 @@ from app.db.models import NormalizedItem
 from app.schemas.manual_submissions import ManualSubmissionRequest, ManualSubmissionResponse
 from app.services.classification import ClassificationError, classify_feed_item
 from app.services.feed_actions import get_action, serialize_feed_item
-from app.services.manual_submissions import create_manual_submission_result
+from app.services.manual_submissions import (
+    create_manual_submission_result,
+    enrich_manual_request_with_public_metadata,
+)
 from app.services.summarization import SummarizationError, summarize_feed_item
 
 router = APIRouter()
@@ -17,6 +20,7 @@ async def submit_manual_url(
     request: ManualSubmissionRequest,
     db: DbSession,
 ) -> ManualSubmissionResponse:
+    request = await enrich_manual_request_with_public_metadata(request)
     save_result = create_manual_submission_result(db=db, request=request)
     item = save_result.item
     if not request.classify_with_llm and not request.summarize_with_llm:

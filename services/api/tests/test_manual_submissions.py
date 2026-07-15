@@ -9,11 +9,14 @@ from app.schemas.manual_submissions import ManualSubmissionRequest
 from app.services.classification import ClassificationError
 from app.services.manual_submissions import (
     ManualSubmissionSaveResult,
+    ManualUrlMetadata,
     create_manual_normalized_item,
     create_manual_submission_result,
     create_raw_manual_item,
     enrich_manual_normalized_item,
+    enrich_manual_request_with_public_metadata,
     first_sentence,
+    parse_public_html_metadata,
     reset_manual_normalized_item,
     resolve_manual_source_name,
     resolve_manual_title,
@@ -284,6 +287,74 @@ def test_manual_submission_blank_title_is_treated_as_missing() -> None:
     assert resolve_manual_title(request) == "Claude workflow update."
 
 
+def test_parse_public_html_metadata_prefers_open_graph_fields() -> None:
+    metadata = parse_public_html_metadata(
+        """
+        <html>
+          <head>
+            <title>Fallback title</title>
+            <meta name="description" content="Fallback description">
+            <meta property="og:title" content="Agent launch">
+            <meta property="og:description" content="Public page summary for an AI agent.">
+          </head>
+        </html>
+        """
+    )
+
+    assert metadata.title == "Agent launch"
+    assert metadata.description == "Public page summary for an AI agent."
+
+
+@pytest.mark.anyio
+async def test_manual_request_metadata_fetch_fills_missing_title_and_text(monkeypatch) -> None:
+    async def fake_fetch_public_url_metadata(url: str):
+        assert url == "https://example.com/agent-launch"
+        return ManualUrlMetadata(
+            title="Agent launch",
+            description="Public page summary for an AI agent.",
+        )
+
+    monkeypatch.setattr(
+        "app.services.manual_submissions.fetch_public_url_metadata",
+        fake_fetch_public_url_metadata,
+    )
+
+    enriched = await enrich_manual_request_with_public_metadata(
+        ManualSubmissionRequest(
+            url="https://example.com/agent-launch",
+            fetch_metadata=True,
+        )
+    )
+
+    assert enriched.title == "Agent launch"
+    assert enriched.text == "Public page summary for an AI agent."
+
+
+@pytest.mark.anyio
+async def test_manual_request_metadata_fetch_preserves_user_text(monkeypatch) -> None:
+    async def fake_fetch_public_url_metadata(_url: str):
+        return ManualUrlMetadata(
+            title="Fetched title",
+            description="Fetched description.",
+        )
+
+    monkeypatch.setattr(
+        "app.services.manual_submissions.fetch_public_url_metadata",
+        fake_fetch_public_url_metadata,
+    )
+
+    enriched = await enrich_manual_request_with_public_metadata(
+        ManualSubmissionRequest(
+            url="https://example.com/agent-launch",
+            text="User pasted context.",
+            fetch_metadata=True,
+        )
+    )
+
+    assert enriched.title == "Fetched title"
+    assert enriched.text == "User pasted context."
+
+
 def test_manual_submission_source_name_can_be_inferred_from_known_url() -> None:
     assert (
         resolve_manual_source_name(
@@ -547,6 +618,51 @@ def test_manual_submission_can_save_note_and_tags_on_submit() -> None:
         assert result.item.is_saved is True
         assert result.item.personal_note == "Read before weekend digest."
         assert result.item.manual_tags == ["Agent", "market impact"]
+
+
+@pytest.mark.anyio
+async def test_manual_submission_route_enriches_metadata_before_storage(monkeypatch) -> None:
+    stored_requests = []
+
+    async def fake_enrich_manual_request_with_public_metadata(request: ManualSubmissionRequest):
+        assert request.fetch_metadata is True
+        return request.model_copy(
+            update={
+                "title": "Fetched agent launch",
+                "text": "Fetched public metadata summary.",
+            }
+        )
+
+    def fake_create_manual_submission_result(**kwargs) -> ManualSubmissionSaveResult:
+        stored_requests.append(kwargs["request"])
+        return ManualSubmissionSaveResult(
+            item=make_manual_feed_item(summary_short="Manual summary"),
+            created=True,
+            updated_existing=False,
+        )
+
+    monkeypatch.setattr(
+        manual_submission_routes,
+        "enrich_manual_request_with_public_metadata",
+        fake_enrich_manual_request_with_public_metadata,
+    )
+    monkeypatch.setattr(
+        manual_submission_routes,
+        "create_manual_submission_result",
+        fake_create_manual_submission_result,
+    )
+
+    response = await manual_submission_routes.submit_manual_url(
+        request=ManualSubmissionRequest(
+            url="https://example.com/manual",
+            fetch_metadata=True,
+        ),
+        db=FakeManualSubmissionDb(make_normalized_manual_item()),
+    )
+
+    assert response.item.summary_short == "Manual summary"
+    assert stored_requests[0].title == "Fetched agent launch"
+    assert stored_requests[0].text == "Fetched public metadata summary."
 
 
 @pytest.mark.anyio

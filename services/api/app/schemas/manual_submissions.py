@@ -20,6 +20,7 @@ class ManualSubmissionRequest(BaseModel):
     save_item: bool = False
     personal_note: str | None = Field(default=None, max_length=4000)
     manual_tags: list[str] | None = Field(default=None, max_length=12)
+    fetch_metadata: bool = False
     classify_with_llm: bool = False
     summarize_with_llm: bool = False
 

@@ -20,6 +20,8 @@ const requiredDashboardSnippets = [
   "<th>Pin</th>",
   "{stock.group_name}",
   'stock.is_pinned ? "Pinned" : "Watch"',
+  "fetch_metadata: manualFetchMetadata",
+  "Fetch public page metadata",
 ];
 
 for (const relativePath of files) {

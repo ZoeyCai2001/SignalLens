@@ -1608,6 +1608,7 @@ export function Dashboard() {
   const [manualPersonalNote, setManualPersonalNote] = useState("");
   const [manualTags, setManualTags] = useState("");
   const [manualSaveItem, setManualSaveItem] = useState(true);
+  const [manualFetchMetadata, setManualFetchMetadata] = useState(true);
   const [manualClassifyWithLlm, setManualClassifyWithLlm] = useState(false);
   const [manualSummarizeWithLlm, setManualSummarizeWithLlm] = useState(false);
   const [stockTicker, setStockTicker] = useState("");
@@ -2906,6 +2907,7 @@ export function Dashboard() {
           save_item: manualSaveItem,
           personal_note: manualPersonalNote.trim() || null,
           manual_tags: splitTerms(manualTags),
+          fetch_metadata: manualFetchMetadata,
           classify_with_llm: manualClassifyWithLlm,
           summarize_with_llm: manualSummarizeWithLlm,
         }),
@@ -2918,6 +2920,7 @@ export function Dashboard() {
       setManualUrl("");
       setManualText("");
       setManualEngagement({ ...emptyManualEngagementDraft });
+      setManualFetchMetadata(true);
       setManualPersonalNote("");
       setManualTags("");
       const completedSteps = [
@@ -4268,6 +4271,7 @@ export function Dashboard() {
         personalNote={manualPersonalNote}
         manualTags={manualTags}
         saveItem={manualSaveItem}
+        fetchMetadata={manualFetchMetadata}
         classifyWithLlm={manualClassifyWithLlm}
         summarizeWithLlm={manualSummarizeWithLlm}
         disabled={loadState !== "idle"}
@@ -4281,6 +4285,7 @@ export function Dashboard() {
         onPersonalNoteChange={setManualPersonalNote}
         onManualTagsChange={setManualTags}
         onSaveItemChange={setManualSaveItem}
+        onFetchMetadataChange={setManualFetchMetadata}
         onClassifyWithLlmChange={setManualClassifyWithLlm}
         onSummarizeWithLlmChange={setManualSummarizeWithLlm}
         onSubmit={submitManualItem}
@@ -8885,6 +8890,7 @@ function ManualSubmissionPanel({
   personalNote,
   manualTags,
   saveItem,
+  fetchMetadata,
   classifyWithLlm,
   summarizeWithLlm,
   disabled,
@@ -8896,6 +8902,7 @@ function ManualSubmissionPanel({
   onPersonalNoteChange,
   onManualTagsChange,
   onSaveItemChange,
+  onFetchMetadataChange,
   onClassifyWithLlmChange,
   onSummarizeWithLlmChange,
   onSubmit,
@@ -8908,6 +8915,7 @@ function ManualSubmissionPanel({
   personalNote: string;
   manualTags: string;
   saveItem: boolean;
+  fetchMetadata: boolean;
   classifyWithLlm: boolean;
   summarizeWithLlm: boolean;
   disabled: boolean;
@@ -8919,6 +8927,7 @@ function ManualSubmissionPanel({
   onPersonalNoteChange: (value: string) => void;
   onManualTagsChange: (value: string) => void;
   onSaveItemChange: (value: boolean) => void;
+  onFetchMetadataChange: (value: boolean) => void;
   onClassifyWithLlmChange: (value: boolean) => void;
   onSummarizeWithLlmChange: (value: boolean) => void;
   onSubmit: () => void;
@@ -9054,6 +9063,15 @@ function ManualSubmissionPanel({
             disabled={disabled}
           />
           Save to reading list
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={fetchMetadata}
+            onChange={(event) => onFetchMetadataChange(event.target.checked)}
+            disabled={disabled}
+          />
+          Fetch public page metadata
         </label>
         <label className="checkbox-row">
           <input
