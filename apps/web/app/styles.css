@@ -1201,6 +1201,15 @@ table {
   gap: 6px;
 }
 
+.cluster-market-reaction {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+}
+
 .cluster-timeline {
   display: grid;
   gap: 4px;

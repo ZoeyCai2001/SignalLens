@@ -1,12 +1,13 @@
 import re
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
-from app.schemas.events import EventCluster, EventClusterTimelineItem
+from app.schemas.events import EventCluster, EventClusterMarketReaction, EventClusterTimelineItem
 from app.schemas.feed import FeedItem
 from app.schemas.preferences import RankingWeights
+from app.schemas.watchlist import StockMarketSnapshot
 from app.services.feed_actions import list_visible_feed_items
 from app.services.scoring import TICKER_ALIASES, detect_tickers
 from app.services.watchlist import build_stock_market_snapshot
@@ -227,7 +228,116 @@ def attach_market_context(db: Session, cluster: EventCluster) -> EventCluster:
     ticker = cluster.tickers[0].upper()
     cluster.related_market_ticker = ticker
     cluster.related_market = build_stock_market_snapshot(db=db, ticker=ticker)
+    cluster.related_market_reaction = build_cluster_market_reaction(
+        ticker=ticker,
+        market=cluster.related_market,
+        representative=cluster.representative_item,
+    )
     return cluster
+
+
+def build_cluster_market_reaction(
+    *,
+    ticker: str,
+    market: StockMarketSnapshot | None,
+    representative: FeedItem,
+) -> EventClusterMarketReaction | None:
+    if market is None or not market.history or representative.published_at is None:
+        return None
+
+    event_price_date, event_price_change_percent = infer_cluster_event_price_move(
+        market=market,
+        event_date=representative.published_at.date(),
+    )
+    possible_market_impact = infer_cluster_possible_market_impact(representative)
+    price_reaction = infer_cluster_price_reaction(
+        possible_market_impact=possible_market_impact,
+        change_percent=event_price_change_percent,
+    )
+    return EventClusterMarketReaction(
+        ticker=ticker,
+        possible_market_impact=possible_market_impact,
+        price_reaction=price_reaction,
+        event_price_date=event_price_date,
+        event_price_change_percent=event_price_change_percent,
+        summary=format_cluster_market_reaction_summary(
+            ticker=ticker,
+            possible_market_impact=possible_market_impact,
+            price_reaction=price_reaction,
+            event_price_date=event_price_date,
+            event_price_change_percent=event_price_change_percent,
+        ),
+    )
+
+
+def infer_cluster_event_price_move(
+    *,
+    market: StockMarketSnapshot,
+    event_date: date,
+) -> tuple[date | None, float | None]:
+    history = sorted(market.history, key=lambda point: point.price_date)
+    for index, point in enumerate(history):
+        if point.price_date < event_date:
+            continue
+        if index == 0:
+            return point.price_date, None
+        previous = history[index - 1]
+        if not previous.close_price:
+            return point.price_date, None
+        change_percent = round(
+            ((point.close_price - previous.close_price) / previous.close_price) * 100,
+            2,
+        )
+        return point.price_date, change_percent
+    return None, None
+
+
+def infer_cluster_possible_market_impact(item: FeedItem) -> str:
+    if item.sentiment == "positive" and item.stock_impact_score >= 0.45:
+        return "positive"
+    if item.sentiment == "negative" and item.stock_impact_score >= 0.45:
+        return "negative"
+    return "uncertain"
+
+
+def infer_cluster_price_reaction(
+    *,
+    possible_market_impact: str,
+    change_percent: float | None,
+) -> str:
+    if change_percent is None:
+        return "no_comparable_price"
+    if abs(change_percent) < 0.5:
+        return "muted_or_unclear"
+    if possible_market_impact == "positive":
+        return "aligned_up" if change_percent > 0 else "opposite_move"
+    if possible_market_impact == "negative":
+        return "aligned_down" if change_percent < 0 else "opposite_move"
+    return "muted_or_unclear"
+
+
+def format_cluster_market_reaction_summary(
+    *,
+    ticker: str,
+    possible_market_impact: str,
+    price_reaction: str,
+    event_price_date: date | None,
+    event_price_change_percent: float | None,
+) -> str:
+    if event_price_date is None or event_price_change_percent is None:
+        return (
+            f"Stored prices do not yet show a comparable close for {ticker} around this "
+            "cluster."
+        )
+
+    direction = "+" if event_price_change_percent > 0 else ""
+    reaction_label = price_reaction.replace("_", " ")
+    impact_label = possible_market_impact.replace("_", " ")
+    return (
+        f"{ticker} moved {direction}{event_price_change_percent:.2f}% on "
+        f"{event_price_date.isoformat()}; price reaction is {reaction_label} against "
+        f"a {impact_label} market-impact read."
+    )
 
 
 def build_cluster_key(item: FeedItem) -> str:

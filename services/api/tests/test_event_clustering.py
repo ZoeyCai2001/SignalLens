@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from app.api.routes import events
 from app.schemas.feed import FeedItem
-from app.schemas.watchlist import StockMarketSnapshot
+from app.schemas.watchlist import StockMarketSnapshot, StockPricePoint
 from app.services import event_clustering
 from app.services.event_clustering import (
     build_cluster_key,
@@ -123,8 +123,18 @@ def test_event_cluster_marks_strong_cross_source_confirmation() -> None:
                 source_name="RSS",
                 tickers=["AVGO"],
             ),
-            make_item(2, "Broadcom chip discussion", source_name="Hacker News", tickers=["AVGO"]),
-            make_item(3, "AVGO custom silicon report", source_name="Finance Feed", tickers=["AVGO"]),
+            make_item(
+                2,
+                "Broadcom chip discussion",
+                source_name="Hacker News",
+                tickers=["AVGO"],
+            ),
+            make_item(
+                3,
+                "AVGO custom silicon report",
+                source_name="Finance Feed",
+                tickers=["AVGO"],
+            ),
         ],
     )
 
@@ -194,7 +204,57 @@ def test_list_event_clusters_attaches_related_market_context(monkeypatch) -> Non
 
     assert clusters[0].related_market_ticker == "AVGO"
     assert clusters[0].related_market is snapshot
+    assert clusters[0].related_market_reaction is None
     assert seen == {"db": db, "ticker": "AVGO", "limit": 30}
+
+
+def test_list_event_clusters_adds_market_reaction_summary(monkeypatch) -> None:
+    items = [
+        make_item(1, "OpenAI and Broadcom unveil inference chip", tickers=["AVGO"]),
+        make_item(
+            2,
+            "Broadcom chip discussion",
+            tickers=["AVGO"],
+            sentiment="positive",
+            stock_impact_score=0.8,
+        ),
+    ]
+    snapshot = StockMarketSnapshot(
+        history=[
+            StockPricePoint(
+                price_date=date(2026, 6, 24),
+                open_price=99,
+                high_price=101,
+                low_price=98,
+                close_price=100,
+            ),
+            StockPricePoint(
+                price_date=date(2026, 6, 25),
+                open_price=101,
+                high_price=104,
+                low_price=100,
+                close_price=103,
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(event_clustering, "list_visible_feed_items", lambda **_kwargs: items)
+    monkeypatch.setattr(
+        event_clustering,
+        "build_stock_market_snapshot",
+        lambda **_kwargs: snapshot,
+    )
+
+    clusters = event_clustering.list_event_clusters(db=object(), min_items=2)
+    reaction = clusters[0].related_market_reaction
+
+    assert reaction is not None
+    assert reaction.ticker == "AVGO"
+    assert reaction.possible_market_impact == "positive"
+    assert reaction.price_reaction == "aligned_up"
+    assert reaction.event_price_date == date(2026, 6, 25)
+    assert reaction.event_price_change_percent == 3.0
+    assert "AVGO moved +3.00%" in reaction.summary
 
 
 @pytest.mark.anyio
@@ -417,7 +477,13 @@ def make_item(
     title: str,
     source_name: str = "Test Source",
     tickers: list[str] | None = None,
+    sentiment: str = "neutral",
+    stock_impact_score: float | None = None,
 ) -> FeedItem:
+    if stock_impact_score is not None:
+        item_stock_impact_score = stock_impact_score
+    else:
+        item_stock_impact_score = 0.2 if tickers else 0.0
     return FeedItem(
         id=item_id,
         title=title,
@@ -432,12 +498,12 @@ def make_item(
         companies=[],
         products=[],
         topics=["ai", "inference"],
-        sentiment="neutral",
+        sentiment=sentiment,
         relevance_score=0.8,
         importance_score=0.7 + item_id * 0.01,
         novelty_score=0.7,
         source_quality_score=0.7,
-        stock_impact_score=0.2 if tickers else 0.0,
+        stock_impact_score=item_stock_impact_score,
         summary_short=None,
         summary_detailed=None,
         why_it_matters=None,

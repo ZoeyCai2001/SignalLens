@@ -24,6 +24,8 @@ const requiredDashboardSnippets = [
   "Fetch public page metadata",
   "buildFeedCardUncertaintyNotes",
   "Market impact is not cross-confirmed",
+  "related_market_reaction",
+  "Event move",
 ];
 
 for (const relativePath of files) {

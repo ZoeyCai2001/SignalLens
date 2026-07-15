@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -12,6 +12,15 @@ class EventClusterTimelineItem(BaseModel):
     source_name: str
     published_at: datetime | None
     importance_score: float
+
+
+class EventClusterMarketReaction(BaseModel):
+    ticker: str
+    possible_market_impact: str
+    price_reaction: str
+    event_price_date: date | None = None
+    event_price_change_percent: float | None = None
+    summary: str
 
 
 class EventCluster(BaseModel):
@@ -37,6 +46,7 @@ class EventCluster(BaseModel):
     latest_update_at: datetime | None
     related_market_ticker: str | None = None
     related_market: StockMarketSnapshot | None = None
+    related_market_reaction: EventClusterMarketReaction | None = None
     timeline: list[EventClusterTimelineItem]
     representative_item: FeedItem
     items: list[FeedItem]

@@ -964,9 +964,19 @@ type EventCluster = {
   latest_update_at: string | null;
   related_market_ticker: string | null;
   related_market: StockMarketSnapshot | null;
+  related_market_reaction: EventClusterMarketReaction | null;
   timeline: EventClusterTimelineItem[];
   representative_item: FeedItem;
   items: FeedItem[];
+};
+
+type EventClusterMarketReaction = {
+  ticker: string;
+  possible_market_impact: string;
+  price_reaction: string;
+  event_price_date: string | null;
+  event_price_change_percent: number | null;
+  summary: string;
 };
 
 type EventClusterLlmExplanation = {
@@ -7705,6 +7715,43 @@ function EventClusterPanel({
                         <div className="digest-section-title">
                           {detail.related_market_ticker} Price Context
                         </div>
+                        {detail.related_market_reaction ? (
+                          <div className="cluster-market-reaction">
+                            <div className="badges">
+                              <span className="badge">
+                                Impact{" "}
+                                {formatCategoryLabel(
+                                  detail.related_market_reaction.possible_market_impact,
+                                )}
+                              </span>
+                              <span className="badge">
+                                Reaction{" "}
+                                {formatCategoryLabel(detail.related_market_reaction.price_reaction)}
+                              </span>
+                              {detail.related_market_reaction.event_price_change_percent !==
+                              null ? (
+                                <span
+                                  className={`badge ${marketChangeClass(
+                                    detail.related_market_reaction.event_price_change_percent,
+                                  )}`}
+                                >
+                                  Event move{" "}
+                                  {formatPercentChange(
+                                    detail.related_market_reaction.event_price_change_percent,
+                                  )}
+                                  {detail.related_market_reaction.event_price_date
+                                    ? ` on ${formatDate(
+                                        detail.related_market_reaction.event_price_date,
+                                      )}`
+                                    : ""}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="small-muted">
+                              {detail.related_market_reaction.summary}
+                            </div>
+                          </div>
+                        ) : null}
                         <StockPriceChart market={detail.related_market} />
                       </div>
                     ) : null}

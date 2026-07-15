@@ -472,3 +472,4 @@ Implementation progress:
 - Added opt-in public metadata fetch for manual URL submissions, with dashboard default enabled, bounded HTML title/description parsing, user-text preservation, and route/service tests.
 - Added a deterministic Suggested Reading section to the Daily Digest, selecting a compact technical/research/stock/product shortlist before the detailed module sections.
 - Added compact feed-card uncertainty chips for low classifier confidence, lower source quality, unconfirmed market impact, and limited public signal, making PRD confidence/uncertainty review visible before opening item details.
+- Added event-cluster market reaction summaries beside related ticker price charts, deriving event-date close-to-close moves from stored prices without adding paid market data calls.
