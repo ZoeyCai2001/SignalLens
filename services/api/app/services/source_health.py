@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models import RawItem, Source, SourceRun
 from app.schemas.ingestion import build_ingestion_recovery_hint
 from app.schemas.sources import SourceCreate, SourceHealth, SourceRunHistoryItem, SourceUpdate
@@ -22,6 +23,19 @@ SOURCE_CONFIGURATION_HINTS = {
         "Add a public subreddit URL and set REDDIT_USER_AGENT to a descriptive contact string."
     ),
     "finance_filings": "Set SEC_USER_AGENT to a descriptive app/contact string for SEC requests.",
+}
+BUILT_IN_RUNNER_SOURCE_NAMES = {
+    "Hacker News",
+    "Reddit AI Communities",
+    "Alpha Vantage News",
+    "Alpha Vantage Prices",
+    "SEC Filings",
+    "arXiv",
+    "Chinese RSS Feeds",
+    "GitHub",
+    "Hugging Face",
+    "Product Hunt",
+    "Selected RSS Feeds",
 }
 
 
@@ -356,6 +370,7 @@ def serialize_source_health(
 ) -> SourceHealth:
     latest_status = run.status if run else "never_run"
     quality = recent_quality or RecentSourceRunQuality()
+    collection_mode, collection_hint, run_supported = collection_capability_for_source(source)
     next_run_due_at = source_next_run_due_at(
         source_retry_reference_at(run=run, last_success_at=last_success_at),
         source.polling_interval,
@@ -373,6 +388,9 @@ def serialize_source_health(
         enabled=bool(source.enabled),
         priority=source.priority if source.priority is not None else 100,
         terms_notes=source.terms_notes,
+        collection_mode=collection_mode,
+        collection_hint=collection_hint,
+        run_supported=run_supported,
         raw_content_policy=raw_content_policy_for_source(source),
         failure_handling=failure_handling_for_source(source),
         recovery_hint=recovery_hint_for_source(source, run),
@@ -393,6 +411,120 @@ def serialize_source_health(
         recent_store_rate=quality.store_rate,
         recent_items_fetched=quality.items_fetched,
         recent_items_stored=quality.items_stored,
+    )
+
+
+def collection_capability_for_source(source: Source) -> tuple[str, str, bool]:
+    source_type = (source.type or "").strip().lower()
+    access_method = (source.access_method or "").strip().lower()
+    source_name = (source.name or "").strip()
+    base_url = normalize_optional_text(source.base_url)
+    settings = get_settings()
+
+    if not source.enabled:
+        return "disabled", "Enable this source before running collection.", False
+
+    if source_type == "product_topic" or source_name == "Product Hunt":
+        if not settings.product_hunt_api_token:
+            return (
+                "needs_credentials",
+                "Set PRODUCT_HUNT_API_TOKEN before running Product Hunt collection.",
+                False,
+            )
+        return (
+            "official_api",
+            "Product Hunt API token is configured; Run now can collect launches.",
+            True,
+        )
+
+    if source_type in {"finance_news", "stock_prices"} or source_name.startswith("Alpha Vantage"):
+        if not settings.alpha_vantage_api_key:
+            return (
+                "needs_credentials",
+                "Set ALPHA_VANTAGE_API_KEY before running Alpha Vantage collection.",
+                False,
+            )
+        return (
+            "official_api",
+            "Alpha Vantage API key is configured; Run now can collect market data.",
+            True,
+        )
+
+    if source_name == "Chinese RSS Feeds" and not (settings.chinese_rss_feeds or base_url):
+        return (
+            "needs_feed",
+            "Set CHINESE_RSS_FEEDS or add a public RSS/Atom URL before running collection.",
+            False,
+        )
+
+    if source_name in BUILT_IN_RUNNER_SOURCE_NAMES:
+        return "built_in", "Built-in connector is available; Run now can collect this source.", True
+
+    if source_type == "arxiv_query":
+        return (
+            "official_api",
+            "Free arXiv Atom API source; Run now can collect matching papers.",
+            True,
+        )
+
+    if source_type == "github_repository":
+        if base_url:
+            return (
+                "official_api",
+                "Public GitHub repository URL is configured; Run now can collect metadata.",
+                True,
+            )
+        return "needs_url", "Add a public GitHub repository URL before running collection.", False
+
+    if source_type == "reddit_community":
+        if base_url:
+            return (
+                "public_json",
+                "Public subreddit URL is configured; Run now can collect posts.",
+                True,
+            )
+        return "needs_url", "Add a public subreddit URL before running collection.", False
+
+    if access_method in {"rss", "atom"}:
+        if base_url:
+            return (
+                "public_feed",
+                "Public RSS/Atom feed is configured; Run now can collect items.",
+                True,
+            )
+        return "needs_feed", "Add a public RSS/Atom feed URL before running collection.", False
+
+    if source_type == "social_keyword":
+        if base_url:
+            return (
+                "public_feed",
+                "Public social RSS/Atom feed is configured; Run now can collect matches.",
+                True,
+            )
+        return (
+            "manual_watch",
+            "Manual social watch only; submit public URLs manually or add a public RSS/Atom feed.",
+            False,
+        )
+
+    if access_method == "manual_watch":
+        return (
+            "manual_watch",
+            "Manual watch only; submit public URLs instead of running collection.",
+            False,
+        )
+
+    if "api" in access_method:
+        return (
+            "api",
+            "API-backed source; Run now can try collection with the current configuration.",
+            True,
+        )
+
+    return (
+        "unsupported",
+        "No runnable connector is available yet; keep this as a manual source.",
+        False,
     )
 
 

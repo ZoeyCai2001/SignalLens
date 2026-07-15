@@ -15,6 +15,9 @@ class SourceHealth(BaseModel):
     enabled: bool
     priority: int
     terms_notes: str | None
+    collection_mode: str
+    collection_hint: str
+    run_supported: bool = True
     raw_content_policy: str
     failure_handling: str
     recovery_hint: str | None = None

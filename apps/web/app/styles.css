@@ -1430,6 +1430,10 @@ tr:last-child td {
   font-weight: 700;
 }
 
+.source-mode-badges {
+  margin: 4px 0;
+}
+
 .market-up {
   color: var(--green);
   font-weight: 700;

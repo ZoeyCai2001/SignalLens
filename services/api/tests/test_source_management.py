@@ -19,6 +19,7 @@ from app.services.ingestion import (
     source_quality_score_for_source,
 )
 from app.services.source_health import (
+    collection_capability_for_source,
     create_source,
     delete_source,
     failure_handling_for_source,
@@ -68,6 +69,9 @@ def test_serialize_source_health_includes_enabled_flag_and_run_status() -> None:
     assert health.polling_interval == "hourly"
     assert health.priority == 20
     assert health.terms_notes == "Use RSS feed only."
+    assert health.collection_mode == "disabled"
+    assert health.collection_hint == "Enable this source before running collection."
+    assert health.run_supported is False
     assert health.raw_content_policy == "Store feed summaries only."
     assert health.failure_handling == (
         "Record failures, preserve the last success time, and retry at the next polling window."
@@ -149,6 +153,98 @@ def test_source_health_surfaces_source_specific_recovery_hints() -> None:
     assert recovery_hint_for_source(reddit_source, reddit_run) == (
         "Add a public subreddit URL and set REDDIT_USER_AGENT to a descriptive contact string."
     )
+
+
+def test_source_health_describes_runnable_collection_modes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.services.source_health.get_settings",
+        lambda: SimpleNamespace(
+            product_hunt_api_token="ph-token",
+            alpha_vantage_api_key=None,
+            chinese_rss_feeds=None,
+        ),
+    )
+
+    github_source = Source(
+        id=31,
+        name="LangChain Repo",
+        type="github_repository",
+        access_method="official_api",
+        base_url="https://github.com/langchain-ai/langchain",
+        enabled=True,
+    )
+    product_source = Source(
+        id=32,
+        name="Product Hunt AI Coding",
+        type="product_topic",
+        access_method="official_graphql_api",
+        enabled=True,
+    )
+    manual_source = Source(
+        id=33,
+        name="Xiaohongshu AI Photo",
+        type="social_keyword",
+        access_method="manual_watch",
+        enabled=True,
+    )
+
+    assert collection_capability_for_source(github_source) == (
+        "official_api",
+        "Public GitHub repository URL is configured; Run now can collect metadata.",
+        True,
+    )
+    assert collection_capability_for_source(product_source) == (
+        "official_api",
+        "Product Hunt API token is configured; Run now can collect launches.",
+        True,
+    )
+    assert collection_capability_for_source(manual_source) == (
+        "manual_watch",
+        "Manual social watch only; submit public URLs manually or add a public RSS/Atom feed.",
+        False,
+    )
+
+
+def test_source_health_marks_unconfigured_collection_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.services.source_health.get_settings",
+        lambda: SimpleNamespace(
+            product_hunt_api_token=None,
+            alpha_vantage_api_key=None,
+            chinese_rss_feeds=None,
+        ),
+    )
+
+    product_source = Source(
+        id=34,
+        name="Product Hunt AI Coding",
+        type="product_topic",
+        access_method="official_graphql_api",
+        enabled=True,
+    )
+    rss_source = Source(
+        id=35,
+        name="Custom RSS",
+        type="blog",
+        access_method="rss",
+        enabled=True,
+    )
+    health = serialize_source_health(product_source, None)
+
+    assert collection_capability_for_source(product_source) == (
+        "needs_credentials",
+        "Set PRODUCT_HUNT_API_TOKEN before running Product Hunt collection.",
+        False,
+    )
+    assert collection_capability_for_source(rss_source) == (
+        "needs_feed",
+        "Add a public RSS/Atom feed URL before running collection.",
+        False,
+    )
+    assert health.collection_mode == "needs_credentials"
+    assert health.run_supported is False
 
 
 def test_serialize_source_health_uses_latest_attempt_for_retry_due_time() -> None:

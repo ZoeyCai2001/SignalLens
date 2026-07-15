@@ -405,6 +405,9 @@ type SourceHealth = {
   enabled: boolean;
   priority: number;
   terms_notes: string | null;
+  collection_mode: string;
+  collection_hint: string;
+  run_supported: boolean;
   raw_content_policy: string;
   failure_handling: string;
   recovery_hint: string | null;
@@ -12193,6 +12196,12 @@ function SourceTable({
                   </td>
                   <td className={source.latest_status === "success" ? "health-ok" : ""}>
                     <div>{source.latest_status}</div>
+                    <div className="badges source-mode-badges">
+                      <span className={`badge ${sourceCollectionModeBadgeClass(source.collection_mode)}`}>
+                        {formatSourceCollectionMode(source.collection_mode)}
+                      </span>
+                    </div>
+                    <div className="small-muted">{source.collection_hint}</div>
                     {source.latest_error ? (
                       <div className="small-muted source-error">{source.latest_error}</div>
                     ) : null}
@@ -12245,8 +12254,8 @@ function SourceTable({
                       <button
                         className="button icon-button"
                         onClick={() => onRunSource(source)}
-                        disabled={disabled || saving}
-                        title="Run source now"
+                        disabled={disabled || saving || !source.run_supported}
+                        title={source.run_supported ? "Run source now" : source.collection_hint}
                         type="button"
                       >
                         {saving ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
@@ -12800,6 +12809,33 @@ function formatMarketImpactLabel(value: string): string {
     stock_signal: "Stock signal",
   };
   return labels[value] ?? formatCategoryLabel(value);
+}
+
+function formatSourceCollectionMode(value: string): string {
+  const labels: Record<string, string> = {
+    api: "API",
+    built_in: "Built-in",
+    disabled: "Disabled",
+    manual_watch: "Manual",
+    needs_credentials: "Needs key",
+    needs_feed: "Needs feed",
+    needs_url: "Needs URL",
+    official_api: "Official API",
+    public_feed: "Public feed",
+    public_json: "Public JSON",
+    unsupported: "Manual",
+  };
+  return labels[value] ?? formatCategoryLabel(value);
+}
+
+function sourceCollectionModeBadgeClass(value: string): string {
+  if (["built_in", "official_api", "public_feed", "public_json", "api"].includes(value)) {
+    return "success-badge";
+  }
+  if (["needs_credentials", "needs_feed", "needs_url"].includes(value)) {
+    return "warning-badge";
+  }
+  return "muted-badge";
 }
 
 function formatSummarySource(value: string): string {

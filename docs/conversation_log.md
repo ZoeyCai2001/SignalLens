@@ -474,3 +474,4 @@ Implementation progress:
 - Added compact feed-card uncertainty chips for low classifier confidence, lower source quality, unconfirmed market impact, and limited public signal, making PRD confidence/uncertainty review visible before opening item details.
 - Added event-cluster market reaction summaries beside related ticker price charts, deriving event-date close-to-close moves from stored prices without adding paid market data calls.
 - Added public engagement evidence to social/product alert reasons, including Product Hunt votes and comments plus Chinese/social likes, views, collects, and reposts.
+- Added Source Health collection-mode guidance so followed sources now show whether collection is built-in/API/feed-backed, needs a token/feed/URL, is disabled, or is manual-watch only; the dashboard disables Run now for non-runnable sources with an explanatory hint.
